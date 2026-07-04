@@ -1,0 +1,215 @@
+// LinkLynk 프론트 로직
+let channel = "blog";
+let authMode = "login"; // login | signup
+let recent = [];
+
+// ── 부팅: 로그인 상태 확인 ──
+async function boot(){
+  try{
+    const r = await fetch('/api/me');
+    const d = await r.json();
+    if(d.ok){ showApp(d); }
+    else { showAuth(); }
+  }catch(e){ showAuth(); }
+}
+
+function showAuth(){
+  document.getElementById('authView').classList.remove('hidden');
+  document.getElementById('appView').classList.add('hidden');
+}
+function showApp(me){
+  document.getElementById('authView').classList.add('hidden');
+  document.getElementById('appView').classList.remove('hidden');
+  // 아바타
+  const initial = (me.handle || me.email || '?')[0].toUpperCase();
+  document.getElementById('avatar').textContent = initial;
+  // 프로필 주소
+  const base = location.origin;
+  document.getElementById('profileUrl').textContent = me.handle ? `${base}/u/${me.handle}` : '프로필 주소 미설정';
+  window.__me = me;
+  renderUsage(me);
+  renderKeyStatus(me);
+}
+
+// ── 인증 ──
+function toggleAuth(){
+  authMode = authMode === "login" ? "signup" : "login";
+  const isSignup = authMode === "signup";
+  document.getElementById('authTitle').textContent = isSignup ? "회원가입" : "로그인";
+  document.getElementById('handleField').style.display = isSignup ? "block" : "none";
+  document.querySelector('#authBtn .lbl').textContent = isSignup ? "가입하고 시작하기" : "로그인";
+  document.getElementById('authSwitch').innerHTML = isSignup
+    ? `이미 계정이 있으신가요? <a onclick="toggleAuth()">로그인</a>`
+    : `계정이 없으신가요? <a onclick="toggleAuth()">회원가입</a>`;
+  document.getElementById('authMsg').innerHTML = "";
+}
+
+async function doAuth(){
+  const email = document.getElementById('a_email').value.trim();
+  const pw = document.getElementById('a_pw').value;
+  const handle = document.getElementById('a_handle').value.trim();
+  const btn = document.getElementById('authBtn');
+  const msg = document.getElementById('authMsg');
+  msg.innerHTML = "";
+  if(!email || !pw){ msg.innerHTML = `<div class="msg msg-err">이메일과 비밀번호를 입력하세요</div>`; return; }
+  btn.classList.add('loading');
+  try{
+    const endpoint = authMode === "signup" ? '/api/signup' : '/api/login';
+    const body = authMode === "signup" ? {email, password:pw, handle} : {email, password:pw};
+    const r = await fetch(endpoint, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+    const d = await r.json();
+    if(!d.ok){ msg.innerHTML = `<div class="msg msg-err">${d.error||'실패했어요'}</div>`; return; }
+    // 성공 → me 다시 불러서 앱 진입
+    const me = await (await fetch('/api/me')).json();
+    showApp(me);
+  }catch(e){
+    msg.innerHTML = `<div class="msg msg-err">서버 연결 실패. 잠시 후 다시</div>`;
+  }finally{
+    btn.classList.remove('loading');
+  }
+}
+
+async function logout(){
+  await fetch('/api/logout', {method:'POST'});
+  location.reload();
+}
+
+// ── 탭 전환 ──
+function go(page){
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
+  document.getElementById('page-'+page).classList.add('on');
+  document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on', t.dataset.p===page));
+  if(page==='profile') loadProfile();
+  if(page==='stats' || page==='settings'){ refreshMe(); }
+}
+async function refreshMe(){
+  try{ const me = await (await fetch('/api/me')).json(); if(me.ok){ window.__me=me; renderUsage(me); renderKeyStatus(me);} }catch(e){}
+}
+
+// ── 링크 생성 ──
+function setCh(el){
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on'); channel = el.dataset.ch;
+}
+async function pasteUrl(){
+  try{ const t = await navigator.clipboard.readText(); if(t) document.getElementById('url').value = t.trim(); }
+  catch(e){ document.getElementById('url').focus(); }
+}
+async function generate(){
+  const url = document.getElementById('url').value.trim();
+  const go = document.getElementById('go');
+  if(!url){ toast('쿠팡 링크를 먼저 붙여넣어 주세요'); return; }
+  if(!/coupang\.com/.test(url)){ toast('쿠팡 링크가 맞는지 확인해주세요'); return; }
+  go.classList.add('loading');
+  try{
+    const r = await fetch('/api/generate', {method:'POST', headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({url, channel, tone:'friendly', productName:'이 상품'})});
+    const d = await r.json();
+    if(!d.ok){ toast(d.error||'변환 실패'); if(d.need_login) showAuth(); return; }
+    renderResult(d); addRecent(d);
+  }catch(e){ toast('서버 연결 실패'); }
+  finally{ go.classList.remove('loading'); }
+}
+function renderResult(d){
+  const link = d.deeplink;
+  const draft = d.blogDraft;
+  document.getElementById('result').innerHTML = `
+    <div class="result">
+      <div class="card">
+        <div class="card-lbl">내 수익 링크</div>
+        <div class="linkline"><div class="url">${link}</div>
+          <button class="btn-copy" onclick="copyText('${link}', this)">복사</button></div>
+      </div>
+      ${draft ? `<div class="card">
+        <div class="card-lbl">블로그 초안 · 고지문구 포함</div>
+        <div class="draftbox" id="draft">${esc(draft)}</div>
+        <div class="disc">⚠️ 고지문구가 자동으로 들어갔어요. 이거 빼먹으면 계정 정지될 수 있어요.</div>
+        <div class="card-actions">
+          <button class="btn btn-mint" onclick="copyText(document.getElementById('draft').innerText, this)">전체 복사</button>
+          <button class="btn btn-ghost" onclick="window.open('https://blog.naver.com','_blank')">블로그 열기</button>
+        </div></div>` : `<div class="card"><div style="font-size:13px;color:var(--muted)">이번 달 무료 블로그 초안(5건)을 다 썼어요. Pro는 무제한이에요.</div></div>`}
+    </div>`;
+  document.getElementById('result').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function addRecent(d){
+  recent.unshift({link:d.deeplink});
+  if(recent.length>8) recent.pop();
+  document.getElementById('reclist').innerHTML = recent.map(r=>`
+    <div class="rec-item"><div class="ic">🛍️</div>
+      <div class="nm">${r.link.replace('https://','')}</div>
+      <div class="cp" onclick="copyText('${r.link}', this)">복사</div></div>`).join('');
+}
+
+// ── 프로필 ──
+async function loadProfile(){
+  try{
+    const d = await (await fetch('/api/my-links')).json();
+    const box = document.getElementById('profileLinks');
+    if(!d.ok || !d.links.length){ box.innerHTML = `<div class="empty">링크를 만들면 여기에 모여요</div>`; return; }
+    box.innerHTML = d.links.map(l=>`
+      <div class="rec-item"><div class="ic">🛍️</div>
+        <div class="nm">${l.product_name||l.deeplink.replace('https://','')}</div>
+        <div class="cp" onclick="copyText('${l.deeplink}', this)">복사</div></div>`).join('');
+  }catch(e){}
+}
+function copyProfileUrl(btn){
+  const t = document.getElementById('profileUrl').textContent;
+  copyText(t, btn);
+}
+
+// ── 통계/사용량 ──
+function renderUsage(me){
+  const u = me.usage||{link_count:0,draft_count:0};
+  const lim = me.limits||{link:30,draft:5};
+  const pro = me.plan==='pro';
+  const bar = (cur,max)=> pro ? '무제한' : `${cur} / ${max}`;
+  const pct = (cur,max)=> pro ? 20 : Math.min(100, cur/max*100);
+  const el = document.getElementById('usageCard');
+  if(el) el.innerHTML = `
+    <div class="usage-row"><div class="top-lbl"><span>쿠팡 링크</span><span>${bar(u.link_count,lim.link)}</span></div>
+      <div class="bar"><i style="width:${pct(u.link_count,lim.link)}%"></i></div></div>
+    <div class="usage-row"><div class="top-lbl"><span>블로그 초안</span><span>${bar(u.draft_count,lim.draft)}</span></div>
+      <div class="bar"><i style="width:${pct(u.draft_count,lim.draft)}%"></i></div></div>
+    ${pro?'':'<div style="margin-top:12px;padding:11px;background:#EEF6FF;border-radius:10px;text-align:center;font-size:12px;color:#2563EB;font-weight:600">Pro로 업그레이드하면 전부 무제한</div>'}`;
+}
+
+// ── 키 등록 ──
+function renderKeyStatus(me){
+  const el = document.getElementById('keyStatus');
+  if(el) el.innerHTML = me.has_key
+    ? '<span style="color:var(--mint-deep);font-weight:700">✓ 내 파트너스 키 등록됨</span>'
+    : '아직 등록 안 됨 — 등록하면 내 수익으로 링크가 만들어져요';
+}
+async function saveKey(){
+  const access = document.getElementById('k_access').value.trim();
+  const secret = document.getElementById('k_secret').value.trim();
+  const btn = document.getElementById('keyBtn');
+  const msg = document.getElementById('keyMsg');
+  msg.innerHTML = "";
+  if(!access||!secret){ msg.innerHTML=`<div class="msg msg-err">access/secret 둘 다 입력하세요</div>`; return; }
+  btn.classList.add('loading');
+  try{
+    const d = await (await fetch('/api/key',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({access,secret})})).json();
+    if(!d.ok){ msg.innerHTML=`<div class="msg msg-err">${d.error||'저장 실패'}</div>`; return; }
+    msg.innerHTML=`<div class="msg msg-ok">${d.message||'저장됐어요'}</div>`;
+    document.getElementById('k_access').value=''; document.getElementById('k_secret').value='';
+    refreshMe();
+  }catch(e){ msg.innerHTML=`<div class="msg msg-err">서버 연결 실패</div>`; }
+  finally{ btn.classList.remove('loading'); }
+}
+
+// ── 유틸 ──
+function copyText(text, btn){
+  navigator.clipboard.writeText(text).then(()=>{
+    if(btn){ const o=btn.textContent; btn.textContent='복사됨'; btn.classList.add('done');
+      setTimeout(()=>{btn.textContent=o; btn.classList.remove('done');},1500); }
+  });
+}
+function esc(s){ return s.replace(/[&<>]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c])); }
+function toast(m){
+  const t=document.createElement('div'); t.className='toast'; t.textContent=m;
+  document.body.appendChild(t); setTimeout(()=>t.remove(),2500);
+}
+
+boot();

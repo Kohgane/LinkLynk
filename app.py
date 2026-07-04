@@ -42,6 +42,14 @@ def _partners_for(user):
 def home():
     return send_from_directory(".", "index.html")
 
+@app.route("/app.js")
+def appjs():
+    return send_from_directory(".", "app.js", mimetype="application/javascript")
+
+@app.route("/manifest.json")
+def manifest():
+    return send_from_directory(".", "manifest.json", mimetype="application/json")
+
 @app.route("/api/health")
 def health():
     return jsonify({"ok": True, "service": "LinkLynk"})
