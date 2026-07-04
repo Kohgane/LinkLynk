@@ -1,0 +1,11 @@
+*.db
+.enc_key
+__pycache__/
+*.pyc
+*.log
+*.bak
+resp.json
+r.json
+server.log
+screen_*.png
+배포실행_복붙가이드.md

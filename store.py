@@ -1,0 +1,105 @@
+"""LinkLynk 저장소 (Supabase/PostgreSQL). 연결: DATABASE_URL 환경변수."""
+import os, time, secrets, hashlib
+from cryptography.fernet import Fernet
+import psycopg2, psycopg2.extras
+
+DATABASE_URL = os.environ.get("DATABASE_URL")
+
+def _load_fernet():
+    k = os.environ.get("LINKLYNK_ENC_KEY")
+    if k: return Fernet(k.encode() if isinstance(k, str) else k)
+    kf = ".enc_key"
+    if os.path.exists(kf): return Fernet(open(kf, "rb").read())
+    key = Fernet.generate_key()
+    open(kf, "wb").write(key); os.chmod(kf, 0o600)
+    return Fernet(key)
+_fernet = _load_fernet()
+
+def _q(query, params=None, fetch=None):
+    c = psycopg2.connect(DATABASE_URL)
+    try:
+        cur = c.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        cur.execute(query, params or ())
+        r = cur.fetchone() if fetch=="one" else cur.fetchall() if fetch=="all" else None
+        c.commit(); return r
+    finally: c.close()
+
+def init_db():
+    _q("""CREATE TABLE IF NOT EXISTS linklynk_users(
+        id BIGSERIAL PRIMARY KEY, email TEXT UNIQUE NOT NULL, pw_hash TEXT NOT NULL,
+        handle TEXT UNIQUE, display_name TEXT, plan TEXT DEFAULT 'free',
+        pt_access_enc TEXT, pt_secret_enc TEXT, created_at BIGINT);""")
+    _q("""CREATE TABLE IF NOT EXISTS linklynk_usage(
+        user_id BIGINT, month TEXT, link_count INTEGER DEFAULT 0, draft_count INTEGER DEFAULT 0,
+        PRIMARY KEY(user_id, month));""")
+    _q("""CREATE TABLE IF NOT EXISTS linklynk_links(
+        id BIGSERIAL PRIMARY KEY, user_id BIGINT, original_url TEXT, deeplink TEXT,
+        product_name TEXT, channel TEXT, clicks INTEGER DEFAULT 0, position INTEGER DEFAULT 0,
+        on_profile INTEGER DEFAULT 1, created_at BIGINT);""")
+
+def _hash_pw(pw, salt=None):
+    salt = salt or secrets.token_hex(16)
+    h = hashlib.pbkdf2_hmac("sha256", pw.encode(), salt.encode(), 100000).hex()
+    return f"{salt}${h}"
+def _verify_pw(pw, stored):
+    salt, _ = stored.split("$", 1); return _hash_pw(pw, salt) == stored
+
+def create_user(email, password, handle=None, display_name=None):
+    try:
+        row = _q("INSERT INTO linklynk_users(email,pw_hash,handle,display_name,created_at) "
+                 "VALUES(%s,%s,%s,%s,%s) RETURNING id",
+                 (email,_hash_pw(password),handle,display_name or email.split("@")[0],int(time.time())),
+                 fetch="one")
+        return {"ok": True, "user_id": row["id"]}
+    except psycopg2.errors.UniqueViolation:
+        return {"ok": False, "error": "이미 가입된 이메일 또는 사용 중인 프로필 주소입니다"}
+    except Exception:
+        return {"ok": False, "error": "가입 처리 중 오류가 발생했습니다"}
+
+def auth_user(email, password):
+    row = _q("SELECT * FROM linklynk_users WHERE email=%s", (email,), fetch="one")
+    if not row or not _verify_pw(password, row["pw_hash"]): return None
+    return dict(row)
+def get_user(uid):
+    row = _q("SELECT * FROM linklynk_users WHERE id=%s", (uid,), fetch="one")
+    return dict(row) if row else None
+def get_user_by_handle(h):
+    row = _q("SELECT * FROM linklynk_users WHERE handle=%s", (h,), fetch="one")
+    return dict(row) if row else None
+
+def save_partners_key(uid, access, secret):
+    ea=_fernet.encrypt(access.encode()).decode(); es=_fernet.encrypt(secret.encode()).decode()
+    _q("UPDATE linklynk_users SET pt_access_enc=%s, pt_secret_enc=%s WHERE id=%s",(ea,es,uid))
+    return {"ok": True}
+def get_partners_key(uid):
+    row=_q("SELECT pt_access_enc,pt_secret_enc FROM linklynk_users WHERE id=%s",(uid,),fetch="one")
+    if not row or not row["pt_access_enc"]: return None
+    return {"access":_fernet.decrypt(row["pt_access_enc"].encode()).decode(),
+            "secret":_fernet.decrypt(row["pt_secret_enc"].encode()).decode()}
+
+FREE_LIMITS = {"link": 30, "draft": 5}
+def _month(): return time.strftime("%Y-%m", time.gmtime())
+def get_usage(uid):
+    row=_q("SELECT * FROM linklynk_usage WHERE user_id=%s AND month=%s",(uid,_month()),fetch="one")
+    return {"link_count":row["link_count"],"draft_count":row["draft_count"]} if row else {"link_count":0,"draft_count":0}
+def check_and_bump(uid, kind, plan):
+    if plan=="pro": _bump(uid,kind); return True,None,None
+    u=get_usage(uid); field="link_count" if kind=="link" else "draft_count"; limit=FREE_LIMITS[kind]
+    if u[field]>=limit: return False,u[field],limit
+    _bump(uid,kind); return True,u[field]+1,limit
+def _bump(uid, kind):
+    field="link_count" if kind=="link" else "draft_count"
+    _q(f"INSERT INTO linklynk_usage(user_id,month,{field}) VALUES(%s,%s,1) "
+       f"ON CONFLICT(user_id,month) DO UPDATE SET {field}=linklynk_usage.{field}+1",(uid,_month()))
+
+def save_link(uid, url, deeplink, pname, channel):
+    row=_q("INSERT INTO linklynk_links(user_id,original_url,deeplink,product_name,channel,created_at) "
+           "VALUES(%s,%s,%s,%s,%s,%s) RETURNING id",(uid,url,deeplink,pname,channel,int(time.time())),fetch="one")
+    return row["id"]
+def get_user_links(uid, profile_only=False):
+    q="SELECT * FROM linklynk_links WHERE user_id=%s"+(" AND on_profile=1" if profile_only else "")+" ORDER BY position ASC, created_at DESC"
+    rows=_q(q,(uid,),fetch="all"); return [dict(r) for r in rows] if rows else []
+
+if __name__=="__main__":
+    if not DATABASE_URL: print("DATABASE_URL 설정 필요")
+    else: init_db(); print("테이블 초기화 완료")

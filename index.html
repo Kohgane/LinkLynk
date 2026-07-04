@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#151B2E">
+<link rel="manifest" href="/manifest.json">
+<title>LinkLynk — 쿠팡 링크, 딸깍 한 번에</title>
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
+<style>
+  :root{
+    --ink:#151B2E; --ink-2:#1E273F; --ink-soft:#2A3450;
+    --mint:#22E9A4; --mint-deep:#0FBF82; --mint-ink:#053D2B;
+    --paper:#F7F8FA; --white:#FFFFFF;
+    --line:#E4E7EC; --muted:#8A93A6; --text:#1A1F2C;
+    --radius:16px; --radius-sm:11px;
+    --shadow:0 4px 24px rgba(21,27,46,.08);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  html,body{background:var(--paper);color:var(--text);font-family:'Pretendard',-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+  body{max-width:480px;margin:0 auto;min-height:100vh;position:relative;padding-bottom:80px}
+  ::selection{background:var(--mint);color:var(--mint-ink)}
+
+  /* 헤더 */
+  .top{display:flex;align-items:center;justify-content:space-between;padding:18px 20px 8px}
+  .logo{font-weight:800;font-size:20px;letter-spacing:-.03em;color:var(--ink)}
+  .logo span{color:var(--mint-deep)}
+  .av{width:34px;height:34px;border-radius:50%;background:var(--ink);color:#fff;display:grid;place-items:center;font-size:14px;font-weight:700}
+
+  /* 히어로 입력 */
+  .hero{padding:14px 20px 8px}
+  .hero h1{font-size:26px;font-weight:800;line-height:1.28;letter-spacing:-.035em;color:var(--ink);margin-bottom:6px}
+  .hero p{font-size:14px;color:var(--muted);margin-bottom:20px;line-height:1.5}
+  .pastebox{background:var(--white);border:1.5px solid var(--line);border-radius:var(--radius);padding:6px;box-shadow:var(--shadow);transition:border-color .18s}
+  .pastebox:focus-within{border-color:var(--mint-deep)}
+  .pastebox textarea{width:100%;border:none;outline:none;resize:none;font-family:inherit;font-size:15px;line-height:1.5;padding:12px 12px 4px;color:var(--text);background:transparent;min-height:52px}
+  .pastebox textarea::placeholder{color:#B4BBC8}
+  .paste-row{display:flex;gap:8px;padding:4px 6px 6px}
+  .btn-paste{flex:0 0 auto;background:var(--paper);border:none;border-radius:var(--radius-sm);padding:11px 14px;font-family:inherit;font-size:13px;font-weight:600;color:var(--ink-soft);display:flex;align-items:center;gap:5px;cursor:pointer}
+  .btn-go{flex:1;background:var(--ink);border:none;border-radius:var(--radius-sm);padding:12px;font-family:inherit;font-size:15px;font-weight:700;color:#fff;cursor:pointer;transition:transform .1s,background .15s;display:flex;align-items:center;justify-content:center;gap:6px}
+  .btn-go:active{transform:scale(.98)}
+  .btn-go.loading{background:var(--ink-soft);pointer-events:none}
+  .btn-go .spin{width:16px;height:16px;border:2px solid rgba(255,255,255,.35);border-top-color:#fff;border-radius:50%;animation:spin .7s linear infinite;display:none}
+  .btn-go.loading .spin{display:block}
+  .btn-go.loading .lbl{display:none}
+  @keyframes spin{to{transform:rotate(360deg)}}
+
+  .chips{display:flex;gap:7px;padding:14px 20px 4px;flex-wrap:wrap}
+  .chip{font-size:12px;font-weight:600;padding:6px 12px;border-radius:20px;background:var(--white);border:1px solid var(--line);color:var(--muted)}
+  .chip.on{background:var(--mint);border-color:var(--mint);color:var(--mint-ink)}
+
+  /* 결과 카드 */
+  .result{padding:8px 20px 0;animation:rise .3s ease}
+  @keyframes rise{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+  .card{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:12px;box-shadow:var(--shadow)}
+  .card-lbl{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:9px;display:flex;align-items:center;gap:5px}
+  .linkline{display:flex;align-items:center;gap:8px;background:var(--paper);border-radius:var(--radius-sm);padding:12px 14px}
+  .linkline .url{flex:1;font-size:13px;color:var(--mint-deep);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .btn-copy{flex:0 0 auto;background:var(--ink);color:#fff;border:none;border-radius:9px;padding:8px 13px;font-family:inherit;font-size:12px;font-weight:700;cursor:pointer}
+  .btn-copy.done{background:var(--mint-deep)}
+  .draftbox{font-size:13.5px;line-height:1.72;color:#3A4256;white-space:pre-wrap;background:var(--paper);border-radius:var(--radius-sm);padding:14px;max-height:200px;overflow:auto}
+  .disc{margin-top:9px;background:#FFF7E8;border:1px solid #F4E2B8;border-radius:10px;padding:10px 12px;font-size:11.5px;line-height:1.5;color:#8A6A1E;display:flex;gap:7px}
+  .disc svg{flex:0 0 auto;margin-top:1px}
+  .card-actions{display:flex;gap:8px;margin-top:12px}
+  .card-actions button{flex:1;border-radius:var(--radius-sm);padding:12px;font-family:inherit;font-size:14px;font-weight:700;cursor:pointer;border:none}
+  .a-primary{background:var(--mint);color:var(--mint-ink)}
+  .a-ghost{background:var(--white);border:1.5px solid var(--line)!important;color:var(--ink)}
+
+  .err{background:#FDECEC;border:1px solid #F5C5C5;color:#B23B3B;border-radius:var(--radius-sm);padding:12px 14px;font-size:13px;font-weight:500;margin:0 20px}
+
+  /* 최근 */
+  .recent{padding:18px 20px 8px}
+  .recent h2{font-size:13px;font-weight:700;color:var(--muted);margin-bottom:10px}
+  .rec-item{display:flex;align-items:center;gap:11px;background:var(--white);border:1px solid var(--line);border-radius:var(--radius-sm);padding:12px 14px;margin-bottom:8px}
+  .rec-item .ic{width:32px;height:32px;border-radius:9px;background:var(--paper);display:grid;place-items:center;flex:0 0 auto}
+  .rec-item .nm{flex:1;font-size:14px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .rec-item .cp{color:var(--muted);cursor:pointer}
+  .rec-empty{font-size:13px;color:#B4BBC8;text-align:center;padding:24px 0}
+
+  /* 하단 탭 */
+  .tabbar{position:fixed;bottom:0;left:50%;transform:translateX(-50%);width:100%;max-width:480px;background:var(--white);border-top:1px solid var(--line);display:flex;padding:8px 0 max(8px,env(safe-area-inset-bottom))}
+  .tab{flex:1;display:flex;flex-direction:column;align-items:center;gap:3px;font-size:10.5px;font-weight:600;color:var(--muted);cursor:pointer;padding:4px 0}
+  .tab.on{color:var(--ink)}
+  .tab.on .tab-ic{color:var(--mint-deep)}
+  .tab-ic{font-size:21px;line-height:1}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <div class="logo">Link<span>Lynk</span></div>
+  <div class="av">고</div>
+</div>
+
+<div class="hero">
+  <h1>상품 링크 붙여넣으면<br>수익 링크가 딸깍</h1>
+  <p>쿠팡 상품 URL 하나면 끝. 블로그 글·고지문구까지 자동으로.</p>
+  <div class="pastebox">
+    <textarea id="url" placeholder="여기에 쿠팡 상품 링크를 붙여넣으세요&#10;예: https://www.coupang.com/vp/products/..."></textarea>
+    <div class="paste-row">
+      <button class="btn-paste" onclick="pasteUrl()">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><rect x="8" y="8" width="12" height="12" rx="2"/><path d="M4 16V4a2 2 0 0 1 2-2h10"/></svg>
+        붙여넣기
+      </button>
+      <button class="btn-go" id="go" onclick="generate()">
+        <span class="spin"></span>
+        <span class="lbl">내 수익 링크 만들기</span>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="chips">
+  <div class="chip on" data-ch="blog" onclick="setCh(this)">블로그</div>
+  <div class="chip" data-ch="insta" onclick="setCh(this)">인스타</div>
+  <div class="chip" data-ch="youtube" onclick="setCh(this)">유튜브</div>
+  <div class="chip" data-ch="etc" onclick="setCh(this)">기타</div>
+</div>
+
+<div id="errbox"></div>
+<div id="result"></div>
+
+<div class="recent">
+  <h2>최근 만든 링크</h2>
+  <div id="reclist"><div class="rec-empty">아직 만든 링크가 없어요</div></div>
+</div>
+
+<div class="tabbar">
+  <div class="tab on"><div class="tab-ic">⚡</div>만들기</div>
+  <div class="tab"><div class="tab-ic">🔗</div>내 프로필</div>
+  <div class="tab"><div class="tab-ic">📊</div>통계</div>
+  <div class="tab"><div class="tab-ic">⚙️</div>설정</div>
+</div>
+
+<script>
+// ── 설정 ──
+const API_BASE = ""; // 같은 서버에 배포 시 빈값. 분리 시 "http://서버주소:5000"
+let channel = "blog";
+let recent = [];
+
+function setCh(el){
+  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  channel = el.dataset.ch;
+}
+
+async function pasteUrl(){
+  try{
+    const t = await navigator.clipboard.readText();
+    if(t) document.getElementById('url').value = t.trim();
+  }catch(e){
+    document.getElementById('url').focus();
+  }
+}
+
+function showErr(msg){
+  document.getElementById('errbox').innerHTML = `<div class="err">${msg}</div>`;
+  setTimeout(()=>{document.getElementById('errbox').innerHTML='';}, 4000);
+}
+
+async function generate(){
+  const url = document.getElementById('url').value.trim();
+  const go = document.getElementById('go');
+  document.getElementById('errbox').innerHTML='';
+  if(!url){ showErr('쿠팡 상품 링크를 먼저 붙여넣어 주세요'); return; }
+  if(!/coupang\.com/.test(url)){ showErr('쿠팡 링크가 맞는지 확인해주세요'); return; }
+
+  go.classList.add('loading');
+  try{
+    const res = await fetch(API_BASE + '/api/generate', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({url, channel, tone:'friendly', productName:'이 상품'})
+    });
+    const d = await res.json();
+    if(!d.ok){ showErr(d.error || '변환에 실패했어요'); return; }
+    renderResult(d);
+    addRecent(d);
+  }catch(e){
+    showErr('서버에 연결할 수 없어요. 잠시 후 다시 시도해주세요');
+  }finally{
+    go.classList.remove('loading');
+  }
+}
+
+function renderResult(d){
+  const shortLink = d.deeplink;
+  document.getElementById('result').innerHTML = `
+    <div class="result">
+      <div class="card">
+        <div class="card-lbl">내 수익 링크</div>
+        <div class="linkline">
+          <div class="url">${shortLink}</div>
+          <button class="btn-copy" onclick="copyIt('${shortLink}', this)">복사</button>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-lbl">블로그 초안 · 고지문구 포함</div>
+        <div class="draftbox" id="draft">${escapeHtml(d.blogDraft)}</div>
+        <div class="disc">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B8901E" stroke-width="2.2"><path d="M12 9v4M12 17h.01"/><circle cx="12" cy="12" r="9"/></svg>
+          고지문구가 자동으로 들어갔어요. 이거 빼먹으면 계정 정지될 수 있어요.
+        </div>
+        <div class="card-actions">
+          <button class="a-primary" onclick="copyIt(document.getElementById('draft').innerText, this)">전체 복사</button>
+          <button class="a-ghost" onclick="window.open('https://blog.naver.com','_blank')">블로그 열기</button>
+        </div>
+      </div>
+    </div>`;
+  document.getElementById('result').scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+function copyIt(text, btn){
+  navigator.clipboard.writeText(text).then(()=>{
+    const o = btn.textContent; btn.textContent='복사됨'; btn.classList.add('done');
+    setTimeout(()=>{btn.textContent=o; btn.classList.remove('done');},1500);
+  });
+}
+
+function addRecent(d){
+  recent.unshift({link:d.deeplink, ch:d.channel});
+  if(recent.length>5) recent.pop();
+  const html = recent.map(r=>`
+    <div class="rec-item">
+      <div class="ic">🛍️</div>
+      <div class="nm">${r.link.replace('https://','')}</div>
+      <div class="cp" onclick="copyIt('${r.link}', this)">복사</div>
+    </div>`).join('');
+  document.getElementById('reclist').innerHTML = html;
+}
+
+function escapeHtml(s){
+  return s.replace(/[&<>]/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[c]));
+}
+</script>
+</body>
+</html>
