@@ -115,33 +115,17 @@ async function generate(){
   if(!url){ toast('링크를 먼저 붙여넣어 주세요'); return; }
   if(!/coupang/.test(url)){ toast('쿠팡 링크가 맞는지 확인해주세요'); return; }
 
-  // 스마트 판별: 이미 딥링크(link.coupang.com/a/)면 수동, 원본 상품URL이면 자동
-  const isDeeplink = /link\.coupang\.com\/a\//.test(url) || /\.coupang\.com\/re\//.test(url);
-  let useMode = mode;
-  if(isDeeplink && mode==='auto'){ useMode = 'manual'; }  // 이미 딥링크면 수동 처리
-  if(!isDeeplink && mode==='manual' && !/vp\/products/.test(url)){
-    // 수동인데 딥링크도 상품URL도 아님 → 그냥 수동으로 시도
-  }
-
   go.classList.add('loading');
   try{
-    const endpoint = useMode === 'manual' ? '/api/generate-manual' : '/api/generate';
-    const body = useMode === 'manual'
+    // 수동 모드(직접 붙여넣기)만 manual, 나머지는 auto (단축링크는 서버가 자동으로 펼쳐서 변환)
+    const endpoint = mode === 'manual' ? '/api/generate-manual' : '/api/generate';
+    const body = mode === 'manual'
       ? {deeplink:url, channel, tone:'friendly', productName:'이 상품'}
       : {url, channel, tone:'friendly', productName:'이 상품'};
-    let r = await fetch(endpoint, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
-    let d = await r.json();
-    // 단축링크라 자동변환 불가 → 수동모드로 블로그 글이라도 생성
-    if(!d.ok && d.isShortLink){
-      const r2 = await fetch('/api/generate-manual', {method:'POST', headers:{'Content-Type':'application/json'},
-        body:JSON.stringify({deeplink:url, channel, tone:'friendly', productName:'이 상품'})});
-      d = await r2.json();
-      if(d.ok){ renderResult(d); addRecent(d);
-        toast('이미 만든 공유 링크라 블로그 글만 만들었어요. 수익 링크는 상품 원본 주소로!'); return; }
-    }
+    const r = await fetch(endpoint, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+    const d = await r.json();
     if(!d.ok){ toast(d.error||'변환 실패'); if(d.need_login) showAuth(); return; }
     renderResult(d); addRecent(d);
-    if(isDeeplink && mode==='auto'){ toast('이미 만든 링크라 블로그 글만 만들었어요'); }
   }catch(e){ toast('서버 연결 실패'); }
   finally{ go.classList.remove('loading'); }
 }

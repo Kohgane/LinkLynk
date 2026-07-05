@@ -10,7 +10,7 @@ import os
 from functools import wraps
 from flask import Flask, request, jsonify, send_from_directory, session
 
-from core import CoupangPartners, is_valid_coupang_url, make_blog_draft, COUPANG_DISCLOSURE
+from core import CoupangPartners, is_valid_coupang_url, make_blog_draft, COUPANG_DISCLOSURE, unshorten_coupang, is_short_coupang_link
 import store
 
 app = Flask(__name__, static_folder=".")
@@ -121,10 +121,14 @@ def generate():
     if not is_valid_coupang_url(url):
         return jsonify({"ok": False, "error": "올바른 쿠팡 URL이 아닙니다"}), 400
 
-    # 단축링크(공유링크)는 딥링크 API로 변환 불가 → 명확히 안내
-    if "link.coupang.com/a/" in url or ".coupang.com/re/" in url:
-        return jsonify({"ok": False, "isShortLink": True,
-            "error": "이건 이미 만들어진 공유 링크예요. 쿠팡 상품 페이지 주소(coupang.com/vp/products/...)를 넣거나, '링크 직접 붙여넣기'로 블로그 글만 만들어보세요"}), 422
+    # 폰 쿠팡 앱 공유링크(단축)는 딥링크 API가 못 받음 → 원본 상품 URL로 자동 펼침
+    if is_short_coupang_link(url):
+        origin = unshorten_coupang(url)
+        if origin:
+            url = origin  # 펼친 원본으로 교체 → 아래에서 정상 변환
+        else:
+            return jsonify({"ok": False,
+                "error": "이 링크를 펼칠 수 없어요. 쿠팡 상품 페이지 주소를 직접 넣어주세요"}), 422
 
     user = store.get_user(session["uid"])
     ok, cur, limit = store.check_and_bump(user["id"], "link", user["plan"])

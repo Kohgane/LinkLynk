@@ -51,6 +51,28 @@ class CoupangPartners:
         return {"ok": True, "data": res.get("data", [])}
 
 
+def unshorten_coupang(short_url: str):
+    """쿠팡 단축링크(link.coupang.com/a/...)를 원본 상품 URL로 펼침.
+    폰 쿠팡 앱 공유링크는 단축형이라 딥링크 API가 못 받음 → 원본으로 변환 필요.
+    단축링크 페이지의 JS(redirectWebUrl)에 원본이 hex 인코딩돼 있음."""
+    mob_ua = "Mozilla/5.0 (iPhone; CPU iPhone OS 17_0 like Mac OS X) AppleWebKit/605.1.15 Mobile/15E148 Safari/604.1"
+    try:
+        req = urllib.request.Request(short_url, headers={"User-Agent": mob_ua})
+        body = urllib.request.urlopen(req, context=_ctx, timeout=15).read().decode("utf-8", "ignore")
+    except Exception:
+        return None
+    m = re.search(r"redirectWebUrl\s*=\s*'([^']+)'", body)
+    if not m:
+        return None
+    decoded = re.sub(r'\\x([0-9A-Fa-f]{2})', lambda x: chr(int(x.group(1), 16)), m.group(1))
+    pm = re.search(r'https://www\.coupang\.com/vp/products/\d+', decoded)
+    return pm.group(0) if pm else None
+
+
+def is_short_coupang_link(url: str) -> bool:
+    return "link.coupang.com/a/" in url or ".coupang.com/re/" in url
+
+
 def is_valid_coupang_url(url: str) -> bool:
     """쿠팡 상품/카테고리 URL인지 확인."""
     return bool(re.match(r'https?://(www\.)?coupang\.com/', url.strip()))
