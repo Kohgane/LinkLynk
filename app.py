@@ -50,6 +50,14 @@ def appjs():
 def manifest():
     return send_from_directory(".", "manifest.json", mimetype="application/json")
 
+@app.route("/sw.js")
+def sw():
+    return send_from_directory(".", "sw.js", mimetype="application/javascript")
+
+@app.route("/icon-<path:name>")
+def icon(name):
+    return send_from_directory(".", f"icon-{name}", mimetype="image/png")
+
 @app.route("/api/health")
 def health():
     return jsonify({"ok": True, "service": "LinkLynk"})

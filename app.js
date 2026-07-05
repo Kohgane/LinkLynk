@@ -1,4 +1,28 @@
 // LinkLynk 프론트 로직
+
+// ── PWA: service worker 등록 + 설치 유도 ──
+let deferredPrompt = null;
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=> navigator.serviceWorker.register('/sw.js').catch(()=>{}));
+}
+window.addEventListener('beforeinstallprompt', (e)=>{
+  e.preventDefault(); deferredPrompt = e;
+  showInstallBtn();
+});
+function showInstallBtn(){
+  if(document.getElementById('installBar')) return;
+  const bar = document.createElement('div');
+  bar.id='installBar';
+  bar.style.cssText='position:fixed;bottom:92px;left:50%;transform:translateX(-50%);width:calc(100% - 40px);max-width:440px;background:var(--mint);color:var(--mint-ink);padding:13px 16px;border-radius:14px;font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:space-between;box-shadow:0 8px 32px rgba(34,233,164,.35);z-index:60;animation:pageIn .4s';
+  bar.innerHTML='<span>📲 홈 화면에 앱으로 추가하기</span><span style="font-size:12px;opacity:.7">탭</span>';
+  bar.onclick=async()=>{
+    if(deferredPrompt){ deferredPrompt.prompt(); await deferredPrompt.userChoice; deferredPrompt=null; bar.remove(); }
+  };
+  document.body.appendChild(bar);
+}
+window.addEventListener('appinstalled', ()=>{ const b=document.getElementById('installBar'); if(b) b.remove(); });
+
+
 let channel = "blog";
 let mode = "auto"; // auto | manual
 let authMode = "login"; // login | signup
@@ -189,7 +213,7 @@ function renderUsage(me){
       <div class="bar"><i style="width:${pct(u.link_count,lim.link)}%"></i></div></div>
     <div class="usage-row"><div class="top-lbl"><span>블로그 초안</span><span>${bar(u.draft_count,lim.draft)}</span></div>
       <div class="bar"><i style="width:${pct(u.draft_count,lim.draft)}%"></i></div></div>
-    ${pro?'':'<div style="margin-top:12px;padding:11px;background:#EEF6FF;border-radius:10px;text-align:center;font-size:12px;color:#2563EB;font-weight:600">Pro로 업그레이드하면 전부 무제한</div>'}`;
+    ${pro?'':'<div style="margin-top:12px;padding:11px;background:var(--surface-2);border:1px solid var(--mint-deep);border-radius:10px;text-align:center;font-size:12px;color:var(--mint-bright);font-weight:600">Pro로 업그레이드하면 전부 무제한</div>'}`;
 }
 
 // ── 키 등록 ──
