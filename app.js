@@ -175,24 +175,55 @@ function renderResult(d){
   document.getElementById('result').scrollIntoView({behavior:'smooth',block:'start'});
 }
 function addRecent(d){
-  recent.unshift({link:d.deeplink});
+  recent.unshift({link:d.deeplink, name:(d.productName||'쿠팡 상품'), ch:d.channel});
   if(recent.length>8) recent.pop();
-  document.getElementById('reclist').innerHTML = recent.map(r=>`
-    <div class="rec-item"><div class="ic">🛍️</div>
-      <div class="nm">${r.link.replace('https://','')}</div>
-      <div class="cp" onclick="copyText('${r.link}', this)">복사</div></div>`).join('');
+  document.getElementById('reclist').innerHTML = `<div class="nia-wrap"><div class="nia-list">` +
+    recent.map((r,i)=>`
+      <button class="nia-item" style="animation-delay:${i*40}ms" onclick="copyText('${r.link}', this.querySelector('.nia-act'))">
+        <div class="nia-ic">🛍️</div>
+        <div class="nia-body">
+          <div class="nia-name">${esc(r.name)}</div>
+          <div class="nia-sub">${r.link.replace('https://','')}</div>
+        </div>
+        <div class="nia-act">복사</div>
+      </button>`).join('') + `</div></div>`;
 }
 
 // ── 프로필 ──
+function timeAgo(ts){
+  const s = Math.floor(Date.now()/1000) - ts;
+  if(s<3600) return Math.max(1,Math.floor(s/60))+'분 전';
+  if(s<86400) return Math.floor(s/3600)+'시간 전';
+  if(s<604800) return Math.floor(s/86400)+'일 전';
+  return Math.floor(s/604800)+'주 전';
+}
+const CH_ICON = {blog:'📝', insta:'📷', threads:'🧵', x:'𝕏', youtube:'▶️', etc:'🔗'};
 async function loadProfile(){
   try{
     const d = await (await fetch('/api/my-links')).json();
     const box = document.getElementById('profileLinks');
     if(!d.ok || !d.links.length){ box.innerHTML = `<div class="empty">링크를 만들면 여기에 모여요</div>`; return; }
-    box.innerHTML = d.links.map(l=>`
-      <div class="rec-item"><div class="ic">🛍️</div>
-        <div class="nm">${l.product_name||l.deeplink.replace('https://','')}</div>
-        <div class="cp" onclick="copyText('${l.deeplink}', this)">복사</div></div>`).join('');
+    const items = d.links.map((l,i)=>`
+      <button class="nia-item" style="animation-delay:${Math.min(i*35,400)}ms" id="nia-${i}"
+        onclick="copyText('${l.deeplink}', this.querySelector('.nia-act'))">
+        <div class="nia-ic">${CH_ICON[l.channel]||'🔗'}</div>
+        <div class="nia-body">
+          <div class="nia-name">${esc(l.product_name||'쿠팡 상품')}</div>
+          <div class="nia-sub">${l.deeplink.replace('https://','')} · ${timeAgo(l.created_at)}</div>
+        </div>
+        <div class="nia-act">복사</div>
+      </button>`).join('');
+    // 우측 인덱스 레일 (10개 이상일 때만, 위치 점프)
+    let rail = '';
+    if(d.links.length >= 8){
+      const marks = Math.min(d.links.length, 12);
+      rail = '<div class="nia-rail">' +
+        Array.from({length:marks}, (_,k)=>{
+          const idx = Math.floor(k*(d.links.length-1)/(marks-1));
+          return `<span onclick="document.getElementById('nia-${idx}').scrollIntoView({behavior:'smooth',block:'center'})">·</span>`;
+        }).join('') + '</div>';
+    }
+    box.innerHTML = `<div class="nia-wrap"><div class="nia-list">${items}</div>${rail}</div>`;
   }catch(e){}
 }
 function copyProfileUrl(btn){
