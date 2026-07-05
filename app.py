@@ -151,6 +151,28 @@ def generate():
     })
 
 
+@app.route("/api/generate-manual", methods=["POST"])
+@login_required
+def generate_manual():
+    """유형 B: 이미 만든 파트너스 링크를 붙여넣기. API 딥링크 생성 없이 초안+저장만."""
+    d = request.get_json(force=True, silent=True) or {}
+    deeplink = (d.get("deeplink") or "").strip()
+    channel = (d.get("channel") or "blog").strip()
+    tone = (d.get("tone") or "friendly").strip()
+    product_name = (d.get("productName") or "이 상품").strip()
+    # 쿠팡 파트너스 링크 형식 확인 (link.coupang.com 또는 coupang.com)
+    if "coupang" not in deeplink:
+        return jsonify({"ok": False, "error": "쿠팡 파트너스 링크를 붙여넣어 주세요 (link.coupang.com/...)"}), 400
+    user = store.get_user(session["uid"])
+    draft = None
+    ok_d, _, _ = store.check_and_bump(user["id"], "draft", user["plan"])
+    if ok_d:
+        draft = make_blog_draft(product_name, deeplink, tone)
+    store.save_link(user["id"], "", deeplink, product_name, channel)
+    return jsonify({"ok": True, "deeplink": deeplink, "disclosure": COUPANG_DISCLOSURE,
+                    "blogDraft": draft, "channel": channel, "manual": True})
+
+
 @app.route("/api/my-links")
 @login_required
 def my_links():

@@ -1,5 +1,6 @@
 // LinkLynk 프론트 로직
 let channel = "blog";
+let mode = "auto"; // auto | manual
 let authMode = "login"; // login | signup
 let recent = [];
 
@@ -87,6 +88,19 @@ async function refreshMe(){
 }
 
 // ── 링크 생성 ──
+function setMode(el){
+  document.querySelectorAll('.mode').forEach(m=>m.classList.remove('on'));
+  el.classList.add('on'); mode = el.dataset.mode;
+  const ta = document.getElementById('url');
+  if(mode==='manual'){
+    ta.placeholder = "쿠팡에서 만든 파트너스 링크를 붙여넣으세요\n(link.coupang.com/a/...)";
+    document.querySelector('#go .lbl').textContent = "블로그 글 만들기";
+  }else{
+    ta.placeholder = "여기에 쿠팡 상품 링크를 붙여넣으세요";
+    document.querySelector('#go .lbl').textContent = "내 수익 링크 만들기";
+  }
+}
+
 function setCh(el){
   document.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
   el.classList.add('on'); channel = el.dataset.ch;
@@ -98,12 +112,15 @@ async function pasteUrl(){
 async function generate(){
   const url = document.getElementById('url').value.trim();
   const go = document.getElementById('go');
-  if(!url){ toast('쿠팡 링크를 먼저 붙여넣어 주세요'); return; }
-  if(!/coupang\.com/.test(url)){ toast('쿠팡 링크가 맞는지 확인해주세요'); return; }
+  if(!url){ toast('링크를 먼저 붙여넣어 주세요'); return; }
+  if(!/coupang/.test(url)){ toast('쿠팡 링크가 맞는지 확인해주세요'); return; }
   go.classList.add('loading');
   try{
-    const r = await fetch('/api/generate', {method:'POST', headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({url, channel, tone:'friendly', productName:'이 상품'})});
+    const endpoint = mode === 'manual' ? '/api/generate-manual' : '/api/generate';
+    const body = mode === 'manual'
+      ? {deeplink:url, channel, tone:'friendly', productName:'이 상품'}
+      : {url, channel, tone:'friendly', productName:'이 상품'};
+    const r = await fetch(endpoint, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
     const d = await r.json();
     if(!d.ok){ toast(d.error||'변환 실패'); if(d.need_login) showAuth(); return; }
     renderResult(d); addRecent(d);

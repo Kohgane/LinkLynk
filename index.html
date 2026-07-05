@@ -71,6 +71,8 @@
   .chips{display:flex;gap:7px;padding:14px 20px 4px;flex-wrap:wrap}
   .chip{font-size:12px;font-weight:600;padding:6px 12px;border-radius:20px;background:var(--white);border:1px solid var(--line);color:var(--muted);cursor:pointer}
   .chip.on{background:var(--mint);border-color:var(--mint);color:var(--mint-ink)}
+  .mode{flex:1;font-size:12.5px;font-weight:600;padding:9px;border-radius:var(--radius-sm);background:var(--white);border:1.5px solid var(--line);color:var(--muted);cursor:pointer}
+  .mode.on{background:var(--ink);border-color:var(--ink);color:#fff}
   .result{padding:8px 20px 0;animation:rise .3s ease}
   .card{background:var(--white);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:12px;box-shadow:var(--shadow)}
   .card-lbl{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
@@ -148,6 +150,10 @@
     <div class="hero">
       <h1>상품 링크 붙여넣으면<br>수익 링크가 딸깍</h1>
       <div class="sub">쿠팡 상품 URL 하나면 끝. 블로그 글·고지문구까지 자동으로.</div>
+      <div class="modeToggle" style="display:flex;gap:6px;margin-bottom:12px">
+        <button class="mode on" data-mode="auto" onclick="setMode(this)">API 자동생성</button>
+        <button class="mode" data-mode="manual" onclick="setMode(this)">링크 직접 붙여넣기</button>
+      </div>
       <div class="pastebox">
         <textarea id="url" placeholder="여기에 쿠팡 상품 링크를 붙여넣으세요"></textarea>
         <div class="paste-row">
@@ -197,8 +203,16 @@
   <div class="page" id="page-settings">
     <div class="sec">
       <h2>내 채널 설정</h2>
+      <div class="card" style="background:#EEF6FF;border-color:#CBE0F7">
+        <div style="font-size:13px;font-weight:700;color:#1D5FA5;margin-bottom:6px">파트너스 키가 아직 없나요?</div>
+        <div style="font-size:12px;color:#3A6FA5;line-height:1.6">
+          쿠팡 파트너스는 누적 매출 15만원을 넘겨 "최종승인"을 받아야 API 키가 나와요.
+          그전까지는 만들기 화면에서 <b>"링크 직접 붙여넣기"</b> 모드로,
+          쿠팡에서 만든 링크를 넣으면 블로그 글·고지문구·프로필은 그대로 자동으로 만들어져요.
+        </div>
+      </div>
       <div class="card">
-        <div class="card-lbl">쿠팡 파트너스 키</div>
+        <div class="card-lbl">쿠팡 파트너스 키 (승인된 파트너용)</div>
         <div id="keyStatus" style="font-size:13px;color:var(--muted);margin-bottom:12px">확인 중...</div>
         <div class="field"><label>Access Key</label><input id="k_access" placeholder="파트너스 access key" autocomplete="off"></div>
         <div class="field"><label>Secret Key</label><input id="k_secret" placeholder="파트너스 secret key" autocomplete="off"></div>
