@@ -74,8 +74,9 @@ def is_short_coupang_link(url: str) -> bool:
 
 
 def is_valid_coupang_url(url: str) -> bool:
-    """쿠팡 상품/카테고리 URL인지 확인."""
-    return bool(re.match(r'https?://(www\.)?coupang\.com/', url.strip()))
+    """쿠팡 URL인지 확인 (원본 상품 + 단축 공유링크 link.coupang.com 모두 허용)."""
+    u = url.strip()
+    return bool(re.match(r'https?://([\w.]+\.)?coupang\.com/', u))
 
 
 def append_disclosure(text: str) -> str:
