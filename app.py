@@ -121,6 +121,11 @@ def generate():
     if not is_valid_coupang_url(url):
         return jsonify({"ok": False, "error": "올바른 쿠팡 URL이 아닙니다"}), 400
 
+    # 단축링크(공유링크)는 딥링크 API로 변환 불가 → 명확히 안내
+    if "link.coupang.com/a/" in url or ".coupang.com/re/" in url:
+        return jsonify({"ok": False, "isShortLink": True,
+            "error": "이건 이미 만들어진 공유 링크예요. 쿠팡 상품 페이지 주소(coupang.com/vp/products/...)를 넣거나, '링크 직접 붙여넣기'로 블로그 글만 만들어보세요"}), 422
+
     user = store.get_user(session["uid"])
     ok, cur, limit = store.check_and_bump(user["id"], "link", user["plan"])
     if not ok:
@@ -140,7 +145,7 @@ def generate():
     draft = None
     ok_d, _, _ = store.check_and_bump(user["id"], "draft", user["plan"])
     if ok_d:
-        draft = make_blog_draft(product_name, deeplink, tone)
+        draft = make_blog_draft(product_name, deeplink, tone, channel)
 
     store.save_link(user["id"], url, deeplink, product_name, channel)
 
@@ -167,7 +172,7 @@ def generate_manual():
     draft = None
     ok_d, _, _ = store.check_and_bump(user["id"], "draft", user["plan"])
     if ok_d:
-        draft = make_blog_draft(product_name, deeplink, tone)
+        draft = make_blog_draft(product_name, deeplink, tone, channel)
     store.save_link(user["id"], "", deeplink, product_name, channel)
     return jsonify({"ok": True, "deeplink": deeplink, "disclosure": COUPANG_DISCLOSURE,
                     "blogDraft": draft, "channel": channel, "manual": True})

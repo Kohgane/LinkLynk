@@ -63,11 +63,25 @@ def append_disclosure(text: str) -> str:
     return text.rstrip() + "\n\n---\n" + COUPANG_DISCLOSURE
 
 
-def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly") -> str:
-    """
-    기본 템플릿 기반 블로그 초안 (무료 티어).
-    Pro 티어는 LLM 기반으로 교체 예정.
-    """
+def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", channel: str = "blog") -> str:
+    """채널별 맞춤 초안. 블로그=길게, SNS(쓰레드/X/인스타)=짧게."""
+    # 짧은 SNS 채널
+    if channel in ("x", "threads"):
+        body = (
+            "{name} 이거 진짜 괜찮아요 👀\n\n"
+            "고민되면 한번 보세요\n"
+            "👉 {link}\n"
+        ).format(name=product_name, link=deeplink)
+        return append_disclosure(body)
+    if channel == "insta":
+        body = (
+            "{name} ✨\n\n"
+            "요즘 제가 잘 쓰고 있는 거예요!\n"
+            "자세한 건 프로필 링크에서 확인하세요 👆\n\n"
+            "👉 {link}\n"
+        ).format(name=product_name, link=deeplink)
+        return append_disclosure(body)
+    # 블로그/유튜브 = 긴 형식 (톤 선택)
     templates = {
         "friendly": (
             "요즘 {name} 찾는 분들 많으시죠?\n\n"

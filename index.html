@@ -151,7 +151,7 @@
       <h1>상품 링크 붙여넣으면<br>수익 링크가 딸깍</h1>
       <div class="sub">쿠팡 상품 URL 하나면 끝. 블로그 글·고지문구까지 자동으로.</div>
       <div class="modeToggle" style="display:flex;gap:6px;margin-bottom:12px">
-        <button class="mode on" data-mode="auto" onclick="setMode(this)">API 자동생성</button>
+        <button class="mode on" data-mode="auto" onclick="setMode(this)">간편링크 자동생성</button>
         <button class="mode" data-mode="manual" onclick="setMode(this)">링크 직접 붙여넣기</button>
       </div>
       <div class="pastebox">
@@ -165,8 +165,9 @@
     <div class="chips">
       <div class="chip on" data-ch="blog" onclick="setCh(this)">블로그</div>
       <div class="chip" data-ch="insta" onclick="setCh(this)">인스타</div>
+      <div class="chip" data-ch="threads" onclick="setCh(this)">쓰레드</div>
+      <div class="chip" data-ch="x" onclick="setCh(this)">X</div>
       <div class="chip" data-ch="youtube" onclick="setCh(this)">유튜브</div>
-      <div class="chip" data-ch="etc" onclick="setCh(this)">기타</div>
     </div>
     <div id="result"></div>
     <div class="sec">

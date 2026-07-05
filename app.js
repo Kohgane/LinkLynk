@@ -129,8 +129,16 @@ async function generate(){
     const body = useMode === 'manual'
       ? {deeplink:url, channel, tone:'friendly', productName:'이 상품'}
       : {url, channel, tone:'friendly', productName:'이 상품'};
-    const r = await fetch(endpoint, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
-    const d = await r.json();
+    let r = await fetch(endpoint, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
+    let d = await r.json();
+    // 단축링크라 자동변환 불가 → 수동모드로 블로그 글이라도 생성
+    if(!d.ok && d.isShortLink){
+      const r2 = await fetch('/api/generate-manual', {method:'POST', headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({deeplink:url, channel, tone:'friendly', productName:'이 상품'})});
+      d = await r2.json();
+      if(d.ok){ renderResult(d); addRecent(d);
+        toast('이미 만든 공유 링크라 블로그 글만 만들었어요. 수익 링크는 상품 원본 주소로!'); return; }
+    }
     if(!d.ok){ toast(d.error||'변환 실패'); if(d.need_login) showAuth(); return; }
     renderResult(d); addRecent(d);
     if(isDeeplink && mode==='auto'){ toast('이미 만든 링크라 블로그 글만 만들었어요'); }
