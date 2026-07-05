@@ -93,10 +93,10 @@ function setMode(el){
   el.classList.add('on'); mode = el.dataset.mode;
   const ta = document.getElementById('url');
   if(mode==='manual'){
-    ta.placeholder = "쿠팡에서 만든 파트너스 링크를 붙여넣으세요\n(link.coupang.com/a/...)";
+    ta.placeholder = "이미 만든 파트너스 링크 붙여넣기\n예: link.coupang.com/a/...";
     document.querySelector('#go .lbl').textContent = "블로그 글 만들기";
   }else{
-    ta.placeholder = "여기에 쿠팡 상품 링크를 붙여넣으세요";
+    ta.placeholder = "쿠팡 상품 페이지 주소 붙여넣기\n예: coupang.com/vp/products/...";
     document.querySelector('#go .lbl').textContent = "내 수익 링크 만들기";
   }
 }
@@ -114,16 +114,26 @@ async function generate(){
   const go = document.getElementById('go');
   if(!url){ toast('링크를 먼저 붙여넣어 주세요'); return; }
   if(!/coupang/.test(url)){ toast('쿠팡 링크가 맞는지 확인해주세요'); return; }
+
+  // 스마트 판별: 이미 딥링크(link.coupang.com/a/)면 수동, 원본 상품URL이면 자동
+  const isDeeplink = /link\.coupang\.com\/a\//.test(url) || /\.coupang\.com\/re\//.test(url);
+  let useMode = mode;
+  if(isDeeplink && mode==='auto'){ useMode = 'manual'; }  // 이미 딥링크면 수동 처리
+  if(!isDeeplink && mode==='manual' && !/vp\/products/.test(url)){
+    // 수동인데 딥링크도 상품URL도 아님 → 그냥 수동으로 시도
+  }
+
   go.classList.add('loading');
   try{
-    const endpoint = mode === 'manual' ? '/api/generate-manual' : '/api/generate';
-    const body = mode === 'manual'
+    const endpoint = useMode === 'manual' ? '/api/generate-manual' : '/api/generate';
+    const body = useMode === 'manual'
       ? {deeplink:url, channel, tone:'friendly', productName:'이 상품'}
       : {url, channel, tone:'friendly', productName:'이 상품'};
     const r = await fetch(endpoint, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
     const d = await r.json();
     if(!d.ok){ toast(d.error||'변환 실패'); if(d.need_login) showAuth(); return; }
     renderResult(d); addRecent(d);
+    if(isDeeplink && mode==='auto'){ toast('이미 만든 링크라 블로그 글만 만들었어요'); }
   }catch(e){ toast('서버 연결 실패'); }
   finally{ go.classList.remove('loading'); }
 }
