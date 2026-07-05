@@ -4,6 +4,11 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
 <meta name="theme-color" content="#0D1220">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="LinkLynk">
+<link rel="apple-touch-icon" href="/icon-192.png">
+<meta name="mobile-web-app-capable" content="yes">
 <link rel="manifest" href="/manifest.json">
 <title>LinkLynk — 쿠팡 링크, 딸깍 한 번에</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
@@ -117,8 +122,8 @@
   .tab.on{color:var(--text)}
   .tab.on .tab-ic{color:var(--mint-deep)}
   .tab-ic{font-size:20px;line-height:1}
-  .page{display:none;opacity:0}
-  .page.on{display:block;animation:pageIn .35s cubic-bezier(.22,1,.36,1)}
+  .page{display:none}
+  .page.on{display:block;opacity:1;animation:pageIn .35s cubic-bezier(.22,1,.36,1) both}
   @keyframes pageIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
   /* 부드러운 공통 전환 */
   .btn,.chip,.mode,.tab,.card,.rec-item,input,textarea{transition:all .2s cubic-bezier(.22,1,.36,1)}

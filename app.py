@@ -58,6 +58,11 @@ def sw():
 def icon(name):
     return send_from_directory(".", f"icon-{name}", mimetype="image/png")
 
+@app.route("/apple-touch-icon.png")
+@app.route("/apple-touch-icon-precomposed.png")
+def apple_icon():
+    return send_from_directory(".", "icon-192.png", mimetype="image/png")
+
 @app.route("/api/health")
 def health():
     return jsonify({"ok": True, "service": "LinkLynk"})
