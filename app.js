@@ -268,19 +268,21 @@ function attachRailDrag(){
 
   // 손가락 y위치 기준으로 각 글자를 곡선(물결) 변형
   function warp(clientY){
-    const R = 150; // 영향 반경(px) — 넓게, 부드럽게
+    // 영상 방식: 손가락 글자만 뾰족하게 폭발적으로 큼(최대 3.2배), 나머지는 거의 평평
+    const R = 70;   // 좁은 반경 → 뾰족하게
     spans.forEach(s=>{
       const r = s.getBoundingClientRect();
       const cy = (r.top + r.bottom)/2;
       const dist = Math.abs(cy - clientY);
-      const t = Math.max(0, 1 - dist/R);           // 0~1 (가까울수록 1)
-      // 코사인 종형 곡선 — 물결처럼 완만하고 부드럽게
-      const ease = t <= 0 ? 0 : (1 - Math.cos(t * Math.PI)) / 2;
-      const scale = 1 + ease*1.9;                  // 최대 2.9배 — 크게크게
-      const shiftX = -ease*34;                     // 더 튀어나옴
+      const t = Math.max(0, 1 - dist/R);
+      // 가파른 종형(지수) — 중심만 급격히 커짐
+      const ease = Math.pow(t, 2.2);
+      const scale = 1 + ease*2.3;                  // 최대 3.3배 (뾰족)
+      const shiftX = -ease*40;                     // 크게 튀어나옴
       s.style.transform = `translateX(${shiftX}px) scale(${scale})`;
-      s.style.opacity = s.classList.contains('on') ? (0.55 + ease*0.45) : (0.2 + ease*0.6);
-      if(ease>0.4 && s.classList.contains('on')) s.style.color='var(--mint-bright)';
+      s.style.opacity = s.classList.contains('on') ? (0.55 + ease*0.45) : (0.22 + ease*0.6);
+      s.style.zIndex = ease>0.5 ? 5 : '';
+      if(ease>0.3 && s.classList.contains('on')) s.style.color='var(--mint-bright)';
       else s.style.color='';
     });
   }

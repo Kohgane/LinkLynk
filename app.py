@@ -8,7 +8,7 @@ LinkLynk — 백엔드 API 서버 (멀티테넌트)
 """
 import os
 from functools import wraps
-from flask import Flask, request, jsonify, send_from_directory, session
+from flask import Flask, request, jsonify, send_from_directory, session, make_response
 
 from core import CoupangPartners, is_valid_coupang_url, make_blog_draft, COUPANG_DISCLOSURE, unshorten_coupang, is_short_coupang_link
 import store
@@ -42,11 +42,16 @@ def _partners_for(user):
 
 @app.route("/")
 def home():
-    return send_from_directory(".", "index.html")
+    resp = make_response(send_from_directory(".", "index.html"))
+    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    resp.headers["Pragma"] = "no-cache"
+    return resp
 
 @app.route("/app.js")
 def appjs():
-    return send_from_directory(".", "app.js", mimetype="application/javascript")
+    resp = make_response(send_from_directory(".", "app.js", mimetype="application/javascript"))
+    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    return resp
 
 @app.route("/manifest.json")
 def manifest():
