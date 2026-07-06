@@ -282,8 +282,8 @@ function attachRailDrag(){
   function render(y, big){
     // 목표 실측 곡선: σ50(완만한 넓은 활) + 정점 돌출 중앙 살짝 넘게
     const peakScale = big ? 3.0 : 2.0;
-    const sigmaWide = 52;                 // 완만한 활 (목표 σ46~50, 11글자 참여)
-    const sigmaPeak = 17;                 // 정점 뾰족
+    const sigmaWide = 68;                 // 더 완만한 넓은 활
+    const sigmaPeak = 22;                 // 정점도 부드럽게
     spans.forEach(s=>{
       const r = s.getBoundingClientRect();
       const cy = (r.top + r.bottom)/2;
@@ -292,7 +292,7 @@ function attachRailDrag(){
       const gPeak = Math.exp(-(dist*dist)/(2*sigmaPeak*sigmaPeak));
       const scale = 1 + gPeak*(peakScale-1);
       // 돌출: 완만한 활 크게(중앙 살짝 넘게) + 정점 추가
-      const shiftX = -gWide*150 - gPeak*55;   // 활150 → 화면중앙(195) 살짝 넘게
+      const shiftX = -gWide*175 - gPeak*40;   // 완만한 활 크게 → 중앙 살짝 넘게
       s.style.transform = `translate3d(${shiftX}px,0,0) scale(${scale})`;
       const on = s.classList.contains('on');
       s.style.opacity = on ? (0.78 + gPeak*0.22) : (0.28 + gWide*0.4 + gPeak*0.3);
@@ -320,7 +320,7 @@ function attachRailDrag(){
 
   // 60fps 보간 — 부드럽게 추격 (lerp 0.22로 더 완만하게)
   function loop(){
-    smoothY += (targetY - smoothY) * 0.22;
+    smoothY += (targetY - smoothY) * 0.14;
     if(Math.abs(targetY - smoothY) < 0.4) smoothY = targetY;
     render(smoothY, settled && Math.abs(velocity)<0.4);
     if(active || Math.abs(targetY-smoothY) > 0.4) rafId=requestAnimationFrame(loop);
