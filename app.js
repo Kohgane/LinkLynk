@@ -111,6 +111,9 @@ function go(page){
   document.querySelectorAll('.page').forEach(p=>p.classList.remove('on'));
   document.getElementById('page-'+page).classList.add('on');
   document.querySelectorAll('.tab').forEach(t=>t.classList.toggle('on', t.dataset.p===page));
+  // 나이아가라 레일은 프로필에서만
+  const railEl = document.getElementById('nia-rail-fixed');
+  if(railEl) railEl.style.display = (page==='profile') ? 'block' : 'none';
   if(page==='profile') loadProfile();
   if(page==='stats' || page==='settings'){ refreshMe(); }
 }
@@ -252,14 +255,21 @@ async function loadProfile(){
       const has = !!groups[k];
       return `<span class="${has?'on':'off'}" ${has?`onclick="document.getElementById('g-${encodeURIComponent(k)}').scrollIntoView({behavior:'smooth',block:'start'})"`:''}>${k}</span>`;
     }).join('') + '</div>';
-    box.innerHTML = `<div class="nia-wrap"><div class="nia-list idle">${html}</div>${rail}</div>`;
+    box.innerHTML = `<div class="nia-wrap"><div class="nia-list idle">${html}</div></div>`;
+    // 레일은 body 직속에 (page transform 영향 안 받게)
+    let railEl = document.getElementById('nia-rail-fixed');
+    if(railEl) railEl.remove();
+    railEl = document.createElement('div');
+    railEl.id = 'nia-rail-fixed';
+    railEl.innerHTML = rail;
+    document.body.appendChild(railEl);
     attachRailDrag();
   }catch(e){}
 }
 
 // ── 나이아가라 인덱스 드래그 스크롤 + 큰 글자 오버레이 ──
 function attachRailDrag(){
-  const rail = document.querySelector('.nia-rail');
+  const rail = document.querySelector('#nia-rail-fixed .nia-rail') || document.querySelector('.nia-rail');
   if(!rail) return;
   const spans = [...rail.querySelectorAll('span')];
   const list = document.querySelector('.nia-list');
@@ -273,11 +283,10 @@ function attachRailDrag(){
       const cy = (r.top + r.bottom)/2;
       const dist = Math.abs(cy - clientY);
       // 아주 좁은 반경(28px≈글자 1.5개) → 손가락 글자만 반응, 옆은 급감
-      const t = Math.max(0, 1 - dist/32);
-      // 가우시안 종형 — 중심만 뾰족
-      const g = Math.exp(-(dist*dist)/(2*20*20));
-      const scale = 1 + g*2.6;              // 최대 3.6배 (영상 44/13≈3.4)
-      const shiftX = -g*46;                 // 왼쪽 돌출 (영상 31px × 확대여유)
+      // 가우시안 종형 — 중심만 뾰족, 넓게 퍼지게(시그마 크게)
+      const g = Math.exp(-(dist*dist)/(2*26*26));
+      const scale = 1 + g*3.0;              // 최대 4.0배
+      const shiftX = -g*120;                // 중앙 쪽으로 크게 돌출
       s.style.transform = `translateX(${shiftX}px) scale(${scale})`;
       const on = s.classList.contains('on');
       s.style.opacity = on ? (0.75 + g*0.25) : (0.24 + g*0.5);

@@ -16,7 +16,13 @@ import store
 app = Flask(__name__, static_folder=".")
 app.secret_key = os.environ.get("LINKLYNK_SESSION_SECRET", "dev-secret-change-me")
 from datetime import timedelta
-app.permanent_session_lifetime = timedelta(days=30)  # 로그인 30일 유지
+app.permanent_session_lifetime = timedelta(days=365)  # 로그인 1년 유지 (자동로그인)
+app.config.update(
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=True,     # HTTPS(onrender)에서 쿠키 유지
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_REFRESH_EACH_REQUEST=True,  # 매 요청마다 만료 갱신
+)
 
 FALLBACK_ACCESS = os.environ.get("COUPANG_PT_ACCESS", "39659f61-3eaa-4d1a-8195-82c8d37136cf")
 FALLBACK_SECRET = os.environ.get("COUPANG_PT_SECRET", "cc9a76dd51b73fbf1c09d50fa46ac137ecaba435")
