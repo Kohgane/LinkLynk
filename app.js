@@ -280,22 +280,22 @@ function attachRailDrag(){
 
   // 곡선 렌더. settle(멈춤)이면 정점 크게, 이동중이면 작게 (영상: 움직일땐 15px, 멈추면 37px)
   function render(y, big){
-    // 목표 나이아가라: 곡선 넓게(여러글자 참여), 정점은 멈출때만 폭발
-    const peakScale = big ? 3.0 : 1.9;   // 멈추면 3배, 이동중 1.9배
-    const sigmaWide = 34;                 // 넓은 곡선(여러 글자 완만히)
-    const sigmaPeak = 16;                 // 정점 뾰족
+    // 목표 실측 곡선: σ50(완만한 넓은 활) + 정점 돌출 중앙 살짝 넘게
+    const peakScale = big ? 3.0 : 2.0;
+    const sigmaWide = 52;                 // 완만한 활 (목표 σ46~50, 11글자 참여)
+    const sigmaPeak = 17;                 // 정점 뾰족
     spans.forEach(s=>{
       const r = s.getBoundingClientRect();
       const cy = (r.top + r.bottom)/2;
       const dist = Math.abs(cy - y);
-      // 넓은 활(곡선폭) + 정점 뾰족 이중 가우시안
-      const gWide = Math.exp(-(dist*dist)/(2*sigmaWide*sigmaWide));  // 완만한 활
-      const gPeak = Math.exp(-(dist*dist)/(2*sigmaPeak*sigmaPeak));  // 뾰족 정점
+      const gWide = Math.exp(-(dist*dist)/(2*sigmaWide*sigmaWide));
+      const gPeak = Math.exp(-(dist*dist)/(2*sigmaPeak*sigmaPeak));
       const scale = 1 + gPeak*(peakScale-1);
-      const shiftX = -gWide*55 - gPeak*30;   // 넓은활 72 + 정점추가 40 = 곡선폭 크게
+      // 돌출: 완만한 활 크게(중앙 살짝 넘게) + 정점 추가
+      const shiftX = -gWide*150 - gPeak*55;   // 활150 → 화면중앙(195) 살짝 넘게
       s.style.transform = `translate3d(${shiftX}px,0,0) scale(${scale})`;
       const on = s.classList.contains('on');
-      s.style.opacity = on ? (0.78 + gPeak*0.22) : (0.26 + gPeak*0.5);
+      s.style.opacity = on ? (0.78 + gPeak*0.22) : (0.28 + gWide*0.4 + gPeak*0.3);
       s.style.color = (gPeak>0.3 && on) ? 'var(--mint-bright)' : (gPeak>0.3 ? 'var(--text)' : '');
       s.style.zIndex = gPeak>0.4 ? 6 : '';
     });
