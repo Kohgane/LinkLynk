@@ -234,8 +234,8 @@ async function loadProfile(){
         html += `<button class="nia-item" style="animation-delay:${Math.min(gi*25,350)}ms"
           onclick="copyText('${l.deeplink}', this.querySelector('.nia-act'))">
           <div class="nia-body">
-            <div class="nia-name">${esc(l.product_name||'쿠팡 상품')}</div>
-            <div class="nia-sub">${CH_ICON[l.channel]||'🔗'} ${timeAgo(l.created_at)} · ${l.deeplink.replace('https://link.coupang.com','쿠팡')}</div>
+            <div class="nia-name">${esc(l.product_name||'쿠팡 상품')} <span style="font-size:12px;opacity:.6">${CH_ICON[l.channel]||''}</span></div>
+            <div class="nia-sub">${timeAgo(l.created_at)} · ${l.deeplink.replace('https://link.coupang.com','쿠팡')}</div>
           </div>
           <div class="nia-act">복사</div>
         </button>`;

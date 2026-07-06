@@ -109,51 +109,58 @@ def append_disclosure(text: str) -> str:
 
 
 def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", channel: str = "blog", info: dict = None) -> str:
-    """채널별 맞춤 초안. 블로그=길게, SNS(쓰레드/X/인스타)=짧게."""
-    # 짧은 SNS 채널
-    if channel in ("x", "threads"):
-        body = (
-            "{name} 이거 진짜 괜찮아요 👀\n\n"
-            "고민되면 한번 보세요\n"
-            "👉 {link}\n"
-        ).format(name=product_name, link=deeplink)
+    """플랫폼별 맞춤 초안. 각 채널 문법·길이·톤이 확실히 다름."""
+    name = product_name
+    price_txt = ""
+    if info and info.get("price"):
+        price_txt = f"{int(info['price']):,}원"
+
+    # ── X (트위터): 아주 짧게, 임팩트, 해시태그 ──
+    if channel == "x":
+        body = f"{name} 써봤는데 이거 물건이네 👀\n\n{'지금 '+price_txt+' ' if price_txt else ''}👉 {deeplink}\n\n#쿠팡추천 #{name.split()[0]}"
         return append_disclosure(body)
+
+    # ── 쓰레드: 대화체, 솔직 리뷰, 줄바꿈 많이 ──
+    if channel == "threads":
+        body = (f"{name} 재구매각이라 공유함 🫶\n\n"
+                f"처음엔 반신반의했는데 쓰다 보니 계속 손이 가더라고요.\n"
+                f"{'가격도 '+price_txt+'이라 부담 없음' if price_txt else '가격도 착함'}\n\n"
+                f"궁금하면 여기 👉 {deeplink}")
+        return append_disclosure(body)
+
+    # ── 인스타: 감성, 해시태그 풍부, 이모지 ──
     if channel == "insta":
-        body = (
-            "{name} ✨\n\n"
-            "요즘 제가 잘 쓰고 있는 거예요!\n"
-            "자세한 건 프로필 링크에서 확인하세요 👆\n\n"
-            "👉 {link}\n"
-        ).format(name=product_name, link=deeplink)
+        first = name.split()[0]
+        body = (f"✨ {name} ✨\n\n"
+                f"요즘 데일리로 챙기는 아이템 🤍\n"
+                f"{'가격 '+price_txt+' / ' if price_txt else ''}자세한 건 프로필 링크 확인 👆\n\n"
+                f"👉 {deeplink}\n\n"
+                f"#{first} #쿠팡추천 #데일리템 #추천템 #내돈내산")
         return append_disclosure(body)
-    # 블로그/유튜브 = 긴 형식 (톤 선택)
-    templates = {
-        "friendly": (
-            "요즘 {name} 찾는 분들 많으시죠?\n\n"
-            "직접 써보고 괜찮아서 소개해드려요. "
-            "고민되셨다면 아래 링크에서 한 번 확인해보세요!\n\n"
-            "👉 {name} 보러가기: {link}\n"
-        ),
-        "review": (
-            "[{name} 솔직 후기]\n\n"
-            "장점과 단점을 정리해봤어요. "
-            "구매 전에 참고하시면 좋을 것 같습니다.\n\n"
-            "👉 최저가 확인: {link}\n"
-        ),
-        "clean": (
-            "{name}\n\n"
-            "제품 정보와 구매처를 안내드립니다.\n\n"
-            "👉 상품 보기: {link}\n"
-        ),
-    }
-    body = templates.get(tone, templates["friendly"]).format(name=product_name, link=deeplink)
-    # 파트너스 검색으로 얻은 가격/이미지가 있으면 블로그 초안에 삽입
-    if info and channel in ("blog", "youtube"):
-        extra = ""
-        if info.get("image"):
-            extra += f"\n[상품 이미지]\n{info['image']}\n"
-        if info.get("price"):
-            extra += f"\n가격: {int(info['price']):,}원 (변동될 수 있어요)\n"
-        if extra:
-            body = body.rstrip() + "\n" + extra
+
+    # ── 유튜브: 영상 설명란 스타일, 링크·타임스탬프 ──
+    if channel == "youtube":
+        body = (f"📌 {name} 상세정보\n\n"
+                f"영상에서 소개한 제품이에요! 아래 링크에서 확인하실 수 있습니다.\n"
+                f"{'💰 가격: '+price_txt if price_txt else ''}\n\n"
+                f"🔗 구매 링크\n{deeplink}\n\n"
+                f"───────────\n"
+                f"⏱ 타임스탬프\n00:00 인트로\n00:30 제품 소개\n02:00 사용 후기\n\n"
+                f"👍 도움 되셨다면 좋아요와 구독 부탁드려요!")
+        return append_disclosure(body)
+
+    # ── 블로그(네이버): 길고 SEO 친화, 소제목, 정보성 ──
+    body = (f"[{name} 솔직 후기 & 구매 정보]\n\n"
+            f"안녕하세요! 오늘은 요즘 많이 찾으시는 {name}에 대해 소개해드릴게요.\n\n"
+            f"■ 어떤 제품인가요?\n"
+            f"직접 사용해보고 만족도가 높아서 추천드리는 제품이에요. "
+            f"{'현재 가격은 '+price_txt+' 정도예요. ' if price_txt else ''}"
+            f"자세한 스펙과 최신 가격은 아래 링크에서 확인하실 수 있어요.\n\n"
+            f"■ 구매는 여기서\n"
+            f"👉 {name} 최저가 확인하기: {deeplink}\n\n"
+            f"■ 마무리\n"
+            f"구매에 도움이 되셨길 바라요. 궁금한 점은 댓글로 남겨주세요!")
+    # 블로그엔 이미지도 (있으면)
+    if info and info.get("image"):
+        body += f"\n\n[상품 이미지]\n{info['image']}"
     return append_disclosure(body)
