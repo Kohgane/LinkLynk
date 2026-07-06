@@ -15,6 +15,8 @@ import store
 
 app = Flask(__name__, static_folder=".")
 app.secret_key = os.environ.get("LINKLYNK_SESSION_SECRET", "dev-secret-change-me")
+from datetime import timedelta
+app.permanent_session_lifetime = timedelta(days=30)  # 로그인 30일 유지
 
 FALLBACK_ACCESS = os.environ.get("COUPANG_PT_ACCESS", "39659f61-3eaa-4d1a-8195-82c8d37136cf")
 FALLBACK_SECRET = os.environ.get("COUPANG_PT_SECRET", "cc9a76dd51b73fbf1c09d50fa46ac137ecaba435")
@@ -79,6 +81,7 @@ def signup():
     r = store.create_user(email, pw, handle=handle)
     if not r["ok"]:
         return jsonify(r), 409
+    session.permanent = True
     session["uid"] = r["user_id"]
     return jsonify({"ok": True, "user_id": r["user_id"]})
 
@@ -88,6 +91,7 @@ def login():
     u = store.auth_user((d.get("email") or "").strip().lower(), d.get("password") or "")
     if not u:
         return jsonify({"ok": False, "error": "이메일 또는 비밀번호가 올바르지 않습니다"}), 401
+    session.permanent = True
     session["uid"] = u["id"]
     return jsonify({"ok": True, "user": {"email": u["email"], "handle": u["handle"], "plan": u["plan"]}})
 

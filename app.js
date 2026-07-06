@@ -41,6 +41,11 @@ async function boot(){
 function showAuth(){
   document.getElementById('authView').classList.remove('hidden');
   document.getElementById('appView').classList.add('hidden');
+  // 저장된 이메일 자동 입력
+  try{
+    const saved = localStorage.getItem('ll_email');
+    if(saved){ const el=document.getElementById('a_email'); if(el && !el.value) el.value = saved; }
+  }catch(e){}
 }
 function showApp(me){
   document.getElementById('authView').classList.add('hidden');
@@ -84,6 +89,8 @@ async function doAuth(){
     const r = await fetch(endpoint, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
     const d = await r.json();
     if(!d.ok){ msg.innerHTML = `<div class="msg msg-err">${d.error||'실패했어요'}</div>`; return; }
+    // 이메일 기억 (다음 로그인 자동입력)
+    try{ localStorage.setItem('ll_email', email); }catch(e){}
     // 성공 → me 다시 불러서 앱 진입
     const me = await (await fetch('/api/me')).json();
     showApp(me);
@@ -203,29 +210,35 @@ async function loadProfile(){
     const d = await (await fetch('/api/my-links')).json();
     const box = document.getElementById('profileLinks');
     if(!d.ok || !d.links.length){ box.innerHTML = `<div class="empty">링크를 만들면 여기에 모여요</div>`; return; }
-    const items = d.links.map((l,i)=>`
-      <button class="nia-item" style="animation-delay:${Math.min(i*35,400)}ms" id="nia-${i}"
-        onclick="copyText('${l.deeplink}', this.querySelector('.nia-act'))">
-        <div class="nia-ic">${CH_ICON[l.channel]||'🔗'}</div>
-        <div class="nia-body">
-          <div class="nia-name">${esc(l.product_name||'쿠팡 상품')}</div>
-          <div class="nia-sub">${l.deeplink.replace('https://','')} · ${timeAgo(l.created_at)}</div>
-        </div>
-        <div class="nia-act">복사</div>
-      </button>`).join('');
-    // 우측 인덱스 레일 (10개 이상일 때만, 위치 점프)
-    let rail = '';
-    if(d.links.length >= 8){
-      const marks = Math.min(d.links.length, 12);
-      rail = '<div class="nia-rail">' +
-        Array.from({length:marks}, (_,k)=>{
-          const idx = Math.floor(k*(d.links.length-1)/(marks-1));
-          return `<span onclick="document.getElementById('nia-${idx}').scrollIntoView({behavior:'smooth',block:'center'})">·</span>`;
-        }).join('') + '</div>';
-    }
-    box.innerHTML = `<div class="nia-wrap"><div class="nia-list">${items}</div>${rail}</div>`;
+    const CH_NAME = {blog:'블로그', insta:'인스타', threads:'쓰레드', x:'X', youtube:'유튜브', etc:'기타'};
+    // 채널별 그룹핑 (나이아가라: 그룹 + 우측 인덱스)
+    const groups = {};
+    d.links.forEach(l=>{ const c=l.channel||'etc'; (groups[c]=groups[c]||[]).push(l); });
+    const order = ['blog','insta','threads','x','youtube','etc'].filter(c=>groups[c]);
+    let html = '', gi = 0;
+    order.forEach(c=>{
+      html += `<div class="nia-glabel" id="g-${c}">${CH_NAME[c]||c}</div>`;
+      groups[c].forEach((l)=>{
+        html += `<button class="nia-item" style="animation-delay:${Math.min(gi*30,400)}ms"
+          onclick="copyText('${l.deeplink}', this.querySelector('.nia-act'))">
+          <div class="nia-ic">${CH_ICON[c]||'🔗'}</div>
+          <div class="nia-body">
+            <div class="nia-name">${esc(l.product_name||'쿠팡 상품')}</div>
+            <div class="nia-sub">${timeAgo(l.created_at)} · ${l.deeplink.replace('https://link.coupang.com','쿠팡')}</div>
+          </div>
+          <div class="nia-act">복사</div>
+        </button>`;
+        gi++;
+      });
+    });
+    // 우측 인덱스 레일 (채널 이니셜) — 항상 표시
+    const rail = '<div class="nia-rail">' + order.map(c=>
+      `<span data-g="${c}" onclick="document.getElementById('g-${c}').scrollIntoView({behavior:'smooth',block:'start'})">${(CH_NAME[c]||c)[0]}</span>`
+    ).join('') + '</div>';
+    box.innerHTML = `<div class="nia-wrap"><div class="nia-list">${html}</div>${rail}</div>`;
   }catch(e){}
 }
+
 function copyProfileUrl(btn){
   const t = document.getElementById('profileUrl').textContent;
   copyText(t, btn);
