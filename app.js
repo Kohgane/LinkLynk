@@ -142,6 +142,7 @@ async function pasteUrl(){
 }
 async function generate(){
   const url = document.getElementById('url').value.trim();
+  const pname = (document.getElementById('pname')?.value || '').trim() || '쿠팡 상품';
   const go = document.getElementById('go');
   if(!url){ toast('링크를 먼저 붙여넣어 주세요'); return; }
   if(!/coupang/.test(url)){ toast('쿠팡 링크가 맞는지 확인해주세요'); return; }
@@ -151,12 +152,14 @@ async function generate(){
     // 수동 모드(직접 붙여넣기)만 manual, 나머지는 auto (단축링크는 서버가 자동으로 펼쳐서 변환)
     const endpoint = mode === 'manual' ? '/api/generate-manual' : '/api/generate';
     const body = mode === 'manual'
-      ? {deeplink:url, channel, tone:'friendly', productName:'이 상품'}
-      : {url, channel, tone:'friendly', productName:'이 상품'};
+      ? {deeplink:url, channel, tone:'friendly', productName:pname}
+      : {url, channel, tone:'friendly', productName:pname};
     const r = await fetch(endpoint, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
     const d = await r.json();
     if(!d.ok){ toast(d.error||'변환 실패'); if(d.need_login) showAuth(); return; }
+    d.productName = pname;
     renderResult(d); addRecent(d);
+    document.getElementById('url').value=''; const pn=document.getElementById('pname'); if(pn) pn.value='';
   }catch(e){ toast('서버 연결 실패'); }
   finally{ go.classList.remove('loading'); }
 }

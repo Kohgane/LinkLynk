@@ -133,7 +133,7 @@ def generate():
     url = (d.get("url") or "").strip()
     channel = (d.get("channel") or "blog").strip()
     tone = (d.get("tone") or "friendly").strip()
-    product_name = (d.get("productName") or "이 상품").strip()
+    product_name = (d.get("productName") or "쿠팡 상품").strip()
 
     if not is_valid_coupang_url(url):
         return jsonify({"ok": False, "error": "올바른 쿠팡 URL이 아닙니다"}), 400
@@ -185,7 +185,7 @@ def generate_manual():
     deeplink = (d.get("deeplink") or "").strip()
     channel = (d.get("channel") or "blog").strip()
     tone = (d.get("tone") or "friendly").strip()
-    product_name = (d.get("productName") or "이 상품").strip()
+    product_name = (d.get("productName") or "쿠팡 상품").strip()
     # 쿠팡 파트너스 링크 형식 확인 (link.coupang.com 또는 coupang.com)
     if "coupang" not in deeplink:
         return jsonify({"ok": False, "error": "쿠팡 파트너스 링크를 붙여넣어 주세요 (link.coupang.com/...)"}), 400

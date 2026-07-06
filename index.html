@@ -199,7 +199,8 @@
         <button class="mode" data-mode="manual" onclick="setMode(this)">링크 직접 붙여넣기</button>
       </div>
       <div class="pastebox">
-        <textarea id="url" placeholder="쿠팡 상품 페이지 주소 붙여넣기&#10;예: coupang.com/vp/products/..."></textarea>
+        <textarea id="url" placeholder="쿠팡 상품 링크 붙여넣기&#10;(앱 공유링크 그대로 OK)"></textarea>
+        <input id="pname" placeholder="상품 이름 (선택 — 나중에 찾기 쉬워요)" style="border:none;background:none;box-shadow:none;padding:4px 12px 8px;font-size:13.5px;color:var(--text-2)">
         <div class="paste-row">
           <button class="btn-paste" onclick="pasteUrl()">📋 붙여넣기</button>
           <button class="btn-go" id="go" onclick="generate()"><span class="lbl">내 수익 링크 만들기</span></button>
