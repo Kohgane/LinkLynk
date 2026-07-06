@@ -262,71 +262,70 @@ function attachRailDrag(){
   const rail = document.querySelector('.nia-rail');
   if(!rail) return;
   const spans = [...rail.querySelectorAll('span')];
-  let bubble = document.getElementById('nia-bubble');
-  if(!bubble){ bubble=document.createElement('div'); bubble.id='nia-bubble'; bubble.className='nia-bubble'; document.body.appendChild(bubble); }
-  let active = false, lastKey = null;
+  const list = document.querySelector('.nia-list');
+  let active=false, lastKey=null, rafId=null, targetY=0;
 
-  // 손가락 y위치 기준으로 각 글자를 곡선(물결) 변형
-  function warp(clientY){
-    // 영상 방식: 손가락 글자만 뾰족하게 폭발적으로 큼(최대 3.2배), 나머지는 거의 평평
-    const R = 70;   // 좁은 반경 → 뾰족하게
+  // 영상 실측: 손가락 글자만 44px(3.4배) 팝 + 왼쪽 31px 돌출, 옆글자는 거의 평평
+  // 나이아가라 원리: 절대위치(손가락y=그글자), 글자마다 햅틱, 부드러운 스프링
+  function render(clientY){
     spans.forEach(s=>{
       const r = s.getBoundingClientRect();
       const cy = (r.top + r.bottom)/2;
       const dist = Math.abs(cy - clientY);
-      const t = Math.max(0, 1 - dist/R);
-      // 가파른 종형(지수) — 중심만 급격히 커짐
-      const ease = Math.pow(t, 1.8);
-      const scale = 1 + ease*4.5;                  // 최대 5.5배 (아주 크게)
-      const shiftX = -ease*140;                    // 화면 중앙 쪽으로 크게 튀어나옴
+      // 아주 좁은 반경(28px≈글자 1.5개) → 손가락 글자만 반응, 옆은 급감
+      const t = Math.max(0, 1 - dist/32);
+      // 가우시안 종형 — 중심만 뾰족
+      const g = Math.exp(-(dist*dist)/(2*20*20));
+      const scale = 1 + g*2.6;              // 최대 3.6배 (영상 44/13≈3.4)
+      const shiftX = -g*46;                 // 왼쪽 돌출 (영상 31px × 확대여유)
       s.style.transform = `translateX(${shiftX}px) scale(${scale})`;
-      s.style.opacity = s.classList.contains('on') ? (0.55 + ease*0.45) : (0.22 + ease*0.6);
-      s.style.zIndex = ease>0.5 ? 5 : '';
-      if(ease>0.3 && s.classList.contains('on')) s.style.color='var(--mint-bright)';
-      else s.style.color='';
+      const on = s.classList.contains('on');
+      s.style.opacity = on ? (0.75 + g*0.25) : (0.24 + g*0.5);
+      s.style.color = (g>0.35 && on) ? 'var(--mint-bright)' : (g>0.35 ? 'var(--text)' : '');
+      s.style.zIndex = g>0.4 ? 6 : '';
     });
   }
-  function reset(){
-    spans.forEach(s=>{ s.style.transform=''; s.style.opacity=''; s.style.color=''; });
-  }
+  function reset(){ spans.forEach(s=>{ s.style.transform=''; s.style.opacity=''; s.style.color=''; s.style.zIndex=''; }); }
 
-  function keyAt(clientY){
-    let best=null, bd=1e9;
+  function nearest(clientY){
+    let best=null,bd=1e9;
     for(const s of spans){ const r=s.getBoundingClientRect(); const d=Math.abs((r.top+r.bottom)/2-clientY); if(d<bd){bd=d;best=s;} }
     return best;
   }
+  // 부드러운 프레임 루프 (스프링 느낌)
+  function loop(){
+    render(targetY);
+    if(active) rafId=requestAnimationFrame(loop);
+  }
   function moveTo(clientY){
-    warp(clientY);
-    const s = keyAt(clientY);
+    targetY = clientY;
+    if(!rafId) loop();
+    const s = nearest(clientY);
     if(!s) return;
     const key = s.textContent;
     if(key!==lastKey){
       lastKey = key;
-      bubble.textContent = key;
-      bubble.classList.add('show');
-      bubble.classList.toggle('active', s.classList.contains('on'));
-      const list = document.querySelector('.nia-list');
-      if(s.classList.contains('on')){
-        // 활성 초성 → 리스트 나타나며 그 그룹으로 스크롤
-        if(list){ list.classList.remove('idle'); }
+      const on = s.classList.contains('on');
+      // 나이아가라: 글자마다 햅틱 범프 (지퍼 느낌)
+      if(navigator.vibrate) navigator.vibrate(on?7:3);
+      if(on){
+        if(list) list.classList.remove('idle');
         const target = document.getElementById('g-'+encodeURIComponent(key));
         if(target) target.scrollIntoView({behavior:'smooth', block:'center'});
-        if(navigator.vibrate) navigator.vibrate(6);
       } else {
-        // 빈 초성 → 리스트 숨김 (영상: 왼쪽 텅빔)
-        if(list){ list.classList.add('idle'); }
+        if(list) list.classList.add('idle');   // 빈 초성 → 왼쪽 텅빔
       }
     }
   }
   function end(){
-    active=false; lastKey=null; bubble.classList.remove('show'); reset();
-    // 멈추면 마지막 초성 리스트 유지해서 보여줌
-    const list = document.querySelector('.nia-list');
-    if(list){ list.classList.remove('idle'); }
+    active=false; lastKey=null;
+    if(rafId){ cancelAnimationFrame(rafId); rafId=null; }
+    reset();
+    if(list) list.classList.remove('idle');    // 손 떼면 마지막 리스트 유지
   }
 
   rail.addEventListener('touchstart', e=>{ e.preventDefault(); active=true; moveTo(e.touches[0].clientY); }, {passive:false});
-  rail.addEventListener('touchmove', e=>{ e.preventDefault(); if(active) moveTo(e.touches[0].clientY); }, {passive:false});
+  rail.addEventListener('touchmove',  e=>{ e.preventDefault(); if(active) moveTo(e.touches[0].clientY); }, {passive:false});
   rail.addEventListener('touchend', end);
   rail.addEventListener('touchcancel', end);
   let down=false;

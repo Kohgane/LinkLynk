@@ -127,17 +127,17 @@
   .nia-act{flex:0 0 auto;font-size:11.5px;font-weight:700;color:var(--mint);opacity:0;transition:opacity .2s;padding-right:2px}
   .nia-item:active .nia-act{opacity:1}
   /* 우측 초성 인덱스 레일 — 세로로 길게, 나이아가라 상징 */
-  .nia-rail{position:fixed;right:14px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;align-items:flex-end;gap:2px;user-select:none;z-index:30;padding:4px 0;touch-action:none}
-  .nia-rail span{font-size:10px;font-weight:700;line-height:1;width:18px;height:14px;display:grid;place-items:center;text-align:center;transform-origin:right center;transition:transform .28s cubic-bezier(.34,1.2,.4,1),opacity .28s,color .2s;will-change:transform}
-  .nia-rail span.on{color:var(--mint);opacity:.85;cursor:pointer;font-weight:800}
-  .nia-rail span.off{color:var(--muted);opacity:.28}
+  .nia-rail{position:fixed;right:16px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;align-items:flex-end;gap:1px;user-select:none;z-index:30;padding:4px 0;touch-action:none}
+  .nia-rail span{font-size:11px;font-weight:600;line-height:1;width:20px;height:15px;display:grid;place-items:center;text-align:center;transform-origin:right center;transition:transform .22s cubic-bezier(.34,1.56,.5,1),opacity .2s,color .18s;will-change:transform;color:var(--text-2)}
+  .nia-rail span.on{color:var(--mint);opacity:.85;cursor:pointer;font-weight:700}
+  .nia-rail span.off{color:var(--muted);opacity:.3}
   .nia-rail span:active{color:var(--mint);opacity:1;transform:scale(1.5)}
   .nia-glabel{font-size:12px;font-weight:800;color:var(--mint);letter-spacing:.05em;padding:16px 2px 4px}
   .nia-glabel:first-child{padding-top:2px}
   /* 인덱스 드래그 시 큰 글자 오버레이 */
-  .nia-bubble{position:fixed;right:48px;top:50%;transform:translateY(-50%) scale(.7);width:92px;height:92px;border-radius:26px;background:var(--mint);color:var(--mint-ink);display:grid;place-items:center;font-size:46px;font-weight:800;z-index:60;opacity:0;pointer-events:none;transition:opacity .2s,transform .3s cubic-bezier(.34,1.4,.5,1);box-shadow:0 12px 40px rgba(34,233,164,.45)}
-  .nia-bubble.show{opacity:1;transform:translateY(-50%) scale(1)}
-  .nia-bubble:not(.active){background:var(--surface-3);color:var(--muted);box-shadow:0 8px 24px rgba(0,0,0,.4)}
+  
+  
+  
   .nia-rail span.cur{color:var(--mint-bright)!important;opacity:1!important;transform:scale(1.5)}
   .usage-row{margin-bottom:10px}
   .usage-row .top-lbl{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px}
@@ -286,6 +286,6 @@
   </div>
 </div>
 
-<script src="/app.js?v=1783320831"></script>
+<script src="/app.js?v=1783321519"></script>
 </body>
 </html>
