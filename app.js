@@ -222,16 +222,21 @@ async function loadProfile(){
     const d = await (await fetch('/api/my-links')).json();
     const box = document.getElementById('profileLinks');
     if(!d.ok || !d.links.length){ box.innerHTML = `<div class="empty">링크를 만들면 여기에 모여요</div>`; return; }
-    // 상품명 초성으로 정렬 + 그룹핑 (나이아가라 A-Z 방식의 한글판)
+    // 전체 인덱스 (나이아가라: ㄱ~ㅎ, A~Z, # 항상 표시)
+    const CHO = ['ㄱ','ㄴ','ㄷ','ㄹ','ㅁ','ㅂ','ㅅ','ㅇ','ㅈ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+    const ALPHA = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'.split('');
+    const FULL_INDEX = [...CHO, ...ALPHA, '#'];
+    // 상품을 초성으로 그룹핑
     const sorted = [...d.links].sort((a,b)=>(a.product_name||'').localeCompare(b.product_name||'','ko'));
     const groups = {};
     sorted.forEach(l=>{ const k=getChosung(l.product_name||'쿠팡'); (groups[k]=groups[k]||[]).push(l); });
-    const keys = Object.keys(groups);
+    // 인덱스 순서대로 그룹 렌더 (상품 있는 초성만 섹션 생성)
     let html = '', gi = 0;
-    keys.forEach(k=>{
+    FULL_INDEX.forEach(k=>{
+      if(!groups[k]) return;
       html += `<div class="nia-glabel" id="g-${encodeURIComponent(k)}">${k}</div>`;
       groups[k].forEach(l=>{
-        html += `<button class="nia-item" style="animation-delay:${Math.min(gi*25,350)}ms"
+        html += `<button class="nia-item" style="animation-delay:${Math.min(gi*20,300)}ms"
           onclick="copyText('${l.deeplink}', this.querySelector('.nia-act'))">
           <div class="nia-body">
             <div class="nia-name">${esc(l.product_name||'쿠팡 상품')} <span style="font-size:12px;opacity:.6">${CH_ICON[l.channel]||''}</span></div>
@@ -242,10 +247,11 @@ async function loadProfile(){
         gi++;
       });
     });
-    // 우측 초성 인덱스 (나이아가라 상징)
-    const rail = '<div class="nia-rail">' + keys.map(k=>
-      `<span onclick="document.getElementById('g-${encodeURIComponent(k)}').scrollIntoView({behavior:'smooth',block:'start'})">${k}</span>`
-    ).join('') + '</div>';
+    // 전체 인덱스 레일 — 상품 있으면 활성(민트), 없으면 흐리게(비활성)
+    const rail = '<div class="nia-rail">' + FULL_INDEX.map(k=>{
+      const has = !!groups[k];
+      return `<span class="${has?'on':'off'}" ${has?`onclick="document.getElementById('g-${encodeURIComponent(k)}').scrollIntoView({behavior:'smooth',block:'start'})"`:''}>${k}</span>`;
+    }).join('') + '</div>';
     box.innerHTML = `<div class="nia-wrap"><div class="nia-list">${html}</div>${rail}</div>`;
   }catch(e){}
 }
