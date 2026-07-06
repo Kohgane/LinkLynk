@@ -116,18 +116,19 @@
   .prof-url{background:none;border:none;font-size:12px;color:var(--muted);cursor:pointer;padding:6px 0;max-width:55%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:right}
   .prof-url span:first-child{color:var(--mint)}
   .nia-wrap{position:relative;padding-right:24px;min-height:200px}
-  .nia-list{display:flex;flex-direction:column}
+  .nia-list{display:flex;flex-direction:column;transition:opacity .4s cubic-bezier(.22,1,.36,1)}
+  .nia-list.idle{opacity:0;pointer-events:none}
   .nia-item{display:flex;align-items:center;gap:12px;padding:20px 2px;border:none;background:none;cursor:pointer;position:relative;width:100%;text-align:left;animation:niaIn .4s cubic-bezier(.22,1,.36,1) both}
   @keyframes niaIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:none}}
   .nia-body{flex:1;min-width:0}
-  .nia-name.noname{color:var(--muted);font-weight:500}
+  .nia-item:has(.nia-name.noname){display:none}
   .nia-name{font-size:17px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.015em;line-height:1.3}
   .nia-sub{font-size:11px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .nia-act{flex:0 0 auto;font-size:11.5px;font-weight:700;color:var(--mint);opacity:0;transition:opacity .2s;padding-right:2px}
   .nia-item:active .nia-act{opacity:1}
   /* 우측 초성 인덱스 레일 — 세로로 길게, 나이아가라 상징 */
   .nia-rail{position:fixed;right:14px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;align-items:flex-end;gap:2px;user-select:none;z-index:30;padding:4px 0;touch-action:none}
-  .nia-rail span{font-size:10px;font-weight:700;line-height:1;width:18px;height:14px;display:grid;place-items:center;text-align:center;transform-origin:right center;transition:transform .3s cubic-bezier(.34,1.3,.5,1),opacity .28s,color .2s;will-change:transform}
+  .nia-rail span{font-size:10px;font-weight:700;line-height:1;width:18px;height:14px;display:grid;place-items:center;text-align:center;transform-origin:right center;transition:transform .28s cubic-bezier(.34,1.2,.4,1),opacity .28s,color .2s;will-change:transform}
   .nia-rail span.on{color:var(--mint);opacity:.85;cursor:pointer;font-weight:800}
   .nia-rail span.off{color:var(--muted);opacity:.28}
   .nia-rail span:active{color:var(--mint);opacity:1;transform:scale(1.5)}
@@ -285,6 +286,6 @@
   </div>
 </div>
 
-<script src="/app.js?v=1783319356"></script>
+<script src="/app.js?v=1783320831"></script>
 </body>
 </html>

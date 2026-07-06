@@ -252,7 +252,7 @@ async function loadProfile(){
       const has = !!groups[k];
       return `<span class="${has?'on':'off'}" ${has?`onclick="document.getElementById('g-${encodeURIComponent(k)}').scrollIntoView({behavior:'smooth',block:'start'})"`:''}>${k}</span>`;
     }).join('') + '</div>';
-    box.innerHTML = `<div class="nia-wrap"><div class="nia-list">${html}</div>${rail}</div>`;
+    box.innerHTML = `<div class="nia-wrap"><div class="nia-list idle">${html}</div>${rail}</div>`;
     attachRailDrag();
   }catch(e){}
 }
@@ -276,9 +276,9 @@ function attachRailDrag(){
       const dist = Math.abs(cy - clientY);
       const t = Math.max(0, 1 - dist/R);
       // 가파른 종형(지수) — 중심만 급격히 커짐
-      const ease = Math.pow(t, 2.0);
-      const scale = 1 + ease*3.0;                  // 최대 4.0배 (더 크게)
-      const shiftX = -ease*52;                     // 더 크게 튀어나옴
+      const ease = Math.pow(t, 1.8);
+      const scale = 1 + ease*4.5;                  // 최대 5.5배 (아주 크게)
+      const shiftX = -ease*140;                    // 화면 중앙 쪽으로 크게 튀어나옴
       s.style.transform = `translateX(${shiftX}px) scale(${scale})`;
       s.style.opacity = s.classList.contains('on') ? (0.55 + ease*0.45) : (0.22 + ease*0.6);
       s.style.zIndex = ease>0.5 ? 5 : '';
@@ -295,13 +295,8 @@ function attachRailDrag(){
     for(const s of spans){ const r=s.getBoundingClientRect(); const d=Math.abs((r.top+r.bottom)/2-clientY); if(d<bd){bd=d;best=s;} }
     return best;
   }
-  let fadeTimer = null;
   function moveTo(clientY){
     warp(clientY);
-    // 드래그 중: 리스트 살짝 흐리게 (영상처럼 비워지는 느낌)
-    const list = document.querySelector('.nia-list');
-    if(list){ list.style.transition='opacity .15s'; list.style.opacity='0.15'; }
-    clearTimeout(fadeTimer);
     const s = keyAt(clientY);
     if(!s) return;
     const key = s.textContent;
@@ -310,18 +305,24 @@ function attachRailDrag(){
       bubble.textContent = key;
       bubble.classList.add('show');
       bubble.classList.toggle('active', s.classList.contains('on'));
+      const list = document.querySelector('.nia-list');
       if(s.classList.contains('on')){
+        // 활성 초성 → 리스트 나타나며 그 그룹으로 스크롤
+        if(list){ list.classList.remove('idle'); }
         const target = document.getElementById('g-'+encodeURIComponent(key));
-        if(target) target.scrollIntoView({behavior:'auto', block:'start'});
-        if(navigator.vibrate) navigator.vibrate(4);
+        if(target) target.scrollIntoView({behavior:'smooth', block:'center'});
+        if(navigator.vibrate) navigator.vibrate(6);
+      } else {
+        // 빈 초성 → 리스트 숨김 (영상: 왼쪽 텅빔)
+        if(list){ list.classList.add('idle'); }
       }
     }
   }
   function end(){
     active=false; lastKey=null; bubble.classList.remove('show'); reset();
-    // 멈추면 리스트가 주르륵 나타남
+    // 멈추면 마지막 초성 리스트 유지해서 보여줌
     const list = document.querySelector('.nia-list');
-    if(list){ list.style.transition='opacity .35s cubic-bezier(.22,1,.36,1)'; list.style.opacity='1'; }
+    if(list){ list.classList.remove('idle'); }
   }
 
   rail.addEventListener('touchstart', e=>{ e.preventDefault(); active=true; moveTo(e.touches[0].clientY); }, {passive:false});
