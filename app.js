@@ -261,63 +261,62 @@ async function loadProfile(){
 function attachRailDrag(){
   const rail = document.querySelector('.nia-rail');
   if(!rail) return;
-  // 큰 글자 오버레이 요소
-  let bubble = document.getElementById('nia-bubble');
-  if(!bubble){
-    bubble = document.createElement('div');
-    bubble.id = 'nia-bubble';
-    bubble.className = 'nia-bubble';
-    document.body.appendChild(bubble);
-  }
   const spans = [...rail.querySelectorAll('span')];
-  let lastKey = null;
+  let bubble = document.getElementById('nia-bubble');
+  if(!bubble){ bubble=document.createElement('div'); bubble.id='nia-bubble'; bubble.className='nia-bubble'; document.body.appendChild(bubble); }
+  let active = false, lastKey = null;
+
+  // 손가락 y위치 기준으로 각 글자를 곡선(물결) 변형
+  function warp(clientY){
+    const R = 90; // 영향 반경(px)
+    spans.forEach(s=>{
+      const r = s.getBoundingClientRect();
+      const cy = (r.top + r.bottom)/2;
+      const dist = Math.abs(cy - clientY);
+      const t = Math.max(0, 1 - dist/R);          // 0~1 (가까울수록 1)
+      const ease = t*t*(3-2*t);                    // smoothstep
+      const scale = 1 + ease*1.4;                  // 최대 2.4배
+      const shiftX = -ease*22;                     // 왼쪽(바깥)으로 튀어나옴
+      s.style.transform = `translateX(${shiftX}px) scale(${scale})`;
+      s.style.opacity = s.classList.contains('on') ? (0.6 + ease*0.4) : (0.22 + ease*0.5);
+      if(ease>0.5 && s.classList.contains('on')) s.style.color='var(--mint-bright)';
+      else s.style.color='';
+    });
+  }
+  function reset(){
+    spans.forEach(s=>{ s.style.transform=''; s.style.opacity=''; s.style.color=''; });
+  }
 
   function keyAt(clientY){
-    // 손가락 y위치에 해당하는 인덱스 글자 찾기
-    for(const s of spans){
-      const r = s.getBoundingClientRect();
-      if(clientY >= r.top && clientY <= r.bottom) return s;
-    }
-    // 범위 밖이면 가장 가까운 것
     let best=null, bd=1e9;
     for(const s of spans){ const r=s.getBoundingClientRect(); const d=Math.abs((r.top+r.bottom)/2-clientY); if(d<bd){bd=d;best=s;} }
     return best;
   }
-
   function moveTo(clientY){
+    warp(clientY);
     const s = keyAt(clientY);
     if(!s) return;
     const key = s.textContent;
-    if(key === lastKey) return;
-    lastKey = key;
-    // 큰 글자 표시
-    bubble.textContent = key;
-    bubble.classList.add('show');
-    bubble.classList.toggle('active', s.classList.contains('on'));
-    // 활성 글자면 그 그룹으로 스크롤
-    if(s.classList.contains('on')){
-      const target = document.getElementById('g-'+encodeURIComponent(key));
-      if(target) target.scrollIntoView({behavior:'auto', block:'start'});
-      if(navigator.vibrate) navigator.vibrate(5);
+    if(key!==lastKey){
+      lastKey = key;
+      bubble.textContent = key;
+      bubble.classList.add('show');
+      bubble.classList.toggle('active', s.classList.contains('on'));
+      if(s.classList.contains('on')){
+        const target = document.getElementById('g-'+encodeURIComponent(key));
+        if(target) target.scrollIntoView({behavior:'auto', block:'start'});
+        if(navigator.vibrate) navigator.vibrate(4);
+      }
     }
-    // 인덱스 하이라이트
-    spans.forEach(x=>x.classList.remove('cur'));
-    s.classList.add('cur');
   }
+  function end(){ active=false; lastKey=null; bubble.classList.remove('show'); reset(); }
 
-  function end(){
-    bubble.classList.remove('show');
-    lastKey = null;
-    spans.forEach(x=>x.classList.remove('cur'));
-  }
-
-  // 터치
-  rail.addEventListener('touchstart', e=>{ e.preventDefault(); moveTo(e.touches[0].clientY); }, {passive:false});
-  rail.addEventListener('touchmove', e=>{ e.preventDefault(); moveTo(e.touches[0].clientY); }, {passive:false});
+  rail.addEventListener('touchstart', e=>{ e.preventDefault(); active=true; moveTo(e.touches[0].clientY); }, {passive:false});
+  rail.addEventListener('touchmove', e=>{ e.preventDefault(); if(active) moveTo(e.touches[0].clientY); }, {passive:false});
   rail.addEventListener('touchend', end);
-  // 마우스 (데스크탑 테스트용)
+  rail.addEventListener('touchcancel', end);
   let down=false;
-  rail.addEventListener('mousedown', e=>{ down=true; moveTo(e.clientY); });
+  rail.addEventListener('mousedown', e=>{ down=true; active=true; moveTo(e.clientY); });
   window.addEventListener('mousemove', e=>{ if(down) moveTo(e.clientY); });
   window.addEventListener('mouseup', ()=>{ if(down){down=false; end();} });
 }
