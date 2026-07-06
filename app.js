@@ -276,9 +276,9 @@ function attachRailDrag(){
       const dist = Math.abs(cy - clientY);
       const t = Math.max(0, 1 - dist/R);
       // 가파른 종형(지수) — 중심만 급격히 커짐
-      const ease = Math.pow(t, 2.2);
-      const scale = 1 + ease*2.3;                  // 최대 3.3배 (뾰족)
-      const shiftX = -ease*40;                     // 크게 튀어나옴
+      const ease = Math.pow(t, 2.0);
+      const scale = 1 + ease*3.0;                  // 최대 4.0배 (더 크게)
+      const shiftX = -ease*52;                     // 더 크게 튀어나옴
       s.style.transform = `translateX(${shiftX}px) scale(${scale})`;
       s.style.opacity = s.classList.contains('on') ? (0.55 + ease*0.45) : (0.22 + ease*0.6);
       s.style.zIndex = ease>0.5 ? 5 : '';
@@ -295,8 +295,13 @@ function attachRailDrag(){
     for(const s of spans){ const r=s.getBoundingClientRect(); const d=Math.abs((r.top+r.bottom)/2-clientY); if(d<bd){bd=d;best=s;} }
     return best;
   }
+  let fadeTimer = null;
   function moveTo(clientY){
     warp(clientY);
+    // 드래그 중: 리스트 살짝 흐리게 (영상처럼 비워지는 느낌)
+    const list = document.querySelector('.nia-list');
+    if(list){ list.style.transition='opacity .15s'; list.style.opacity='0.15'; }
+    clearTimeout(fadeTimer);
     const s = keyAt(clientY);
     if(!s) return;
     const key = s.textContent;
@@ -312,7 +317,12 @@ function attachRailDrag(){
       }
     }
   }
-  function end(){ active=false; lastKey=null; bubble.classList.remove('show'); reset(); }
+  function end(){
+    active=false; lastKey=null; bubble.classList.remove('show'); reset();
+    // 멈추면 리스트가 주르륵 나타남
+    const list = document.querySelector('.nia-list');
+    if(list){ list.style.transition='opacity .35s cubic-bezier(.22,1,.36,1)'; list.style.opacity='1'; }
+  }
 
   rail.addEventListener('touchstart', e=>{ e.preventDefault(); active=true; moveTo(e.touches[0].clientY); }, {passive:false});
   rail.addEventListener('touchmove', e=>{ e.preventDefault(); if(active) moveTo(e.touches[0].clientY); }, {passive:false});
