@@ -239,7 +239,7 @@ async function loadProfile(){
         html += `<button class="nia-item" style="animation-delay:${Math.min(gi*20,300)}ms"
           onclick="copyText('${l.deeplink}', this.querySelector('.nia-act'))">
           <div class="nia-body">
-            <div class="nia-name">${esc(l.product_name||'쿠팡 상품')} <span style="font-size:12px;opacity:.6">${CH_ICON[l.channel]||''}</span></div>
+            <div class="nia-name ${(!l.product_name||l.product_name==='쿠팡 상품'||l.product_name==='이 상품')?'noname':''}">${esc(l.product_name||'이름 없음')} <span style="font-size:12px;opacity:.6">${CH_ICON[l.channel]||''}</span></div>
             <div class="nia-sub">${timeAgo(l.created_at)} · ${l.deeplink.replace('https://link.coupang.com','쿠팡')}</div>
           </div>
           <div class="nia-act">복사</div>
@@ -253,7 +253,73 @@ async function loadProfile(){
       return `<span class="${has?'on':'off'}" ${has?`onclick="document.getElementById('g-${encodeURIComponent(k)}').scrollIntoView({behavior:'smooth',block:'start'})"`:''}>${k}</span>`;
     }).join('') + '</div>';
     box.innerHTML = `<div class="nia-wrap"><div class="nia-list">${html}</div>${rail}</div>`;
+    attachRailDrag();
   }catch(e){}
+}
+
+// ── 나이아가라 인덱스 드래그 스크롤 + 큰 글자 오버레이 ──
+function attachRailDrag(){
+  const rail = document.querySelector('.nia-rail');
+  if(!rail) return;
+  // 큰 글자 오버레이 요소
+  let bubble = document.getElementById('nia-bubble');
+  if(!bubble){
+    bubble = document.createElement('div');
+    bubble.id = 'nia-bubble';
+    bubble.className = 'nia-bubble';
+    document.body.appendChild(bubble);
+  }
+  const spans = [...rail.querySelectorAll('span')];
+  let lastKey = null;
+
+  function keyAt(clientY){
+    // 손가락 y위치에 해당하는 인덱스 글자 찾기
+    for(const s of spans){
+      const r = s.getBoundingClientRect();
+      if(clientY >= r.top && clientY <= r.bottom) return s;
+    }
+    // 범위 밖이면 가장 가까운 것
+    let best=null, bd=1e9;
+    for(const s of spans){ const r=s.getBoundingClientRect(); const d=Math.abs((r.top+r.bottom)/2-clientY); if(d<bd){bd=d;best=s;} }
+    return best;
+  }
+
+  function moveTo(clientY){
+    const s = keyAt(clientY);
+    if(!s) return;
+    const key = s.textContent;
+    if(key === lastKey) return;
+    lastKey = key;
+    // 큰 글자 표시
+    bubble.textContent = key;
+    bubble.classList.add('show');
+    bubble.classList.toggle('active', s.classList.contains('on'));
+    // 활성 글자면 그 그룹으로 스크롤
+    if(s.classList.contains('on')){
+      const target = document.getElementById('g-'+encodeURIComponent(key));
+      if(target) target.scrollIntoView({behavior:'auto', block:'start'});
+      if(navigator.vibrate) navigator.vibrate(5);
+    }
+    // 인덱스 하이라이트
+    spans.forEach(x=>x.classList.remove('cur'));
+    s.classList.add('cur');
+  }
+
+  function end(){
+    bubble.classList.remove('show');
+    lastKey = null;
+    spans.forEach(x=>x.classList.remove('cur'));
+  }
+
+  // 터치
+  rail.addEventListener('touchstart', e=>{ e.preventDefault(); moveTo(e.touches[0].clientY); }, {passive:false});
+  rail.addEventListener('touchmove', e=>{ e.preventDefault(); moveTo(e.touches[0].clientY); }, {passive:false});
+  rail.addEventListener('touchend', end);
+  // 마우스 (데스크탑 테스트용)
+  let down=false;
+  rail.addEventListener('mousedown', e=>{ down=true; moveTo(e.clientY); });
+  window.addEventListener('mousemove', e=>{ if(down) moveTo(e.clientY); });
+  window.addEventListener('mouseup', ()=>{ if(down){down=false; end();} });
 }
 function copyProfileUrl(btn){
   const t = document.getElementById('profileUrl').textContent;
