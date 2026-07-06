@@ -163,10 +163,17 @@ def generate():
 
     deeplink = items[0]["shortenUrl"]
 
+    # 상품명으로 파트너스 검색 → 정식명·가격·이미지 확보 (크롤 대체)
+    info = None
+    if product_name and product_name != "쿠팡 상품":
+        info = partners.search_product(product_name)
+        if info and info.get("name"):
+            product_name = info["name"]
+
     draft = None
     ok_d, _, _ = store.check_and_bump(user["id"], "draft", user["plan"])
     if ok_d:
-        draft = make_blog_draft(product_name, deeplink, tone, channel)
+        draft = make_blog_draft(product_name, deeplink, tone, channel, info)
 
     store.save_link(user["id"], url, deeplink, product_name, channel)
 
