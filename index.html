@@ -111,23 +111,22 @@
   .rec-item .nm{flex:1;font-size:13px;font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .rec-item .cp{color:var(--muted);cursor:pointer;font-size:12px;font-weight:600}
   .empty{font-size:13px;color:#B4BBC8;text-align:center;padding:24px 0}
-  /* ── 나이아가라 스타일 (미니멀 세로 리스트 + 우측 인덱스) ── */
-  .nia-wrap{position:relative;padding-right:26px;min-height:200px}
+  /* ── 나이아가라 (초성 인덱스 + 극미니멀) ── */
+  .nia-wrap{position:relative;padding-right:24px;min-height:200px}
   .nia-list{display:flex;flex-direction:column}
-  .nia-item{display:flex;align-items:center;gap:16px;padding:19px 2px;border:none;background:none;cursor:pointer;position:relative;width:100%;text-align:left;animation:niaIn .45s cubic-bezier(.22,1,.36,1) both}
+  .nia-item{display:flex;align-items:center;gap:12px;padding:16px 2px;border:none;background:none;cursor:pointer;position:relative;width:100%;text-align:left;animation:niaIn .4s cubic-bezier(.22,1,.36,1) both}
   @keyframes niaIn{from{opacity:0;transform:translateX(-10px)}to{opacity:1;transform:none}}
-  .nia-ic{width:22px;height:22px;display:grid;place-items:center;flex:0 0 auto;font-size:17px;opacity:.85}
   .nia-body{flex:1;min-width:0}
-  .nia-name{font-size:16.5px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.015em;line-height:1.3}
-  .nia-sub{font-size:11px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:.01em}
-  .nia-act{flex:0 0 auto;font-size:11.5px;font-weight:700;color:var(--mint);opacity:0;transition:opacity .2s}
+  .nia-name{font-size:17px;font-weight:600;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;letter-spacing:-.015em;line-height:1.3}
+  .nia-sub{font-size:11px;color:var(--muted);margin-top:3px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .nia-act{flex:0 0 auto;font-size:11.5px;font-weight:700;color:var(--mint);opacity:0;transition:opacity .2s;padding-right:2px}
   .nia-item:active .nia-act{opacity:1}
-  /* 우측 인덱스 레일 — 나이아가라의 상징. 항상 표시 */
-  .nia-rail{position:absolute;right:0;top:0;bottom:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:5px;user-select:none;padding:8px 3px}
-  .nia-rail span{font-size:10px;font-weight:700;color:var(--muted);line-height:1.2;cursor:pointer;transition:color .15s,transform .15s;opacity:.55}
-  .nia-rail span.on{color:var(--mint);opacity:1;transform:scale(1.35)}
-  .nia-glabel{font-size:10.5px;font-weight:800;color:var(--mint);letter-spacing:.1em;text-transform:uppercase;padding:20px 2px 6px}
-  .nia-glabel:first-child{padding-top:4px}
+  /* 우측 초성 인덱스 레일 — 세로로 길게, 나이아가라 상징 */
+  .nia-rail{position:fixed;right:6px;top:50%;transform:translateY(-50%);display:flex;flex-direction:column;align-items:center;gap:2px;user-select:none;z-index:30}
+  .nia-rail span{font-size:11px;font-weight:700;color:var(--muted);line-height:1.25;cursor:pointer;transition:color .12s,transform .12s;opacity:.5;width:16px;text-align:center}
+  .nia-rail span:active{color:var(--mint);opacity:1;transform:scale(1.5)}
+  .nia-glabel{font-size:12px;font-weight:800;color:var(--mint);letter-spacing:.05em;padding:16px 2px 4px}
+  .nia-glabel:first-child{padding-top:2px}
   .usage-row{margin-bottom:10px}
   .usage-row .top-lbl{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:4px}
   .bar{height:6px;background:var(--bg);border-radius:3px;overflow:hidden}
@@ -192,7 +191,7 @@
   <!-- 만들기 -->
   <div class="page on" id="page-make">
     <div class="hero">
-      <h1>상품 링크 붙여넣으면<br>수익 링크가 딸깍</h1>
+      <h1>상품 링크 붙여넣으면<br>간편 링크가 딸깍</h1>
       <div class="sub">쿠팡 상품 URL 하나면 끝. 블로그 글·고지문구까지 자동으로.</div>
       <div class="modeToggle" style="display:flex;gap:6px;margin-bottom:12px">
         <button class="mode on" data-mode="auto" onclick="setMode(this)">간편링크 자동생성</button>
@@ -203,7 +202,7 @@
         <input id="pname" placeholder="상품 이름 (선택 — 나중에 찾기 쉬워요)" style="border:none;background:none;box-shadow:none;padding:4px 12px 8px;font-size:13.5px;color:var(--text-2)">
         <div class="paste-row">
           <button class="btn-paste" onclick="pasteUrl()">📋 붙여넣기</button>
-          <button class="btn-go" id="go" onclick="generate()"><span class="lbl">내 수익 링크 만들기</span></button>
+          <button class="btn-go" id="go" onclick="generate()"><span class="lbl">내 간편 링크 만들기</span></button>
         </div>
       </div>
     </div>

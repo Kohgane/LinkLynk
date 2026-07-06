@@ -29,6 +29,28 @@ class CoupangPartners:
         sig = hmac.new(self.secret.encode(), msg.encode(), hashlib.sha256).hexdigest()
         return f"CEA algorithm=HmacSHA256, access-key={self.access}, signed-date={dt}, signature={sig}"
 
+    def search_product(self, keyword, limit=1):
+        """파트너스 상품검색 API — 상품명/가격/이미지 반환 (크롤 대체)."""
+        import urllib.parse
+        q = f"keyword={urllib.parse.quote(keyword)}&limit={limit}"
+        path = "/v2/providers/affiliate_open_api/apis/openapi/products/search"
+        dt = time.strftime('%y%m%dT%H%M%SZ', time.gmtime())
+        sig = hmac.new(self.secret.encode(), (dt+"GET"+path+q).encode(), hashlib.sha256).hexdigest()
+        auth = f"CEA algorithm=HmacSHA256, access-key={self.access}, signed-date={dt}, signature={sig}"
+        req = urllib.request.Request(COUPANG_DOMAIN+path+"?"+q,
+            headers={"Authorization": auth, "Content-Type": "application/json"}, method="GET")
+        try:
+            res = json.loads(urllib.request.urlopen(req, context=_ctx, timeout=15).read())
+        except Exception:
+            return None
+        if res.get("rCode") != "0":
+            return None
+        pd = (res.get("data") or {}).get("productData") or []
+        if not pd:
+            return None
+        p = pd[0]
+        return {"name": p.get("productName"), "price": p.get("productPrice"), "image": p.get("productImage")}
+
     def make_deeplinks(self, coupang_urls, sub_id="linklynk"):
         """
         쿠팡 URL 리스트 → 수익 딥링크 변환.
@@ -86,7 +108,7 @@ def append_disclosure(text: str) -> str:
     return text.rstrip() + "\n\n---\n" + COUPANG_DISCLOSURE
 
 
-def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", channel: str = "blog") -> str:
+def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", channel: str = "blog", info: dict = None) -> str:
     """채널별 맞춤 초안. 블로그=길게, SNS(쓰레드/X/인스타)=짧게."""
     # 짧은 SNS 채널
     if channel in ("x", "threads"):
@@ -125,4 +147,13 @@ def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", ch
         ),
     }
     body = templates.get(tone, templates["friendly"]).format(name=product_name, link=deeplink)
+    # 파트너스 검색으로 얻은 가격/이미지가 있으면 블로그 초안에 삽입
+    if info and channel in ("blog", "youtube"):
+        extra = ""
+        if info.get("image"):
+            extra += f"\n[상품 이미지]\n{info['image']}\n"
+        if info.get("price"):
+            extra += f"\n가격: {int(info['price']):,}원 (변동될 수 있어요)\n"
+        if extra:
+            body = body.rstrip() + "\n" + extra
     return append_disclosure(body)

@@ -128,7 +128,7 @@ function setMode(el){
     document.querySelector('#go .lbl').textContent = "블로그 글 만들기";
   }else{
     ta.placeholder = "쿠팡 상품 페이지 주소 붙여넣기\n예: coupang.com/vp/products/...";
-    document.querySelector('#go .lbl').textContent = "내 수익 링크 만들기";
+    document.querySelector('#go .lbl').textContent = "내 간편 링크 만들기";
   }
 }
 
@@ -169,7 +169,7 @@ function renderResult(d){
   document.getElementById('result').innerHTML = `
     <div class="result">
       <div class="card">
-        <div class="card-lbl">내 수익 링크</div>
+        <div class="card-lbl">내 간편 링크</div>
         <div class="linkline"><div class="url">${link}</div>
           <button class="btn-copy" onclick="copyText('${link}', this)">복사</button></div>
       </div>
@@ -208,40 +208,47 @@ function timeAgo(ts){
   return Math.floor(s/604800)+'주 전';
 }
 const CH_ICON = {blog:'📝', insta:'📷', threads:'🧵', x:'𝕏', youtube:'▶️', etc:'🔗'};
+function getChosung(str){
+  const CHO = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
+  const c = (str||'').trim().charCodeAt(0);
+  if(c >= 0xAC00 && c <= 0xD7A3){ return CHO[Math.floor((c-0xAC00)/588)]; }
+  if(c >= 65 && c <= 90) return String.fromCharCode(c);      // A-Z
+  if(c >= 97 && c <= 122) return String.fromCharCode(c-32);  // a-z→대문자
+  if(c >= 48 && c <= 57) return '#';                          // 숫자
+  return '#';
+}
 async function loadProfile(){
   try{
     const d = await (await fetch('/api/my-links')).json();
     const box = document.getElementById('profileLinks');
     if(!d.ok || !d.links.length){ box.innerHTML = `<div class="empty">링크를 만들면 여기에 모여요</div>`; return; }
-    const CH_NAME = {blog:'블로그', insta:'인스타', threads:'쓰레드', x:'X', youtube:'유튜브', etc:'기타'};
-    // 채널별 그룹핑 (나이아가라: 그룹 + 우측 인덱스)
+    // 상품명 초성으로 정렬 + 그룹핑 (나이아가라 A-Z 방식의 한글판)
+    const sorted = [...d.links].sort((a,b)=>(a.product_name||'').localeCompare(b.product_name||'','ko'));
     const groups = {};
-    d.links.forEach(l=>{ const c=l.channel||'etc'; (groups[c]=groups[c]||[]).push(l); });
-    const order = ['blog','insta','threads','x','youtube','etc'].filter(c=>groups[c]);
+    sorted.forEach(l=>{ const k=getChosung(l.product_name||'쿠팡'); (groups[k]=groups[k]||[]).push(l); });
+    const keys = Object.keys(groups);
     let html = '', gi = 0;
-    order.forEach(c=>{
-      html += `<div class="nia-glabel" id="g-${c}">${CH_NAME[c]||c}</div>`;
-      groups[c].forEach((l)=>{
-        html += `<button class="nia-item" style="animation-delay:${Math.min(gi*30,400)}ms"
+    keys.forEach(k=>{
+      html += `<div class="nia-glabel" id="g-${encodeURIComponent(k)}">${k}</div>`;
+      groups[k].forEach(l=>{
+        html += `<button class="nia-item" style="animation-delay:${Math.min(gi*25,350)}ms"
           onclick="copyText('${l.deeplink}', this.querySelector('.nia-act'))">
-          <div class="nia-ic">${CH_ICON[c]||'🔗'}</div>
           <div class="nia-body">
             <div class="nia-name">${esc(l.product_name||'쿠팡 상품')}</div>
-            <div class="nia-sub">${timeAgo(l.created_at)} · ${l.deeplink.replace('https://link.coupang.com','쿠팡')}</div>
+            <div class="nia-sub">${CH_ICON[l.channel]||'🔗'} ${timeAgo(l.created_at)} · ${l.deeplink.replace('https://link.coupang.com','쿠팡')}</div>
           </div>
           <div class="nia-act">복사</div>
         </button>`;
         gi++;
       });
     });
-    // 우측 인덱스 레일 (채널 이니셜) — 항상 표시
-    const rail = '<div class="nia-rail">' + order.map(c=>
-      `<span data-g="${c}" onclick="document.getElementById('g-${c}').scrollIntoView({behavior:'smooth',block:'start'})">${(CH_NAME[c]||c)[0]}</span>`
+    // 우측 초성 인덱스 (나이아가라 상징)
+    const rail = '<div class="nia-rail">' + keys.map(k=>
+      `<span onclick="document.getElementById('g-${encodeURIComponent(k)}').scrollIntoView({behavior:'smooth',block:'start'})">${k}</span>`
     ).join('') + '</div>';
     box.innerHTML = `<div class="nia-wrap"><div class="nia-list">${html}</div>${rail}</div>`;
   }catch(e){}
 }
-
 function copyProfileUrl(btn){
   const t = document.getElementById('profileUrl').textContent;
   copyText(t, btn);
