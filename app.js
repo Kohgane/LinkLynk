@@ -280,21 +280,24 @@ function attachRailDrag(){
 
   // 곡선 렌더. settle(멈춤)이면 정점 크게, 이동중이면 작게 (영상: 움직일땐 15px, 멈추면 37px)
   function render(y, big){
-    const peakScale = big ? 3.4 : 1.7;   // 멈추면 3.4배, 이동중 1.7배
-    const peakShift = big ? 120 : 60;
+    // 목표 나이아가라: 곡선 넓게(여러글자 참여), 정점은 멈출때만 폭발
+    const peakScale = big ? 3.0 : 1.9;   // 멈추면 3배, 이동중 1.9배
+    const sigmaWide = 34;                 // 넓은 곡선(여러 글자 완만히)
+    const sigmaPeak = 16;                 // 정점 뾰족
     spans.forEach(s=>{
       const r = s.getBoundingClientRect();
       const cy = (r.top + r.bottom)/2;
       const dist = Math.abs(cy - y);
-      // 가우시안 시그마 22 — 완만하면서 중심 뾰족
-      const g = Math.exp(-(dist*dist)/(2*22*22));
-      const scale = 1 + g*(peakScale-1);
-      const shiftX = -g*peakShift;
+      // 넓은 활(곡선폭) + 정점 뾰족 이중 가우시안
+      const gWide = Math.exp(-(dist*dist)/(2*sigmaWide*sigmaWide));  // 완만한 활
+      const gPeak = Math.exp(-(dist*dist)/(2*sigmaPeak*sigmaPeak));  // 뾰족 정점
+      const scale = 1 + gPeak*(peakScale-1);
+      const shiftX = -gWide*55 - gPeak*30;   // 넓은활 72 + 정점추가 40 = 곡선폭 크게
       s.style.transform = `translate3d(${shiftX}px,0,0) scale(${scale})`;
       const on = s.classList.contains('on');
-      s.style.opacity = on ? (0.78 + g*0.22) : (0.24 + g*0.55);
-      s.style.color = (g>0.3 && on) ? 'var(--mint-bright)' : (g>0.3 ? 'var(--text)' : '');
-      s.style.zIndex = g>0.4 ? 6 : '';
+      s.style.opacity = on ? (0.78 + gPeak*0.22) : (0.26 + gPeak*0.5);
+      s.style.color = (gPeak>0.3 && on) ? 'var(--mint-bright)' : (gPeak>0.3 ? 'var(--text)' : '');
+      s.style.zIndex = gPeak>0.4 ? 6 : '';
     });
   }
   function reset(){ spans.forEach(s=>{ s.style.transform=''; s.style.opacity=''; s.style.color=''; s.style.zIndex=''; }); }
