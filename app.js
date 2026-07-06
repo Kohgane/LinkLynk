@@ -268,18 +268,19 @@ function attachRailDrag(){
 
   // 손가락 y위치 기준으로 각 글자를 곡선(물결) 변형
   function warp(clientY){
-    const R = 90; // 영향 반경(px)
+    const R = 150; // 영향 반경(px) — 넓게, 부드럽게
     spans.forEach(s=>{
       const r = s.getBoundingClientRect();
       const cy = (r.top + r.bottom)/2;
       const dist = Math.abs(cy - clientY);
-      const t = Math.max(0, 1 - dist/R);          // 0~1 (가까울수록 1)
-      const ease = t*t*(3-2*t);                    // smoothstep
-      const scale = 1 + ease*1.4;                  // 최대 2.4배
-      const shiftX = -ease*22;                     // 왼쪽(바깥)으로 튀어나옴
+      const t = Math.max(0, 1 - dist/R);           // 0~1 (가까울수록 1)
+      // 코사인 종형 곡선 — 물결처럼 완만하고 부드럽게
+      const ease = t <= 0 ? 0 : (1 - Math.cos(t * Math.PI)) / 2;
+      const scale = 1 + ease*1.9;                  // 최대 2.9배 — 크게크게
+      const shiftX = -ease*34;                     // 더 튀어나옴
       s.style.transform = `translateX(${shiftX}px) scale(${scale})`;
-      s.style.opacity = s.classList.contains('on') ? (0.6 + ease*0.4) : (0.22 + ease*0.5);
-      if(ease>0.5 && s.classList.contains('on')) s.style.color='var(--mint-bright)';
+      s.style.opacity = s.classList.contains('on') ? (0.55 + ease*0.45) : (0.2 + ease*0.6);
+      if(ease>0.4 && s.classList.contains('on')) s.style.color='var(--mint-bright)';
       else s.style.color='';
     });
   }
