@@ -255,7 +255,7 @@ async function loadProfile(){
       const has = !!groups[k];
       return `<span class="${has?'on':'off'}" ${has?`onclick="document.getElementById('g-${encodeURIComponent(k)}').scrollIntoView({behavior:'smooth',block:'start'})"`:''}>${k}</span>`;
     }).join('') + '</div>';
-    box.innerHTML = `<div class="nia-wrap"><div class="nia-list idle">${html}</div></div>`;
+    box.innerHTML = `<div class="nia-wrap"><div class="nia-list">${html}</div></div>`;
     // 레일은 body 직속에 (page transform 영향 안 받게)
     let railEl = document.getElementById('nia-rail-fixed');
     if(railEl) railEl.remove();
@@ -273,72 +273,113 @@ function attachRailDrag(){
   if(!rail) return;
   const spans = [...rail.querySelectorAll('span')];
   const list = document.querySelector('.nia-list');
-  let active=false, lastKey=null, rafId=null, targetY=0;
+  let active=false, lastKey=null, rafId=null;
+  let targetY=0, smoothY=0;
+  let lastMoveT=0, velocity=0, lastRawY=0;   // 속도 추적
+  let settleTimer=null, settled=false;       // 멈춤 감지
 
-  // 영상 실측: 손가락 글자만 44px(3.4배) 팝 + 왼쪽 31px 돌출, 옆글자는 거의 평평
-  // 나이아가라 원리: 절대위치(손가락y=그글자), 글자마다 햅틱, 부드러운 스프링
-  function render(clientY){
+  // 곡선 렌더. settle(멈춤)이면 정점 크게, 이동중이면 작게 (영상: 움직일땐 15px, 멈추면 37px)
+  function render(y, big){
+    const peakScale = big ? 3.4 : 1.7;   // 멈추면 3.4배, 이동중 1.7배
+    const peakShift = big ? 120 : 60;
     spans.forEach(s=>{
       const r = s.getBoundingClientRect();
       const cy = (r.top + r.bottom)/2;
-      const dist = Math.abs(cy - clientY);
-      // 아주 좁은 반경(28px≈글자 1.5개) → 손가락 글자만 반응, 옆은 급감
-      // 가우시안 종형 — 중심만 뾰족, 넓게 퍼지게(시그마 크게)
-      const g = Math.exp(-(dist*dist)/(2*26*26));
-      const scale = 1 + g*3.0;              // 최대 4.0배
-      const shiftX = -g*120;                // 중앙 쪽으로 크게 돌출
-      s.style.transform = `translateX(${shiftX}px) scale(${scale})`;
+      const dist = Math.abs(cy - y);
+      // 가우시안 시그마 22 — 완만하면서 중심 뾰족
+      const g = Math.exp(-(dist*dist)/(2*22*22));
+      const scale = 1 + g*(peakScale-1);
+      const shiftX = -g*peakShift;
+      s.style.transform = `translate3d(${shiftX}px,0,0) scale(${scale})`;
       const on = s.classList.contains('on');
-      s.style.opacity = on ? (0.75 + g*0.25) : (0.24 + g*0.5);
-      s.style.color = (g>0.35 && on) ? 'var(--mint-bright)' : (g>0.35 ? 'var(--text)' : '');
+      s.style.opacity = on ? (0.78 + g*0.22) : (0.24 + g*0.55);
+      s.style.color = (g>0.3 && on) ? 'var(--mint-bright)' : (g>0.3 ? 'var(--text)' : '');
       s.style.zIndex = g>0.4 ? 6 : '';
     });
   }
   function reset(){ spans.forEach(s=>{ s.style.transform=''; s.style.opacity=''; s.style.color=''; s.style.zIndex=''; }); }
 
-  function nearest(clientY){
+  function nearest(y){
     let best=null,bd=1e9;
-    for(const s of spans){ const r=s.getBoundingClientRect(); const d=Math.abs((r.top+r.bottom)/2-clientY); if(d<bd){bd=d;best=s;} }
+    for(const s of spans){ const r=s.getBoundingClientRect(); const d=Math.abs((r.top+r.bottom)/2-y); if(d<bd){bd=d;best=s;} }
     return best;
   }
-  // 부드러운 프레임 루프 (스프링 느낌)
-  function loop(){
-    render(targetY);
-    if(active) rafId=requestAnimationFrame(loop);
+
+  // 리스트 페이드 (영상: 빠르게 이동중=숨김, 멈춤/느림=나타남)
+  let listShown = null;
+  function showList(show){
+    if(!list || listShown===show) return;
+    listShown = show;
+    list.classList.remove('idle');   // idle 클래스 제거 (opacity 직접 제어)
+    list.style.transition = 'opacity .22s cubic-bezier(.22,1,.36,1)';
+    list.style.opacity = show ? '1' : '0';
   }
+
+  // 60fps 보간 — 부드럽게 추격 (lerp 0.22로 더 완만하게)
+  function loop(){
+    smoothY += (targetY - smoothY) * 0.22;
+    if(Math.abs(targetY - smoothY) < 0.4) smoothY = targetY;
+    render(smoothY, settled && Math.abs(velocity)<0.4);
+    if(active || Math.abs(targetY-smoothY) > 0.4) rafId=requestAnimationFrame(loop);
+    else rafId=null;
+  }
+
   function moveTo(clientY){
+    // 속도 계산
+    const now = performance.now();
+    const dt = now - lastMoveT;
+    if(dt>0){ velocity = (clientY - lastRawY) / dt; }
+    lastRawY = clientY; lastMoveT = now;
+
     targetY = clientY;
-    if(!rafId) loop();
+    if(!rafId){ smoothY = clientY; rafId=requestAnimationFrame(loop); }
+
+    // 빠르게 이동중이면 리스트 숨김
+    const speed = Math.abs(velocity);
+    if(speed > 0.35){ showList(false); }
+
+    // 멈춤 감지: 일정시간 움직임 없으면 settled=true → 정점 커지고 리스트 나타남
+    settled = false;
+    clearTimeout(settleTimer);
+    settleTimer = setTimeout(()=>{
+      settled = true;
+      const s = nearest(smoothY);
+      if(s && s.classList.contains('on')){
+        const target = document.getElementById('g-'+encodeURIComponent(s.textContent));
+        if(target) target.scrollIntoView({behavior:'smooth', block:'center'});
+        showList(true);
+      }
+    }, 90);
+
     const s = nearest(clientY);
     if(!s) return;
     const key = s.textContent;
     if(key!==lastKey){
       lastKey = key;
       const on = s.classList.contains('on');
-      // 나이아가라: 글자마다 햅틱 범프 (지퍼 느낌)
-      if(navigator.vibrate) navigator.vibrate(on?7:3);
-      if(on){
-        if(list) list.classList.remove('idle');
+      if(navigator.vibrate) navigator.vibrate(on?6:2);
+      if(on && speed < 0.35){
         const target = document.getElementById('g-'+encodeURIComponent(key));
-        if(target) target.scrollIntoView({behavior:'smooth', block:'center'});
-      } else {
-        if(list) list.classList.add('idle');   // 빈 초성 → 왼쪽 텅빔
+        if(target){ target.scrollIntoView({behavior:'auto', block:'center'}); showList(true); }
+      } else if(!on){
+        showList(false);
       }
     }
   }
   function end(){
-    active=false; lastKey=null;
-    if(rafId){ cancelAnimationFrame(rafId); rafId=null; }
+    active=false; lastKey=null; settled=false;
+    clearTimeout(settleTimer);
     reset();
-    if(list) list.classList.remove('idle');    // 손 떼면 마지막 리스트 유지
+    showList(true);
+    if(list){ list.classList.remove('idle'); list.style.opacity=''; }
   }
 
-  rail.addEventListener('touchstart', e=>{ e.preventDefault(); active=true; moveTo(e.touches[0].clientY); }, {passive:false});
+  rail.addEventListener('touchstart', e=>{ e.preventDefault(); active=true; lastRawY=e.touches[0].clientY; lastMoveT=performance.now(); moveTo(e.touches[0].clientY); }, {passive:false});
   rail.addEventListener('touchmove',  e=>{ e.preventDefault(); if(active) moveTo(e.touches[0].clientY); }, {passive:false});
   rail.addEventListener('touchend', end);
   rail.addEventListener('touchcancel', end);
   let down=false;
-  rail.addEventListener('mousedown', e=>{ down=true; active=true; moveTo(e.clientY); });
+  rail.addEventListener('mousedown', e=>{ down=true; active=true; lastRawY=e.clientY; lastMoveT=performance.now(); moveTo(e.clientY); });
   window.addEventListener('mousemove', e=>{ if(down) moveTo(e.clientY); });
   window.addEventListener('mouseup', ()=>{ if(down){down=false; end();} });
 }
