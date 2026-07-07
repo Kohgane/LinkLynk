@@ -24,8 +24,9 @@ app.config.update(
     SESSION_REFRESH_EACH_REQUEST=True,  # 매 요청마다 만료 갱신
 )
 
-FALLBACK_ACCESS = os.environ.get("COUPANG_PT_ACCESS", "39659f61-3eaa-4d1a-8195-82c8d37136cf")
-FALLBACK_SECRET = os.environ.get("COUPANG_PT_SECRET", "cc9a76dd51b73fbf1c09d50fa46ac137ecaba435")
+# 폴백 키 비활성화: 개인 파트너스 키로만 API 호출 (공용 키 과다호출 방지)
+FALLBACK_ACCESS = os.environ.get("COUPANG_PT_ACCESS", "")
+FALLBACK_SECRET = os.environ.get("COUPANG_PT_SECRET", "")
 
 store.init_db()
 
@@ -221,16 +222,8 @@ def generate_manual():
     if "coupang" not in deeplink:
         return jsonify({"ok": False, "error": "쿠팡 파트너스 링크를 붙여넣어 주세요 (link.coupang.com/...)"}), 400
     user = store.get_user(session["uid"])
-    # 상품검색은 딥링크 생성이 아니므로 폴백 키로 정보만 조회 (이미지·가격·정식명)
+    # 유형B(직접 붙여넣기)는 본인 키가 없으므로 상품검색 안 함 (폴백 키 API 호출 금지)
     info = None
-    if product_name and product_name != "쿠팡 상품":
-        try:
-            searcher = CoupangPartners(FALLBACK_ACCESS, FALLBACK_SECRET)
-            info = searcher.search_product(product_name)
-            if info and info.get("name"):
-                product_name = info["name"]
-        except Exception:
-            info = None
     draft = None
     ok_d, _, _ = store.check_and_bump(user["id"], "draft", user["plan"])
     if ok_d:
