@@ -453,9 +453,34 @@ function attachRailDrag(){
   function end(){
     active=false; lastKey=null; settled=false;
     clearTimeout(settleTimer);
-    reset();
-    // 손 떼면: 초성을 골랐으면 그 그룹 유지, 안 골랐으면 전체 표시
+    if(rafId){ cancelAnimationFrame(rafId); rafId=null; }
+    // 손 떼면 곡선이 부드럽게 풀리며 초성들이 일렬로 정렬
+    let ease = 1;
+    const releaseY = smoothY;
+    (function relax(){
+      ease *= 0.82;                       // 매 프레임 82%로 감쇠 → 부드럽게 0으로
+      if(ease < 0.03){ reset(); return; }
+      renderDamped(releaseY, ease);       // 곡선 크기를 ease배로 줄여가며 렌더
+      requestAnimationFrame(relax);
+    })();
     if(list){ list.classList.remove('idle'); list.style.opacity=''; }
+  }
+  // 풀림 전용 렌더 (기존 곡선을 ease배 축소)
+  function renderDamped(y, ease){
+    const sigmaWide=78, sigmaPeak=22;
+    spans.forEach(s=>{
+      const r=s.getBoundingClientRect();
+      const cy=(r.top+r.bottom)/2;
+      const dist=Math.abs(cy-y);
+      const gWide=Math.exp(-(dist*dist)/(2*sigmaWide*sigmaWide))*ease;
+      const gPeak=Math.exp(-(dist*dist)/(2*sigmaPeak*sigmaPeak))*ease;
+      const scale=1+gPeak*2.0;
+      const shiftX=-gWide*185 - gPeak*35;
+      s.style.transform=`translate3d(${shiftX}px,0,0) scale(${scale})`;
+      const on=s.classList.contains('on');
+      s.style.opacity = on ? (0.78 + gPeak*0.22) : (0.28 + gWide*0.4 + gPeak*0.3);
+      if(gPeak<0.1) s.style.color='';
+    });
   }
 
   // Pointer Events로 통합 — iOS/안드로이드/데스크탑 모두 동일 작동
