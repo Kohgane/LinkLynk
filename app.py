@@ -246,6 +246,27 @@ def my_links():
     return jsonify({"ok": True, "links": store.get_user_links(session["uid"])})
 
 
+@app.route("/r/<int:link_id>")
+def redirect_link(link_id):
+    """클릭 트래킹: 카운트 올리고 쿠팡으로 리디렉트."""
+    from flask import redirect
+    l = store.get_link(link_id)
+    if not l or not l.get("deeplink"):
+        return "링크를 찾을 수 없습니다", 404
+    try:
+        store.bump_click(link_id)
+    except Exception:
+        pass
+    return redirect(l["deeplink"], code=302)
+
+
+@app.route("/api/stats")
+@login_required
+def api_stats():
+    s = store.get_click_stats(session["uid"])
+    return jsonify({"ok": True, **s})
+
+
 @app.route("/u/<handle>")
 def public_profile(handle):
     u = store.get_user_by_handle(handle)
@@ -258,7 +279,7 @@ def public_profile(handle):
     CH_ICON = {"blog": "📝", "insta": "📷", "threads": "🧵", "x": "𝕏", "youtube": "▶️", "etc": "🔗"}
     if links:
         items = "".join(
-            f'''<a class="lk" href="{l["deeplink"]}" target="_blank" rel="nofollow sponsored">
+            f'''<a class="lk" href="/r/{l["id"]}" target="_blank" rel="nofollow sponsored">
 <span class="lk-ic">{CH_ICON.get(l["channel"], "🔗")}</span>
 <span class="lk-name">{l["product_name"] or "쿠팡 상품"}</span>
 <span class="lk-arrow">→</span></a>'''

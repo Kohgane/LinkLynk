@@ -113,6 +113,21 @@ def get_user_links(uid, profile_only=False):
     q="SELECT * FROM linklynk_links WHERE user_id=%s"+(" AND on_profile=1" if profile_only else "")+" ORDER BY position ASC, created_at DESC"
     rows=_q(q,(uid,),fetch="all"); return [dict(r) for r in rows] if rows else []
 
+def get_link(link_id):
+    row=_q("SELECT * FROM linklynk_links WHERE id=%s",(link_id,),fetch="one")
+    return dict(row) if row else None
+
+def bump_click(link_id):
+    _q("UPDATE linklynk_links SET clicks=COALESCE(clicks,0)+1 WHERE id=%s",(link_id,))
+
+def get_click_stats(uid):
+    """유저의 총 클릭 + 링크별 클릭 (상위)."""
+    total=_q("SELECT COALESCE(SUM(clicks),0) AS t FROM linklynk_links WHERE user_id=%s",(uid,),fetch="one")
+    top=_q("SELECT product_name, channel, COALESCE(clicks,0) AS clicks FROM linklynk_links "
+           "WHERE user_id=%s ORDER BY clicks DESC, created_at DESC LIMIT 10",(uid,),fetch="all")
+    return {"total_clicks": (total["t"] if total else 0),
+            "top": [dict(r) for r in top] if top else []}
+
 if __name__=="__main__":
     if not DATABASE_URL: print("DATABASE_URL 설정 필요")
     else: init_db(); print("테이블 초기화 완료")

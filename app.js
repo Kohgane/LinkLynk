@@ -115,7 +115,8 @@ function go(page){
   const railEl = document.getElementById('nia-rail-fixed');
   if(railEl) railEl.style.display = (page==='profile') ? 'block' : 'none';
   if(page==='profile') loadProfile();
-  if(page==='stats' || page==='settings'){ refreshMe(); }
+  if(page==='stats'){ refreshMe(); loadStats(); }
+  else if(page==='settings'){ refreshMe(); }
 }
 async function refreshMe(){
   try{ const me = await (await fetch('/api/me')).json(); if(me.ok){ window.__me=me; renderUsage(me); renderKeyStatus(me); renderHandle(me);} }catch(e){}
@@ -459,6 +460,26 @@ function copyProfileUrl(btn){
 }
 
 // ── 통계/사용량 ──
+async function loadStats(){
+  try{
+    const d = await (await fetch('/api/stats')).json();
+    if(!d.ok) return;
+    const el = document.getElementById('totalClicks');
+    if(el) el.textContent = (d.total_clicks||0).toLocaleString();
+    const CH = {blog:'📝',insta:'📷',threads:'🧵',x:'𝕏',youtube:'▶️',etc:'🔗'};
+    const box = document.getElementById('topLinks');
+    if(box){
+      const withClicks = (d.top||[]).filter(t=>t.clicks>0);
+      if(!withClicks.length){
+        box.innerHTML = '<div style="text-align:center;color:var(--muted);font-size:13px;padding:16px 0">아직 클릭이 없어요. 프로필 주소를 인스타에 걸어보세요!</div>';
+      } else {
+        box.innerHTML = '<div style="font-size:12px;color:var(--text-2);font-weight:700;margin:16px 0 6px">가장 많이 클릭된 링크</div>' +
+          withClicks.map(t=>`<div class="top-link"><span class="tl-ic">${CH[t.channel]||'🔗'}</span><span class="tl-name">${esc(t.product_name||'쿠팡 상품')}</span><span class="tl-clicks">${t.clicks}</span></div>`).join('');
+      }
+    }
+  }catch(e){}
+}
+
 function renderUsage(me){
   const u = me.usage||{link_count:0,draft_count:0};
   const lim = me.limits||{link:30,draft:5};

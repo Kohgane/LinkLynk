@@ -1,4 +1,4 @@
-const CACHE = 'linklynk-v1783415594';
+const CACHE = 'linklynk-v1783415766';
 // HTML/JS는 절대 캐시 안 함 (항상 최신). 이미지/아이콘만 캐시.
 self.addEventListener('install', e => self.skipWaiting());
 self.addEventListener('activate', e => {

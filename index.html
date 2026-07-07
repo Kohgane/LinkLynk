@@ -120,6 +120,13 @@
   .kp-body{font-size:12.5px;color:var(--text-2);line-height:1.6;margin-bottom:14px}
   .kp-btns{display:flex;gap:8px}
   .kp-btns .btn{flex:1;font-size:13px;padding:11px}
+  .stat-hero{background:linear-gradient(135deg,var(--surface-2),var(--surface-1));border:1px solid var(--mint-deep);border-radius:18px;padding:26px;text-align:center;margin-bottom:16px}
+  .stat-big{font-size:44px;font-weight:800;color:var(--mint-bright);letter-spacing:-.02em;line-height:1}
+  .stat-lbl{font-size:12px;color:var(--text-2);margin-top:8px;font-weight:600}
+  .top-link{display:flex;align-items:center;gap:10px;padding:13px 14px;background:var(--surface-1);border:1px solid var(--line);border-radius:12px;margin:8px 0}
+  .top-link .tl-name{flex:1;font-size:14px;font-weight:600;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .top-link .tl-clicks{font-size:14px;font-weight:800;color:var(--mint)}
+  .top-link .tl-ic{font-size:16px}
   .nia-wrap{padding-right:24px;min-height:200px}
   .nia-list{display:flex;flex-direction:column;transition:opacity .4s cubic-bezier(.22,1,.36,1)}
   .nia-list.idle{opacity:0;pointer-events:none}
@@ -251,7 +258,13 @@
   <!-- 통계 -->
   <div class="page" id="page-stats">
     <div class="sec">
-      <h2>이번 달 사용량</h2>
+      <h2>내 링크 성과</h2>
+      <div class="stat-hero" id="clickHero">
+        <div class="stat-big" id="totalClicks">–</div>
+        <div class="stat-lbl">총 클릭 수</div>
+      </div>
+      <div id="topLinks"></div>
+      <h2 style="margin-top:28px">이번 달 사용량</h2>
       <div class="card" id="usageCard"></div>
     </div>
   </div>
@@ -299,6 +312,6 @@
   </div>
 </div>
 
-<script src="/app.js?v=1783415594"></script>
+<script src="/app.js?v=1783415766"></script>
 </body>
 </html>
