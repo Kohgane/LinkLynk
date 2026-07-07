@@ -381,9 +381,34 @@ function attachRailDrag(){
   function showList(show){
     if(!list || listShown===show) return;
     listShown = show;
-    list.classList.remove('idle');   // idle 클래스 제거 (opacity 직접 제어)
+    list.classList.remove('idle');
     list.style.transition = 'opacity .22s cubic-bezier(.22,1,.36,1)';
     list.style.opacity = show ? '1' : '0';
+  }
+
+  // 나이아가라: 드래그한 초성 그룹만 보이게, 나머지는 숨김
+  let shownGroup = undefined;
+  function showGroup(key){
+    if(!list || shownGroup===key) return;
+    shownGroup = key;
+    const labels = list.querySelectorAll('.nia-glabel');
+    const items = list.querySelectorAll('.nia-item');
+    if(key===null){
+      // 아무 그룹도 표시 안 함
+      labels.forEach(el=>el.style.display='none');
+      items.forEach(el=>el.style.display='none');
+      return;
+    }
+    // 해당 초성 그룹만 표시
+    let show=false;
+    [...list.children].forEach(el=>{
+      if(el.classList.contains('nia-glabel')){
+        show = (el.id === 'g-'+encodeURIComponent(key));
+        el.style.display = show ? '' : 'none';
+      } else if(el.classList.contains('nia-item')){
+        el.style.display = show ? '' : 'none';
+      }
+    });
   }
 
   // 60fps 보간 — 적응형(멀면 빠르게 따라가고, 가까우면 부드럽게 안착)
@@ -408,22 +433,12 @@ function attachRailDrag(){
     targetY = clientY;
     if(!rafId){ smoothY = clientY; rafId=requestAnimationFrame(loop); }
 
-    // 빠르게 이동중이면 리스트 숨김
     const speed = Math.abs(velocity);
-    if(speed > 0.35){ showList(false); }
 
-    // 멈춤 감지: 일정시간 움직임 없으면 settled=true → 정점 커지고 리스트 나타남
+    // 멈춤 감지: 정지하면 정점 커짐 (그룹 표시는 아래 moveTo에서 즉시)
     settled = false;
     clearTimeout(settleTimer);
-    settleTimer = setTimeout(()=>{
-      settled = true;
-      const s = nearest(smoothY);
-      if(s && s.classList.contains('on')){
-        const target = document.getElementById('g-'+encodeURIComponent(s.textContent));
-        if(target) target.scrollIntoView({behavior:'smooth', block:'center'});
-        showList(true);
-      }
-    }, 55);
+    settleTimer = setTimeout(()=>{ settled = true; }, 55);
 
     const s = nearest(clientY);
     if(!s) return;
@@ -432,30 +447,37 @@ function attachRailDrag(){
       lastKey = key;
       const on = s.classList.contains('on');
       if(navigator.vibrate) navigator.vibrate(on?6:2);
-      if(on && speed < 0.35){
-        const target = document.getElementById('g-'+encodeURIComponent(key));
-        if(target){ target.scrollIntoView({behavior:'auto', block:'center'}); showList(true); }
-      } else if(!on){
-        showList(false);
-      }
+      showGroup(on ? key : null);   // 활성 초성 그룹만 보이게 (나이아가라식)
     }
   }
   function end(){
     active=false; lastKey=null; settled=false;
     clearTimeout(settleTimer);
     reset();
-    showList(true);
+    // 손 떼면: 초성을 골랐으면 그 그룹 유지, 안 골랐으면 전체 표시
     if(list){ list.classList.remove('idle'); list.style.opacity=''; }
   }
 
-  rail.addEventListener('touchstart', e=>{ e.preventDefault(); active=true; lastRawY=e.touches[0].clientY; lastMoveT=performance.now(); moveTo(e.touches[0].clientY); }, {passive:false});
-  rail.addEventListener('touchmove',  e=>{ e.preventDefault(); if(active) moveTo(e.touches[0].clientY); }, {passive:false});
-  rail.addEventListener('touchend', end);
-  rail.addEventListener('touchcancel', end);
-  let down=false;
-  rail.addEventListener('mousedown', e=>{ down=true; active=true; lastRawY=e.clientY; lastMoveT=performance.now(); moveTo(e.clientY); });
-  window.addEventListener('mousemove', e=>{ if(down) moveTo(e.clientY); });
-  window.addEventListener('mouseup', ()=>{ if(down){down=false; end();} });
+  // Pointer Events로 통합 — iOS/안드로이드/데스크탑 모두 동일 작동
+  // (touch/mouse 따로 처리하면 안드로이드에서 좌표·타이밍 문제 발생)
+  rail.addEventListener('pointerdown', e=>{
+    e.preventDefault();
+    active=true;
+    lastRawY=e.clientY; lastMoveT=performance.now();
+    try{ rail.setPointerCapture(e.pointerId); }catch(_){}
+    moveTo(e.clientY);
+  });
+  rail.addEventListener('pointermove', e=>{
+    if(!active) return;
+    e.preventDefault();
+    moveTo(e.clientY);
+  });
+  rail.addEventListener('pointerup', e=>{ if(active){ end(); try{ rail.releasePointerCapture(e.pointerId); }catch(_){} } });
+  rail.addEventListener('pointercancel', end);
+  rail.addEventListener('pointerleave', e=>{ /* capture 중이라 leave 무시 */ });
+  // 안드로이드 크롬: 부모 스크롤/제스처가 레일 터치를 가로채지 않도록
+  rail.addEventListener('touchstart', e=>e.preventDefault(), {passive:false});
+  rail.addEventListener('touchmove', e=>e.preventDefault(), {passive:false});
 }
 function copyProfileUrl(btn){
   const t = document.getElementById('profileUrl').textContent;
