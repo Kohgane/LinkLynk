@@ -40,10 +40,11 @@ def login_required(f):
 
 
 def _partners_for(user):
+    """유저 본인 파트너스 키로만 딥링크 생성. 키 없으면 None (자동생성 불가)."""
     key = store.get_partners_key(user["id"])
     if key:
         return CoupangPartners(key["access"], key["secret"]), True
-    return CoupangPartners(FALLBACK_ACCESS, FALLBACK_SECRET), False
+    return None, False
 
 
 @app.route("/")
@@ -173,6 +174,10 @@ def generate():
                         "limit_reached": True}), 402
 
     partners, own_key = _partners_for(user)
+    if partners is None:
+        # 본인 파트너스 키가 없으면 자동생성 불가 → 유형B(직접 붙여넣기)로 유도
+        return jsonify({"ok": False, "need_key": True,
+            "error": "간편링크 자동생성은 내 쿠팡 파트너스 키가 필요해요. 설정에서 키를 등록하거나, '링크 직접 붙여넣기'로 만들어보세요"}), 403
     result = partners.make_deeplinks([url], sub_id=channel)
     if not result.get("ok"):
         return jsonify({"ok": False, "error": "링크 변환 실패", "detail": result.get("detail")}), 502
@@ -216,10 +221,20 @@ def generate_manual():
     if "coupang" not in deeplink:
         return jsonify({"ok": False, "error": "쿠팡 파트너스 링크를 붙여넣어 주세요 (link.coupang.com/...)"}), 400
     user = store.get_user(session["uid"])
+    # 상품검색은 딥링크 생성이 아니므로 폴백 키로 정보만 조회 (이미지·가격·정식명)
+    info = None
+    if product_name and product_name != "쿠팡 상품":
+        try:
+            searcher = CoupangPartners(FALLBACK_ACCESS, FALLBACK_SECRET)
+            info = searcher.search_product(product_name)
+            if info and info.get("name"):
+                product_name = info["name"]
+        except Exception:
+            info = None
     draft = None
     ok_d, _, _ = store.check_and_bump(user["id"], "draft", user["plan"])
     if ok_d:
-        draft = make_blog_draft(product_name, deeplink, tone, channel)
+        draft = make_blog_draft(product_name, deeplink, tone, channel, info)
     store.save_link(user["id"], "", deeplink, product_name, channel)
     return jsonify({"ok": True, "deeplink": deeplink, "disclosure": COUPANG_DISCLOSURE,
                     "blogDraft": draft, "channel": channel, "manual": True})

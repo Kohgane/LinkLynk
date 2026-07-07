@@ -176,6 +176,33 @@ async function pasteUrl(){
   try{ const t = await navigator.clipboard.readText(); if(t) document.getElementById('url').value = t.trim(); }
   catch(e){ document.getElementById('url').focus(); }
 }
+// 파트너스 키 없을 때 안내 → 직접 붙여넣기 모드로 유도
+function showKeyPrompt(){
+  const el = document.getElementById('keyPrompt');
+  if(el){ el.style.display='block'; el.scrollIntoView({behavior:'smooth', block:'center'}); return; }
+  const box = document.createElement('div');
+  box.id = 'keyPrompt';
+  box.className = 'key-prompt';
+  box.innerHTML = `
+    <div class="kp-title">🔑 내 쿠팡 파트너스 키가 필요해요</div>
+    <div class="kp-body">간편링크 자동생성으로 <b>내 수익</b>이 되려면 내 파트너스 키가 있어야 해요.<br>
+    아직 승인 전이라면, 쿠팡에서 만든 링크를 <b>직접 붙여넣기</b>로 넣으면 블로그 글·프로필은 그대로 만들어져요.</div>
+    <div class="kp-btns">
+      <button class="btn btn-mint" onclick="go('settings');document.getElementById('keyPrompt').style.display='none'">설정에서 키 등록</button>
+      <button class="btn btn-ghost" onclick="switchToManual()">링크 직접 붙여넣기</button>
+    </div>`;
+  const anchor = document.querySelector('#page-make .pastebox');
+  if(anchor && anchor.parentNode) anchor.parentNode.insertBefore(box, anchor.nextSibling);
+  box.scrollIntoView({behavior:'smooth', block:'center'});
+}
+function switchToManual(){
+  const kp=document.getElementById('keyPrompt'); if(kp) kp.style.display='none';
+  // 직접 붙여넣기 탭으로 전환
+  const manualTab=document.querySelector('.mode[data-mode="manual"]');
+  if(manualTab) manualTab.click();
+  toast('쿠팡에서 만든 링크를 붙여넣어 주세요');
+}
+
 async function generate(){
   const url = document.getElementById('url').value.trim();
   const pname = (document.getElementById('pname')?.value || '').trim() || '쿠팡 상품';
@@ -192,7 +219,14 @@ async function generate(){
       : {url, channel, tone:'friendly', productName:pname};
     const r = await fetch(endpoint, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
     const d = await r.json();
-    if(!d.ok){ toast(d.error||'변환 실패'); if(d.need_login) showAuth(); return; }
+    if(!d.ok){
+      if(d.need_key){
+        // 본인 파트너스 키 없음 → 안내 + 직접 붙여넣기 모드로 전환
+        showKeyPrompt();
+        return;
+      }
+      toast(d.error||'변환 실패'); if(d.need_login) showAuth(); return;
+    }
     d.productName = pname;
     renderResult(d); addRecent(d);
     document.getElementById('url').value=''; const pn=document.getElementById('pname'); if(pn) pn.value='';
