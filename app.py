@@ -122,6 +122,14 @@ def me():
                     "usage": usage, "limits": store.FREE_LIMITS})
 
 
+@app.route("/api/handle", methods=["POST"])
+@login_required
+def set_handle_api():
+    d = request.get_json(force=True, silent=True) or {}
+    r = store.set_handle(session["uid"], d.get("handle"))
+    return jsonify(r), (200 if r.get("ok") else 400)
+
+
 @app.route("/api/key", methods=["POST"])
 @login_required
 def save_key():
@@ -229,17 +237,56 @@ def public_profile(handle):
     if not u:
         return "존재하지 않는 프로필입니다", 404
     links = store.get_user_links(u["id"], profile_only=True)
-    items = "".join(
-        f'<a class="lk" href="{l["deeplink"]}" target="_blank">{l["product_name"] or l["deeplink"]}</a>'
-        for l in links
-    )
+    name = u["display_name"] or handle
+    initial = (name or "?")[0].upper()
+
+    CH_ICON = {"blog": "📝", "insta": "📷", "threads": "🧵", "x": "𝕏", "youtube": "▶️", "etc": "🔗"}
+    if links:
+        items = "".join(
+            f'''<a class="lk" href="{l["deeplink"]}" target="_blank" rel="nofollow sponsored">
+<span class="lk-ic">{CH_ICON.get(l["channel"], "🔗")}</span>
+<span class="lk-name">{l["product_name"] or "쿠팡 상품"}</span>
+<span class="lk-arrow">→</span></a>'''
+            for l in links
+        )
+    else:
+        items = '<div class="empty">아직 등록된 링크가 없어요</div>'
+
     return f"""<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>{u["display_name"]} · LinkLynk</title>
-<style>body{{font-family:Pretendard,-apple-system,sans-serif;background:#F7F8FA;max-width:480px;margin:0 auto;padding:32px 20px;text-align:center}}
-h1{{font-size:20px;color:#151B2E}}.lk{{display:block;background:#fff;border:1px solid #E4E7EC;border-radius:12px;padding:15px;margin:10px 0;text-decoration:none;color:#1A1F2C;font-weight:600}}
-.ft{{margin-top:24px;font-size:11px;color:#B4BBC8}}</style></head>
-<body><h1>{u["display_name"]}</h1>{items}<div class="ft">Powered by LinkLynk</div></body></html>"""
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>{name} · LinkLynk</title>
+<meta property="og:title" content="{name}의 추천 링크">
+<meta property="og:description" content="LinkLynk로 모은 추천 링크 모음">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+:root{{--bg:#0D1220;--surface:#141B2E;--surface2:#1B2540;--line:#243050;--mint:#22E9A4;--mint2:#3DF0B0;--ink:#08120D;--text:#EAF0FA;--text2:#A8B3C9;--muted:#6B7794}}
+*{{box-sizing:border-box;margin:0;padding:0}}
+body{{font-family:Pretendard,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;max-width:520px;margin:0 auto;padding:48px 20px calc(40px + env(safe-area-inset-bottom));background-image:radial-gradient(circle at 50% 0%,rgba(34,233,164,.08),transparent 60%)}}
+.av{{width:84px;height:84px;border-radius:50%;background:linear-gradient(135deg,var(--mint),var(--mint2));color:var(--ink);display:grid;place-items:center;font-size:36px;font-weight:800;margin:0 auto 16px;box-shadow:0 8px 32px rgba(34,233,164,.35)}}
+h1{{font-size:22px;font-weight:800;text-align:center;letter-spacing:-.02em}}
+.sub{{text-align:center;color:var(--text2);font-size:13px;margin-top:6px;margin-bottom:32px}}
+.lk{{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:17px 18px;margin:12px 0;text-decoration:none;color:var(--text);font-weight:600;font-size:15px;transition:transform .15s,border-color .15s,background .15s}}
+.lk:active{{transform:scale(.98)}}
+.lk:hover{{border-color:var(--mint);background:var(--surface2)}}
+.lk-ic{{font-size:20px;flex:0 0 auto}}
+.lk-name{{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:-.01em}}
+.lk-arrow{{color:var(--mint);font-weight:800;flex:0 0 auto}}
+.empty{{text-align:center;color:var(--muted);padding:40px 0;font-size:14px}}
+.ft{{margin-top:40px;text-align:center}}
+.ft a{{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:12px;text-decoration:none;padding:8px 14px;border:1px solid var(--line);border-radius:999px;transition:color .15s,border-color .15s}}
+.ft a:hover{{color:var(--mint);border-color:var(--mint)}}
+.ft b{{color:var(--mint);font-weight:700}}
+.disc{{margin-top:20px;text-align:center;color:var(--muted);font-size:10.5px;line-height:1.5;opacity:.7}}
+</style></head>
+<body>
+<div class="av">{initial}</div>
+<h1>{name}</h1>
+<div class="sub">추천 링크 모음</div>
+{items}
+<div class="disc">이 페이지의 링크는 쿠팡 파트너스 활동의 일환으로,<br>이에 따른 일정액의 수수료를 제공받습니다.</div>
+<div class="ft"><a href="/">✨ 나도 <b>LinkLynk</b>로 만들기</a></div>
+</body></html>"""
 
 
 if __name__ == "__main__":

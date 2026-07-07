@@ -67,6 +67,19 @@ def get_user_by_handle(h):
     row = _q("SELECT * FROM linklynk_users WHERE handle=%s", (h,), fetch="one")
     return dict(row) if row else None
 
+def set_handle(uid, handle):
+    """핸들(프로필 주소) 설정/변경. 중복이면 실패."""
+    handle = (handle or "").strip().lower()
+    # 소문자/숫자/언더스코어만, 3~20자
+    import re as _re
+    if not _re.match(r'^[a-z0-9_]{3,20}$', handle):
+        return {"ok": False, "error": "3~20자의 영문 소문자, 숫자, _만 사용할 수 있어요"}
+    exists = _q("SELECT id FROM linklynk_users WHERE handle=%s AND id!=%s", (handle, uid), fetch="one")
+    if exists:
+        return {"ok": False, "error": "이미 사용 중인 주소예요"}
+    _q("UPDATE linklynk_users SET handle=%s WHERE id=%s", (handle, uid))
+    return {"ok": True, "handle": handle}
+
 def save_partners_key(uid, access, secret):
     ea=_fernet.encrypt(access.encode()).decode(); es=_fernet.encrypt(secret.encode()).decode()
     _q("UPDATE linklynk_users SET pt_access_enc=%s, pt_secret_enc=%s WHERE id=%s",(ea,es,uid))

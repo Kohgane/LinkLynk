@@ -255,6 +255,14 @@
   <div class="page" id="page-settings">
     <div class="sec">
       <h2>내 채널 설정</h2>
+      <div class="card">
+        <div class="card-lbl">내 프로필 주소</div>
+        <div style="font-size:12px;color:var(--text-2);margin-bottom:12px;line-height:1.5">인스타·틱톡 프로필에 걸 나만의 주소예요. 한번 정하면 이 주소로 링크가 모여요.</div>
+        <div class="field"><label>linklynk.onrender.com/u/</label><input id="s_handle" placeholder="mygoga" autocomplete="off" style="text-transform:lowercase"></div>
+        <div id="handleMsg"></div>
+        <button class="btn btn-mint" id="handleBtn" onclick="saveHandle()"><span class="lbl">주소 저장</span></button>
+        <div id="handleCurrent" style="margin-top:10px;font-size:12px;color:var(--muted)"></div>
+      </div>
       <div class="card" style="background:var(--surface-2);border-color:var(--mint-deep)">
         <div style="font-size:13px;font-weight:700;color:var(--mint-bright);margin-bottom:6px">파트너스 키가 아직 없나요?</div>
         <div style="font-size:12px;color:var(--text-2);line-height:1.6">
@@ -286,6 +294,6 @@
   </div>
 </div>
 
-<script src="/app.js?v=1783332421"></script>
+<script src="/app.js?v=1783414205"></script>
 </body>
 </html>

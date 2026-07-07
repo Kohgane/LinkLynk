@@ -118,7 +118,40 @@ function go(page){
   if(page==='stats' || page==='settings'){ refreshMe(); }
 }
 async function refreshMe(){
-  try{ const me = await (await fetch('/api/me')).json(); if(me.ok){ window.__me=me; renderUsage(me); renderKeyStatus(me);} }catch(e){}
+  try{ const me = await (await fetch('/api/me')).json(); if(me.ok){ window.__me=me; renderUsage(me); renderKeyStatus(me); renderHandle(me);} }catch(e){}
+}
+
+function renderHandle(me){
+  const cur = document.getElementById('handleCurrent');
+  const inp = document.getElementById('s_handle');
+  if(!cur) return;
+  if(me.handle){
+    cur.innerHTML = `현재 주소: <b style="color:var(--mint)">linklynk.onrender.com/u/${me.handle}</b>`;
+    if(inp) inp.value = me.handle;
+  } else {
+    cur.textContent = '아직 주소를 정하지 않았어요';
+  }
+}
+
+async function saveHandle(){
+  const handle = (document.getElementById('s_handle').value || '').trim().toLowerCase();
+  const btn = document.getElementById('handleBtn');
+  const msg = document.getElementById('handleMsg');
+  msg.innerHTML = '';
+  if(!handle){ msg.innerHTML = '<div class="msg msg-err">주소를 입력하세요</div>'; return; }
+  btn.classList.add('loading');
+  try{
+    const r = await fetch('/api/handle', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({handle})});
+    const d = await r.json();
+    if(d.ok){
+      msg.innerHTML = '<div class="msg msg-ok">저장됐어요! ✨</div>';
+      if(window.__me) window.__me.handle = d.handle;
+      renderHandle(window.__me || {handle:d.handle});
+    } else {
+      msg.innerHTML = `<div class="msg msg-err">${d.error||'저장 실패'}</div>`;
+    }
+  }catch(e){ msg.innerHTML = '<div class="msg msg-err">네트워크 오류</div>'; }
+  btn.classList.remove('loading');
 }
 
 // ── 링크 생성 ──
