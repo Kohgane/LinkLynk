@@ -310,7 +310,7 @@ async function loadProfile(){
         html += `<button class="nia-item" style="animation-delay:${Math.min(gi*20,300)}ms"
           onclick="copyText('${l.deeplink}', this.querySelector('.nia-act'))">
           <div class="nia-body">
-            <div class="nia-name ${(!l.product_name||l.product_name==='쿠팡 상품'||l.product_name==='이 상품')?'noname':''}">${esc(l.product_name||'이름 없음')} <span style="font-size:12px;opacity:.6">${CH_ICON[l.channel]||''}</span></div>
+            <div class="nia-name ${(!l.product_name||l.product_name==='쿠팡 상품'||l.product_name==='이 상품')?'noname':''}">${esc(l.product_name && l.product_name!=='쿠팡 상품' && l.product_name!=='이 상품' ? l.product_name : ('쿠팡 링크 '+(l.deeplink||'').replace('https://link.coupang.com/a/','').slice(0,6)))} <span style="font-size:12px;opacity:.6">${CH_ICON[l.channel]||''}</span></div>
             <div class="nia-sub">${timeAgo(l.created_at)} · ${l.deeplink.replace('https://link.coupang.com','쿠팡')}</div>
           </div>
           <div class="nia-act">복사</div>
