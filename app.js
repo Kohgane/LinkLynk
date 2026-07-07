@@ -387,7 +387,7 @@ function attachRailDrag(){
 
   // 60fps 보간 — 부드럽게 추격 (lerp 0.22로 더 완만하게)
   function loop(){
-    smoothY += (targetY - smoothY) * 0.14;
+    smoothY += (targetY - smoothY) * 0.35;
     if(Math.abs(targetY - smoothY) < 0.4) smoothY = targetY;
     render(smoothY, settled && Math.abs(velocity)<0.4);
     if(active || Math.abs(targetY-smoothY) > 0.4) rafId=requestAnimationFrame(loop);
@@ -419,7 +419,7 @@ function attachRailDrag(){
         if(target) target.scrollIntoView({behavior:'smooth', block:'center'});
         showList(true);
       }
-    }, 90);
+    }, 55);
 
     const s = nearest(clientY);
     if(!s) return;
