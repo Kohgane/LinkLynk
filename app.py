@@ -12,8 +12,10 @@ from flask import Flask, request, jsonify, send_from_directory, session, make_re
 
 from core import CoupangPartners, is_valid_coupang_url, make_blog_draft, COUPANG_DISCLOSURE, unshorten_coupang, is_short_coupang_link
 import store
+from spinads_api_v1 import spinads_bp
 
 app = Flask(__name__, static_folder=".")
+app.register_blueprint(spinads_bp)
 app.secret_key = os.environ.get("LINKLYNK_SESSION_SECRET", "dev-secret-change-me")
 from datetime import timedelta
 app.permanent_session_lifetime = timedelta(days=365)  # 로그인 1년 유지 (자동로그인)
