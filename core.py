@@ -3,7 +3,7 @@ LinkLynk — 코어 모듈
 쿠팡 파트너스 딥링크 생성 + 고지문구 삽입 + 블로그 초안 생성
 서버(app.py)에서 import해서 사용.
 """
-import hmac, hashlib, time, urllib.request, json, ssl, re
+import hmac, hashlib, time, urllib.request, json, ssl, re, random
 
 _ctx = ssl.create_default_context()
 _ctx.check_hostname = False
@@ -131,47 +131,117 @@ def append_disclosure(text: str) -> str:
 
 
 def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", channel: str = "blog", info: dict = None) -> str:
-    """플랫폼별 맞춤 초안. 각 채널 문법·길이·톤이 확실히 다름."""
+    """플랫폼별 맞춤 초안. ★매번 다른 글 — 훅·말투·링크안내를 랜덤 조합(휴머나이저)."""
     name = product_name
+    first = name.split()[0] if name else "이거"
     price_txt = ""
     if info and info.get("price"):
         price_txt = f"{int(info['price']):,}원"
+    R = random.choice   # 짧게
 
-    # ── X (트위터): 아주 짧게, 임팩트, 해시태그 ──
+    # ── X (트위터): 짧고 임팩트, 매번 다른 훅 ──
     if channel == "x":
-        body = f"{name} 써봤는데 이거 물건이네 👀\n\n{'지금 '+price_txt+' ' if price_txt else ''}👉 {deeplink}\n\n#쿠팡추천 #{name.split()[0]}"
-        return append_disclosure(body)
+        hooks = [
+            f"{name} 써봤는데 이거 물건이네 👀",
+            f"요즘 {first} 이거 하나로 버팀",
+            f"{name} 진작 살걸 후회 중",
+            f"별 기대 안 했는데 {first} 이거 의외로 대박",
+            f"{name} 3주째 쓰는 중인데 만족도 높음",
+            f"솔직히 {first} 이 가격이면 안 살 이유가 없음",
+        ]
+        tails = [
+            f"{'지금 '+price_txt+' ' if price_txt else ''}👉 {deeplink}",
+            f"필요한 사람 링크 👉 {deeplink}",
+            f"밑에 링크 둠 {deeplink}",
+            f"{'가격 '+price_txt+' ' if price_txt else ''}{deeplink}",
+        ]
+        tags = R([f"#쿠팡추천 #{first}", f"#{first} #추천템", f"#내돈내산 #{first}"])
+        return append_disclosure(f"{R(hooks)}\n\n{R(tails)}\n\n{tags}")
 
-    # ── 쓰레드: 6분할(본글+답글5), 링크는 답글4·5에 (THREADS 가이드) ──
+    # ── 쓰레드: 6분할, 매번 다른 골격·말투 (THREADS 가이드) ──
     if channel == "threads":
-        first = name.split()[0]
-        # 본글: 훅만, 링크X, 제품명·광고티 없이 (스레드 알고리즘이 본문 외부링크 싫어함)
-        post = f"{first} 이런 거 찾다가 시간 다 씀…\n다들 어떻게 고르는지 궁금"
-        # 답글1~3: 공감/경험담, 제품은 슬쩍
-        r1 = "며칠 고민하다 그냥 질렀는데\n생각보다 만족해서 놀람"
-        r2 = f"{'가격도 '+price_txt+'이라 부담 없었고' if price_txt else '가격도 생각보다 착했고'}\n써보니 확실히 손이 계속 가더라"
-        r3 = "처음엔 반신반의했는데\n이젠 없으면 아쉬울 듯"
-        # 답글4: 한글 링크안내 + 딥링크 + 고지 (필수)
-        r4 = f"찾기 귀찮을까 봐 밑에 링크 둠 👇\n{deeplink}\n\n(광고) 쿠팡파트너스 활동으로 수수료를 받습니다"
-        # 답글5: 마무리 + 링크 재노출 + 해시태그
-        r5 = f"암튼 나만 알기 아까워서 공유함ㅋㅋ\n{deeplink}\n\n#{first} #추천템"
-        # 6분할을 구분자로 합침 (프론트에서 말풍선으로 분리)
-        return "\n===THREAD===\n".join([post, r1, r2, r3, r4, r5])
+        # 본글: 훅 유형 랜덤 (하소연/질문/정보/실패담/TMI)
+        posts = [
+            f"{first} 이런 거 찾다가 시간 다 씀…\n다들 어떻게 고르는지 궁금",
+            f"{first} 이거 하나 사려다 3시간 검색함ㅋㅋ 현타옴",
+            f"솔직히 {first} 이런 거 다 거기서 거기 아님? 했는데",
+            f"{first} 잘못 사서 돈 날린 적 있어서 이번엔 신중하게 골랐음",
+            f"요즘 {first} 뭐 쓰냐고 물어보는 사람 많아서 그냥 여기 적음",
+            f"{first} 없을 때랑 있을 때랑 삶의 질이 다름 진짜",
+        ]
+        r1s = [
+            "며칠 고민하다 그냥 질렀는데\n생각보다 만족해서 놀람",
+            "처음엔 별 기대 안 했는데\n의외로 계속 손이 감",
+            "리뷰 엄청 뒤지다가 결국 이거 골랐음",
+            "반신반의하면서 샀는데 웬걸",
+        ]
+        r2s = [
+            f"{'가격도 '+price_txt+'이라 부담 없었고' if price_txt else '가격도 생각보다 착했고'}\n써보니 확실히 다름",
+            f"{'가격 '+price_txt+' 정도였는데' if price_txt else '가격도 적당했는데'}\n이 값이면 만족",
+            "비싼 거랑 비교해봤는데\n이걸로도 충분하더라",
+        ]
+        r3s = [
+            "처음엔 반신반의했는데\n이젠 없으면 아쉬울 듯",
+            "지금은 주변에도 추천하고 다님ㅋㅋ",
+            "재구매 의사 100%임",
+            "괜히 고민했나 싶을 정도",
+        ]
+        # 링크 안내: 로테이션 (클리셰 피하기)
+        link_intros = [
+            "찾기 귀찮을까 봐 밑에 링크 둠 👇",
+            "궁금한 사람 있을까 봐 걸어둠",
+            "광고 맞음ㅋㅋ 그래도 쓰는 건 진짜",
+            "밑에 링크.",
+            "혹시 몰라 남겨둠 👇",
+        ]
+        r4 = f"{R(link_intros)}\n{deeplink}\n\n(광고) 쿠팡파트너스 활동으로 수수료를 받습니다"
+        endings = [
+            f"암튼 나만 알기 아까워서 공유함ㅋㅋ\n{deeplink}",
+            f"도움 됐으면 좋겠음\n{deeplink}",
+            f"다들 뭐 쓰는지 댓글로 알려줘요\n{deeplink}",
+            f"필요한 사람 참고하셈\n{deeplink}",
+        ]
+        r5 = f"{R(endings)}\n\n#{first} " + R(["#추천템", "#내돈내산", "#꿀템"])
+        parts = [R(posts), R(r1s), R(r2s), R(r3s), r4, r5]
+        return "\n===THREAD===\n".join(parts)
 
-    # ── 인스타: 감성, 해시태그 풍부, 이모지 ──
+    # ── 인스타: 감성, 매번 다른 캡션·해시태그 ──
     if channel == "insta":
-        first = name.split()[0]
-        body = (f"✨ {name} ✨\n\n"
-                f"요즘 데일리로 챙기는 아이템 🤍\n"
-                f"{'가격 '+price_txt+' / ' if price_txt else ''}자세한 건 프로필 링크 확인 👆\n\n"
-                f"👉 {deeplink}\n\n"
-                f"#{first} #쿠팡추천 #데일리템 #추천템 #내돈내산")
+        opens = [
+            f"✨ {name} ✨", f"🤍 {first} 기록 🤍", f"📌 요즘 최애템 : {first}",
+            f"⭐ {name} ⭐", f"💫 데일리 {first} 💫",
+        ]
+        bodies = [
+            "요즘 데일리로 챙기는 아이템 🤍",
+            "몇 번을 재구매하는지 모르겠어요",
+            "한번 쓰면 계속 찾게 되는 그런 거 있잖아요",
+            "친구들이 자꾸 물어봐서 공유해요",
+            "고민하다 샀는데 완전 만족 중이에요",
+        ]
+        guides = [
+            "자세한 건 프로필 링크 확인 👆", "구매처는 프로필 링크에 🔗",
+            "링크는 프로필에 걸어뒀어요 👆",
+        ]
+        base_tags = ["#쿠팡추천", "#데일리템", "#추천템", "#내돈내산", "#일상템", "#꿀템", "#살림템"]
+        tags = f"#{first} " + " ".join(random.sample(base_tags, 4))
+        body = (f"{R(opens)}\n\n{R(bodies)}\n"
+                f"{'가격 '+price_txt+' / ' if price_txt else ''}{R(guides)}\n\n"
+                f"👉 {deeplink}\n\n{tags}")
         return append_disclosure(body)
 
-    # ── 유튜브: 영상 설명란 스타일, 링크·타임스탬프 ──
+    # ── 유튜브: 설명란, 매번 다른 인트로 ──
     if channel == "youtube":
-        body = (f"📌 {name} 상세정보\n\n"
-                f"영상에서 소개한 제품이에요! 아래 링크에서 확인하실 수 있습니다.\n"
+        intros = [
+            f"📌 {name} 상세정보",
+            f"📌 오늘 영상에서 소개한 {first}",
+            f"📌 많이 물어보신 {name} 정보",
+        ]
+        descs = [
+            "영상에서 소개한 제품이에요! 아래 링크에서 확인하실 수 있습니다.",
+            "많은 분들이 궁금해하셔서 링크 남겨드려요.",
+            "제가 직접 쓰고 추천드리는 제품입니다.",
+        ]
+        body = (f"{R(intros)}\n\n{R(descs)}\n"
                 f"{'💰 가격: '+price_txt if price_txt else ''}\n\n"
                 f"🔗 구매 링크\n{deeplink}\n\n"
                 f"───────────\n"
@@ -179,18 +249,37 @@ def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", ch
                 f"👍 도움 되셨다면 좋아요와 구독 부탁드려요!")
         return append_disclosure(body)
 
-    # ── 블로그(네이버): 길고 SEO 친화, 소제목, 정보성 ──
-    body = (f"[{name} 솔직 후기 & 구매 정보]\n\n"
-            f"안녕하세요! 오늘은 요즘 많이 찾으시는 {name}에 대해 소개해드릴게요.\n\n"
-            f"■ 어떤 제품인가요?\n"
-            f"직접 사용해보고 만족도가 높아서 추천드리는 제품이에요. "
+    # ── 블로그(네이버): 긴 글, 매번 다른 제목·인트로·소제목 ──
+    titles = [
+        f"[{name} 솔직 후기 & 구매 정보]",
+        f"[내돈내산] {name} 3주 사용 후기",
+        f"{name}, 사기 전에 이거 보세요",
+        f"[추천] {first} 고민이라면 {name} 어때요?",
+    ]
+    intros = [
+        f"안녕하세요! 오늘은 요즘 많이 찾으시는 {name}에 대해 소개해드릴게요.",
+        f"안녕하세요~ 이번 포스팅은 제가 직접 써본 {name} 후기예요.",
+        f"{first} 뭐 살지 고민하시는 분들 많으시죠? 오늘은 {name} 이야기를 해볼게요.",
+    ]
+    sub1 = R(["■ 어떤 제품인가요?", "■ 왜 이걸 골랐나요?", "■ 첫인상은?"])
+    desc1 = R([
+        "직접 사용해보고 만족도가 높아서 추천드리는 제품이에요. ",
+        "여러 제품 비교하다가 이걸로 정착했어요. ",
+        "가성비랑 품질 둘 다 잡은 느낌이라 소개드려요. ",
+    ])
+    sub2 = R(["■ 구매는 여기서", "■ 어디서 사나요?", "■ 최저가 확인"])
+    sub3 = R(["■ 마무리", "■ 총평", "■ 정리하며"])
+    outro = R([
+        "구매에 도움이 되셨길 바라요. 궁금한 점은 댓글로 남겨주세요!",
+        "긴 글 읽어주셔서 감사해요. 궁금한 거 있으면 댓글 주세요!",
+        "다음에 더 좋은 정보로 찾아올게요. 도움 되셨다면 공감 눌러주세요!",
+    ])
+    body = (f"{R(titles)}\n\n{R(intros)}\n\n"
+            f"{sub1}\n{desc1}"
             f"{'현재 가격은 '+price_txt+' 정도예요. ' if price_txt else ''}"
             f"자세한 스펙과 최신 가격은 아래 링크에서 확인하실 수 있어요.\n\n"
-            f"■ 구매는 여기서\n"
-            f"👉 {name} 최저가 확인하기: {deeplink}\n\n"
-            f"■ 마무리\n"
-            f"구매에 도움이 되셨길 바라요. 궁금한 점은 댓글로 남겨주세요!")
-    # 블로그엔 이미지도 (있으면)
+            f"{sub2}\n👉 {name} 최저가 확인하기: {deeplink}\n\n"
+            f"{sub3}\n{outro}")
     if info and info.get("image"):
         body += f"\n\n[상품 이미지]\n{info['image']}"
     return append_disclosure(body)
