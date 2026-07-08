@@ -117,6 +117,20 @@ def get_link(link_id):
     row=_q("SELECT * FROM linklynk_links WHERE id=%s",(link_id,),fetch="one")
     return dict(row) if row else None
 
+def delete_link(uid, link_id):
+    _q("DELETE FROM linklynk_links WHERE id=%s AND user_id=%s",(link_id,uid))
+    return {"ok": True}
+
+def toggle_link_profile(uid, link_id, on):
+    _q("UPDATE linklynk_links SET on_profile=%s WHERE id=%s AND user_id=%s",(1 if on else 0, link_id, uid))
+    return {"ok": True}
+
+def reorder_links(uid, ordered_ids):
+    """ordered_ids 순서대로 position 부여."""
+    for pos, lid in enumerate(ordered_ids):
+        _q("UPDATE linklynk_links SET position=%s WHERE id=%s AND user_id=%s",(pos, lid, uid))
+    return {"ok": True}
+
 def bump_click(link_id):
     _q("UPDATE linklynk_links SET clicks=COALESCE(clicks,0)+1 WHERE id=%s",(link_id,))
 

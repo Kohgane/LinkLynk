@@ -132,6 +132,27 @@ def set_handle_api():
     return jsonify(r), (200 if r.get("ok") else 400)
 
 
+@app.route("/api/link/<int:link_id>", methods=["DELETE"])
+@login_required
+def delete_link_api(link_id):
+    return jsonify(store.delete_link(session["uid"], link_id))
+
+
+@app.route("/api/link/<int:link_id>/toggle", methods=["POST"])
+@login_required
+def toggle_link_api(link_id):
+    d = request.get_json(force=True, silent=True) or {}
+    return jsonify(store.toggle_link_profile(session["uid"], link_id, bool(d.get("on"))))
+
+
+@app.route("/api/links/reorder", methods=["POST"])
+@login_required
+def reorder_links_api():
+    d = request.get_json(force=True, silent=True) or {}
+    ids = d.get("ids") or []
+    return jsonify(store.reorder_links(session["uid"], ids))
+
+
 @app.route("/api/key", methods=["POST"])
 @login_required
 def save_key():

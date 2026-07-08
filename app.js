@@ -307,14 +307,15 @@ async function loadProfile(){
       if(!groups[k]) return;
       html += `<div class="nia-glabel" id="g-${encodeURIComponent(k)}">${k}</div>`;
       groups[k].forEach(l=>{
-        html += `<button class="nia-item" style="animation-delay:${Math.min(gi*20,300)}ms"
-          onclick="copyText('${l.deeplink}', this.querySelector('.nia-act'))">
-          <div class="nia-body">
-            <div class="nia-name ${(!l.product_name||l.product_name==='쿠팡 상품'||l.product_name==='이 상품')?'noname':''}">${esc(l.product_name && l.product_name!=='쿠팡 상품' && l.product_name!=='이 상품' ? l.product_name : ('쿠팡 링크 '+(l.deeplink||'').replace('https://link.coupang.com/a/','').slice(0,6)))} <span style="font-size:12px;opacity:.6">${CH_ICON[l.channel]||''}</span></div>
+        const dispName = l.product_name && l.product_name!=='쿠팡 상품' && l.product_name!=='이 상품' ? l.product_name : ('쿠팡 링크 '+(l.deeplink||'').replace('https://link.coupang.com/a/','').slice(0,6));
+        html += `<div class="nia-item" style="animation-delay:${Math.min(gi*20,300)}ms">
+          <div class="nia-body" onclick="copyText('${l.deeplink}', this.parentNode.querySelector('.nia-act'))">
+            <div class="nia-name ${(!l.product_name||l.product_name==='쿠팡 상품'||l.product_name==='이 상품')?'noname':''}">${esc(dispName)} <span style="font-size:12px;opacity:.6">${CH_ICON[l.channel]||''}</span></div>
             <div class="nia-sub">${timeAgo(l.created_at)} · ${l.deeplink.replace('https://link.coupang.com','쿠팡')}</div>
           </div>
-          <div class="nia-act">복사</div>
-        </button>`;
+          <div class="nia-act" onclick="copyText('${l.deeplink}', this)">복사</div>
+          <button class="nia-del" onclick="deleteLink(${l.id}, this)" title="삭제">🗑</button>
+        </div>`;
         gi++;
       });
     });
@@ -504,6 +505,19 @@ function attachRailDrag(){
   rail.addEventListener('touchstart', e=>e.preventDefault(), {passive:false});
   rail.addEventListener('touchmove', e=>e.preventDefault(), {passive:false});
 }
+async function deleteLink(id, btn){
+  if(!confirm('이 링크를 삭제할까요?')) return;
+  try{
+    const r = await fetch('/api/link/'+id, {method:'DELETE'});
+    const d = await r.json();
+    if(d.ok){
+      const item = btn.closest('.nia-item');
+      if(item){ item.style.transition='opacity .2s'; item.style.opacity='0'; setTimeout(()=>loadProfile(), 200); }
+      toast('삭제됐어요');
+    } else toast('삭제 실패');
+  }catch(e){ toast('삭제 실패'); }
+}
+
 function copyProfileUrl(btn){
   const t = document.getElementById('profileUrl').textContent;
   copyText(t, btn);
