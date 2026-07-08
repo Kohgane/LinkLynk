@@ -225,10 +225,13 @@ def generate():
 
     store.save_link(user["id"], url, deeplink, product_name, channel)
 
+    naver_html = build_naver_html(product_name, deeplink, draft, info) if draft else None
     return jsonify({
         "ok": True, "deeplink": deeplink, "landingUrl": items[0].get("landingUrl"),
         "disclosure": COUPANG_DISCLOSURE, "blogDraft": draft, "channel": channel,
         "usedOwnKey": own_key, "draftLimitReached": draft is None,
+        "naverHtml": naver_html, "image": (info or {}).get("image"),
+        "productName": product_name,
     })
 
 
@@ -252,8 +255,10 @@ def generate_manual():
     if ok_d:
         draft = make_blog_draft(product_name, deeplink, tone, channel, info)
     store.save_link(user["id"], "", deeplink, product_name, channel)
+    naver_html = build_naver_html(product_name, deeplink, draft, info) if draft else None
     return jsonify({"ok": True, "deeplink": deeplink, "disclosure": COUPANG_DISCLOSURE,
-                    "blogDraft": draft, "channel": channel, "manual": True})
+                    "blogDraft": draft, "channel": channel, "manual": True,
+                    "naverHtml": naver_html, "productName": product_name})
 
 
 @app.route("/api/my-links")
