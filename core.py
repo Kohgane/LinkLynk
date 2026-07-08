@@ -95,6 +95,28 @@ def is_short_coupang_link(url: str) -> bool:
     return "link.coupang.com/a/" in url or ".coupang.com/re/" in url
 
 
+def extract_coupang_url(text: str) -> str:
+    """모바일 쿠팡 '공유' 텍스트에서 순수 URL만 뽑아냄.
+    예: "쿠팡을 추천합니다! [나우푸드...] https://link.coupang.com/a/XXX" → URL만.
+    안내 문구·제품명·이모지가 섞여 있어도 링크만 깔끔히 추출."""
+    if not text:
+        return ""
+    text = text.strip()
+    # 쿠팡 관련 URL 패턴 전부 (단축·정식·모바일)
+    patterns = [
+        r'https?://link\.coupang\.com/[^\s\'"<>)\]]+',      # 단축링크
+        r'https?://(?:www\.|m\.)?coupang\.com/[^\s\'"<>)\]]+', # 정식/모바일
+        r'https?://[\w.]*coupang\.com/[^\s\'"<>)\]]+',       # 기타 서브도메인
+    ]
+    for pat in patterns:
+        m = re.search(pat, text)
+        if m:
+            url = m.group(0).rstrip('.,)')  # 끝 문장부호 제거
+            return url
+    # URL 없으면 원문 그대로 (혹시 이미 순수 URL이거나 다른 형식)
+    return text
+
+
 def is_valid_coupang_url(url: str) -> bool:
     """쿠팡 URL인지 확인 (원본 상품 + 단축 공유링크 link.coupang.com 모두 허용)."""
     u = url.strip()
@@ -164,3 +186,76 @@ def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", ch
     if info and info.get("image"):
         body += f"\n\n[상품 이미지]\n{info['image']}"
     return append_disclosure(body)
+
+
+# ══════════════ 자동 게시 / HTML 내보내기 ══════════════
+
+def build_naver_html(product_name, deeplink, draft_text, info=None):
+    """네이버 블로그용 완성 HTML — 이미지+글+링크 포함. 복붙/다운로드용.
+    네이버 에디터에 붙여넣으면 이미지와 서식이 그대로 들어가게 인라인 스타일."""
+    img = (info or {}).get("image")
+    price = ""
+    if info and info.get("price"):
+        price = f"{int(info['price']):,}원"
+    # 본문 줄바꿈 → <p>/<br>
+    paras = []
+    for block in draft_text.split("\n\n"):
+        block = block.strip()
+        if not block:
+            continue
+        safe = (block.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+                     .replace("\n", "<br>"))
+        # 소제목(■ 로 시작)은 강조
+        if block.startswith("■"):
+            paras.append(f'<h3 style="font-size:18px;font-weight:700;color:#1a1a1a;margin:24px 0 8px">{safe.replace("■","").strip()}</h3>')
+        elif block.startswith("---") or "쿠팡 파트너스 활동" in block:
+            paras.append(f'<p style="font-size:12px;color:#888;margin-top:28px;padding-top:12px;border-top:1px solid #eee">{safe}</p>')
+        else:
+            paras.append(f'<p style="font-size:15px;line-height:1.8;color:#333;margin:12px 0">{safe}</p>')
+    body_html = "\n".join(paras)
+
+    img_html = ""
+    if img:
+        img_html = f'<p style="text-align:center;margin:20px 0"><img src="{img}" alt="{product_name}" style="max-width:100%;border-radius:8px"></p>'
+
+    btn_html = (f'<p style="text-align:center;margin:28px 0">'
+                f'<a href="{deeplink}" target="_blank" rel="nofollow sponsored" '
+                f'style="display:inline-block;background:#03c75a;color:#fff;font-weight:700;'
+                f'padding:14px 28px;border-radius:8px;text-decoration:none;font-size:16px">'
+                f'👉 {product_name} 최저가 확인하기</a></p>')
+
+    return f'''<!DOCTYPE html>
+<html lang="ko"><head><meta charset="utf-8">
+<title>{product_name} 후기</title></head>
+<body style="max-width:700px;margin:0 auto;padding:20px;font-family:'맑은 고딕',sans-serif">
+{img_html}
+{body_html}
+{btn_html}
+</body></html>'''
+
+
+def zernio_publish(api_key, platforms, content, media_urls=None):
+    """Zernio(구 Late) 통합 API로 여러 SNS 동시 게시.
+    platforms: ['instagram','threads','x',...], content: 텍스트, media_urls: 이미지 URL 리스트.
+    api_key 없으면 호출 안 함(연결 안 된 유저)."""
+    if not api_key:
+        return {"ok": False, "error": "not_connected"}
+    payload = {"platforms": platforms, "content": content}
+    if media_urls:
+        payload["mediaUrls"] = media_urls
+    try:
+        req = urllib.request.Request(
+            "https://zernio.com/api/v1/posts",
+            data=json.dumps(payload).encode(),
+            headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+            method="POST")
+        ctx = ssl.create_default_context()
+        with urllib.request.urlopen(req, timeout=30, context=ctx) as r:
+            return {"ok": True, "data": json.loads(r.read().decode())}
+    except urllib.error.HTTPError as e:
+        detail = ""
+        try: detail = e.read().decode()[:200]
+        except Exception: pass
+        return {"ok": False, "error": f"http_{e.code}", "detail": detail}
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:120]}

@@ -10,7 +10,7 @@ import os
 from functools import wraps
 from flask import Flask, request, jsonify, send_from_directory, session, make_response
 
-from core import CoupangPartners, is_valid_coupang_url, make_blog_draft, COUPANG_DISCLOSURE, unshorten_coupang, is_short_coupang_link
+from core import CoupangPartners, is_valid_coupang_url, make_blog_draft, COUPANG_DISCLOSURE, unshorten_coupang, is_short_coupang_link, extract_coupang_url, build_naver_html, zernio_publish
 import store
 from spinads_api_v1 import spinads_bp
 
@@ -174,7 +174,7 @@ def save_key():
 @login_required
 def generate():
     d = request.get_json(force=True, silent=True) or {}
-    url = (d.get("url") or "").strip()
+    url = extract_coupang_url((d.get("url") or "").strip())
     channel = (d.get("channel") or "blog").strip()
     tone = (d.get("tone") or "friendly").strip()
     product_name = (d.get("productName") or "쿠팡 상품").strip()
@@ -237,7 +237,7 @@ def generate():
 def generate_manual():
     """유형 B: 이미 만든 파트너스 링크를 붙여넣기. API 딥링크 생성 없이 초안+저장만."""
     d = request.get_json(force=True, silent=True) or {}
-    deeplink = (d.get("deeplink") or "").strip()
+    deeplink = extract_coupang_url((d.get("deeplink") or "").strip())
     channel = (d.get("channel") or "blog").strip()
     tone = (d.get("tone") or "friendly").strip()
     product_name = (d.get("productName") or "쿠팡 상품").strip()

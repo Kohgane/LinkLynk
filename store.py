@@ -28,7 +28,10 @@ def init_db():
     _q("""CREATE TABLE IF NOT EXISTS linklynk_users(
         id BIGSERIAL PRIMARY KEY, email TEXT UNIQUE NOT NULL, pw_hash TEXT NOT NULL,
         handle TEXT UNIQUE, display_name TEXT, plan TEXT DEFAULT 'free',
-        pt_access_enc TEXT, pt_secret_enc TEXT, created_at BIGINT);""")
+        pt_access_enc TEXT, pt_secret_enc TEXT, zernio_key_enc TEXT, created_at BIGINT);""")
+    # 기존 테이블 마이그레이션 (컬럼 없으면 추가)
+    try: _q("ALTER TABLE linklynk_users ADD COLUMN IF NOT EXISTS zernio_key_enc TEXT")
+    except Exception: pass
     _q("""CREATE TABLE IF NOT EXISTS linklynk_usage(
         user_id BIGINT, month TEXT, link_count INTEGER DEFAULT 0, draft_count INTEGER DEFAULT 0,
         PRIMARY KEY(user_id, month));""")
@@ -90,7 +93,7 @@ def get_partners_key(uid):
     return {"access":_fernet.decrypt(row["pt_access_enc"].encode()).decode(),
             "secret":_fernet.decrypt(row["pt_secret_enc"].encode()).decode()}
 
-FREE_LIMITS = {"link": 30, "draft": 5}
+FREE_LIMITS = {"link": 500, "draft": 500}
 def _month(): return time.strftime("%Y-%m", time.gmtime())
 def get_usage(uid):
     row=_q("SELECT * FROM linklynk_usage WHERE user_id=%s AND month=%s",(uid,_month()),fetch="one")
