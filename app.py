@@ -248,8 +248,18 @@ def generate_manual():
     if "coupang" not in deeplink:
         return jsonify({"ok": False, "error": "쿠팡 파트너스 링크를 붙여넣어 주세요 (link.coupang.com/...)"}), 400
     user = store.get_user(session["uid"])
-    # 유형B(직접 붙여넣기)는 본인 키가 없으므로 상품검색 안 함 (폴백 키 API 호출 금지)
+    # ★실제 상품 확인: 본인 파트너스 키가 있고 상품명이 입력됐을 때만 검색 1회
+    #   (폴백 키 절대 안 씀 / 검색 실패해도 앱 정상 / API 한도 보호 위해 링크당 최소 호출)
     info = None
+    if product_name and product_name != "쿠팡 상품":
+        partners, own_key = _partners_for(user)
+        if partners is not None:   # 본인 키 있을 때만
+            try:
+                info = partners.search_product(product_name)
+                if info and info.get("name"):
+                    product_name = info["name"]   # 정식 상품명으로 교체
+            except Exception:
+                info = None   # 실패해도 계속 진행
     draft = None
     ok_d, _, _ = store.check_and_bump(user["id"], "draft", user["plan"])
     if ok_d:
