@@ -3,6 +3,7 @@
 import os, random, hashlib
 from flask import Blueprint, request, jsonify, redirect
 import psycopg2, psycopg2.extras
+psycopg2.extras.register_uuid()  # uuid.UUID insert 어댑터 (없으면 can't adapt type 'UUID')
 
 DB_URL = os.environ["DATABASE_URL"]  # LinkLynk 기존 pooler URL 재사용
 MAX_ADS_PER_SESSION = 3
@@ -69,4 +70,4 @@ def spinads_click(short_code):
 
 @spinads_bp.get("/api/spinads/health")
 def spinads_health():
-    return jsonify(ok=True, service="spinads", version="v1")
+    return jsonify(ok=True, service="spinads", version="v1.1")
