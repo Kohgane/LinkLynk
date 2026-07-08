@@ -142,13 +142,21 @@ def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", ch
         body = f"{name} 써봤는데 이거 물건이네 👀\n\n{'지금 '+price_txt+' ' if price_txt else ''}👉 {deeplink}\n\n#쿠팡추천 #{name.split()[0]}"
         return append_disclosure(body)
 
-    # ── 쓰레드: 대화체, 솔직 리뷰, 줄바꿈 많이 ──
+    # ── 쓰레드: 6분할(본글+답글5), 링크는 답글4·5에 (THREADS 가이드) ──
     if channel == "threads":
-        body = (f"{name} 재구매각이라 공유함 🫶\n\n"
-                f"처음엔 반신반의했는데 쓰다 보니 계속 손이 가더라고요.\n"
-                f"{'가격도 '+price_txt+'이라 부담 없음' if price_txt else '가격도 착함'}\n\n"
-                f"궁금하면 여기 👉 {deeplink}")
-        return append_disclosure(body)
+        first = name.split()[0]
+        # 본글: 훅만, 링크X, 제품명·광고티 없이 (스레드 알고리즘이 본문 외부링크 싫어함)
+        post = f"{first} 이런 거 찾다가 시간 다 씀…\n다들 어떻게 고르는지 궁금"
+        # 답글1~3: 공감/경험담, 제품은 슬쩍
+        r1 = "며칠 고민하다 그냥 질렀는데\n생각보다 만족해서 놀람"
+        r2 = f"{'가격도 '+price_txt+'이라 부담 없었고' if price_txt else '가격도 생각보다 착했고'}\n써보니 확실히 손이 계속 가더라"
+        r3 = "처음엔 반신반의했는데\n이젠 없으면 아쉬울 듯"
+        # 답글4: 한글 링크안내 + 딥링크 + 고지 (필수)
+        r4 = f"찾기 귀찮을까 봐 밑에 링크 둠 👇\n{deeplink}\n\n(광고) 쿠팡파트너스 활동으로 수수료를 받습니다"
+        # 답글5: 마무리 + 링크 재노출 + 해시태그
+        r5 = f"암튼 나만 알기 아까워서 공유함ㅋㅋ\n{deeplink}\n\n#{first} #추천템"
+        # 6분할을 구분자로 합침 (프론트에서 말풍선으로 분리)
+        return "\n===THREAD===\n".join([post, r1, r2, r3, r4, r5])
 
     # ── 인스타: 감성, 해시태그 풍부, 이모지 ──
     if channel == "insta":

@@ -237,8 +237,18 @@ async function generate(){
 function renderResult(d){
   const link = d.deeplink;
   const draft = d.blogDraft;
-  const isBlog = d.channel === 'blog';
-  window.__lastResult = d;   // 다운로드/복사에서 참조
+  window.__lastResult = d;
+  let draftUI = '';
+  if(draft){
+    if(d.channel === 'threads'){ draftUI = renderThreads(draft, d); }
+    else if(d.channel === 'blog'){ draftUI = renderBlogDraft(draft, d); }
+    else if(d.channel === 'insta'){ draftUI = renderInsta(draft, d); }
+    else if(d.channel === 'x'){ draftUI = renderX(draft, d); }
+    else if(d.channel === 'youtube'){ draftUI = renderYoutube(draft, d); }
+    else { draftUI = renderBlogDraft(draft, d); }
+  } else {
+    draftUI = `<div class="card"><div style="font-size:13px;color:var(--muted)">이번 달 무료 초안을 다 썼어요. Pro는 무제한이에요.</div></div>`;
+  }
   document.getElementById('result').innerHTML = `
     <div class="result">
       <div class="card">
@@ -246,26 +256,88 @@ function renderResult(d){
         <div class="linkline"><div class="url">${link}</div>
           <button class="btn-copy" onclick="copyText('${link}', this)">복사</button></div>
       </div>
-      ${draft ? `<div class="card">
-        <div class="card-lbl">${CH_LABEL(d.channel)} 초안 · 고지문구 포함</div>
-        <div class="draftbox" id="draft">${esc(draft)}</div>
-        <div class="disc">⚠️ 고지문구가 자동으로 들어갔어요. 이거 빼먹으면 계정 정지될 수 있어요.</div>
-        <div class="card-actions">
-          <button class="btn btn-mint" onclick="copyText(document.getElementById('draft').innerText, this)">전체 복사</button>
-          ${isBlog ? `<button class="btn btn-mint" onclick="copyNaverHtml(this)">📋 글+이미지 통째 복사</button>
-          <button class="btn btn-ghost" onclick="downloadNaverHtml()">⬇ HTML 파일 저장</button>
-          <button class="btn btn-ghost" onclick="window.open('https://blog.naver.com/postwrite','_blank')">블로그 열기</button>`
-          : `<button class="btn btn-ghost" onclick="openChannel('${d.channel}')">${CH_LABEL(d.channel)} 열기</button>`}
-        </div>
-        ${isBlog ? `<div class="hint">💡 "글+이미지 통째 복사" 누르고, 네이버 블로그 글쓰기에 그대로 붙여넣으면 이미지·서식까지 들어가요.</div>` : ''}
-      </div>` : `<div class="card"><div style="font-size:13px;color:var(--muted)">이번 달 무료 초안을 다 썼어요. Pro는 무제한이에요.</div></div>`}
+      ${draftUI}
     </div>`;
   document.getElementById('result').scrollIntoView({behavior:'smooth',block:'start'});
 }
-function CH_LABEL(ch){ return ({blog:'네이버 블로그',insta:'인스타',threads:'쓰레드',x:'X',youtube:'유튜브'})[ch] || '블로그'; }
-function openChannel(ch){
-  const urls={insta:'https://instagram.com',threads:'https://threads.net',x:'https://x.com/compose/post',youtube:'https://studio.youtube.com'};
-  window.open(urls[ch]||'https://blog.naver.com','_blank');
+
+// ── 쓰레드: 6개 말풍선(본글+답글5), 각각 복사 ──
+function renderThreads(draft, d){
+  const parts = draft.split('\n===THREAD===\n');
+  const labels = ['📌 본글 (링크 X)','💬 답글 1','💬 답글 2','💬 답글 3','💬 답글 4 (링크+고지)','💬 답글 5 (마무리)'];
+  const bubbles = parts.map((p,i)=>`
+    <div class="th-bubble">
+      <div class="th-head"><span class="th-label">${labels[i]||('💬 답글 '+i)}</span>
+        <button class="th-copy" onclick="copyText(${JSON.stringify(p).replace(/"/g,'&quot;')}, this)">복사</button></div>
+      <div class="th-body">${esc(p)}</div>
+    </div>`).join('');
+  return `<div class="card">
+    <div class="card-lbl">🧵 쓰레드 초안 · 본글 + 답글 5개</div>
+    <div class="th-wrap">${bubbles}</div>
+    <div class="disc">💡 본글 먼저 올리고, 답글로 1→2→3→4→5 순서로 이어달면 돼요. 링크는 답글 4·5에만.</div>
+    <div class="card-actions">
+      <button class="btn btn-mint" onclick="copyText(${JSON.stringify(parts.join('\\n\\n')).replace(/"/g,'&quot;')}, this)">전체 복사</button>
+      <button class="btn btn-ghost" onclick="window.open('https://threads.net','_blank')">쓰레드 열기</button>
+    </div></div>`;
+}
+
+// ── 인스타: 캡션 + 해시태그 강조 ──
+function renderInsta(draft, d){
+  const hashIdx = draft.indexOf('#');
+  const caption = hashIdx>0 ? draft.slice(0,hashIdx).trim() : draft;
+  const tags = hashIdx>0 ? draft.slice(hashIdx).trim() : '';
+  return `<div class="card">
+    <div class="card-lbl">📷 인스타 초안 · 캡션 + 해시태그</div>
+    <div class="ig-caption" id="draft">${esc(draft)}</div>
+    ${tags?`<div class="ig-tags">${esc(tags)}</div>`:''}
+    <div class="disc">💡 이미지 올리고 캡션에 붙여넣기. 링크는 프로필(내 프로필 주소)에 걸어두세요.</div>
+    <div class="card-actions">
+      <button class="btn btn-mint" onclick="copyText(document.getElementById('draft').innerText, this)">캡션 복사</button>
+      ${tags?`<button class="btn btn-ghost" onclick="copyText(${JSON.stringify(tags).replace(/"/g,'&quot;')}, this)">해시태그만 복사</button>`:''}
+      <button class="btn btn-ghost" onclick="window.open('https://instagram.com','_blank')">인스타 열기</button>
+    </div></div>`;
+}
+
+// ── X: 짧은 카드 + 글자수 ──
+function renderX(draft, d){
+  const len = draft.length;
+  const over = len>280;
+  return `<div class="card">
+    <div class="card-lbl">𝕏 X(트위터) 초안 <span style="float:right;font-size:12px;color:${over?'var(--danger,#f66)':'var(--muted)'}">${len}/280자</span></div>
+    <div class="x-card" id="draft">${esc(draft)}</div>
+    ${over?'<div class="disc">⚠️ 280자를 넘어요. 줄여서 올리세요.</div>':''}
+    <div class="card-actions">
+      <button class="btn btn-mint" onclick="copyText(document.getElementById('draft').innerText, this)">복사</button>
+      <button class="btn btn-ghost" onclick="window.open('https://x.com/compose/post','_blank')">X 열기</button>
+    </div></div>`;
+}
+
+// ── 유튜브: 설명란 ──
+function renderYoutube(draft, d){
+  return `<div class="card">
+    <div class="card-lbl">▶️ 유튜브 설명란 초안</div>
+    <div class="yt-desc" id="draft">${esc(draft)}</div>
+    <div class="disc">💡 영상 업로드할 때 설명란에 붙여넣기. 타임스탬프는 영상에 맞게 수정하세요.</div>
+    <div class="card-actions">
+      <button class="btn btn-mint" onclick="copyText(document.getElementById('draft').innerText, this)">설명란 복사</button>
+      <button class="btn btn-ghost" onclick="window.open('https://studio.youtube.com','_blank')">스튜디오 열기</button>
+    </div></div>`;
+}
+
+// ── 블로그(네이버): 긴 글 + HTML 복사/다운로드 ──
+function renderBlogDraft(draft, d){
+  return `<div class="card">
+    <div class="card-lbl">📝 네이버 블로그 초안 · 고지문구 포함</div>
+    <div class="draftbox" id="draft">${esc(draft)}</div>
+    <div class="disc">⚠️ 고지문구가 자동으로 들어갔어요. 이거 빼먹으면 계정 정지될 수 있어요.</div>
+    <div class="card-actions">
+      <button class="btn btn-mint" onclick="copyNaverHtml(this)">📋 글+이미지 통째 복사</button>
+      <button class="btn btn-ghost" onclick="copyText(document.getElementById('draft').innerText, this)">텍스트만 복사</button>
+      <button class="btn btn-ghost" onclick="downloadNaverHtml()">⬇ HTML 저장</button>
+      <button class="btn btn-ghost" onclick="window.open('https://blog.naver.com/postwrite','_blank')">블로그 열기</button>
+    </div>
+    <div class="hint">💡 "글+이미지 통째 복사" 누르고 네이버 블로그 글쓰기에 붙여넣으면 이미지·서식까지 들어가요.</div>
+  </div>`;
 }
 // 네이버 HTML 통째 복사 (이미지+서식 포함 → 붙여넣으면 그대로)
 async function copyNaverHtml(btn){
