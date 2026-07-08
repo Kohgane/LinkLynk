@@ -237,6 +237,8 @@ async function generate(){
 function renderResult(d){
   const link = d.deeplink;
   const draft = d.blogDraft;
+  const isBlog = d.channel === 'blog';
+  window.__lastResult = d;   // 다운로드/복사에서 참조
   document.getElementById('result').innerHTML = `
     <div class="result">
       <div class="card">
@@ -245,15 +247,54 @@ function renderResult(d){
           <button class="btn-copy" onclick="copyText('${link}', this)">복사</button></div>
       </div>
       ${draft ? `<div class="card">
-        <div class="card-lbl">블로그 초안 · 고지문구 포함</div>
+        <div class="card-lbl">${CH_LABEL(d.channel)} 초안 · 고지문구 포함</div>
         <div class="draftbox" id="draft">${esc(draft)}</div>
         <div class="disc">⚠️ 고지문구가 자동으로 들어갔어요. 이거 빼먹으면 계정 정지될 수 있어요.</div>
         <div class="card-actions">
           <button class="btn btn-mint" onclick="copyText(document.getElementById('draft').innerText, this)">전체 복사</button>
-          <button class="btn btn-ghost" onclick="window.open('https://blog.naver.com','_blank')">블로그 열기</button>
-        </div></div>` : `<div class="card"><div style="font-size:13px;color:var(--muted)">이번 달 무료 블로그 초안(5건)을 다 썼어요. Pro는 무제한이에요.</div></div>`}
+          ${isBlog ? `<button class="btn btn-mint" onclick="copyNaverHtml(this)">📋 글+이미지 통째 복사</button>
+          <button class="btn btn-ghost" onclick="downloadNaverHtml()">⬇ HTML 파일 저장</button>
+          <button class="btn btn-ghost" onclick="window.open('https://blog.naver.com/postwrite','_blank')">블로그 열기</button>`
+          : `<button class="btn btn-ghost" onclick="openChannel('${d.channel}')">${CH_LABEL(d.channel)} 열기</button>`}
+        </div>
+        ${isBlog ? `<div class="hint">💡 "글+이미지 통째 복사" 누르고, 네이버 블로그 글쓰기에 그대로 붙여넣으면 이미지·서식까지 들어가요.</div>` : ''}
+      </div>` : `<div class="card"><div style="font-size:13px;color:var(--muted)">이번 달 무료 초안을 다 썼어요. Pro는 무제한이에요.</div></div>`}
     </div>`;
   document.getElementById('result').scrollIntoView({behavior:'smooth',block:'start'});
+}
+function CH_LABEL(ch){ return ({blog:'네이버 블로그',insta:'인스타',threads:'쓰레드',x:'X',youtube:'유튜브'})[ch] || '블로그'; }
+function openChannel(ch){
+  const urls={insta:'https://instagram.com',threads:'https://threads.net',x:'https://x.com/compose/post',youtube:'https://studio.youtube.com'};
+  window.open(urls[ch]||'https://blog.naver.com','_blank');
+}
+// 네이버 HTML 통째 복사 (이미지+서식 포함 → 붙여넣으면 그대로)
+async function copyNaverHtml(btn){
+  const d = window.__lastResult;
+  if(!d || !d.naverHtml){ toast('복사할 내용이 없어요'); return; }
+  try{
+    // HTML로 클립보드에 (리치 텍스트로 붙여넣기됨)
+    const blob = new Blob([d.naverHtml], {type:'text/html'});
+    const plain = new Blob([document.getElementById('draft').innerText], {type:'text/plain'});
+    await navigator.clipboard.write([new ClipboardItem({'text/html':blob, 'text/plain':plain})]);
+    const o=btn.textContent; btn.textContent='복사됨 ✓'; setTimeout(()=>btn.textContent=o,1500);
+    toast('붙여넣기 하면 이미지·서식까지 들어가요');
+  }catch(e){
+    // 폴백: 텍스트만
+    copyText(document.getElementById('draft').innerText, btn);
+  }
+}
+// HTML 파일 다운로드
+function downloadNaverHtml(){
+  const d = window.__lastResult;
+  if(!d || !d.naverHtml){ toast('저장할 내용이 없어요'); return; }
+  const blob = new Blob([d.naverHtml], {type:'text/html;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  const fname = (d.productName||'쿠팡추천').replace(/[^가-힣a-zA-Z0-9]/g,'_').slice(0,20);
+  a.href = url; a.download = `${fname}_블로그.html`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+  toast('HTML 파일이 저장됐어요');
 }
 function addRecent(d){
   recent.unshift({link:d.deeplink, name:(d.productName||'쿠팡 상품'), ch:d.channel});
