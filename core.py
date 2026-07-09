@@ -395,27 +395,60 @@ def build_naver_html(product_name, deeplink, draft_text, info=None):
 </body></html>'''
 
 
+def _zernio_accounts(api_key):
+    """연결된 계정 목록 조회 → {platform: accountId} 매핑."""
+    try:
+        req = urllib.request.Request("https://zernio.com/api/v1/accounts",
+            headers={"Authorization": f"Bearer {api_key}"}, method="GET")
+        ctx = ssl.create_default_context()
+        with urllib.request.urlopen(req, timeout=15, context=ctx) as r:
+            data = json.loads(r.read().decode())
+        mapping = {}
+        for acc in data.get("accounts", []):
+            plat = acc.get("platform")
+            aid = acc.get("_id")
+            if plat and aid and plat not in mapping:
+                mapping[plat] = aid
+        return mapping
+    except Exception:
+        return {}
+
+
 def zernio_publish(api_key, platforms, content, media_urls=None):
-    """Zernio(구 Late) 통합 API로 여러 SNS 동시 게시.
-    platforms: ['instagram','threads','x',...], content: 텍스트, media_urls: 이미지 URL 리스트.
-    api_key 없으면 호출 안 함(연결 안 된 유저)."""
+    """Zernio API로 SNS 즉시 게시. platforms=['threads','instagram','x'...].
+    실제 API 형식: platforms=[{platform,accountId}], mediaItems=[{type,url}], publishNow=true.
+    x는 Zernio에서 'twitter'로 매핑."""
     if not api_key:
         return {"ok": False, "error": "not_connected"}
-    payload = {"platforms": platforms, "content": content}
+    # 계정 ID 조회 (게시 대상 계정이 연결돼 있어야 함)
+    accounts = _zernio_accounts(api_key)
+    if not accounts:
+        return {"ok": False, "error": "no_accounts", "detail": "연결된 SNS 계정이 없어요"}
+    plat_map = {"x": "twitter"}   # 우리 채널명 → Zernio 플랫폼명
+    targets = []
+    for p in platforms:
+        zp = plat_map.get(p, p)
+        aid = accounts.get(zp)
+        if aid:
+            targets.append({"platform": zp, "accountId": aid})
+    if not targets:
+        connected = ", ".join(accounts.keys()) or "없음"
+        return {"ok": False, "error": "platform_not_connected",
+                "detail": f"해당 플랫폼이 연결 안 됨 (연결된 것: {connected})"}
+    payload = {"content": content, "platforms": targets, "publishNow": True}
     if media_urls:
-        payload["mediaUrls"] = media_urls
+        payload["mediaItems"] = [{"type": "image", "url": u} for u in media_urls]
     try:
-        req = urllib.request.Request(
-            "https://zernio.com/api/v1/posts",
+        req = urllib.request.Request("https://zernio.com/api/v1/posts",
             data=json.dumps(payload).encode(),
             headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
             method="POST")
         ctx = ssl.create_default_context()
-        with urllib.request.urlopen(req, timeout=30, context=ctx) as r:
+        with urllib.request.urlopen(req, timeout=40, context=ctx) as r:
             return {"ok": True, "data": json.loads(r.read().decode())}
     except urllib.error.HTTPError as e:
         detail = ""
-        try: detail = e.read().decode()[:200]
+        try: detail = e.read().decode()[:250]
         except Exception: pass
         return {"ok": False, "error": f"http_{e.code}", "detail": detail}
     except Exception as e:
