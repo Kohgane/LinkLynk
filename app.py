@@ -138,6 +138,17 @@ def save_sns_key():
     return jsonify({"ok": True, "message": "SNS 자동 게시가 연결됐어요"})
 
 
+@app.route("/api/sns-accounts", methods=["GET"])
+@login_required
+def sns_accounts():
+    """연결된 SNS 계정 목록 (게시 대상 선택용)."""
+    key = store.get_zernio_key(session["uid"])
+    if not key:
+        return jsonify({"ok": True, "accounts": []})
+    from core import zernio_list_accounts
+    return jsonify({"ok": True, "accounts": zernio_list_accounts(key)})
+
+
 @app.route("/api/save-draft", methods=["POST"])
 @login_required
 def save_draft():
@@ -198,7 +209,8 @@ def publish_sns():
         return jsonify({"ok": False, "need_connect": True,
                         "error": "먼저 설정에서 SNS를 연결해주세요"}), 403
 
-    r = zernio_publish(key, platforms, content, media)
+    r = zernio_publish(key, platforms, content, media,
+                       account_ids=(d.get("account_ids") or {}))
     if r.get("ok"):
         # 게시물 URL: Zernio가 permalink를 안 주므로 계정 프로필로 연결
         prof_url = _profile_url_from_zernio(r.get("data"), platforms[0])

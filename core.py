@@ -395,6 +395,25 @@ def build_naver_html(product_name, deeplink, draft_text, info=None):
 </body></html>'''
 
 
+def zernio_list_accounts(api_key):
+    """연결된 계정 상세 목록 → [{platform, accountId, name}]. 계정 선택용."""
+    try:
+        req = urllib.request.Request("https://zernio.com/api/v1/accounts",
+            headers={"Authorization": f"Bearer {api_key}"}, method="GET")
+        ctx = ssl.create_default_context()
+        with urllib.request.urlopen(req, timeout=15, context=ctx) as r:
+            data = json.loads(r.read().decode())
+        out = []
+        for acc in data.get("accounts", []):
+            out.append({"platform": acc.get("platform"),
+                        "accountId": acc.get("_id"),
+                        "name": acc.get("displayName") or acc.get("username") or "계정",
+                        "active": acc.get("isActive", True)})
+        return out
+    except Exception:
+        return []
+
+
 def _zernio_accounts(api_key):
     """연결된 계정 목록 조회 → {platform: accountId} 매핑."""
     try:
@@ -414,21 +433,23 @@ def _zernio_accounts(api_key):
         return {}
 
 
-def zernio_publish(api_key, platforms, content, media_urls=None):
+def zernio_publish(api_key, platforms, content, media_urls=None, account_ids=None):
     """Zernio API로 SNS 즉시 게시. platforms=['threads','instagram','x'...].
+    account_ids: {platform: accountId} 지정 시 그 계정으로 게시 (4개 중 선택).
     실제 API 형식: platforms=[{platform,accountId}], mediaItems=[{type,url}], publishNow=true.
     x는 Zernio에서 'twitter'로 매핑."""
     if not api_key:
         return {"ok": False, "error": "not_connected"}
-    # 계정 ID 조회 (게시 대상 계정이 연결돼 있어야 함)
     accounts = _zernio_accounts(api_key)
     if not accounts:
         return {"ok": False, "error": "no_accounts", "detail": "연결된 SNS 계정이 없어요"}
-    plat_map = {"x": "twitter"}   # 우리 채널명 → Zernio 플랫폼명
+    plat_map = {"x": "twitter"}
+    account_ids = account_ids or {}
     targets = []
     for p in platforms:
         zp = plat_map.get(p, p)
-        aid = accounts.get(zp)
+        # 지정된 계정 우선, 없으면 해당 플랫폼 첫 계정
+        aid = account_ids.get(p) or account_ids.get(zp) or accounts.get(zp)
         if aid:
             targets.append({"platform": zp, "accountId": aid})
     if not targets:

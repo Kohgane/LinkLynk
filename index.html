@@ -158,6 +158,7 @@
   .btn-sm{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;color:var(--text);font-size:12px;padding:6px 14px;cursor:pointer;font-weight:600}
   .btn-sm.mint{background:var(--mint);color:var(--ink);border-color:var(--mint)}
   .btn-sm.ghost{background:none;color:var(--text-2)}
+  .acc-chip{display:inline-block;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:6px 12px;margin:6px 6px 0 0;font-size:12px;color:var(--text)}
   .hint{font-size:12px;color:var(--text-2);margin-top:10px;padding:10px;background:var(--surface-1);border-radius:8px;line-height:1.5}
   .nia-wrap{padding-right:24px;min-height:200px}
   .nia-list{display:flex;flex-direction:column;transition:opacity .4s cubic-bezier(.22,1,.36,1)}
@@ -354,6 +355,7 @@
         <div style="font-size:12px;color:var(--text-2);margin-bottom:12px;line-height:1.5">인스타·쓰레드·X를 연결하면 초안을 <b>바로 게시</b>할 수 있어요. 네이버 블로그는 복사/다운로드로 올려요.</div>
         <div class="field"><label>Zernio API Key</label><input id="z_key" placeholder="zernio.com에서 발급" autocomplete="off"></div>
         <div id="snsMsg"></div>
+        <div id="snsAccList"></div>
         <button class="btn btn-mint" id="snsBtn" onclick="saveSnsKey()"><span class="lbl">연결하기</span></button>
         <div style="margin-top:10px;font-size:11.5px;color:var(--muted);line-height:1.5">
           zernio.com에서 무료로 SNS 계정을 연결하고 API 키를 받으세요. (2계정 무료)
@@ -372,6 +374,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="/app.js?v=1783584267"></script>
+<script src="/app.js?v=1783585548"></script>
 </body>
 </html>

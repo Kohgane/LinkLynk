@@ -116,7 +116,7 @@ function go(page){
   if(railEl) railEl.style.display = (page==='profile') ? 'block' : 'none';
   if(page==='profile') loadProfile();
   if(page==='stats'){ refreshMe(); loadStats(); loadPosts('all'); }
-  else if(page==='settings'){ refreshMe(); }
+  else if(page==='settings'){ refreshMe(); loadSnsAccounts(); }
 }
 async function refreshMe(){
   try{ const me = await (await fetch('/api/me')).json(); if(me.ok){ window.__me=me; renderUsage(me); renderKeyStatus(me); renderHandle(me); renderSns(me);} }catch(e){}
@@ -639,6 +639,16 @@ function attachRailDrag(){
   // 안드로이드 크롬: 부모 스크롤/제스처가 레일 터치를 가로채지 않도록
   rail.addEventListener('touchstart', e=>e.preventDefault(), {passive:false});
   rail.addEventListener('touchmove', e=>e.preventDefault(), {passive:false});
+
+  // 초기 상태: 첫 번째 그룹(상품 있는 첫 초성)만 표시 → 나이아 쓸면 바뀜
+  const firstLabel = list && list.querySelector('.nia-glabel');
+  if(firstLabel){
+    const key = firstLabel.textContent;
+    showGroup(key);
+    // 해당 초성 레일 글자 강조
+    const sp = spans.find(s=>s.textContent===key);
+    if(sp){ sp.style.color='var(--mint-bright)'; }
+  }
 }
 async function deleteLink(id, btn){
   if(!confirm('이 링크를 삭제할까요?')) return;
@@ -691,7 +701,7 @@ async function saveSnsKey(){
   try{
     const r = await fetch('/api/sns-key',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key})});
     const d = await r.json();
-    if(d.ok){ msg.innerHTML='<div class="msg msg-ok">연결됐어요! ✨</div>'; if(window.__me) window.__me.has_sns=true; renderSns(window.__me||{has_sns:true}); }
+    if(d.ok){ msg.innerHTML='<div class="msg msg-ok">연결됐어요! ✨</div>'; if(window.__me) window.__me.has_sns=true; renderSns(window.__me||{has_sns:true}); loadSnsAccounts(); }
     else msg.innerHTML=`<div class="msg msg-err">${d.error||'연결 실패'}</div>`;
   }catch(e){ msg.innerHTML='<div class="msg msg-err">네트워크 오류</div>'; }
   btn.classList.remove('loading');
@@ -791,6 +801,24 @@ async function deletePost(id, btn){
     const r = await fetch('/api/post/'+id,{method:'DELETE'});
     if((await r.json()).ok){ btn.closest('.post-item').remove(); toast('삭제됐어요'); }
   }catch(e){ toast('삭제 실패'); }
+}
+
+// 연결된 SNS 계정 목록 로드 (게시 대상 선택용)
+async function loadSnsAccounts(){
+  try{
+    const d = await (await fetch('/api/sns-accounts')).json();
+    window.__snsAccounts = d.accounts || [];
+    renderSnsAccounts();
+  }catch(e){ window.__snsAccounts=[]; }
+}
+function renderSnsAccounts(){
+  const el = document.getElementById('snsAccList');
+  if(!el) return;
+  const accts = window.__snsAccounts || [];
+  if(!accts.length){ el.innerHTML=''; return; }
+  const byPlat = {threads:'🧵',instagram:'📷',twitter:'𝕏',facebook:'📘',tiktok:'🎵'};
+  el.innerHTML = '<div style="font-size:12px;color:var(--text-2);margin-top:10px">연결된 계정 '+accts.length+'개</div>' +
+    accts.map(a=>`<div class="acc-chip">${byPlat[a.platform]||'📱'} ${esc(a.name)} <span style="opacity:.6">(${a.platform})</span></div>`).join('');
 }
 
 function copyProfileUrl(btn){
