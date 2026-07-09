@@ -1,9 +1,29 @@
 // LinkLynk 프론트 로직
 
-// ── PWA: service worker 등록 + 설치 유도 ──
+// ── PWA: service worker 등록 + 자동 업데이트 ──
 let deferredPrompt = null;
 if('serviceWorker' in navigator){
-  window.addEventListener('load', ()=> navigator.serviceWorker.register('/sw.js').catch(()=>{}));
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('/sw.js').then(reg=>{
+      reg.update();   // 즉시 업데이트 확인
+      // 새 서비스워커가 대기 상태가 되면 → 캐시 갱신 후 새로고침
+      reg.addEventListener('updatefound', ()=>{
+        const nw = reg.installing;
+        if(!nw) return;
+        nw.addEventListener('statechange', ()=>{
+          if(nw.state==='activated' && navigator.serviceWorker.controller){
+            // 새 버전 활성화 → 한 번만 새로고침
+            if(!sessionStorage.getItem('ll_reloaded')){
+              sessionStorage.setItem('ll_reloaded','1');
+              location.reload();
+            }
+          }
+        });
+      });
+    }).catch(()=>{});
+    // 주기적으로 업데이트 확인 (앱 오래 켜둬도 최신)
+    setInterval(()=>{ navigator.serviceWorker.getRegistration().then(r=>r&&r.update()); }, 60000);
+  });
 }
 window.addEventListener('beforeinstallprompt', (e)=>{
   e.preventDefault(); deferredPrompt = e;
