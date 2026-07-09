@@ -170,8 +170,12 @@ function setMode(el){
 }
 
 function setCh(el){
-  document.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+  el.closest('.chips').querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
   el.classList.add('on'); channel = el.dataset.ch;
+}
+function setTone(el){
+  el.closest('.chips').querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on'); window.curTone = el.dataset.tone;
 }
 async function pasteUrl(){
   try{ const t = await navigator.clipboard.readText(); if(t) document.getElementById('url').value = t.trim(); }
@@ -216,8 +220,8 @@ async function generate(){
     // 수동 모드(직접 붙여넣기)만 manual, 나머지는 auto (단축링크는 서버가 자동으로 펼쳐서 변환)
     const endpoint = mode === 'manual' ? '/api/generate-manual' : '/api/generate';
     const body = mode === 'manual'
-      ? {deeplink:url, channel, tone:'friendly', productName:pname}
-      : {url, channel, tone:'friendly', productName:pname};
+      ? {deeplink:url, channel, tone:(window.curTone||'friendly'), productName:pname}
+      : {url, channel, tone:(window.curTone||'friendly'), productName:pname};
     const r = await fetch(endpoint, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
     const d = await r.json();
     if(!d.ok){
