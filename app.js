@@ -201,10 +201,32 @@ function setMode(el){
 function setCh(el){
   el.closest('.chips').querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
   el.classList.add('on'); channel = el.dataset.ch;
+  // 이미 만든 초안이 있으면, 새 채널 형식으로 즉시 다시 생성
+  const d = window.__lastResult;
+  if(d && d.deeplink){
+    regenForChannel(d.deeplink, d.productName || '');
+  }
+}
+// 같은 링크로 현재 채널 형식의 글을 다시 생성 (딥링크 있으니 검색 안 함)
+async function regenForChannel(deeplink, pname){
+  const result = document.getElementById('result');
+  if(result) result.innerHTML = '<div class="card"><div style="text-align:center;padding:20px;color:var(--muted)">형식 바꾸는 중…</div></div>';
+  try{
+    const r = await fetch('/api/generate-manual',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({deeplink, channel, tone:(window.curTone||'friendly'), productName:pname})});
+    const d = await r.json();
+    if(d.ok){ renderResult(d); }
+    else { toast('형식 변경 실패'); }
+  }catch(e){ toast('형식 변경 실패'); }
 }
 function setTone(el){
   el.closest('.chips').querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
   el.classList.add('on'); window.curTone = el.dataset.tone;
+  // 이미 만든 초안이 있으면 새 말투로 다시 생성
+  const d = window.__lastResult;
+  if(d && d.deeplink){
+    regenForChannel(d.deeplink, d.productName || '');
+  }
 }
 async function pasteUrl(){
   try{ const t = await navigator.clipboard.readText(); if(t) document.getElementById('url').value = t.trim(); }

@@ -297,6 +297,8 @@ def _publish_error_msg(r):
     if err == "no_accounts": return "연결된 SNS 계정이 없어요. Zernio에서 계정을 먼저 연결하세요."
     if err == "platform_not_connected": return r.get("detail", "해당 플랫폼이 Zernio에 연결 안 됐어요.")
     if err.startswith("http_401") or err.startswith("http_403"): return "Zernio 키가 유효하지 않아요. 설정에서 다시 연결하세요."
+    if err.startswith("http_409"): return "이미 같은 내용을 게시했어요. 초안을 다시 만들면(매번 다른 글) 게시할 수 있어요."
+    if err.startswith("http_429"): return "잠시 후 다시 시도해주세요. (너무 빠른 연속 게시)"
     if err.startswith("http_"): return f"게시 실패 ({err}). 잠시 후 다시 시도해주세요."
     return "게시에 실패했어요. Zernio 연결 상태를 확인해주세요."
 
