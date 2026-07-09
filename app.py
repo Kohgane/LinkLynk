@@ -138,24 +138,110 @@ def save_sns_key():
     return jsonify({"ok": True, "message": "SNS 자동 게시가 연결됐어요"})
 
 
+@app.route("/api/save-draft", methods=["POST"])
+@login_required
+def save_draft():
+    """게시 전 임시저장 (바로 게시 안 함)."""
+    d = request.get_json(force=True, silent=True) or {}
+    channel = (d.get("channel") or "").strip()
+    content = (d.get("content") or "").strip()
+    if not content:
+        return jsonify({"ok": False, "error": "저장할 내용이 없어요"}), 400
+    pid = store.save_post(session["uid"], channel, d.get("productName", ""),
+                          content, d.get("deeplink", ""), d.get("image"), status="draft")
+    return jsonify({"ok": True, "post_id": pid, "message": "임시저장했어요"})
+
+
+@app.route("/api/posts", methods=["GET"])
+@login_required
+def list_posts():
+    """내 게시물 목록 (임시저장 + 게시완료)."""
+    status = request.args.get("status")
+    posts = store.get_posts(session["uid"], status)
+    # 민감정보 제외하고 반환
+    out = [{"id": p["id"], "channel": p["channel"], "product_name": p["product_name"],
+            "content": p["content"][:200], "status": p["status"], "post_url": p.get("post_url"),
+            "created_at": p["created_at"], "published_at": p.get("published_at")} for p in posts]
+    return jsonify({"ok": True, "posts": out})
+
+
+@app.route("/api/post/<int:post_id>", methods=["DELETE"])
+@login_required
+def delete_post_api(post_id):
+    return jsonify(store.delete_post(session["uid"], post_id))
+
+
 @app.route("/api/publish", methods=["POST"])
 @login_required
 def publish_sns():
-    """초안을 SNS에 자동 게시 (Zernio). 연결 안 됐으면 안내."""
+    """SNS 게시 (Zernio). post_id(임시저장)를 게시하거나, 즉석 내용을 게시.
+    게시 후 게시물 저장 + 프로필 URL 연결."""
     d = request.get_json(force=True, silent=True) or {}
     platforms = d.get("platforms") or []
     content = (d.get("content") or "").strip()
     media = d.get("media") or []
+    post_id = d.get("post_id")   # 임시저장분 게시 시
+    channel = (d.get("channel") or (platforms[0] if platforms else "")).strip()
+
+    # 임시저장분을 게시하는 경우 → 내용 로드
+    if post_id and not content:
+        p = store.get_post(post_id)
+        if p and p["user_id"] == session["uid"]:
+            content = p["content"]; channel = p["channel"]
+            if p.get("image"): media = [p["image"]]
+            if not platforms: platforms = [channel]
+
     if not platforms or not content:
         return jsonify({"ok": False, "error": "게시할 플랫폼과 내용이 필요해요"}), 400
     key = store.get_zernio_key(session["uid"])
     if not key:
         return jsonify({"ok": False, "need_connect": True,
                         "error": "먼저 설정에서 SNS를 연결해주세요"}), 403
+
     r = zernio_publish(key, platforms, content, media)
     if r.get("ok"):
-        return jsonify({"ok": True, "message": "게시됐어요!"})
-    return jsonify({"ok": False, "error": "게시 실패", "detail": r.get("error")}), 502
+        # 게시물 URL: Zernio가 permalink를 안 주므로 계정 프로필로 연결
+        prof_url = _profile_url_from_zernio(r.get("data"), platforms[0])
+        if post_id:
+            store.mark_published(post_id, prof_url, str((r.get("data") or {}).get("post", {}).get("_id", "")))
+        else:
+            new_id = store.save_post(session["uid"], channel, d.get("productName", ""),
+                                     content, d.get("deeplink", ""), (media[0] if media else None),
+                                     status="published")
+            if new_id:
+                store.mark_published(new_id, prof_url, str((r.get("data") or {}).get("post", {}).get("_id", "")))
+        return jsonify({"ok": True, "message": "게시됐어요!", "post_url": prof_url})
+    # ★실패 원인 상세 전달 (유저가 왜 안 됐는지 알 수 있게)
+    return jsonify({"ok": False, "error": _publish_error_msg(r),
+                    "detail": r.get("detail", "")}), 502
+
+
+def _publish_error_msg(r):
+    """Zernio 실패를 사람이 읽을 수 있는 메시지로."""
+    err = r.get("error", "")
+    if err == "no_accounts": return "연결된 SNS 계정이 없어요. Zernio에서 계정을 먼저 연결하세요."
+    if err == "platform_not_connected": return r.get("detail", "해당 플랫폼이 Zernio에 연결 안 됐어요.")
+    if err.startswith("http_401") or err.startswith("http_403"): return "Zernio 키가 유효하지 않아요. 설정에서 다시 연결하세요."
+    if err.startswith("http_"): return f"게시 실패 ({err}). 잠시 후 다시 시도해주세요."
+    return "게시에 실패했어요. Zernio 연결 상태를 확인해주세요."
+
+
+def _profile_url_from_zernio(data, platform):
+    """게시 응답에서 계정 프로필 URL 구성 (permalink 대신)."""
+    try:
+        plats = (data or {}).get("post", {}).get("platforms", [])
+        for pl in plats:
+            acc = pl.get("accountId") or {}
+            name = acc.get("displayName") or acc.get("username")
+            plat = pl.get("platform", platform)
+            if name:
+                if plat == "threads": return f"https://www.threads.net/@{name}"
+                if plat == "instagram": return f"https://www.instagram.com/{name}"
+                if plat == "twitter": return f"https://x.com/{name}"
+    except Exception:
+        pass
+    urls = {"threads": "https://www.threads.net", "instagram": "https://www.instagram.com", "x": "https://x.com"}
+    return urls.get(platform, "")
 
 
 @app.route("/api/handle", methods=["POST"])

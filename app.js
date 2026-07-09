@@ -115,7 +115,7 @@ function go(page){
   const railEl = document.getElementById('nia-rail-fixed');
   if(railEl) railEl.style.display = (page==='profile') ? 'block' : 'none';
   if(page==='profile') loadProfile();
-  if(page==='stats'){ refreshMe(); loadStats(); }
+  if(page==='stats'){ refreshMe(); loadStats(); loadPosts('all'); }
   else if(page==='settings'){ refreshMe(); }
 }
 async function refreshMe(){
@@ -281,7 +281,8 @@ function renderThreads(draft, d){
     <div class="disc">💡 본글 먼저 올리고, 답글로 1→2→3→4→5 순서로 이어달면 돼요. 링크는 답글 4·5에만.</div>
     <div class="card-actions">
       <button class="btn btn-mint" onclick="copyText(${JSON.stringify(parts.join('\\n\\n')).replace(/"/g,'&quot;')}, this)">전체 복사</button>
-      <button class="btn btn-mint" onclick="publishToSns('threads',this)">🚀 쓰레드 자동게시</button>
+      <button class="btn btn-mint" onclick="publishToSns('threads',this)">🚀 바로 게시</button>
+      <button class="btn btn-ghost" onclick="saveDraft(this)">📥 임시저장</button>
       <button class="btn btn-ghost" onclick="saveAsImage(this)">📸 이미지 저장</button>
       <button class="btn btn-ghost" onclick="window.open('https://threads.net','_blank')">쓰레드 열기</button>
     </div></div>`;
@@ -296,11 +297,12 @@ function renderInsta(draft, d){
     <div class="card-lbl">📷 인스타 초안 · 캡션 + 해시태그</div>
     <div class="ig-caption" id="draft">${esc(draft)}</div>
     ${tags?`<div class="ig-tags">${esc(tags)}</div>`:''}
-    <div class="disc">💡 이미지 올리고 캡션에 붙여넣기. 링크는 프로필(내 프로필 주소)에 걸어두세요.</div>
+    <div class="disc">💡 이미지 올리고 캡션에 붙여넣기. 링크는 내 링크 페이지에 걸어두세요.</div>
     <div class="card-actions">
       <button class="btn btn-mint" onclick="copyText(document.getElementById('draft').innerText, this)">캡션 복사</button>
       ${tags?`<button class="btn btn-ghost" onclick="copyText(${JSON.stringify(tags).replace(/"/g,'&quot;')}, this)">해시태그만 복사</button>`:''}
-      <button class="btn btn-mint" onclick="publishToSns('instagram',this)">🚀 인스타 자동게시</button>
+      <button class="btn btn-mint" onclick="publishToSns('instagram',this)">🚀 바로 게시</button>
+      <button class="btn btn-ghost" onclick="saveDraft(this)">📥 임시저장</button>
       <button class="btn btn-ghost" onclick="saveAsImage(this)">📸 이미지 저장</button>
       <button class="btn btn-ghost" onclick="window.open('https://instagram.com','_blank')">인스타 열기</button>
     </div></div>`;
@@ -316,7 +318,8 @@ function renderX(draft, d){
     ${over?'<div class="disc">⚠️ 280자를 넘어요. 줄여서 올리세요.</div>':''}
     <div class="card-actions">
       <button class="btn btn-mint" onclick="copyText(document.getElementById('draft').innerText, this)">복사</button>
-      <button class="btn btn-mint" onclick="publishToSns('x',this)">🚀 X 자동게시</button>
+      <button class="btn btn-mint" onclick="publishToSns('x',this)">🚀 바로 게시</button>
+      <button class="btn btn-ghost" onclick="saveDraft(this)">📥 임시저장</button>
       <button class="btn btn-ghost" onclick="saveAsImage(this)">📸 이미지 저장</button>
       <button class="btn btn-ghost" onclick="window.open('https://x.com/compose/post','_blank')">X 열기</button>
     </div></div>`;
@@ -406,8 +409,15 @@ function timeAgo(ts){
 const CH_ICON = {blog:'📝', insta:'📷', threads:'🧵', x:'𝕏', youtube:'▶️', etc:'🔗'};
 function getChosung(str){
   const CHO = ['ㄱ','ㄲ','ㄴ','ㄷ','ㄸ','ㄹ','ㅁ','ㅂ','ㅃ','ㅅ','ㅆ','ㅇ','ㅈ','ㅉ','ㅊ','ㅋ','ㅌ','ㅍ','ㅎ'];
-  const c = (str||'').trim().charCodeAt(0);
-  if(c >= 0xAC00 && c <= 0xD7A3){ return CHO[Math.floor((c-0xAC00)/588)]; }
+  // 쌍자음 → 기본 자음 (ㄲ→ㄱ 등, 인덱스는 기본 자음만 표시)
+  const MERGE = {'ㄲ':'ㄱ','ㄸ':'ㄷ','ㅃ':'ㅂ','ㅆ':'ㅅ','ㅉ':'ㅈ'};
+  const s = (str||'').trim();
+  if(!s) return '#';
+  const c = s.charCodeAt(0);
+  if(c >= 0xAC00 && c <= 0xD7A3){ const ch = CHO[Math.floor((c-0xAC00)/588)]; return MERGE[ch]||ch; }
+  if(c >= 0x3131 && c <= 0x314E){ // 자음만 있는 경우(ㄱ~ㅎ)
+    const idx = CHO.indexOf(s[0]); if(idx>=0){ return MERGE[CHO[idx]]||CHO[idx]; }
+  }
   if(c >= 65 && c <= 90) return String.fromCharCode(c);      // A-Z
   if(c >= 97 && c <= 122) return String.fromCharCode(c-32);  // a-z→대문자
   if(c >= 48 && c <= 57) return '#';                          // 숫자
@@ -692,7 +702,22 @@ function renderSns(me){
   el.innerHTML = me.has_sns ? '<span style="color:var(--mint)">✓ 연결됨 — 초안에서 바로 게시할 수 있어요</span>' : '연결 안 됨';
 }
 
-// SNS 자동 게시 (Zernio)
+// 임시저장 (게시 안 함)
+async function saveDraft(btn){
+  const d = window.__lastResult;
+  if(!d){ toast('저장할 초안이 없어요'); return; }
+  let content = d.blogDraft || '';
+  const o = btn.textContent; btn.textContent='저장 중…';
+  try{
+    const r = await fetch('/api/save-draft',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({channel:d.channel, content, productName:d.productName, deeplink:d.deeplink, image:d.image})});
+    const res = await r.json();
+    if(res.ok){ toast('임시저장했어요 📥'); btn.textContent='저장됨 ✓'; }
+    else { toast(res.error||'저장 실패'); btn.textContent=o; }
+  }catch(e){ toast('저장 실패'); btn.textContent=o; }
+}
+
+// SNS 게시 (Zernio) — 실패 시 정확한 이유 표시
 async function publishToSns(platform, btn){
   const d = window.__lastResult;
   if(!d){ toast('게시할 초안이 없어요'); return; }
@@ -700,19 +725,72 @@ async function publishToSns(platform, btn){
     toast('먼저 설정에서 SNS를 연결해주세요');
     go('settings'); return;
   }
-  // 쓰레드는 6분할 → 첫 본글만 (답글은 수동), 나머지는 전체
   let content = d.blogDraft || '';
   if(platform==='threads'){ content = content.split('\n===THREAD===\n')[0]; }
   const media = d.image ? [d.image] : [];
   const o = btn.textContent; btn.textContent='게시 중…'; btn.disabled=true;
   try{
     const r = await fetch('/api/publish',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({platforms:[platform], content, media})});
+      body:JSON.stringify({platforms:[platform], content, media, channel:d.channel, productName:d.productName, deeplink:d.deeplink})});
     const res = await r.json();
-    if(res.ok){ toast('게시됐어요! 🚀'); btn.textContent='게시 완료 ✓'; }
+    if(res.ok){
+      toast('게시됐어요! 🚀'); btn.textContent='게시 완료 ✓';
+      if(res.post_url){ // 게시물 바로 보기 링크
+        setTimeout(()=>{ if(confirm('게시됐어요! 지금 확인하러 갈까요?')) window.open(res.post_url,'_blank'); }, 300);
+      }
+    }
     else if(res.need_connect){ toast('설정에서 SNS 연결 먼저'); go('settings'); btn.textContent=o; btn.disabled=false; }
-    else { toast(res.error||'게시 실패'); btn.textContent=o; btn.disabled=false; }
-  }catch(e){ toast('게시 실패'); btn.textContent=o; btn.disabled=false; }
+    else {
+      // ★실패 이유 명확히
+      toast(res.error || '게시 실패');
+      if(res.detail) console.log('게시 실패 상세:', res.detail);
+      btn.textContent=o; btn.disabled=false;
+    }
+  }catch(e){ toast('게시 실패 — 네트워크 확인'); btn.textContent=o; btn.disabled=false; }
+}
+
+// 게시물 목록
+async function loadPosts(status, btn){
+  if(btn){ document.querySelectorAll('.ptab').forEach(t=>t.classList.remove('on')); btn.classList.add('on'); }
+  const box = document.getElementById('postList');
+  if(!box) return;
+  box.innerHTML = '<div class="empty">불러오는 중…</div>';
+  try{
+    const q = (status && status!=='all') ? '?status='+status : '';
+    const d = await (await fetch('/api/posts'+q)).json();
+    if(!d.ok || !d.posts.length){ box.innerHTML = '<div class="empty">아직 게시물이 없어요</div>'; return; }
+    box.innerHTML = d.posts.map(p=>{
+      const isPub = p.status==='published';
+      const badge = isPub ? '<span class="pbadge pub">게시완료</span>' : '<span class="pbadge draft">임시저장</span>';
+      const preview = esc((p.content||'').slice(0,60));
+      const actions = isPub
+        ? (p.post_url ? `<button class="btn-sm" onclick="window.open('${p.post_url}','_blank')">글 보기 ↗</button>` : '')
+        : `<button class="btn-sm mint" onclick="publishPost(${p.id},this)">게시하기</button>`;
+      return `<div class="post-item">
+        <div class="post-top">${CH_LABEL(p.channel)} ${badge}</div>
+        <div class="post-prev">${preview}${(p.content||'').length>60?'…':''}</div>
+        <div class="post-act">${actions}
+          <button class="btn-sm ghost" onclick="deletePost(${p.id},this)">삭제</button></div>
+      </div>`;
+    }).join('');
+  }catch(e){ box.innerHTML = '<div class="empty">불러오기 실패</div>'; }
+}
+async function publishPost(id, btn){
+  btn.textContent='게시 중…'; btn.disabled=true;
+  try{
+    const r = await fetch('/api/publish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({post_id:id})});
+    const res = await r.json();
+    if(res.ok){ toast('게시됐어요! 🚀'); loadPosts('all',document.querySelector('.ptab')); }
+    else if(res.need_connect){ toast('설정에서 SNS 연결 먼저'); go('settings'); }
+    else { toast(res.error||'게시 실패'); btn.textContent='게시하기'; btn.disabled=false; }
+  }catch(e){ toast('게시 실패'); btn.textContent='게시하기'; btn.disabled=false; }
+}
+async function deletePost(id, btn){
+  if(!confirm('이 게시물을 삭제할까요?')) return;
+  try{
+    const r = await fetch('/api/post/'+id,{method:'DELETE'});
+    if((await r.json()).ok){ btn.closest('.post-item').remove(); toast('삭제됐어요'); }
+  }catch(e){ toast('삭제 실패'); }
 }
 
 function copyProfileUrl(btn){

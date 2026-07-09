@@ -40,6 +40,13 @@ def init_db():
         product_name TEXT, channel TEXT, clicks INTEGER DEFAULT 0, position INTEGER DEFAULT 0,
         on_profile INTEGER DEFAULT 1, created_at BIGINT);""")
 
+    # 게시물: 임시저장(draft) → 게시(published), 게시물 URL 저장
+    _q("""CREATE TABLE IF NOT EXISTS linklynk_posts(
+        id BIGSERIAL PRIMARY KEY, user_id BIGINT, channel TEXT, product_name TEXT,
+        content TEXT, deeplink TEXT, image TEXT,
+        status TEXT DEFAULT 'draft', post_url TEXT, post_id TEXT,
+        created_at BIGINT, published_at BIGINT);""")
+
 def _hash_pw(pw, salt=None):
     salt = salt or secrets.token_hex(16)
     h = hashlib.pbkdf2_hmac("sha256", pw.encode(), salt.encode(), 100000).hex()
@@ -96,6 +103,35 @@ def get_partners_key(uid):
 def save_zernio_key(uid, key):
     ek = _fernet.encrypt(key.encode()).decode()
     _q("UPDATE linklynk_users SET zernio_key_enc=%s WHERE id=%s", (ek, uid))
+    return {"ok": True}
+
+# ── 게시물(posts): 임시저장 → 게시 ──
+def save_post(uid, channel, product_name, content, deeplink, image=None, status="draft"):
+    row = _q("""INSERT INTO linklynk_posts(user_id,channel,product_name,content,deeplink,image,status,created_at)
+                VALUES(%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
+             (uid, channel, product_name, content, deeplink, image, status, int(time.time())), fetch="one")
+    return row["id"] if row else None
+
+def get_posts(uid, status=None):
+    if status:
+        rows = _q("SELECT * FROM linklynk_posts WHERE user_id=%s AND status=%s ORDER BY created_at DESC",
+                  (uid, status), fetch="all")
+    else:
+        rows = _q("SELECT * FROM linklynk_posts WHERE user_id=%s ORDER BY created_at DESC",
+                  (uid,), fetch="all")
+    return [dict(r) for r in rows] if rows else []
+
+def get_post(post_id):
+    row = _q("SELECT * FROM linklynk_posts WHERE id=%s", (post_id,), fetch="one")
+    return dict(row) if row else None
+
+def mark_published(post_id, post_url=None, post_id_ext=None):
+    _q("""UPDATE linklynk_posts SET status='published', post_url=%s, post_id=%s, published_at=%s
+          WHERE id=%s""", (post_url, post_id_ext, int(time.time()), post_id))
+    return {"ok": True}
+
+def delete_post(uid, post_id):
+    _q("DELETE FROM linklynk_posts WHERE id=%s AND user_id=%s", (post_id, uid))
     return {"ok": True}
 
 def get_zernio_key(uid):

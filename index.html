@@ -145,6 +145,19 @@
   .tone-row{display:flex;align-items:center;gap:10px;margin:10px 0 4px}
   .tone-lbl{font-size:12px;color:var(--text-2);font-weight:600;flex:0 0 auto}
   .chips-sm .chip{font-size:12px;padding:6px 12px}
+  .post-tabs{display:flex;gap:8px;margin:10px 0 14px}
+  .ptab{background:var(--surface-1);border:1px solid var(--line);border-radius:20px;color:var(--text-2);font-size:12px;padding:6px 14px;cursor:pointer}
+  .ptab.on{background:var(--mint);color:var(--ink);border-color:var(--mint);font-weight:600}
+  .post-item{background:var(--surface-1);border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-bottom:10px}
+  .post-top{font-size:12px;color:var(--text-2);font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:8px}
+  .pbadge{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700}
+  .pbadge.pub{background:rgba(34,233,164,.15);color:var(--mint-bright)}
+  .pbadge.draft{background:rgba(255,180,60,.15);color:#ffb43c}
+  .post-prev{font-size:13px;color:var(--text);line-height:1.5;margin-bottom:10px;white-space:pre-wrap}
+  .post-act{display:flex;gap:8px}
+  .btn-sm{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;color:var(--text);font-size:12px;padding:6px 14px;cursor:pointer;font-weight:600}
+  .btn-sm.mint{background:var(--mint);color:var(--ink);border-color:var(--mint)}
+  .btn-sm.ghost{background:none;color:var(--text-2)}
   .hint{font-size:12px;color:var(--text-2);margin-top:10px;padding:10px;background:var(--surface-1);border-radius:8px;line-height:1.5}
   .nia-wrap{padding-right:24px;min-height:200px}
   .nia-list{display:flex;flex-direction:column;transition:opacity .4s cubic-bezier(.22,1,.36,1)}
@@ -292,6 +305,13 @@
         <div class="stat-lbl">총 클릭 수</div>
       </div>
       <div id="topLinks"></div>
+      <h2 style="margin-top:28px">📤 내 게시물</h2>
+      <div class="post-tabs">
+        <button class="ptab on" data-st="all" onclick="loadPosts('all',this)">전체</button>
+        <button class="ptab" data-st="published" onclick="loadPosts('published',this)">게시완료</button>
+        <button class="ptab" data-st="draft" onclick="loadPosts('draft',this)">임시저장</button>
+      </div>
+      <div id="postList"></div>
       <h2 style="margin-top:28px">이번 달 사용량</h2>
       <div class="card" id="usageCard"></div>
     </div>
@@ -302,7 +322,7 @@
     <div class="sec">
       <h2>내 채널 설정</h2>
       <div class="card">
-        <div class="card-lbl">내 프로필 주소</div>
+        <div class="card-lbl">내 링크 주소</div>
         <div style="font-size:12px;color:var(--text-2);margin-bottom:12px;line-height:1.5">인스타·틱톡 프로필에 걸 나만의 주소예요. 한번 정하면 이 주소로 링크가 모여요.</div>
         <div class="field"><label>linklynk.onrender.com/u/</label><input id="s_handle" placeholder="mygoga" autocomplete="off" style="text-transform:lowercase"></div>
         <div id="handleMsg"></div>
@@ -345,13 +365,13 @@
 
   <div class="tabbar">
     <button class="tab on" data-p="make" onclick="go('make')"><span class="tab-ic">⚡</span>만들기</button>
-    <button class="tab" data-p="profile" onclick="go('profile')"><span class="tab-ic">🔗</span>내 프로필</button>
+    <button class="tab" data-p="profile" onclick="go('profile')"><span class="tab-ic">🔗</span>내 링크</button>
     <button class="tab" data-p="stats" onclick="go('stats')"><span class="tab-ic">📊</span>통계</button>
     <button class="tab" data-p="settings" onclick="go('settings')"><span class="tab-ic">⚙️</span>설정</button>
   </div>
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="/app.js?v=1783582201"></script>
+<script src="/app.js?v=1783584267"></script>
 </body>
 </html>
