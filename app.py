@@ -121,9 +121,41 @@ def me():
     u = store.get_user(session["uid"])
     key = store.get_partners_key(u["id"])
     usage = store.get_usage(u["id"])
+    sns = store.get_zernio_key(u["id"])
     return jsonify({"ok": True, "email": u["email"], "handle": u["handle"],
-                    "plan": u["plan"], "has_key": bool(key),
+                    "plan": u["plan"], "has_key": bool(key), "has_sns": bool(sns),
                     "usage": usage, "limits": store.FREE_LIMITS})
+
+
+@app.route("/api/sns-key", methods=["POST"])
+@login_required
+def save_sns_key():
+    d = request.get_json(force=True, silent=True) or {}
+    key = (d.get("key") or "").strip()
+    if not key:
+        return jsonify({"ok": False, "error": "키를 입력하세요"}), 400
+    store.save_zernio_key(session["uid"], key)
+    return jsonify({"ok": True, "message": "SNS 자동 게시가 연결됐어요"})
+
+
+@app.route("/api/publish", methods=["POST"])
+@login_required
+def publish_sns():
+    """초안을 SNS에 자동 게시 (Zernio). 연결 안 됐으면 안내."""
+    d = request.get_json(force=True, silent=True) or {}
+    platforms = d.get("platforms") or []
+    content = (d.get("content") or "").strip()
+    media = d.get("media") or []
+    if not platforms or not content:
+        return jsonify({"ok": False, "error": "게시할 플랫폼과 내용이 필요해요"}), 400
+    key = store.get_zernio_key(session["uid"])
+    if not key:
+        return jsonify({"ok": False, "need_connect": True,
+                        "error": "먼저 설정에서 SNS를 연결해주세요"}), 403
+    r = zernio_publish(key, platforms, content, media)
+    if r.get("ok"):
+        return jsonify({"ok": True, "message": "게시됐어요!"})
+    return jsonify({"ok": False, "error": "게시 실패", "detail": r.get("error")}), 502
 
 
 @app.route("/api/handle", methods=["POST"])

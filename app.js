@@ -119,7 +119,7 @@ function go(page){
   else if(page==='settings'){ refreshMe(); }
 }
 async function refreshMe(){
-  try{ const me = await (await fetch('/api/me')).json(); if(me.ok){ window.__me=me; renderUsage(me); renderKeyStatus(me); renderHandle(me);} }catch(e){}
+  try{ const me = await (await fetch('/api/me')).json(); if(me.ok){ window.__me=me; renderUsage(me); renderKeyStatus(me); renderHandle(me); renderSns(me);} }catch(e){}
 }
 
 function renderHandle(me){
@@ -281,6 +281,7 @@ function renderThreads(draft, d){
     <div class="disc">💡 본글 먼저 올리고, 답글로 1→2→3→4→5 순서로 이어달면 돼요. 링크는 답글 4·5에만.</div>
     <div class="card-actions">
       <button class="btn btn-mint" onclick="copyText(${JSON.stringify(parts.join('\\n\\n')).replace(/"/g,'&quot;')}, this)">전체 복사</button>
+      <button class="btn btn-mint" onclick="publishToSns('threads',this)">🚀 쓰레드 자동게시</button>
       <button class="btn btn-ghost" onclick="saveAsImage(this)">📸 이미지 저장</button>
       <button class="btn btn-ghost" onclick="window.open('https://threads.net','_blank')">쓰레드 열기</button>
     </div></div>`;
@@ -299,6 +300,7 @@ function renderInsta(draft, d){
     <div class="card-actions">
       <button class="btn btn-mint" onclick="copyText(document.getElementById('draft').innerText, this)">캡션 복사</button>
       ${tags?`<button class="btn btn-ghost" onclick="copyText(${JSON.stringify(tags).replace(/"/g,'&quot;')}, this)">해시태그만 복사</button>`:''}
+      <button class="btn btn-mint" onclick="publishToSns('instagram',this)">🚀 인스타 자동게시</button>
       <button class="btn btn-ghost" onclick="saveAsImage(this)">📸 이미지 저장</button>
       <button class="btn btn-ghost" onclick="window.open('https://instagram.com','_blank')">인스타 열기</button>
     </div></div>`;
@@ -314,6 +316,7 @@ function renderX(draft, d){
     ${over?'<div class="disc">⚠️ 280자를 넘어요. 줄여서 올리세요.</div>':''}
     <div class="card-actions">
       <button class="btn btn-mint" onclick="copyText(document.getElementById('draft').innerText, this)">복사</button>
+      <button class="btn btn-mint" onclick="publishToSns('x',this)">🚀 X 자동게시</button>
       <button class="btn btn-ghost" onclick="saveAsImage(this)">📸 이미지 저장</button>
       <button class="btn btn-ghost" onclick="window.open('https://x.com/compose/post','_blank')">X 열기</button>
     </div></div>`;
@@ -666,6 +669,50 @@ async function saveAsImage(btn){
     }, 'image/png');
   }catch(e){ toast('이미지 저장 실패'); }
   btn.textContent = o;
+}
+
+async function saveSnsKey(){
+  const key = (document.getElementById('z_key').value||'').trim();
+  const btn = document.getElementById('snsBtn');
+  const msg = document.getElementById('snsMsg');
+  msg.innerHTML='';
+  if(!key){ msg.innerHTML='<div class="msg msg-err">Zernio API 키를 입력하세요</div>'; return; }
+  btn.classList.add('loading');
+  try{
+    const r = await fetch('/api/sns-key',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key})});
+    const d = await r.json();
+    if(d.ok){ msg.innerHTML='<div class="msg msg-ok">연결됐어요! ✨</div>'; if(window.__me) window.__me.has_sns=true; renderSns(window.__me||{has_sns:true}); }
+    else msg.innerHTML=`<div class="msg msg-err">${d.error||'연결 실패'}</div>`;
+  }catch(e){ msg.innerHTML='<div class="msg msg-err">네트워크 오류</div>'; }
+  btn.classList.remove('loading');
+}
+function renderSns(me){
+  const el = document.getElementById('snsStatus');
+  if(!el) return;
+  el.innerHTML = me.has_sns ? '<span style="color:var(--mint)">✓ 연결됨 — 초안에서 바로 게시할 수 있어요</span>' : '연결 안 됨';
+}
+
+// SNS 자동 게시 (Zernio)
+async function publishToSns(platform, btn){
+  const d = window.__lastResult;
+  if(!d){ toast('게시할 초안이 없어요'); return; }
+  if(!window.__me || !window.__me.has_sns){
+    toast('먼저 설정에서 SNS를 연결해주세요');
+    go('settings'); return;
+  }
+  // 쓰레드는 6분할 → 첫 본글만 (답글은 수동), 나머지는 전체
+  let content = d.blogDraft || '';
+  if(platform==='threads'){ content = content.split('\n===THREAD===\n')[0]; }
+  const media = d.image ? [d.image] : [];
+  const o = btn.textContent; btn.textContent='게시 중…'; btn.disabled=true;
+  try{
+    const r = await fetch('/api/publish',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({platforms:[platform], content, media})});
+    const res = await r.json();
+    if(res.ok){ toast('게시됐어요! 🚀'); btn.textContent='게시 완료 ✓'; }
+    else if(res.need_connect){ toast('설정에서 SNS 연결 먼저'); go('settings'); btn.textContent=o; btn.disabled=false; }
+    else { toast(res.error||'게시 실패'); btn.textContent=o; btn.disabled=false; }
+  }catch(e){ toast('게시 실패'); btn.textContent=o; btn.disabled=false; }
 }
 
 function copyProfileUrl(btn){

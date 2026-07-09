@@ -93,6 +93,16 @@ def get_partners_key(uid):
     return {"access":_fernet.decrypt(row["pt_access_enc"].encode()).decode(),
             "secret":_fernet.decrypt(row["pt_secret_enc"].encode()).decode()}
 
+def save_zernio_key(uid, key):
+    ek = _fernet.encrypt(key.encode()).decode()
+    _q("UPDATE linklynk_users SET zernio_key_enc=%s WHERE id=%s", (ek, uid))
+    return {"ok": True}
+
+def get_zernio_key(uid):
+    row=_q("SELECT zernio_key_enc FROM linklynk_users WHERE id=%s",(uid,),fetch="one")
+    if not row or not row.get("zernio_key_enc"): return None
+    return _fernet.decrypt(row["zernio_key_enc"].encode()).decode()
+
 FREE_LIMITS = {"link": 500, "draft": 500}
 def _month(): return time.strftime("%Y-%m", time.gmtime())
 def get_usage(uid):

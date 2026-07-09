@@ -328,6 +328,17 @@
           내 키를 등록하면 내 수익으로 링크가 만들어져요. 키는 암호화되어 안전하게 저장됩니다.
         </div>
       </div>
+      <div class="card">
+        <div class="card-lbl">🚀 SNS 자동 게시 (선택)</div>
+        <div id="snsStatus" style="font-size:13px;color:var(--muted);margin-bottom:12px">연결 안 됨</div>
+        <div style="font-size:12px;color:var(--text-2);margin-bottom:12px;line-height:1.5">인스타·쓰레드·X를 연결하면 초안을 <b>바로 게시</b>할 수 있어요. 네이버 블로그는 복사/다운로드로 올려요.</div>
+        <div class="field"><label>Zernio API Key</label><input id="z_key" placeholder="zernio.com에서 발급" autocomplete="off"></div>
+        <div id="snsMsg"></div>
+        <button class="btn btn-mint" id="snsBtn" onclick="saveSnsKey()"><span class="lbl">연결하기</span></button>
+        <div style="margin-top:10px;font-size:11.5px;color:var(--muted);line-height:1.5">
+          zernio.com에서 무료로 SNS 계정을 연결하고 API 키를 받으세요. (2계정 무료)
+        </div>
+      </div>
       <button class="btn btn-ghost" onclick="logout()" style="margin-top:8px">로그아웃</button>
     </div>
   </div>
@@ -341,6 +352,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="/app.js?v=1783581124"></script>
+<script src="/app.js?v=1783581377"></script>
 </body>
 </html>
