@@ -790,22 +790,24 @@ function renderSns(me){
 // 임시저장 (게시 안 함)
 async function saveDraft(btn){
   const d = window.__lastResult;
-  if(!d){ toast('저장할 초안이 없어요'); return; }
-  let content = d.blogDraft || '';
+  if(!d){ toast('⚠️ 초안 데이터가 없어요 (다시 만들어주세요)'); return; }
+  if(!d.blogDraft){ toast('⚠️ 저장할 글이 없어요'); return; }
   const o = btn.textContent; btn.textContent='저장 중…';
   try{
     const r = await fetch('/api/save-draft',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({channel:d.channel, content, productName:d.productName, deeplink:d.deeplink, image:d.image})});
+      body:JSON.stringify({channel:d.channel, content:d.blogDraft, productName:d.productName||'', deeplink:d.deeplink||'', image:d.image||null})});
+    if(r.status===401){ toast('⚠️ 로그인이 풀렸어요. 새로고침 해주세요'); btn.textContent=o; return; }
     const res = await r.json();
     if(res.ok){ toast('임시저장했어요 📥'); btn.textContent='저장됨 ✓'; }
-    else { toast(res.error||'저장 실패'); btn.textContent=o; }
-  }catch(e){ toast('저장 실패'); btn.textContent=o; }
+    else { toast('저장 실패: '+(res.error||r.status)); btn.textContent=o; }
+  }catch(e){ toast('저장 오류: '+(e.message||e)); btn.textContent=o; }
 }
 
 // SNS 게시 (Zernio) — 실패 시 정확한 이유 표시
 async function publishToSns(platform, btn){
   const d = window.__lastResult;
-  if(!d){ toast('게시할 초안이 없어요'); return; }
+  if(!d){ toast('⚠️ 초안 데이터가 없어요 (다시 만들어주세요)'); return; }
+  if(!d.blogDraft){ toast('⚠️ 게시할 글이 없어요'); return; }
   if(!window.__me || !window.__me.has_sns){
     toast('먼저 설정에서 SNS를 연결해주세요');
     go('settings'); return;
@@ -816,22 +818,22 @@ async function publishToSns(platform, btn){
   const o = btn.textContent; btn.textContent='게시 중…'; btn.disabled=true;
   try{
     const r = await fetch('/api/publish',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({platforms:[platform], content, media, channel:d.channel, productName:d.productName, deeplink:d.deeplink})});
+      body:JSON.stringify({platforms:[platform], content, media, channel:d.channel, productName:d.productName||'', deeplink:d.deeplink||''})});
+    if(r.status===401){ toast('⚠️ 로그인이 풀렸어요. 새로고침 해주세요'); btn.textContent=o; btn.disabled=false; return; }
     const res = await r.json();
     if(res.ok){
       toast('게시됐어요! 🚀'); btn.textContent='게시 완료 ✓';
-      if(res.post_url){ // 게시물 바로 보기 링크
+      if(res.post_url){
         setTimeout(()=>{ if(confirm('게시됐어요! 지금 확인하러 갈까요?')) window.open(res.post_url,'_blank'); }, 300);
       }
     }
     else if(res.need_connect){ toast('설정에서 SNS 연결 먼저'); go('settings'); btn.textContent=o; btn.disabled=false; }
     else {
-      // ★실패 이유 명확히
-      toast(res.error || '게시 실패');
+      toast('게시 실패: '+(res.error || r.status));
       if(res.detail) console.log('게시 실패 상세:', res.detail);
       btn.textContent=o; btn.disabled=false;
     }
-  }catch(e){ toast('게시 실패 — 네트워크 확인'); btn.textContent=o; btn.disabled=false; }
+  }catch(e){ toast('게시 오류: '+(e.message||e)); btn.textContent=o; btn.disabled=false; }
 }
 
 // 게시물 목록
