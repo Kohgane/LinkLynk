@@ -163,10 +163,34 @@ def guess_category(name: str):
     return "general", ["써보니", "생각보다 괜찮고", "실사용해보니"]
 
 
+def extract_keywords(name: str):
+    """상품명에서 핵심 키워드 추출 → 글에 자연스럽게 녹임.
+    예: '슈어홈 BLDC 차일드락 14단 가정용 선풍기' → 핵심='선풍기', 특징=['BLDC','차일드락','14단','가정용']"""
+    if not name:
+        return {"core": "이거", "brand": "", "features": []}
+    words = name.replace(",", " ").split()
+    # 브랜드 = 보통 첫 단어 (한글/영문 고유명사)
+    brand = words[0] if words else ""
+    # 핵심 명사 = 보통 마지막 단어 (제품 종류)
+    core = words[-1] if len(words) > 1 else (words[0] if words else "이거")
+    # 특징 = 중간 단어들 (숫자+단위, 기능 키워드)
+    features = []
+    for w in words[1:-1] if len(words) > 2 else []:
+        # 너무 짧거나 순수 숫자만은 제외, 의미있는 특징만
+        if len(w) >= 2 and not w.isdigit():
+            features.append(w)
+    # 핵심에서 흔한 카테고리 명사 뽑기 (마지막 단어가 복합어면)
+    return {"core": core, "brand": brand, "features": features[:3]}
+
+
 def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", channel: str = "blog", info: dict = None) -> str:
-    """플랫폼별 맞춤 초안. ★매번 다른 글 + ★상품 카테고리 반영(휴머나이저)."""
+    """플랫폼별 맞춤 초안. ★매번 다른 글 + ★상품 키워드 반영 + ★사람같은 문체."""
     name = product_name
     first = name.split()[0] if name else "이거"
+    kw = extract_keywords(name)
+    core = kw["core"]        # 제품 종류 (선풍기, 청소기 등)
+    feats = kw["features"]   # 특징들
+    feat = random.choice(feats) if feats else ""
     price_txt = ""
     if info and info.get("price"):
         price_txt = f"{int(info['price']):,}원"
@@ -197,27 +221,35 @@ def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", ch
 
     # ── 쓰레드: 6분할, 매번 다른 골격·말투 (THREADS 가이드) ──
     if channel == "threads":
-        # 톤별 본글·답글 (정중/친근/전문가/솔직담백)
+        # feat 있으면 "OO 되는" 식으로 자연스럽게
+        featph = f"{feat} 되는 거" if feat else "이런 거"
         POOLS = {
             "polite": {
                 "posts": [
-                    f"{first} 고르는 게 생각보다 어렵더라고요\n다들 어떤 기준으로 고르시나요?",
-                    f"{first} 관련해서 여쭤보는 분들이 많아 정리해봤어요",
-                    f"{first}, 사기 전에 저처럼 고민하시는 분 계실까요?",
+                    f"{core} 고르는 게 생각보다 어렵더라고요\n다들 어떤 기준으로 보시나요?",
+                    f"{core} 관련해서 여쭤보는 분들이 많아서 정리해봤어요",
+                    f"{core}, 사기 전에 저처럼 고민하시는 분 계실까요?",
+                    f"{first} {core} 써보신 분 있으신가요? 후기 남겨봐요",
+                    f"{core} 하나 새로 들였는데 생각보다 괜찮아서 공유드려요",
+                    f"요즘 {core} 찾는 분들 많으시더라고요. 제 경험 적어볼게요",
+                    f"{featph} {core} 찾다가 이거로 정착했어요",
                 ],
-                "r1": [f"며칠 고민하다 구매했는데\n{cat_line} 만족스러웠어요", "여러 제품 비교하다 이걸로 정했어요"],
-                "r2": [f"{'가격도 '+price_txt+' 정도라 부담 없었고요' if price_txt else '가격도 합리적이었고요'}\n품질도 괜찮았어요", "실사용해보니 기대 이상이었어요"],
-                "r3": ["지금은 잘 쓰고 있습니다", "재구매 의사도 있어요"],
+                "r1": [f"며칠 고민하다 구매했는데\n{cat_line} 만족스러웠어요", f"여러 {core} 비교하다 이걸로 정했어요", f"{feat+' 기능이 마음에 들어서 골랐어요' if feat else '리뷰 보고 골랐는데 괜찮네요'}"],
+                "r2": [f"{'가격도 '+price_txt+' 정도라 부담 없었고요' if price_txt else '가격도 합리적이었고요'}\n품질도 괜찮았어요", "실사용해보니 기대 이상이었어요", f"{core}치고 마감도 깔끔하더라고요"],
+                "r3": ["지금은 잘 쓰고 있습니다", "재구매 의사도 있어요", "주변에도 추천하고 있어요"],
                 "link": ["필요하신 분 계실까 봐 링크 남겨둘게요:)", "구매처는 아래에 남겨드려요"],
                 "end": [f"도움이 되셨으면 좋겠어요\n{deeplink}", f"참고되셨길 바라요\n{deeplink}"],
             },
             "expert": {
                 "posts": [
-                    f"{first} 구매 전 체크할 핵심 포인트 정리",
-                    f"{first} 고를 때 이것만 보면 됩니다",
-                    f"{first}, 실사용 기준으로 평가해봤습니다",
+                    f"{core} 구매 전 체크할 핵심 포인트 정리",
+                    f"{core} 고를 때 이것만 보면 됩니다",
+                    f"{core}, 실사용 기준으로 평가해봤습니다",
+                    f"{feat+' 사양 ' if feat else ''}{core} 살 때 놓치기 쉬운 것",
+                    f"{core} 스펙만 보면 안 되는 이유",
+                    f"{first} {core} 실측 후기입니다",
                 ],
-                "r1": [f"핵심은 실사용 만족도인데\n{cat_line} 합격점이었습니다", "스펙보다 실제 사용감이 중요합니다"],
+                "r1": [f"핵심은 실사용 만족도인데\n{cat_line} 합격점이었습니다", "스펙보다 실제 사용감이 중요합니다", f"{feat+' 성능은 기대 이상이었습니다' if feat else '기본기가 탄탄합니다'}"],
                 "r2": [f"{'가격 대비 성능이 '+price_txt+' 기준 우수합니다' if price_txt else '가성비가 뛰어납니다'}", "동급 대비 경쟁력 있습니다"],
                 "r3": ["종합적으로 추천할 만합니다", "재구매 가치 있다고 판단됩니다"],
                 "link": ["구매 링크 첨부합니다", "아래에서 확인 가능합니다"],
@@ -225,33 +257,41 @@ def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", ch
             },
             "casual": {
                 "posts": [
-                    f"{first} 이런 거 찾다가 시간 다 씀…\n다들 어떻게 고름?",
-                    f"솔직히 {first} 다 거기서 거기 아님? 했는데",
-                    f"{first} 없을 때랑 있을 때랑 삶의 질이 다름 진짜",
+                    f"{core} 이런 거 찾다가 시간 다 씀…\n다들 어떻게 고름?",
+                    f"솔직히 {core} 다 거기서 거기 아님? 했는데",
+                    f"{core} 없을 때랑 있을 때랑 삶의 질이 다름 진짜",
+                    f"{core} 하나 잘못 사서 돈 날린 적 있어서 이번엔 빡세게 알아봄",
+                    f"{feat+' ' if feat else ''}{core} 이거 왜 이제 샀지 싶음",
+                    f"{core} 3시간 검색하다 현타 와서 그냥 이거 삼ㅋㅋ",
+                    f"남들 {core} 뭐 쓰나 궁금해서 물어봤더니 다들 이거더라",
+                    f"{core} 이거 은근 물건임 아는 사람만 아는 듯",
                 ],
-                "r1": [f"며칠 고민하다 그냥 질렀는데\n{cat_line} 생각보다 만족", f"반신반의하면서 샀는데\n{cat_line} 웬걸"],
-                "r2": [f"{'가격도 '+price_txt+'이라 부담 없었고' if price_txt else '가격도 착했고'}\n써보니 확실히 다름", "비싼 거랑 비교해봤는데 이걸로 충분"],
-                "r3": ["이젠 없으면 아쉬울 듯", "재구매 의사 100%임"],
-                "link": ["찾기 귀찮을까 봐 밑에 링크 둠 👇", "광고 맞음ㅋㅋ 그래도 쓰는 건 진짜", "밑에 링크."],
-                "end": [f"나만 알기 아까워서 공유함ㅋㅋ\n{deeplink}", f"필요한 사람 참고하셈\n{deeplink}"],
+                "r1": [f"며칠 고민하다 그냥 질렀는데\n{cat_line} 생각보다 만족", f"반신반의하면서 샀는데\n{cat_line} 웬걸", f"{feat+' 이거 생각보다 쓸만함' if feat else '기대 안 했는데 의외로 좋음'}"],
+                "r2": [f"{'가격도 '+price_txt+'이라 부담 없었고' if price_txt else '가격도 착했고'}\n써보니 확실히 다름", "비싼 거랑 비교해봤는데 이걸로 충분", f"{core}치고 이 정도면 훌륭"],
+                "r3": ["이젠 없으면 아쉬울 듯", "재구매 의사 100%임", "주변에 다 영업하고 다니는 중ㅋㅋ"],
+                "link": ["찾기 귀찮을까 봐 밑에 링크 둠 👇", "광고 맞음ㅋㅋ 그래도 쓰는 건 진짜", "밑에 링크.", "혹시 몰라 남겨둠"],
+                "end": [f"나만 알기 아까워서 공유함ㅋㅋ\n{deeplink}", f"필요한 사람 참고하셈\n{deeplink}", f"암튼 강추임\n{deeplink}"],
             },
-        }
-        # friendly = 기본
-        POOLS["friendly"] = {
-            "posts": [
-                f"{first} 이런 거 찾다가 시간 다 썼어요ㅎㅎ\n다들 어떻게 고르세요?",
-                f"요즘 {first} 뭐 쓰냐고 물어보는 분 많아서 적어봐요",
-                f"{first} 하나 샀는데 생각보다 좋아서 공유해요~",
-            ],
-            "r1": [f"며칠 고민하다 샀는데\n{cat_line} 만족해요", f"처음엔 반신반의했는데\n{cat_line} 웬걸요ㅎㅎ"],
-            "r2": [f"{'가격도 '+price_txt+'이라 부담 없었어요' if price_txt else '가격도 착했어요'}\n써보니 좋더라고요", "이 값이면 충분한 것 같아요"],
-            "r3": ["지금은 주변에도 추천 중이에요ㅎㅎ", "재구매 의사 100%예요"],
-            "link": ["찾기 귀찮을까 봐 링크 둘게요 👇", "궁금한 분 있을까 봐 걸어둬요~"],
-            "end": [f"도움 됐으면 좋겠어요\n{deeplink}", f"필요한 분 참고하세요~\n{deeplink}"],
+            "friendly": {
+                "posts": [
+                    f"{core} 이런 거 찾다가 시간 다 썼어요ㅎㅎ\n다들 어떻게 고르세요?",
+                    f"요즘 {core} 뭐 쓰냐고 물어보는 분 많아서 적어봐요",
+                    f"{core} 하나 샀는데 생각보다 좋아서 공유해요~",
+                    f"{feat+' ' if feat else ''}{core} 고민 중이신 분들 이거 어때요?",
+                    f"{core} 바꿨더니 확실히 편해졌어요ㅎㅎ",
+                    f"{first} {core} 써보고 있는데 만족 중이에요",
+                    f"{core} 살까 말까 고민 많이 했는데 잘 산 것 같아요",
+                ],
+                "r1": [f"며칠 고민하다 샀는데\n{cat_line} 만족해요", f"처음엔 반신반의했는데\n{cat_line} 웬걸요ㅎㅎ", f"{feat+' 기능 은근 잘 써요' if feat else '생각보다 손이 자주 가요'}"],
+                "r2": [f"{'가격도 '+price_txt+'이라 부담 없었어요' if price_txt else '가격도 착했어요'}\n써보니 좋더라고요", "이 값이면 충분한 것 같아요"],
+                "r3": ["지금은 주변에도 추천 중이에요ㅎㅎ", "재구매 의사 100%예요"],
+                "link": ["찾기 귀찮을까 봐 링크 둘게요 👇", "궁금한 분 있을까 봐 걸어둬요~"],
+                "end": [f"도움 됐으면 좋겠어요\n{deeplink}", f"필요한 분 참고하세요~\n{deeplink}"],
+            },
         }
         P = POOLS.get(TONE, POOLS["friendly"])
         r4 = f"{R(P['link'])}\n{deeplink}\n\n(광고) 쿠팡파트너스 활동으로 수수료를 받습니다"
-        r5 = f"{R(P['end'])}\n\n#{first} " + R(["#추천템", "#내돈내산", "#꿀템"])
+        r5 = f"{R(P['end'])}\n\n#{first} " + R(["#추천템", "#내돈내산", "#꿀템", f"#{core}"])
         parts = [R(P["posts"]), R(P["r1"]), R(P["r2"]), R(P["r3"]), r4, r5]
         return "\n===THREAD===\n".join(parts)
 
@@ -262,11 +302,13 @@ def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", ch
             f"⭐ {name} ⭐", f"💫 데일리 {first} 💫",
         ]
         bodies = [
-            "요즘 데일리로 챙기는 아이템 🤍",
-            "몇 번을 재구매하는지 모르겠어요",
-            "한번 쓰면 계속 찾게 되는 그런 거 있잖아요",
+            f"요즘 데일리로 챙기는 {core} 🤍",
+            f"{core} 몇 번을 재구매하는지 모르겠어요",
+            f"한번 쓰면 계속 찾게 되는 {core} 있잖아요",
             "친구들이 자꾸 물어봐서 공유해요",
             "고민하다 샀는데 완전 만족 중이에요",
+            f"{feat+' ' if feat else ''}{core} 찾다가 정착한 아이템",
+            f"{core} 이거 진짜 물건이에요",
         ]
         guides = [
             "자세한 건 프로필 링크 확인 👆", "구매처는 프로필 링크에 🔗",
