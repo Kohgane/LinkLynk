@@ -138,6 +138,63 @@ def save_sns_key():
     return jsonify({"ok": True, "message": "SNS 자동 게시가 연결됐어요"})
 
 
+@app.route("/api/search-product", methods=["POST"])
+@login_required
+def search_product_api():
+    """키워드로 인기 상품 검색 → 딥링크 자동 생성. 캐시 우선(시간당 10회 제한 보호)."""
+    d = request.get_json(force=True, silent=True) or {}
+    keyword = (d.get("keyword") or "").strip()
+    if not keyword or len(keyword) < 2:
+        return jsonify({"ok": False, "error": "검색어를 2자 이상 입력하세요"}), 400
+
+    # 1) 캐시 먼저 (API 호출 0회)
+    cached = store.get_search_cache(keyword)
+    if cached and cached.get("deeplink"):
+        return jsonify({"ok": True, "cached": True,
+                        "product_name": cached["product_name"], "deeplink": cached["deeplink"],
+                        "image": cached.get("image"), "price": cached.get("price")})
+
+    user = store.get_user(session["uid"])
+    partners, own_key = _partners_for(user)
+    if partners is None:
+        return jsonify({"ok": False, "need_key": True,
+                        "error": "본인 파트너스 키가 필요해요. 설정에서 등록하세요."}), 403
+
+    # 2) 시간당 제한 보호 (검색 API는 시간당 10회) — 유저당 8회로 여유있게 제한
+    recent = store.count_recent_searches(session["uid"], 3600)
+    if recent >= 8:
+        return jsonify({"ok": False, "rate_limited": True,
+                        "error": "검색을 너무 많이 했어요. 1시간 후 다시 시도하거나, 링크를 직접 붙여넣어 주세요."}), 429
+
+    # 3) 실제 검색 (본인 키, 1회)
+    try:
+        store.log_search(session["uid"])
+        info = partners.search_product(keyword)
+    except Exception:
+        info = None
+    if not info or not info.get("name"):
+        return jsonify({"ok": False, "error": "상품을 찾지 못했어요. 다른 검색어를 써보세요."}), 404
+
+    # 4) 딥링크 생성 (productUrl이 이미 파트너스 링크면 그대로, 아니면 생성)
+    deeplink = info.get("url") or ""
+    try:
+        if info.get("productId"):
+            product_url = f"https://www.coupang.com/vp/products/{info['productId']}"
+            res = partners.make_deeplinks([product_url], sub_id="search")
+            if res.get("ok") and res.get("data"):
+                deeplink = res["data"][0].get("shortenUrl") or deeplink
+    except Exception:
+        pass
+
+    # 5) 캐시 저장 (다음엔 API 안 씀)
+    store.set_search_cache(keyword, info["name"], deeplink, info.get("image"), info.get("price"))
+    store.save_link(session["uid"], "", deeplink, info["name"], "search")
+
+    return jsonify({"ok": True, "cached": False,
+                    "product_name": info["name"], "deeplink": deeplink,
+                    "image": info.get("image"), "price": info.get("price")})
+
+
 @app.route("/api/sns-accounts", methods=["GET"])
 @login_required
 def sns_accounts():

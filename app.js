@@ -179,6 +179,15 @@ async function saveHandle(){
 function setMode(el){
   document.querySelectorAll('.mode').forEach(m=>m.classList.remove('on'));
   el.classList.add('on'); mode = el.dataset.mode;
+  const pasteBox = document.getElementById('pasteBox');
+  const searchBox = document.getElementById('searchBox');
+  if(mode==='search'){
+    if(pasteBox) pasteBox.classList.add('hidden');
+    if(searchBox) searchBox.classList.remove('hidden');
+    return;
+  }
+  if(pasteBox) pasteBox.classList.remove('hidden');
+  if(searchBox) searchBox.classList.add('hidden');
   const ta = document.getElementById('url');
   if(mode==='manual'){
     ta.placeholder = "이미 만든 파트너스 링크 붙여넣기\n예: link.coupang.com/a/...";
@@ -258,6 +267,52 @@ async function generate(){
   }catch(e){ toast('서버 연결 실패'); }
   finally{ go.classList.remove('loading'); }
 }
+// 상품 검색 → 인기 상품 링크 자동 생성
+async function doSearch(){
+  const kw = (document.getElementById('searchKw').value||'').trim();
+  const btn = document.getElementById('searchGo');
+  if(kw.length<2){ toast('검색어를 2자 이상 입력하세요'); return; }
+  btn.classList.add('loading');
+  try{
+    const r = await fetch('/api/search-product',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keyword:kw})});
+    const d = await r.json();
+    if(d.ok){
+      const priceTxt = d.price ? ` · ${Number(d.price).toLocaleString()}원` : '';
+      document.getElementById('result').innerHTML = `
+        <div class="result">
+          <div class="card">
+            <div class="card-lbl">🔍 "${esc(kw)}" 검색 결과${d.cached?' (저장된 결과)':''}</div>
+            <div style="display:flex;gap:12px;align-items:center;margin:8px 0">
+              ${d.image?`<img src="${d.image}" style="width:60px;height:60px;border-radius:8px;object-fit:cover">`:''}
+              <div style="flex:1;min-width:0">
+                <div style="font-size:14px;color:var(--text);line-height:1.4">${esc(d.product_name)}</div>
+                <div style="font-size:12px;color:var(--mint-bright)">${priceTxt}</div>
+              </div>
+            </div>
+            <div class="linkline"><div class="url">${d.deeplink}</div>
+              <button class="btn-copy" onclick="copyText('${d.deeplink}', this)">복사</button></div>
+            <div class="card-actions" style="margin-top:12px">
+              <button class="btn btn-mint" onclick="genFromSearch('${d.deeplink}','${esc(d.product_name).replace(/'/g,'')}')">이 상품으로 글 만들기</button>
+            </div>
+          </div>
+        </div>`;
+      document.getElementById('result').scrollIntoView({behavior:'smooth',block:'start'});
+      window.__searchResult = d;
+    }
+    else if(d.need_key){ toast('설정에서 파트너스 키를 먼저 등록하세요'); go('settings'); }
+    else if(d.rate_limited){ toast(d.error); }
+    else { toast(d.error||'검색 실패'); }
+  }catch(e){ toast('검색 실패 — 네트워크 확인'); }
+  btn.classList.remove('loading');
+}
+async function genFromSearch(deeplink, pname){
+  document.getElementById('url').value = deeplink;
+  document.getElementById('pname').value = pname;
+  mode = 'manual';
+  await generate();
+}
+function CH_LABEL(ch){ return ({blog:'네이버 블로그',insta:'인스타',threads:'쓰레드',x:'X',youtube:'유튜브'})[ch] || '블로그'; }
+
 function renderResult(d){
   const link = d.deeplink;
   const draft = d.blogDraft;

@@ -47,6 +47,11 @@ def init_db():
         status TEXT DEFAULT 'draft', post_url TEXT, post_id TEXT,
         created_at BIGINT, published_at BIGINT);""")
 
+    # 검색 캐시: 키워드→상품 (API 호출 최소화, 시간당 10회 제한 보호)
+    _q("""CREATE TABLE IF NOT EXISTS linklynk_search_cache(
+        keyword TEXT PRIMARY KEY, product_name TEXT, deeplink TEXT,
+        image TEXT, price BIGINT, cached_at BIGINT);""")
+
 def _hash_pw(pw, salt=None):
     salt = salt or secrets.token_hex(16)
     h = hashlib.pbkdf2_hmac("sha256", pw.encode(), salt.encode(), 100000).hex()
@@ -114,10 +119,10 @@ def save_post(uid, channel, product_name, content, deeplink, image=None, status=
 
 def get_posts(uid, status=None):
     if status:
-        rows = _q("SELECT * FROM linklynk_posts WHERE user_id=%s AND status=%s ORDER BY created_at DESC",
+        rows = _q("SELECT * FROM linklynk_posts WHERE user_id=%s AND status=%s AND channel!='__search__' ORDER BY created_at DESC",
                   (uid, status), fetch="all")
     else:
-        rows = _q("SELECT * FROM linklynk_posts WHERE user_id=%s ORDER BY created_at DESC",
+        rows = _q("SELECT * FROM linklynk_posts WHERE user_id=%s AND channel!='__search__' ORDER BY created_at DESC",
                   (uid,), fetch="all")
     return [dict(r) for r in rows] if rows else []
 
@@ -133,6 +138,36 @@ def mark_published(post_id, post_url=None, post_id_ext=None):
 def delete_post(uid, post_id):
     _q("DELETE FROM linklynk_posts WHERE id=%s AND user_id=%s", (post_id, uid))
     return {"ok": True}
+
+# ── 검색 캐시 (파트너스 검색 API 시간당 10회 제한 보호) ──
+def get_search_cache(keyword):
+    row = _q("SELECT * FROM linklynk_search_cache WHERE keyword=%s", (keyword.strip().lower(),), fetch="one")
+    if not row: return None
+    # 7일 지나면 만료 (가격 변동 반영)
+    if int(time.time()) - (row["cached_at"] or 0) > 7*86400:
+        return None
+    return dict(row)
+
+def set_search_cache(keyword, product_name, deeplink, image, price):
+    kw = keyword.strip().lower()
+    _q("""INSERT INTO linklynk_search_cache(keyword,product_name,deeplink,image,price,cached_at)
+          VALUES(%s,%s,%s,%s,%s,%s)
+          ON CONFLICT(keyword) DO UPDATE SET product_name=EXCLUDED.product_name,
+          deeplink=EXCLUDED.deeplink, image=EXCLUDED.image, price=EXCLUDED.price, cached_at=EXCLUDED.cached_at""",
+       (kw, product_name, deeplink, image, price or 0, int(time.time())))
+    return {"ok": True}
+
+def count_recent_searches(uid, within_seconds=3600):
+    """유저의 최근 검색 API 호출 횟수 (시간당 제한 확인용). usage 테이블 재사용."""
+    since = int(time.time()) - within_seconds
+    row = _q("SELECT COUNT(*) AS c FROM linklynk_posts WHERE user_id=%s AND channel='__search__' AND created_at>=%s",
+             (uid, since), fetch="one")
+    return row["c"] if row else 0
+
+def log_search(uid):
+    """검색 API 호출 기록 (rate limit 추적용, posts 테이블 재사용)."""
+    _q("""INSERT INTO linklynk_posts(user_id,channel,status,created_at)
+          VALUES(%s,'__search__','log',%s)""", (uid, int(time.time())))
 
 def get_zernio_key(uid):
     row=_q("SELECT zernio_key_enc FROM linklynk_users WHERE id=%s",(uid,),fetch="one")

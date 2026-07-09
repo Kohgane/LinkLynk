@@ -49,7 +49,9 @@ class CoupangPartners:
         if not pd:
             return None
         p = pd[0]
-        return {"name": p.get("productName"), "price": p.get("productPrice"), "image": p.get("productImage")}
+        return {"name": p.get("productName"), "price": p.get("productPrice"),
+                "image": p.get("productImage"), "url": p.get("productUrl"),
+                "productId": p.get("productId")}
 
     def make_deeplinks(self, coupang_urls, sub_id="linklynk"):
         """
