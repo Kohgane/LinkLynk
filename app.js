@@ -281,6 +281,7 @@ function renderThreads(draft, d){
     <div class="disc">💡 본글 먼저 올리고, 답글로 1→2→3→4→5 순서로 이어달면 돼요. 링크는 답글 4·5에만.</div>
     <div class="card-actions">
       <button class="btn btn-mint" onclick="copyText(${JSON.stringify(parts.join('\\n\\n')).replace(/"/g,'&quot;')}, this)">전체 복사</button>
+      <button class="btn btn-ghost" onclick="saveAsImage(this)">📸 이미지 저장</button>
       <button class="btn btn-ghost" onclick="window.open('https://threads.net','_blank')">쓰레드 열기</button>
     </div></div>`;
 }
@@ -298,6 +299,7 @@ function renderInsta(draft, d){
     <div class="card-actions">
       <button class="btn btn-mint" onclick="copyText(document.getElementById('draft').innerText, this)">캡션 복사</button>
       ${tags?`<button class="btn btn-ghost" onclick="copyText(${JSON.stringify(tags).replace(/"/g,'&quot;')}, this)">해시태그만 복사</button>`:''}
+      <button class="btn btn-ghost" onclick="saveAsImage(this)">📸 이미지 저장</button>
       <button class="btn btn-ghost" onclick="window.open('https://instagram.com','_blank')">인스타 열기</button>
     </div></div>`;
 }
@@ -312,6 +314,7 @@ function renderX(draft, d){
     ${over?'<div class="disc">⚠️ 280자를 넘어요. 줄여서 올리세요.</div>':''}
     <div class="card-actions">
       <button class="btn btn-mint" onclick="copyText(document.getElementById('draft').innerText, this)">복사</button>
+      <button class="btn btn-ghost" onclick="saveAsImage(this)">📸 이미지 저장</button>
       <button class="btn btn-ghost" onclick="window.open('https://x.com/compose/post','_blank')">X 열기</button>
     </div></div>`;
 }
@@ -324,6 +327,7 @@ function renderYoutube(draft, d){
     <div class="disc">💡 영상 업로드할 때 설명란에 붙여넣기. 타임스탬프는 영상에 맞게 수정하세요.</div>
     <div class="card-actions">
       <button class="btn btn-mint" onclick="copyText(document.getElementById('draft').innerText, this)">설명란 복사</button>
+      <button class="btn btn-ghost" onclick="saveAsImage(this)">📸 이미지 저장</button>
       <button class="btn btn-ghost" onclick="window.open('https://studio.youtube.com','_blank')">스튜디오 열기</button>
     </div></div>`;
 }
@@ -338,6 +342,7 @@ function renderBlogDraft(draft, d){
       <button class="btn btn-mint" onclick="copyNaverHtml(this)">📋 글+이미지 통째 복사</button>
       <button class="btn btn-ghost" onclick="copyText(document.getElementById('draft').innerText, this)">텍스트만 복사</button>
       <button class="btn btn-ghost" onclick="downloadNaverHtml()">⬇ HTML 저장</button>
+      <button class="btn btn-ghost" onclick="saveAsImage(this)">📸 이미지 저장</button>
       <button class="btn btn-ghost" onclick="window.open('https://blog.naver.com/postwrite','_blank')">블로그 열기</button>
     </div>
     <div class="hint">💡 "글+이미지 통째 복사" 누르고 네이버 블로그 글쓰기에 붙여넣으면 이미지·서식까지 들어가요.</div>
@@ -633,6 +638,34 @@ async function deleteLink(id, btn){
       toast('삭제됐어요');
     } else toast('삭제 실패');
   }catch(e){ toast('삭제 실패'); }
+}
+
+// 초안 카드를 이미지(PNG)로 저장 — 폰 스크롤캡처 안 될 때 대안
+async function saveAsImage(btn){
+  const card = btn.closest('.card');
+  if(!card || typeof html2canvas==='undefined'){ toast('이미지 저장을 준비 못했어요'); return; }
+  const o = btn.textContent; btn.textContent='만드는 중…';
+  try{
+    // 캡처용: 버튼줄 잠시 숨기고 배경 채움
+    const actions = card.querySelector('.card-actions');
+    const hint = card.querySelector('.hint');
+    if(actions) actions.style.visibility='hidden';
+    if(hint) hint.style.display='none';
+    const canvas = await html2canvas(card, {backgroundColor:'#141B2E', scale:2, useCORS:true, logging:false});
+    if(actions) actions.style.visibility='';
+    if(hint) hint.style.display='';
+    canvas.toBlob(blob=>{
+      const url=URL.createObjectURL(blob);
+      const a=document.createElement('a');
+      const d=window.__lastResult||{};
+      const fname=(d.productName||'초안').replace(/[^가-힣a-zA-Z0-9]/g,'_').slice(0,16);
+      a.href=url; a.download=`${fname}_${d.channel||'글'}.png`;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(()=>URL.revokeObjectURL(url),1000);
+      toast('이미지로 저장했어요 📸');
+    }, 'image/png');
+  }catch(e){ toast('이미지 저장 실패'); }
+  btn.textContent = o;
 }
 
 function copyProfileUrl(btn){

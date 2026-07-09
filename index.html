@@ -97,7 +97,7 @@
   .linkline .url{flex:1;font-size:13px;color:var(--mint-deep);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .btn-copy{flex:0 0 auto;background:var(--mint);color:var(--mint-ink);border:none;border-radius:9px;padding:8px 13px;font-size:12px;font-weight:700;cursor:pointer}
   .btn-copy.done{background:var(--mint-deep)}
-  .draftbox{font-size:13.5px;line-height:1.72;color:#3A4256;white-space:pre-wrap;background:var(--bg);border-radius:var(--radius-sm);padding:14px;max-height:200px;overflow:auto}
+  .draftbox{font-size:13.5px;line-height:1.72;color:#3A4256;white-space:pre-wrap;background:var(--bg);border-radius:var(--radius-sm);padding:14px}
   .disc{margin-top:9px;background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:10px;padding:10px 12px;font-size:11.5px;line-height:1.5;color:var(--warn-tx)}
   .card-actions{display:flex;gap:8px;margin-top:12px}
   .card-actions .btn{flex:1;padding:12px;font-size:14px}
@@ -182,8 +182,8 @@
   .tab.on .tab-ic{color:var(--mint-deep)}
   .tab-ic{font-size:20px;line-height:1}
   .page{display:none}
-  .page.on{display:block;opacity:1;animation:pageIn .35s cubic-bezier(.22,1,.36,1) both}
-  @keyframes pageIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  .page.on{display:block;opacity:1;animation:pageIn .35s cubic-bezier(.22,1,.36,1)}
+  @keyframes pageIn{from{opacity:0}to{opacity:1}}
   /* 부드러운 공통 전환 */
   .btn,.chip,.mode,.tab,.card,.rec-item,input,textarea{transition:all .2s cubic-bezier(.22,1,.36,1)}
   .card:active{transform:scale(.995)}
@@ -340,6 +340,7 @@
   </div>
 </div>
 
-<script src="/app.js?v=1783578940"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="/app.js?v=1783581124"></script>
 </body>
 </html>
