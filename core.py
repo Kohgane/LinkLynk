@@ -197,49 +197,62 @@ def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", ch
 
     # ── 쓰레드: 6분할, 매번 다른 골격·말투 (THREADS 가이드) ──
     if channel == "threads":
-        # 본글: 훅 유형 랜덤 (하소연/질문/정보/실패담/TMI)
-        posts = [
-            f"{first} 이런 거 찾다가 시간 다 씀…\n다들 어떻게 고르는지 궁금",
-            f"{first} 이거 하나 사려다 3시간 검색함ㅋㅋ 현타옴",
-            f"솔직히 {first} 이런 거 다 거기서 거기 아님? 했는데",
-            f"{first} 잘못 사서 돈 날린 적 있어서 이번엔 신중하게 골랐음",
-            f"요즘 {first} 뭐 쓰냐고 물어보는 사람 많아서 그냥 여기 적음",
-            f"{first} 없을 때랑 있을 때랑 삶의 질이 다름 진짜",
-        ]
-        r1s = [
-            f"며칠 고민하다 그냥 질렀는데\n{cat_line} 생각보다 만족",
-            f"처음엔 별 기대 안 했는데\n{cat_line} 의외로 계속 손이 감",
-            "리뷰 엄청 뒤지다가 결국 이거 골랐음",
-            f"반신반의하면서 샀는데\n{cat_line} 웬걸",
-        ]
-        r2s = [
-            f"{'가격도 '+price_txt+'이라 부담 없었고' if price_txt else '가격도 생각보다 착했고'}\n써보니 확실히 다름",
-            f"{'가격 '+price_txt+' 정도였는데' if price_txt else '가격도 적당했는데'}\n이 값이면 만족",
-            "비싼 거랑 비교해봤는데\n이걸로도 충분하더라",
-        ]
-        r3s = [
-            "처음엔 반신반의했는데\n이젠 없으면 아쉬울 듯",
-            "지금은 주변에도 추천하고 다님ㅋㅋ",
-            "재구매 의사 100%임",
-            "괜히 고민했나 싶을 정도",
-        ]
-        # 링크 안내: 로테이션 (클리셰 피하기)
-        link_intros = [
-            "찾기 귀찮을까 봐 밑에 링크 둠 👇",
-            "궁금한 사람 있을까 봐 걸어둠",
-            "광고 맞음ㅋㅋ 그래도 쓰는 건 진짜",
-            "밑에 링크.",
-            "혹시 몰라 남겨둠 👇",
-        ]
-        r4 = f"{R(link_intros)}\n{deeplink}\n\n(광고) 쿠팡파트너스 활동으로 수수료를 받습니다"
-        endings = [
-            f"암튼 나만 알기 아까워서 공유함ㅋㅋ\n{deeplink}",
-            f"도움 됐으면 좋겠음\n{deeplink}",
-            f"다들 뭐 쓰는지 댓글로 알려줘요\n{deeplink}",
-            f"필요한 사람 참고하셈\n{deeplink}",
-        ]
-        r5 = f"{R(endings)}\n\n#{first} " + R(["#추천템", "#내돈내산", "#꿀템"])
-        parts = [R(posts), R(r1s), R(r2s), R(r3s), r4, r5]
+        # 톤별 본글·답글 (정중/친근/전문가/솔직담백)
+        POOLS = {
+            "polite": {
+                "posts": [
+                    f"{first} 고르는 게 생각보다 어렵더라고요\n다들 어떤 기준으로 고르시나요?",
+                    f"{first} 관련해서 여쭤보는 분들이 많아 정리해봤어요",
+                    f"{first}, 사기 전에 저처럼 고민하시는 분 계실까요?",
+                ],
+                "r1": [f"며칠 고민하다 구매했는데\n{cat_line} 만족스러웠어요", "여러 제품 비교하다 이걸로 정했어요"],
+                "r2": [f"{'가격도 '+price_txt+' 정도라 부담 없었고요' if price_txt else '가격도 합리적이었고요'}\n품질도 괜찮았어요", "실사용해보니 기대 이상이었어요"],
+                "r3": ["지금은 잘 쓰고 있습니다", "재구매 의사도 있어요"],
+                "link": ["필요하신 분 계실까 봐 링크 남겨둘게요:)", "구매처는 아래에 남겨드려요"],
+                "end": [f"도움이 되셨으면 좋겠어요\n{deeplink}", f"참고되셨길 바라요\n{deeplink}"],
+            },
+            "expert": {
+                "posts": [
+                    f"{first} 구매 전 체크할 핵심 포인트 정리",
+                    f"{first} 고를 때 이것만 보면 됩니다",
+                    f"{first}, 실사용 기준으로 평가해봤습니다",
+                ],
+                "r1": [f"핵심은 실사용 만족도인데\n{cat_line} 합격점이었습니다", "스펙보다 실제 사용감이 중요합니다"],
+                "r2": [f"{'가격 대비 성능이 '+price_txt+' 기준 우수합니다' if price_txt else '가성비가 뛰어납니다'}", "동급 대비 경쟁력 있습니다"],
+                "r3": ["종합적으로 추천할 만합니다", "재구매 가치 있다고 판단됩니다"],
+                "link": ["구매 링크 첨부합니다", "아래에서 확인 가능합니다"],
+                "end": [f"판단에 도움 되시길\n{deeplink}", f"참고하시기 바랍니다\n{deeplink}"],
+            },
+            "casual": {
+                "posts": [
+                    f"{first} 이런 거 찾다가 시간 다 씀…\n다들 어떻게 고름?",
+                    f"솔직히 {first} 다 거기서 거기 아님? 했는데",
+                    f"{first} 없을 때랑 있을 때랑 삶의 질이 다름 진짜",
+                ],
+                "r1": [f"며칠 고민하다 그냥 질렀는데\n{cat_line} 생각보다 만족", f"반신반의하면서 샀는데\n{cat_line} 웬걸"],
+                "r2": [f"{'가격도 '+price_txt+'이라 부담 없었고' if price_txt else '가격도 착했고'}\n써보니 확실히 다름", "비싼 거랑 비교해봤는데 이걸로 충분"],
+                "r3": ["이젠 없으면 아쉬울 듯", "재구매 의사 100%임"],
+                "link": ["찾기 귀찮을까 봐 밑에 링크 둠 👇", "광고 맞음ㅋㅋ 그래도 쓰는 건 진짜", "밑에 링크."],
+                "end": [f"나만 알기 아까워서 공유함ㅋㅋ\n{deeplink}", f"필요한 사람 참고하셈\n{deeplink}"],
+            },
+        }
+        # friendly = 기본
+        POOLS["friendly"] = {
+            "posts": [
+                f"{first} 이런 거 찾다가 시간 다 썼어요ㅎㅎ\n다들 어떻게 고르세요?",
+                f"요즘 {first} 뭐 쓰냐고 물어보는 분 많아서 적어봐요",
+                f"{first} 하나 샀는데 생각보다 좋아서 공유해요~",
+            ],
+            "r1": [f"며칠 고민하다 샀는데\n{cat_line} 만족해요", f"처음엔 반신반의했는데\n{cat_line} 웬걸요ㅎㅎ"],
+            "r2": [f"{'가격도 '+price_txt+'이라 부담 없었어요' if price_txt else '가격도 착했어요'}\n써보니 좋더라고요", "이 값이면 충분한 것 같아요"],
+            "r3": ["지금은 주변에도 추천 중이에요ㅎㅎ", "재구매 의사 100%예요"],
+            "link": ["찾기 귀찮을까 봐 링크 둘게요 👇", "궁금한 분 있을까 봐 걸어둬요~"],
+            "end": [f"도움 됐으면 좋겠어요\n{deeplink}", f"필요한 분 참고하세요~\n{deeplink}"],
+        }
+        P = POOLS.get(TONE, POOLS["friendly"])
+        r4 = f"{R(P['link'])}\n{deeplink}\n\n(광고) 쿠팡파트너스 활동으로 수수료를 받습니다"
+        r5 = f"{R(P['end'])}\n\n#{first} " + R(["#추천템", "#내돈내산", "#꿀템"])
+        parts = [R(P["posts"]), R(P["r1"]), R(P["r2"]), R(P["r3"]), r4, r5]
         return "\n===THREAD===\n".join(parts)
 
     # ── 인스타: 감성, 매번 다른 캡션·해시태그 ──
@@ -435,10 +448,10 @@ def _zernio_accounts(api_key):
         return {}
 
 
-def zernio_publish(api_key, platforms, content, media_urls=None, account_ids=None):
+def zernio_publish(api_key, platforms, content, media_urls=None, account_ids=None, thread_items=None):
     """Zernio API로 SNS 즉시 게시. platforms=['threads','instagram','x'...].
     account_ids: {platform: accountId} 지정 시 그 계정으로 게시 (4개 중 선택).
-    실제 API 형식: platforms=[{platform,accountId}], mediaItems=[{type,url}], publishNow=true.
+    thread_items: 쓰레드/X 답글 체인 [본글, 답글1, 답글2...] — 있으면 연결된 글타래로 게시.
     x는 Zernio에서 'twitter'로 매핑."""
     if not api_key:
         return {"ok": False, "error": "not_connected"}
@@ -450,16 +463,27 @@ def zernio_publish(api_key, platforms, content, media_urls=None, account_ids=Non
     targets = []
     for p in platforms:
         zp = plat_map.get(p, p)
-        # 지정된 계정 우선, 없으면 해당 플랫폼 첫 계정
         aid = account_ids.get(p) or account_ids.get(zp) or accounts.get(zp)
         if aid:
-            targets.append({"platform": zp, "accountId": aid})
+            entry = {"platform": zp, "accountId": aid}
+            # 쓰레드/X 답글 체인: threadItems로 본글+답글 연결
+            if thread_items and zp in ("threads", "twitter", "bluesky"):
+                items = []
+                for i, txt in enumerate(thread_items):
+                    it = {"content": txt}
+                    # 첫 항목(본글)에만 이미지
+                    if i == 0 and media_urls:
+                        it["mediaItems"] = [{"type": "image", "url": u} for u in media_urls]
+                    items.append(it)
+                entry["platformSpecificData"] = {"threadItems": items}
+            targets.append(entry)
     if not targets:
         connected = ", ".join(accounts.keys()) or "없음"
         return {"ok": False, "error": "platform_not_connected",
                 "detail": f"해당 플랫폼이 연결 안 됨 (연결된 것: {connected})"}
     payload = {"content": content, "platforms": targets, "publishNow": True}
-    if media_urls:
+    # threadItems 없을 때만 최상위 mediaItems (있으면 각 entry가 처리)
+    if media_urls and not thread_items:
         payload["mediaItems"] = [{"type": "image", "url": u} for u in media_urls]
     try:
         req = urllib.request.Request("https://zernio.com/api/v1/posts",

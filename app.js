@@ -813,7 +813,7 @@ async function publishToSns(platform, btn){
     go('settings'); return;
   }
   let content = d.blogDraft || '';
-  if(platform==='threads'){ content = content.split('\n===THREAD===\n')[0]; }
+  // 쓰레드/X는 6분할 전체를 보냄 (서버가 답글체인으로 게시)
   const media = d.image ? [d.image] : [];
   const o = btn.textContent; btn.textContent='게시 중…'; btn.disabled=true;
   try{

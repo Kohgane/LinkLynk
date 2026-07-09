@@ -266,8 +266,14 @@ def publish_sns():
         return jsonify({"ok": False, "need_connect": True,
                         "error": "먼저 설정에서 SNS를 연결해주세요"}), 403
 
+    # 쓰레드/X: 6분할(본글+답글)을 답글 체인으로 게시
+    thread_items = None
+    if channel in ("threads", "x") and "\n===THREAD===\n" in content:
+        thread_items = [p.strip() for p in content.split("\n===THREAD===\n") if p.strip()]
+
     r = zernio_publish(key, platforms, content, media,
-                       account_ids=(d.get("account_ids") or {}))
+                       account_ids=(d.get("account_ids") or {}),
+                       thread_items=thread_items)
     if r.get("ok"):
         # 게시물 URL: Zernio가 permalink를 안 주므로 계정 프로필로 연결
         prof_url = _profile_url_from_zernio(r.get("data"), platforms[0])
