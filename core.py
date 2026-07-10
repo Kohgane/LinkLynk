@@ -376,6 +376,47 @@ def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", ch
                 "link": ["여기 링크 보냄 👇", "이거 눌러봐"],
                 "end": [f"암튼 사 후회 안 해\n{deeplink}", f"나중에 고맙다고 해라ㅋㅋ\n{deeplink}"],
             },
+            # ── 심리학 기반 훅 (정보격차·손실회피·문제증폭·사회적증거) ──
+            "gap": {  # 정보격차: "진짜 원인은 따로 있다"
+                "posts": [f"{core} 문제, 사실 그거 때문 아닐 수도 있음.", f"다들 {core} 이유를 엉뚱한 데서 찾더라.", f"{core} 진짜 원인 알면 좀 허무함."],
+                "r1": [f"진짜 원인은 따로 있는데 대부분 이걸 모름.\n나도 한참을 헤맸고.", "알고 보면 간단한데 아무도 안 알려줌."],
+                "r2": [f"{feat+' 이게 핵심이더라' if feat else '핵심은 딴 데 있었음'}.\n그래서 이걸로 바꿈.", "원인 잡으니까 바로 해결됨."],
+                "r3": ["바꾸고 며칠 만에 확 달라짐.", "진작 알았으면 좋았을 걸."],
+                "link": ["밑에 링크.", "여기 남겨둠."],
+                "end": [f"원인 알고 나니 허무하더라.\n{deeplink}", f"아는 사람만 아는 거였음.\n{deeplink}"],
+            },
+            "loss": {  # 손실회피: "싼 거 여러 번 = 더 비쌌다"
+                "posts": [f"{core} 사느라 날린 돈 계산해봤다.", f"싼 {core} 여러 번 사다 결국 손해 본 썰.", f"{core}, 처음부터 제대로 살 걸 그랬음."],
+                "r1": [f"몇 개 사서 다 버렸으니 돈 날린 셈.\n결국 안 쓰게 되더라고.", "싼 맛에 샀다가 계속 다시 삼."],
+                "r2": [f"그 돈이면 {'제대로 된 거 ('+price_txt+') ' if price_txt else '제대로 된 거 '}하나 살 걸.\n이건 계속 씀.", "제대로 된 거 하나가 답이었음."],
+                "r3": ["이제 딴 거 안 사도 됨.", "진작 이걸로 갈 걸."],
+                "link": ["밑에.", "여기 있음."],
+                "end": [f"싼 거 여러 번이 결국 더 비쌌음.\n{deeplink}", f"돈 아끼려다 더 씀. 참고하셈.\n{deeplink}"],
+            },
+            "amplify": {  # 문제증폭: 작은 증상 → 방치하면 커진다 (공감)
+                "posts": [f"{core} 관련 작은 신호, 그냥 넘기면 안 돼요.", f"이 증상 방치하면 나중에 후회해요.", f"{core}, 사소해 보여도 쌓이면 커져요."],
+                "r1": [f"처음엔 별거 아닌 것 같지만\n방치하면 점점 심해지더라고요 ㅠㅠ", "저도 그냥 뒀다가 고생했어요."],
+                "r2": [f"저는 {'이거 ('+price_txt+') ' if price_txt else '이거 '}하나로 확 줄였어요.\n{feat+' 덕분에' if feat else '이걸로'} 관리되더라고요.", "미리 잡으니 훨씬 편해요."],
+                "r3": ["일찍 챙기길 잘했어요.", "지금은 걱정 안 해요."],
+                "link": ["궁금하신 분들 걸어둬요~", "필요하시면 여기요."],
+                "end": [f"작은 신호 놓치지 마세요.\n{deeplink}", f"미리 챙기는 게 답이에요.\n{deeplink}"],
+            },
+            "social": {  # 사회적증거: "요즘 다들 조용히 쓰는 거"
+                "posts": [f"요즘 {core} 조용히 많이들 쓰더라고요.", f"아는 사람들 사이에서 {core} 이거 유명해요.", f"{core}, 알 만한 사람은 다 쓰는 듯."],
+                "r1": [f"주변에서 하나둘 쓰길래 저도 샀는데\n왜 인기인지 알겠더라고요.", "다들 쓰는 데는 이유가 있었어요."],
+                "r2": [f"{feat+' 이 부분이 특히 좋아요' if feat else '써보니 확실히 다르고'}.\n{'가격도 '+price_txt+'고요' if price_txt else '부담도 없고요'}.", "괜히 입소문 난 게 아니더라고요."],
+                "r3": ["이제 제가 추천하고 다녀요.", "안 써본 사람만 있는 듯."],
+                "link": ["찾으시는 분 계실까 봐 :)", "여기 남겨둘게요~"],
+                "end": [f"다들 쓰는 데는 이유가 있어요.\n{deeplink}", f"조용한 스테디셀러예요.\n{deeplink}"],
+            },
+            "parent": {  # 부모불안(공감): 실재하는 걱정에 공감+안심 (윤리선 준수)
+                "posts": [f"아이 키울 때 {core}, 걱정되는 부모라면 아실 거예요.", f"밤마다 아이 때문에 신경 쓰이는 분들께.", f"육아하면서 {core} 고민, 저만 그런 거 아니죠?"],
+                "r1": [f"밤에 몇 번씩 깨서 확인하고…\n저만 그런 거 아니죠? 정작 엄마가 못 자요.", "부모 마음이 다 그렇더라고요."],
+                "r2": [f"{feat+' ' if feat else ''}이거 하나 두고부터\n마음이 놓이더라고요. 알림도 오고요.", "안심되니까 저도 잘 자게 됐어요."],
+                "r3": ["아이도 덜 깨고 저도 편해졌어요.", "진작 둘 걸 그랬어요."],
+                "link": ["저처럼 걱정인 분들께 남겨둘게요.", "필요하신 분 계실까 봐요."],
+                "end": [f"마음 편한 게 육아엔 제일이더라고요.\n{deeplink}", f"온 가족 편한 밤 되시길요.\n{deeplink}"],
+            },
         }
         P = POOLS.get(TONE, POOLS["friendly"])
         r4 = f"{R(P['link'])}\n{deeplink}\n\n(광고) 쿠팡파트너스 활동으로 수수료를 받습니다"
@@ -655,36 +696,45 @@ def claude_generate_topics(api_key, user_topic="", now_str="", n=3):
     else:
         user_msg += f"지금 시각·계절에 맞는 주제 {n}개를 제안해주세요. 표본이 넓은 걸로."
 
-    payload = {
-        "model": "claude-sonnet-5",
-        "max_tokens": 1500,
-        "system": sys_prompt,
-        "messages": [{"role": "user", "content": user_msg}],
-    }
-    try:
-        req = urllib.request.Request(
-            "https://api.anthropic.com/v1/messages",
-            data=json.dumps(payload).encode(),
-            headers={"x-api-key": api_key, "anthropic-version": "2023-06-01",
-                     "content-type": "application/json"},
-            method="POST")
-        with urllib.request.urlopen(req, timeout=60, context=_ctx) as r:
-            data = json.loads(r.read().decode())
-        # 응답에서 텍스트 추출
-        text = ""
-        for block in data.get("content", []):
-            if block.get("type") == "text":
-                text += block.get("text", "")
-        # JSON 파싱 (```json 펜스 제거)
-        text = text.strip()
-        if text.startswith("```"):
-            text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text).strip()
-        parsed = json.loads(text)
-        return {"ok": True, "topics": parsed.get("topics", [])}
-    except urllib.error.HTTPError as e:
-        detail = ""
-        try: detail = e.read().decode()[:200]
-        except Exception: pass
-        return {"ok": False, "error": f"http_{e.code}", "detail": detail}
-    except Exception as e:
-        return {"ok": False, "error": str(e)[:150]}
+    # 확실한 모델부터 폴백 (계정마다 접근 가능한 모델이 다름)
+    models = ["claude-haiku-4-5-20251001", "claude-sonnet-4-6", "claude-sonnet-5", "claude-opus-4-8"]
+    last_err = {}
+    for model in models:
+        payload = {
+            "model": model,
+            "max_tokens": 1500,
+            "system": sys_prompt,
+            "messages": [{"role": "user", "content": user_msg}],
+        }
+        try:
+            req = urllib.request.Request(
+                "https://api.anthropic.com/v1/messages",
+                data=json.dumps(payload).encode(),
+                headers={"x-api-key": api_key, "anthropic-version": "2023-06-01",
+                         "content-type": "application/json"},
+                method="POST")
+            with urllib.request.urlopen(req, timeout=60, context=_ctx) as r:
+                data = json.loads(r.read().decode())
+            text = ""
+            for block in data.get("content", []):
+                if block.get("type") == "text":
+                    text += block.get("text", "")
+            text = text.strip()
+            if text.startswith("```"):
+                text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text).strip()
+            parsed = json.loads(text)
+            return {"ok": True, "topics": parsed.get("topics", []), "model": model}
+        except urllib.error.HTTPError as e:
+            detail = ""
+            try: detail = e.read().decode()[:300]
+            except Exception: pass
+            last_err = {"ok": False, "error": f"http_{e.code}", "detail": detail, "model": model}
+            # 401/403은 키 문제라 폴백 무의미 → 즉시 반환
+            if e.code in (401, 403):
+                return last_err
+            # 400(모델 접근 불가 등)은 다음 모델 시도
+            continue
+        except Exception as e:
+            last_err = {"ok": False, "error": str(e)[:150], "model": model}
+            continue
+    return last_err

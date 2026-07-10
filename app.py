@@ -189,8 +189,8 @@ def claude_topics_api():
     err = r.get("error", "")
     if err.startswith("http_401"): msg = "Claude API 키가 유효하지 않아요. 설정에서 다시 등록하세요."
     elif err.startswith("http_429"): msg = "Claude API 사용량 한도예요. 잠시 후 다시 시도하세요."
-    elif err.startswith("http_400"): msg = "요청 형식 오류예요. 다시 시도해주세요."
-    else: msg = "주제 생성에 실패했어요. 잠시 후 다시 시도하세요."
+    elif err.startswith("http_400"): msg = "API 요청 오류: " + (r.get("detail","")[:120] or "형식 오류")
+    else: msg = "주제 생성 실패: " + (err[:60] or "알 수 없음") + (" / "+r.get("detail","")[:80] if r.get("detail") else "")
     return jsonify({"ok": False, "error": msg, "detail": r.get("detail", "")}), 502
 
 
