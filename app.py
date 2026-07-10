@@ -209,34 +209,15 @@ def sns_accounts():
 @app.route("/api/save-draft", methods=["POST"])
 @login_required
 def save_draft():
-    """게시 전 임시저장. Zernio에 초안(draft)으로 올려서 대시보드에서 검토 가능하게 + 우리 DB에도 저장."""
+    """우리 앱에 임시저장. 나중에 앱에서 편집 후 게시 (Zernio 대시보드 안 거침)."""
     d = request.get_json(force=True, silent=True) or {}
     channel = (d.get("channel") or "").strip()
     content = (d.get("content") or "").strip()
     if not content:
         return jsonify({"ok": False, "error": "저장할 내용이 없어요"}), 400
-
-    # 우리 DB에 먼저 저장
     pid = store.save_post(session["uid"], channel, d.get("productName", ""),
                           content, d.get("deeplink", ""), d.get("image"), status="draft")
-
-    # ★Zernio에도 초안으로 올림 (SNS 채널 + 키 있을 때) → Zernio 대시보드에서 보임
-    zernio_saved = False
-    if channel in ("threads", "x", "insta"):
-        key = store.get_zernio_key(session["uid"])
-        if key:
-            plat = {"insta": "instagram"}.get(channel, channel)
-            thread_items = None
-            if channel in ("threads", "x") and "\n===THREAD===\n" in content:
-                thread_items = [p.strip() for p in content.split("\n===THREAD===\n") if p.strip()]
-            media = [d["image"]] if d.get("image") else None
-            r = zernio_publish(key, [plat], content, media,
-                               account_ids=(d.get("account_ids") or {}),
-                               thread_items=thread_items, as_draft=True)
-            zernio_saved = r.get("ok", False)
-
-    msg = "Zernio 대시보드에 초안으로 저장했어요" if zernio_saved else "임시저장했어요"
-    return jsonify({"ok": True, "post_id": pid, "zernio_saved": zernio_saved, "message": msg})
+    return jsonify({"ok": True, "post_id": pid, "message": "임시저장했어요 (내 게시물에서 편집·게시 가능)"})
 
 
 @app.route("/api/posts", methods=["GET"])
@@ -256,6 +237,30 @@ def list_posts():
 @login_required
 def delete_post_api(post_id):
     return jsonify(store.delete_post(session["uid"], post_id))
+
+
+@app.route("/api/post/<int:post_id>/edit", methods=["POST"])
+@login_required
+def edit_post_api(post_id):
+    """임시저장 글 내용 편집."""
+    d = request.get_json(force=True, silent=True) or {}
+    content = (d.get("content") or "").strip()
+    if not content:
+        return jsonify({"ok": False, "error": "내용이 비어있어요"}), 400
+    store.update_post_content(session["uid"], post_id, content)
+    return jsonify({"ok": True, "message": "수정했어요"})
+
+
+@app.route("/api/post/<int:post_id>", methods=["GET"])
+@login_required
+def get_post_api(post_id):
+    """게시물 전체 내용 (편집용)."""
+    p = store.get_post(post_id)
+    if not p or p["user_id"] != session["uid"]:
+        return jsonify({"ok": False, "error": "없는 게시물이에요"}), 404
+    return jsonify({"ok": True, "post": {"id": p["id"], "channel": p["channel"],
+                    "product_name": p["product_name"], "content": p["content"],
+                    "status": p["status"], "deeplink": p.get("deeplink")}})
 
 
 @app.route("/api/publish", methods=["POST"])

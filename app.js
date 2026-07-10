@@ -863,19 +863,63 @@ async function loadPosts(status, btn){
     box.innerHTML = d.posts.map(p=>{
       const isPub = p.status==='published';
       const badge = isPub ? '<span class="pbadge pub">게시완료</span>' : '<span class="pbadge draft">임시저장</span>';
-      const preview = esc((p.content||'').slice(0,60));
-      const actions = isPub
-        ? (p.post_url ? `<button class="btn-sm" onclick="window.open('${p.post_url}','_blank')">글 보기 ↗</button>` : '')
-        : `<button class="btn-sm mint" onclick="publishPost(${p.id},this)">게시하기</button>`;
-      return `<div class="post-item">
+      const preview = esc((p.content||'').slice(0,80));
+      let actions;
+      if(isPub){
+        actions = p.post_url ? `<button class="btn-sm" onclick="window.open('${p.post_url}','_blank')">글 보기 ↗</button>` : '';
+      } else {
+        actions = `<button class="btn-sm" onclick="editPost(${p.id},this)">✏️ 편집</button>
+          <button class="btn-sm mint" onclick="publishPost(${p.id},this)">🚀 게시</button>`;
+      }
+      return `<div class="post-item" id="post-${p.id}">
         <div class="post-top">${CH_LABEL(p.channel)} ${badge}</div>
-        <div class="post-prev">${preview}${(p.content||'').length>60?'…':''}</div>
+        <div class="post-prev" id="prev-${p.id}">${preview}${(p.content||'').length>80?'…':''}</div>
         <div class="post-act">${actions}
           <button class="btn-sm ghost" onclick="deletePost(${p.id},this)">삭제</button></div>
       </div>`;
     }).join('');
   }catch(e){ box.innerHTML = '<div class="empty">불러오기 실패</div>'; }
 }
+// 임시저장 글 편집 (앱 안에서 직접 수정)
+async function editPost(id, btn){
+  const item = document.getElementById('post-'+id);
+  if(!item) return;
+  // 전체 내용 로드
+  let full = '';
+  try{ const d = await (await fetch('/api/post/'+id)).json(); if(d.ok) full = d.post.content; }
+  catch(e){ toast('불러오기 실패'); return; }
+  const prev = document.getElementById('prev-'+id);
+  const act = item.querySelector('.post-act');
+  // 편집 UI로 교체
+  prev.innerHTML = `<textarea id="edit-${id}" style="width:100%;min-height:180px;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;color:var(--text);font-size:13px;line-height:1.6;padding:10px;box-sizing:border-box">${esc(full)}</textarea>`;
+  act.innerHTML = `<button class="btn-sm mint" onclick="saveEdit(${id},this)">💾 저장</button>
+    <button class="btn-sm" onclick="publishEdited(${id},this)">🚀 저장 후 게시</button>
+    <button class="btn-sm ghost" onclick="loadPosts('all')">취소</button>`;
+}
+async function saveEdit(id, btn){
+  const content = document.getElementById('edit-'+id).value;
+  btn.textContent='저장 중…';
+  try{
+    const r = await fetch('/api/post/'+id+'/edit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content})});
+    if((await r.json()).ok){ toast('수정했어요 ✏️'); loadPosts('all'); }
+    else { toast('수정 실패'); btn.textContent='💾 저장'; }
+  }catch(e){ toast('수정 실패'); btn.textContent='💾 저장'; }
+}
+async function publishEdited(id, btn){
+  const content = document.getElementById('edit-'+id).value;
+  btn.textContent='처리 중…'; btn.disabled=true;
+  try{
+    // 먼저 저장
+    await fetch('/api/post/'+id+'/edit',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({content})});
+    // 게시
+    const r = await fetch('/api/publish',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({post_id:id})});
+    const res = await r.json();
+    if(res.ok){ toast('게시됐어요! 🚀'); loadPosts('all'); }
+    else if(res.need_connect){ toast('설정에서 SNS 연결 먼저'); go('settings'); }
+    else { toast('게시 실패: '+(res.error||'')); btn.textContent='🚀 저장 후 게시'; btn.disabled=false; }
+  }catch(e){ toast('게시 실패'); btn.textContent='🚀 저장 후 게시'; btn.disabled=false; }
+}
+
 async function publishPost(id, btn){
   btn.textContent='게시 중…'; btn.disabled=true;
   try{
