@@ -32,6 +32,8 @@ def init_db():
     # 기존 테이블 마이그레이션 (컬럼 없으면 추가)
     try: _q("ALTER TABLE linklynk_users ADD COLUMN IF NOT EXISTS zernio_key_enc TEXT")
     except Exception: pass
+    try: _q("ALTER TABLE linklynk_users ADD COLUMN IF NOT EXISTS anthropic_key_enc TEXT")
+    except Exception: pass
     _q("""CREATE TABLE IF NOT EXISTS linklynk_usage(
         user_id BIGINT, month TEXT, link_count INTEGER DEFAULT 0, draft_count INTEGER DEFAULT 0,
         PRIMARY KEY(user_id, month));""")
@@ -179,6 +181,16 @@ def get_zernio_key(uid):
     row=_q("SELECT zernio_key_enc FROM linklynk_users WHERE id=%s",(uid,),fetch="one")
     if not row or not row.get("zernio_key_enc"): return None
     return _fernet.decrypt(row["zernio_key_enc"].encode()).decode()
+
+def save_anthropic_key(uid, key):
+    ek = _fernet.encrypt(key.encode()).decode()
+    _q("UPDATE linklynk_users SET anthropic_key_enc=%s WHERE id=%s", (ek, uid))
+    return {"ok": True}
+
+def get_anthropic_key(uid):
+    row=_q("SELECT anthropic_key_enc FROM linklynk_users WHERE id=%s",(uid,),fetch="one")
+    if not row or not row.get("anthropic_key_enc"): return None
+    return _fernet.decrypt(row["anthropic_key_enc"].encode()).decode()
 
 FREE_LIMITS = {"link": 500, "draft": 500}
 def _month(): return time.strftime("%Y-%m", time.gmtime())

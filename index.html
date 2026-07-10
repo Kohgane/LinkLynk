@@ -159,6 +159,9 @@
   .btn-sm.mint{background:var(--mint);color:var(--ink);border-color:var(--mint)}
   .btn-sm.ghost{background:none;color:var(--text-2)}
   .acc-chip{display:inline-block;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:6px 12px;margin:6px 6px 0 0;font-size:12px;color:var(--text)}
+  .topic-row{font-size:13px;color:var(--text-2);line-height:1.6;margin:4px 0}
+  .topic-lbl{color:var(--mint-bright);font-weight:600;font-size:12px}
+  .kw-chip{display:inline-block;background:var(--mint);color:var(--ink);border:none;border-radius:8px;padding:8px 14px;margin:0 6px 6px 0;font-size:13px;font-weight:600;cursor:pointer}
   .hint{font-size:12px;color:var(--text-2);margin-top:10px;padding:10px;background:var(--surface-1);border-radius:8px;line-height:1.5}
   .nia-wrap{padding-right:24px;min-height:200px}
   .nia-list{display:flex;flex-direction:column;transition:opacity .4s cubic-bezier(.22,1,.36,1)}
@@ -254,6 +257,7 @@
         <button class="mode on" data-mode="auto" onclick="setMode(this)">간편링크 자동생성</button>
         <button class="mode" data-mode="manual" onclick="setMode(this)">링크 직접 붙여넣기</button>
         <button class="mode" data-mode="search" onclick="setMode(this)">🔍 상품 검색</button>
+        <button class="mode" data-mode="topic" onclick="setMode(this)">🧠 주제부터 (AI)</button>
       </div>
       <div class="pastebox" id="pasteBox">
         <textarea id="url" placeholder="쿠팡 상품 링크 붙여넣기&#10;(앱 공유링크 그대로 OK)"></textarea>
@@ -263,11 +267,11 @@
           <button class="btn-go" id="go" onclick="generate()"><span class="lbl">내 간편 링크 만들기</span></button>
         </div>
       </div>
-      <div class="pastebox hidden" id="searchBox">
-        <input id="searchKw" placeholder="예: 홈캠, 무선청소기, 에어팟" style="border:none;background:none;box-shadow:none;padding:14px 14px 8px;font-size:15px;color:var(--text)" onkeydown="if(event.key==='Enter')doSearch()">
+      <div class="pastebox hidden" id="topicBox">
+        <input id="topicKw" placeholder="예: 직장인 건강 / 육아 / 여름철 (비워도 됨)" style="border:none;background:none;box-shadow:none;padding:14px 14px 8px;font-size:15px;color:var(--text)" onkeydown="if(event.key==='Enter')doTopics()">
         <div class="paste-row">
-          <div style="flex:1;font-size:11.5px;color:var(--muted);padding-left:4px">인기 상품을 찾아 링크를 자동으로 만들어요</div>
-          <button class="btn-go" id="searchGo" onclick="doSearch()"><span class="lbl">🔍 검색해서 링크 만들기</span></button>
+          <div style="flex:1;font-size:11.5px;color:var(--muted);padding-left:4px">주제부터 AI가 기획해요 (비우면 지금 시각에 맞춰서)</div>
+          <button class="btn-go" id="topicGo" onclick="doTopics()"><span class="lbl">🧠 주제 기획하기</span></button>
         </div>
       </div>
     </div>
@@ -380,6 +384,17 @@
           zernio.com에서 무료로 SNS 계정을 연결하고 API 키를 받으세요. (2계정 무료)
         </div>
       </div>
+      <div class="card">
+        <div class="card-lbl">🧠 Claude AI (주제 생성용)</div>
+        <div id="claudeStatus" style="font-size:13px;color:var(--muted);margin-bottom:12px">연결 안 됨</div>
+        <div style="font-size:12px;color:var(--text-2);margin-bottom:12px;line-height:1.5">내 Claude API 키를 넣으면 <b>주제부터 AI가 기획</b>해줘요. 지금 시각·표본·앵글을 잡고 그에 맞는 상품까지 추천.</div>
+        <div class="field"><label>Anthropic API Key</label><input id="c_key" placeholder="sk-ant-..." autocomplete="off"></div>
+        <div id="claudeMsg"></div>
+        <button class="btn btn-mint" id="claudeBtn" onclick="saveClaudeKey()"><span class="lbl">연결하기</span></button>
+        <div style="margin-top:10px;font-size:11.5px;color:var(--muted);line-height:1.5">
+          console.anthropic.com에서 발급. 내 키로 호출되니 사용량은 내 계정에 부과돼요.
+        </div>
+      </div>
       <button class="btn btn-ghost" onclick="logout()" style="margin-top:8px">로그아웃</button>
     </div>
   </div>
@@ -393,6 +408,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="/app.js?v=1783667579"></script>
+<script src="/app.js?v=1783681304"></script>
 </body>
 </html>

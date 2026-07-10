@@ -122,8 +122,10 @@ def me():
     key = store.get_partners_key(u["id"])
     usage = store.get_usage(u["id"])
     sns = store.get_zernio_key(u["id"])
+    claude = store.get_anthropic_key(u["id"])
     return jsonify({"ok": True, "email": u["email"], "handle": u["handle"],
                     "plan": u["plan"], "has_key": bool(key), "has_sns": bool(sns),
+                    "has_claude": bool(claude),
                     "usage": usage, "limits": store.FREE_LIMITS})
 
 
@@ -136,6 +138,42 @@ def save_sns_key():
         return jsonify({"ok": False, "error": "키를 입력하세요"}), 400
     store.save_zernio_key(session["uid"], key)
     return jsonify({"ok": True, "message": "SNS 자동 게시가 연결됐어요"})
+
+
+@app.route("/api/anthropic-key", methods=["POST"])
+@login_required
+def save_anthropic_key_api():
+    d = request.get_json(force=True, silent=True) or {}
+    key = (d.get("key") or "").strip()
+    if not key:
+        return jsonify({"ok": False, "error": "키를 입력하세요"}), 400
+    store.save_anthropic_key(session["uid"], key)
+    return jsonify({"ok": True, "message": "Claude API 연결됐어요"})
+
+
+@app.route("/api/claude-topics", methods=["POST"])
+@login_required
+def claude_topics_api():
+    """주제 먼저 생성 (개인 Claude API 키). 시각·표본·앵글·상품키워드 제안."""
+    d = request.get_json(force=True, silent=True) or {}
+    user_topic = (d.get("topic") or "").strip()
+    key = store.get_anthropic_key(session["uid"])
+    if not key:
+        return jsonify({"ok": False, "need_key": True,
+                        "error": "설정에서 Claude API 키를 먼저 등록하세요"}), 403
+    import time as _t
+    now_str = _t.strftime("%Y년 %m월 %d일 %H시 (%A)", _t.localtime())
+    from core import claude_generate_topics
+    r = claude_generate_topics(key, user_topic, now_str, n=3)
+    if r.get("ok"):
+        return jsonify({"ok": True, "topics": r["topics"], "now": now_str})
+    # 에러 메시지
+    err = r.get("error", "")
+    if err.startswith("http_401"): msg = "Claude API 키가 유효하지 않아요. 설정에서 다시 등록하세요."
+    elif err.startswith("http_429"): msg = "Claude API 사용량 한도예요. 잠시 후 다시 시도하세요."
+    elif err.startswith("http_400"): msg = "요청 형식 오류예요. 다시 시도해주세요."
+    else: msg = "주제 생성에 실패했어요. 잠시 후 다시 시도하세요."
+    return jsonify({"ok": False, "error": msg, "detail": r.get("detail", "")}), 502
 
 
 @app.route("/api/search-product", methods=["POST"])

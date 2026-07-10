@@ -629,3 +629,62 @@ def zernio_publish(api_key, platforms, content, media_urls=None, account_ids=Non
         return {"ok": False, "error": f"http_{e.code}", "detail": detail}
     except Exception as e:
         return {"ok": False, "error": str(e)[:120]}
+
+
+# ── Claude API: 주제 먼저 생성 (개인 API 키 사용) ──
+def claude_generate_topics(api_key, user_topic="", now_str="", n=3):
+    """개인 Anthropic API 키로 주제 생성. 상품이 아니라 '주제'가 먼저.
+    시각·표본·앵글을 정하고, 그 주제에 맞는 쿠팡 검색 키워드(상품)를 추천.
+    반환: {ok, topics:[{title, time_context, sample, angle, hook, keywords:[...]}], error}"""
+    if not api_key:
+        return {"ok": False, "error": "no_key"}
+
+    sys_prompt = (
+        "당신은 쿠팡 파트너스 쓰레드 마케팅 전략가입니다. "
+        "상품이 아니라 '주제'가 먼저입니다. 사람들이 공감할 상황·고민을 주제로 잡고, "
+        "거기서 자연스럽게 필요한 상품으로 연결합니다. "
+        "각 주제마다: 현재 시각/계절 맥락, 타겟 표본(누구), 반전 앵글, 훅 문장, "
+        "그리고 그 주제에 맞는 쿠팡 검색 키워드 2~3개를 제시하세요. "
+        "죄책감 반전('내 탓이 아니라 구조 탓'), 상황 공감, 의외의 사실 같은 훅을 활용하세요. "
+        "반드시 JSON만 출력. 형식: "
+        '{"topics":[{"title":"...","time_context":"...","sample":"...","angle":"...","hook":"...","keywords":["...","..."]}]}'
+    )
+    user_msg = f"현재: {now_str}\n"
+    if user_topic.strip():
+        user_msg += f"요청 주제/방향: {user_topic}\n{n}개의 세부 주제를 뽑아주세요."
+    else:
+        user_msg += f"지금 시각·계절에 맞는 주제 {n}개를 제안해주세요. 표본이 넓은 걸로."
+
+    payload = {
+        "model": "claude-sonnet-5",
+        "max_tokens": 1500,
+        "system": sys_prompt,
+        "messages": [{"role": "user", "content": user_msg}],
+    }
+    try:
+        req = urllib.request.Request(
+            "https://api.anthropic.com/v1/messages",
+            data=json.dumps(payload).encode(),
+            headers={"x-api-key": api_key, "anthropic-version": "2023-06-01",
+                     "content-type": "application/json"},
+            method="POST")
+        with urllib.request.urlopen(req, timeout=60, context=_ctx) as r:
+            data = json.loads(r.read().decode())
+        # 응답에서 텍스트 추출
+        text = ""
+        for block in data.get("content", []):
+            if block.get("type") == "text":
+                text += block.get("text", "")
+        # JSON 파싱 (```json 펜스 제거)
+        text = text.strip()
+        if text.startswith("```"):
+            text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text).strip()
+        parsed = json.loads(text)
+        return {"ok": True, "topics": parsed.get("topics", [])}
+    except urllib.error.HTTPError as e:
+        detail = ""
+        try: detail = e.read().decode()[:200]
+        except Exception: pass
+        return {"ok": False, "error": f"http_{e.code}", "detail": detail}
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:150]}

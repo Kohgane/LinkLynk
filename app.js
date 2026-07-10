@@ -126,7 +126,7 @@ function go(page){
   else if(page==='settings'){ refreshMe(); loadSnsAccounts(); }
 }
 async function refreshMe(){
-  try{ const me = await (await fetch('/api/me')).json(); if(me.ok){ window.__me=me; renderUsage(me); renderKeyStatus(me); renderHandle(me); renderSns(me);} }catch(e){}
+  try{ const me = await (await fetch('/api/me')).json(); if(me.ok){ window.__me=me; renderUsage(me); renderKeyStatus(me); renderHandle(me); renderSns(me); renderClaude(me);} }catch(e){}
 }
 
 function renderHandle(me){
@@ -168,13 +168,11 @@ function setMode(el){
   el.classList.add('on'); mode = el.dataset.mode;
   const pasteBox = document.getElementById('pasteBox');
   const searchBox = document.getElementById('searchBox');
-  if(mode==='search'){
-    if(pasteBox) pasteBox.classList.add('hidden');
-    if(searchBox) searchBox.classList.remove('hidden');
-    return;
-  }
+  const topicBox = document.getElementById('topicBox');
+  [pasteBox,searchBox,topicBox].forEach(b=>b&&b.classList.add('hidden'));
+  if(mode==='search'){ if(searchBox) searchBox.classList.remove('hidden'); return; }
+  if(mode==='topic'){ if(topicBox) topicBox.classList.remove('hidden'); return; }
   if(pasteBox) pasteBox.classList.remove('hidden');
-  if(searchBox) searchBox.classList.add('hidden');
   const ta = document.getElementById('url');
   if(mode==='manual'){
     ta.placeholder = "이미 만든 파트너스 링크 붙여넣기\n예: link.coupang.com/a/...";
@@ -775,6 +773,77 @@ async function saveAsImage(btn){
   }catch(e){ toast('이미지 저장 실패'); }
   btn.textContent = o;
 }
+
+async function saveClaudeKey(){
+  const key = (document.getElementById('c_key').value||'').trim();
+  const btn = document.getElementById('claudeBtn');
+  const msg = document.getElementById('claudeMsg');
+  msg.innerHTML='';
+  if(!key){ msg.innerHTML='<div class="msg msg-err">Claude API 키를 입력하세요</div>'; return; }
+  btn.classList.add('loading');
+  try{
+    const r = await fetch('/api/anthropic-key',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key})});
+    const d = await r.json();
+    if(d.ok){ msg.innerHTML='<div class="msg msg-ok">연결됐어요! 🧠</div>'; if(window.__me) window.__me.has_claude=true; renderClaude(window.__me||{has_claude:true}); }
+    else msg.innerHTML=`<div class="msg msg-err">${d.error||'연결 실패'}</div>`;
+  }catch(e){ msg.innerHTML='<div class="msg msg-err">네트워크 오류</div>'; }
+  btn.classList.remove('loading');
+}
+function renderClaude(me){
+  const el = document.getElementById('claudeStatus');
+  if(!el) return;
+  el.innerHTML = me.has_claude ? '<span style="color:var(--mint)">✓ 연결됨 — 주제부터 AI가 기획해요</span>' : '연결 안 됨';
+}
+
+// 주제 먼저 생성 (Claude AI)
+async function doTopics(){
+  const topic = (document.getElementById('topicKw').value||'').trim();
+  const btn = document.getElementById('topicGo');
+  if(!window.__me || !window.__me.has_claude){
+    toast('설정에서 Claude API 키를 먼저 등록하세요'); go('settings'); return;
+  }
+  btn.classList.add('loading');
+  const result = document.getElementById('result');
+  result.innerHTML = '<div class="card"><div style="text-align:center;padding:30px;color:var(--muted)">🧠 주제 기획 중…<br><span style="font-size:12px">지금 시각·표본·앵글 분석</span></div></div>';
+  try{
+    const r = await fetch('/api/claude-topics',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic})});
+    const d = await r.json();
+    if(d.ok && d.topics && d.topics.length){
+      renderTopics(d.topics, d.now);
+    }
+    else if(d.need_key){ toast('설정에서 Claude API 키 먼저'); go('settings'); result.innerHTML=''; }
+    else { toast(d.error||'주제 생성 실패'); result.innerHTML=''; }
+  }catch(e){ toast('주제 생성 실패'); result.innerHTML=''; }
+  btn.classList.remove('loading');
+}
+function renderTopics(topics, now){
+  const result = document.getElementById('result');
+  result.innerHTML = `<div style="font-size:12px;color:var(--muted);margin:4px 0 12px">🕐 ${esc(now||'')} 기준</div>` +
+    topics.map((t,i)=>`
+      <div class="card" style="margin-bottom:12px">
+        <div style="font-size:15px;color:var(--text);font-weight:600;margin-bottom:8px">${i+1}. ${esc(t.title||'')}</div>
+        ${t.time_context?`<div class="topic-row"><span class="topic-lbl">🕐 맥락</span> ${esc(t.time_context)}</div>`:''}
+        ${t.sample?`<div class="topic-row"><span class="topic-lbl">👥 표본</span> ${esc(t.sample)}</div>`:''}
+        ${t.angle?`<div class="topic-row"><span class="topic-lbl">💡 앵글</span> ${esc(t.angle)}</div>`:''}
+        ${t.hook?`<div class="topic-row"><span class="topic-lbl">🎣 훅</span> "${esc(t.hook)}"</div>`:''}
+        ${(t.keywords&&t.keywords.length)?`<div style="margin-top:10px"><div style="font-size:12px;color:var(--text-2);margin-bottom:6px">🛒 추천 상품 (탭하면 검색)</div>${t.keywords.map(k=>`<button class="kw-chip" onclick="searchFromTopic('${esc(k).replace(/'/g,'')}')">${esc(k)}</button>`).join('')}</div>`:''}
+      </div>`).join('');
+  result.scrollIntoView({behavior:'smooth',block:'start'});
+}
+// 주제에서 추천 상품 클릭 → 검색 모드로 검색
+async function searchFromTopic(keyword){
+  document.getElementById('searchKw').value = keyword;
+  // 검색 모드로 전환
+  document.querySelectorAll('.mode').forEach(m=>m.classList.remove('on'));
+  const sm = [...document.querySelectorAll('.mode')].find(m=>m.dataset.mode==='search');
+  if(sm) sm.classList.add('on');
+  mode='search';
+  document.getElementById('topicBox').classList.add('hidden');
+  document.getElementById('searchBox').classList.remove('hidden');
+  doSearch();
+}
+
+async function saveClaudeKeyOld(){}
 
 async function saveSnsKey(){
   const key = (document.getElementById('z_key').value||'').trim();
