@@ -140,6 +140,29 @@ def save_sns_key():
     return jsonify({"ok": True, "message": "SNS 자동 게시가 연결됐어요"})
 
 
+@app.route("/img-proxy")
+@login_required
+def img_proxy():
+    """쿠팡 이미지 프록시. 이미지 CDN은 서버 접근 가능하므로 우리 서버가 받아서 전달.
+    유저 브라우저에서 CORS 없이 쿠팡 이미지 사용 가능."""
+    import urllib.request as _u, ssl as _s
+    url = request.args.get("u", "")
+    if not url.startswith("http") or not any(d in url for d in ["coupangcdn.com", "coupang.com"]):
+        return "", 400
+    try:
+        ctx = _s.create_default_context(); ctx.check_hostname=False; ctx.verify_mode=_s.CERT_NONE
+        req = _u.Request(url, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://www.coupang.com/"})
+        with _u.urlopen(req, timeout=15, context=ctx) as r:
+            data = r.read()
+            ct = r.headers.get("Content-Type", "image/jpeg")
+        from flask import Response
+        resp = Response(data, content_type=ct)
+        resp.headers["Cache-Control"] = "public, max-age=86400"
+        return resp
+    except Exception:
+        return "", 502
+
+
 @app.route("/api/coupang-images", methods=["POST"])
 @login_required
 def coupang_images_api():
