@@ -140,6 +140,24 @@ def save_sns_key():
     return jsonify({"ok": True, "message": "SNS 자동 게시가 연결됐어요"})
 
 
+@app.route("/api/coupang-images", methods=["POST"])
+@login_required
+def coupang_images_api():
+    """유저 브라우저(북마클릿)가 쿠팡 상품페이지에서 긁은 상세 이미지 URL들 수신.
+    ★서버가 쿠팡에 접근하는 게 아니라 유저 브라우저가 긁으므로 Akamai 차단 없음."""
+    d = request.get_json(force=True, silent=True) or {}
+    images = d.get("images") or []
+    product_name = (d.get("productName") or "").strip()
+    # 이미지 URL만 필터 (쿠팡 이미지 도메인)
+    valid = [u for u in images if isinstance(u, str) and u.startswith("http")
+             and any(dom in u for dom in ["coupangcdn.com", "coupang.com", "pstatic", "image"])]
+    if not valid:
+        return jsonify({"ok": False, "error": "이미지를 찾지 못했어요"}), 400
+    # 최근 검색결과에 이미지 붙여서 세션에 임시 저장 (초안 생성 시 사용)
+    return jsonify({"ok": True, "count": len(valid), "images": valid[:20],
+                    "product_name": product_name})
+
+
 @app.route("/api/anthropic-key", methods=["POST"])
 @login_required
 def save_anthropic_key_api():

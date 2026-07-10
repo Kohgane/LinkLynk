@@ -37,6 +37,17 @@ let recent = [];
 
 // ── 부팅: 로그인 상태 확인 ──
 async function boot(){
+  // 북마클릿에서 넘어온 쿠팡 이미지 처리
+  const params = new URLSearchParams(location.search);
+  const bmkData = params.get('bmk');
+  if(bmkData){
+    try{
+      const parsed = JSON.parse(decodeURIComponent(bmkData));
+      window.__bmkImages = parsed;
+      // URL 정리
+      history.replaceState(null,'',location.pathname);
+    }catch(e){}
+  }
   try{
     const r = await fetch('/api/me');
     const d = await r.json();
@@ -66,6 +77,24 @@ function showApp(me){
   window.__me = me;
   renderUsage(me);
   renderKeyStatus(me);
+  // 북마클릿으로 가져온 쿠팡 이미지가 있으면 표시
+  if(window.__bmkImages && window.__bmkImages.images){
+    setTimeout(()=>showBmkImages(window.__bmkImages), 400);
+  }
+}
+// 북마클릿으로 가져온 쿠팡 상세 이미지 갤러리
+function showBmkImages(data){
+  go('make');
+  const result = document.getElementById('result');
+  if(!result) return;
+  const imgs = data.images || [];
+  result.innerHTML = `<div class="card">
+    <div class="card-lbl">📸 가져온 쿠팡 이미지 ${imgs.length}개 ${data.productName?'· '+esc(data.productName):''}</div>
+    <div style="font-size:12px;color:var(--text-2);margin:6px 0 12px">길게 눌러 저장하거나, 블로그 초안에 넣을 수 있어요.</div>
+    <div class="bmk-grid">${imgs.map(u=>`<img src="${u}" loading="lazy" onclick="window.open('${u}','_blank')">`).join('')}</div>
+  </div>`;
+  result.scrollIntoView({behavior:'smooth',block:'start'});
+  window.__bmkImages = null;
 }
 
 // ── 인증 ──
@@ -793,6 +822,13 @@ function renderClaude(me){
   const el = document.getElementById('claudeStatus');
   if(!el) return;
   el.innerHTML = me.has_claude ? '<span style="color:var(--mint)">✓ 연결됨 — 주제부터 AI가 기획해요</span>' : '연결 안 됨';
+  // 북마클릿 코드 설정 (쿠팡 상세이미지 긁어서 우리 앱으로 — URL 파라미터 전달)
+  const bmk = document.getElementById('bmk');
+  if(bmk){
+    const origin = location.origin;
+    const code = `(function(){var imgs=[];document.querySelectorAll('img').forEach(function(i){var s=i.src||i.getAttribute('data-src')||'';if(s&&(s.indexOf('coupangcdn')>-1||s.indexOf('coupang')>-1)&&i.naturalWidth>200){imgs.push(s.split('?')[0])}});imgs=[...new Set(imgs)].slice(0,20);var t=((document.querySelector('h1')||{}).innerText||document.title).slice(0,80);if(!imgs.length){alert('상세 이미지를 못 찾았어요. 페이지를 끝까지 스크롤한 뒤 다시 눌러주세요.');return}var payload=encodeURIComponent(JSON.stringify({images:imgs,productName:t}));window.open(origin+'/?bmk='+payload,'_blank')})();`;
+    bmk.href = 'javascript:' + encodeURIComponent(code);
+  }
 }
 
 // 주제 먼저 생성 (Claude AI)

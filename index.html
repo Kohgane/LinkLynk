@@ -86,10 +86,17 @@
   .btn-go{flex:1;background:var(--mint);color:var(--mint-ink);padding:12px;box-shadow:var(--glow);border:none;border-radius:var(--radius-sm);font-size:15px;font-weight:700;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
   .btn-go.loading .lbl{display:none}
   .chips{display:flex;gap:7px;padding:14px 20px 4px;flex-wrap:wrap}
-  .chip{font-size:12px;font-weight:600;padding:6px 12px;border-radius:20px;background:var(--surface-1);border:1px solid var(--line);color:var(--muted);cursor:pointer}
-  .chip.on{background:var(--mint);border-color:var(--mint);color:var(--mint-ink)}
-  .mode{flex:1;font-size:12.5px;font-weight:600;padding:9px;border-radius:var(--radius-sm);background:var(--surface-1);border:1.5px solid var(--line);color:var(--muted);cursor:pointer}
-  .mode.on{background:var(--mint);border-color:var(--ink);color:#fff}
+  .chip{font-size:12px;font-weight:600;padding:7px 14px;border-radius:20px;background:var(--surface-1);border:1px solid var(--line);color:var(--text-2);cursor:pointer;transition:all .15s;white-space:nowrap}
+  .chip:active{transform:scale(.95)}
+  .chip.on{background:linear-gradient(135deg,var(--mint),var(--mint-deep));border-color:transparent;color:var(--mint-ink);box-shadow:0 2px 12px rgba(34,233,164,.3);_x:1}
+  .chip.__old.on{background:var(--mint);border-color:var(--mint);color:var(--mint-ink)}
+  .mode{flex:1;font-size:12px;font-weight:600;padding:10px 6px;border-radius:var(--radius-sm);background:transparent;border:none;color:var(--muted);cursor:pointer;transition:all .18s;white-space:nowrap}
+  .mode.on{background:var(--surface-3);color:var(--mint-bright);box-shadow:0 1px 6px rgba(0,0,0,.25)}
+  .tone-scroll{display:flex;gap:7px;overflow-x:auto;padding:2px 20px 6px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .tone-scroll::-webkit-scrollbar{display:none}
+  .tone-scroll .chip{flex:0 0 auto}
+  .tone-head{display:flex;align-items:center;gap:8px;padding:12px 20px 2px}
+  .tone-head .tone-lbl{font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.03em}
   .result{padding:8px 20px 0;animation:rise .3s ease}
   .card{background:var(--surface-1);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:12px;box-shadow:var(--shadow)}
   .card-lbl{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
@@ -162,6 +169,9 @@
   .topic-row{font-size:13px;color:var(--text-2);line-height:1.6;margin:4px 0}
   .topic-lbl{color:var(--mint-bright);font-weight:600;font-size:12px}
   .kw-chip{display:inline-block;background:var(--mint);color:var(--ink);border:none;border-radius:8px;padding:8px 14px;margin:0 6px 6px 0;font-size:13px;font-weight:600;cursor:pointer}
+  .bmk-btn{display:inline-block;background:linear-gradient(135deg,var(--mint),var(--mint-deep));color:var(--mint-ink);font-weight:700;font-size:14px;padding:12px 20px;border-radius:12px;text-decoration:none;box-shadow:0 2px 12px rgba(34,233,164,.3)}
+  .bmk-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+  .bmk-grid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:pointer;background:var(--surface-2)}
   .hint{font-size:12px;color:var(--text-2);margin-top:10px;padding:10px;background:var(--surface-1);border-radius:8px;line-height:1.5}
   .nia-wrap{padding-right:24px;min-height:200px}
   .nia-list{display:flex;flex-direction:column;transition:opacity .4s cubic-bezier(.22,1,.36,1)}
@@ -253,7 +263,7 @@
     <div class="hero">
       <h1>상품 링크 붙여넣으면<br>간편 링크가 딸깍</h1>
       <div class="sub">쿠팡 상품 URL 하나면 끝. 블로그 글·고지문구까지 자동으로.</div>
-      <div class="modeToggle" style="display:flex;gap:6px;margin-bottom:12px;flex-wrap:wrap">
+      <div class="modeToggle" style="display:flex;gap:4px;margin-bottom:14px;background:var(--surface-1);border:1px solid var(--line);border-radius:14px;padding:4px">
         <button class="mode on" data-mode="auto" onclick="setMode(this)">간편링크 자동생성</button>
         <button class="mode" data-mode="manual" onclick="setMode(this)">링크 직접 붙여넣기</button>
         <button class="mode" data-mode="search" onclick="setMode(this)">🔍 상품 검색</button>
@@ -282,9 +292,8 @@
       <div class="chip" data-ch="x" onclick="setCh(this)">X</div>
       <div class="chip" data-ch="youtube" onclick="setCh(this)">유튜브</div>
     </div>
-    <div class="tone-row">
-      <span class="tone-lbl">말투</span>
-      <div class="chips chips-sm">
+    <div class="tone-head"><span class="tone-lbl">말투 15가지 · 좌우로 넘겨보세요</span></div>
+    <div class="tone-scroll">
         <div class="chip on" data-tone="friendly" onclick="setTone(this)">친근하게</div>
         <div class="chip" data-tone="polite" onclick="setTone(this)">정중하게</div>
         <div class="chip" data-tone="expert" onclick="setTone(this)">전문가</div>
@@ -300,7 +309,6 @@
         <div class="chip" data-tone="calm" onclick="setTone(this)">차분하게</div>
         <div class="chip" data-tone="urgent" onclick="setTone(this)">지금아니면</div>
         <div class="chip" data-tone="friend" onclick="setTone(this)">친구한테말하듯</div>
-      </div>
     </div>
     <div id="result"></div>
     <div class="sec">
@@ -395,6 +403,16 @@
           console.anthropic.com에서 발급. 내 키로 호출되니 사용량은 내 계정에 부과돼요.
         </div>
       </div>
+      <div class="card">
+        <div class="card-lbl">📸 쿠팡 상세 이미지 가져오기</div>
+        <div style="font-size:12px;color:var(--text-2);margin-bottom:12px;line-height:1.55">쿠팡은 서버 크롤링을 막지만, <b>내 브라우저로 직접</b> 가져오면 됩니다. 아래 버튼을 <b>즐겨찾기 바에 끌어다 놓고</b>, 쿠팡 상품 페이지에서 눌러보세요.</div>
+        <a id="bmk" class="bmk-btn" href="#">📸 쿠팡이미지가져오기</a>
+        <div style="margin-top:12px;font-size:11.5px;color:var(--muted);line-height:1.6">
+          ① 위 버튼을 즐겨찾기 바로 <b>드래그</b> (PC) / 길게 눌러 <b>북마크 추가</b> (모바일)<br>
+          ② 쿠팡 상품 페이지에서 그 북마크를 <b>탭</b><br>
+          ③ 상세 이미지가 자동으로 이 앱에 담겨요
+        </div>
+      </div>
       <button class="btn btn-ghost" onclick="logout()" style="margin-top:8px">로그아웃</button>
     </div>
   </div>
@@ -408,6 +426,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="/app.js?v=1783681304"></script>
+<script src="/app.js?v=1783681865"></script>
 </body>
 </html>
