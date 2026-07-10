@@ -432,6 +432,7 @@ function renderBlogDraft(draft, d){
       <button class="btn btn-mint" onclick="copyNaverHtml(this)">📋 글+이미지 통째 복사</button>
       <button class="btn btn-ghost" onclick="copyText(document.getElementById('draft').innerText, this)">텍스트만 복사</button>
       <button class="btn btn-ghost" onclick="downloadNaverHtml()">⬇ HTML 저장</button>
+      <button class="btn btn-ghost" onclick="saveDraft(this)">📥 임시저장</button>
       <button class="btn btn-ghost" onclick="saveAsImage(this)">📸 이미지 저장</button>
       <button class="btn btn-ghost" onclick="window.open('https://blog.naver.com/postwrite','_blank')">블로그 열기</button>
     </div>
