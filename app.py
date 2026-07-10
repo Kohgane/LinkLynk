@@ -209,15 +209,34 @@ def sns_accounts():
 @app.route("/api/save-draft", methods=["POST"])
 @login_required
 def save_draft():
-    """게시 전 임시저장 (바로 게시 안 함)."""
+    """게시 전 임시저장. Zernio에 초안(draft)으로 올려서 대시보드에서 검토 가능하게 + 우리 DB에도 저장."""
     d = request.get_json(force=True, silent=True) or {}
     channel = (d.get("channel") or "").strip()
     content = (d.get("content") or "").strip()
     if not content:
         return jsonify({"ok": False, "error": "저장할 내용이 없어요"}), 400
+
+    # 우리 DB에 먼저 저장
     pid = store.save_post(session["uid"], channel, d.get("productName", ""),
                           content, d.get("deeplink", ""), d.get("image"), status="draft")
-    return jsonify({"ok": True, "post_id": pid, "message": "임시저장했어요"})
+
+    # ★Zernio에도 초안으로 올림 (SNS 채널 + 키 있을 때) → Zernio 대시보드에서 보임
+    zernio_saved = False
+    if channel in ("threads", "x", "insta"):
+        key = store.get_zernio_key(session["uid"])
+        if key:
+            plat = {"insta": "instagram"}.get(channel, channel)
+            thread_items = None
+            if channel in ("threads", "x") and "\n===THREAD===\n" in content:
+                thread_items = [p.strip() for p in content.split("\n===THREAD===\n") if p.strip()]
+            media = [d["image"]] if d.get("image") else None
+            r = zernio_publish(key, [plat], content, media,
+                               account_ids=(d.get("account_ids") or {}),
+                               thread_items=thread_items, as_draft=True)
+            zernio_saved = r.get("ok", False)
+
+    msg = "Zernio 대시보드에 초안으로 저장했어요" if zernio_saved else "임시저장했어요"
+    return jsonify({"ok": True, "post_id": pid, "zernio_saved": zernio_saved, "message": msg})
 
 
 @app.route("/api/posts", methods=["GET"])

@@ -578,11 +578,10 @@ def _zernio_accounts(api_key):
         return {}
 
 
-def zernio_publish(api_key, platforms, content, media_urls=None, account_ids=None, thread_items=None):
-    """Zernio API로 SNS 즉시 게시. platforms=['threads','instagram','x'...].
-    account_ids: {platform: accountId} 지정 시 그 계정으로 게시 (4개 중 선택).
-    thread_items: 쓰레드/X 답글 체인 [본글, 답글1, 답글2...] — 있으면 연결된 글타래로 게시.
-    x는 Zernio에서 'twitter'로 매핑."""
+def zernio_publish(api_key, platforms, content, media_urls=None, account_ids=None, thread_items=None, as_draft=False):
+    """Zernio API로 SNS 게시. as_draft=True면 발행 안 하고 Zernio에 초안 저장.
+    platforms=['threads','instagram','x'...]. account_ids: {platform: accountId} 지정.
+    thread_items: 쓰레드/X 답글 체인. x→'twitter' 매핑."""
     if not api_key:
         return {"ok": False, "error": "not_connected"}
     accounts = _zernio_accounts(api_key)
@@ -596,12 +595,10 @@ def zernio_publish(api_key, platforms, content, media_urls=None, account_ids=Non
         aid = account_ids.get(p) or account_ids.get(zp) or accounts.get(zp)
         if aid:
             entry = {"platform": zp, "accountId": aid}
-            # 쓰레드/X 답글 체인: threadItems로 본글+답글 연결
             if thread_items and zp in ("threads", "twitter", "bluesky"):
                 items = []
                 for i, txt in enumerate(thread_items):
                     it = {"content": txt}
-                    # 첫 항목(본글)에만 이미지
                     if i == 0 and media_urls:
                         it["mediaItems"] = [{"type": "image", "url": u} for u in media_urls]
                     items.append(it)
@@ -611,8 +608,10 @@ def zernio_publish(api_key, platforms, content, media_urls=None, account_ids=Non
         connected = ", ".join(accounts.keys()) or "없음"
         return {"ok": False, "error": "platform_not_connected",
                 "detail": f"해당 플랫폼이 연결 안 됨 (연결된 것: {connected})"}
-    payload = {"content": content, "platforms": targets, "publishNow": True}
-    # threadItems 없을 때만 최상위 mediaItems (있으면 각 entry가 처리)
+    payload = {"content": content, "platforms": targets}
+    # ★as_draft=True면 publishNow/scheduledFor 둘 다 생략 → Zernio 초안으로 저장
+    if not as_draft:
+        payload["publishNow"] = True
     if media_urls and not thread_items:
         payload["mediaItems"] = [{"type": "image", "url": u} for u in media_urls]
     try:

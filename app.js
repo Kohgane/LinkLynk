@@ -808,7 +808,11 @@ async function saveDraft(btn){
       body:JSON.stringify({channel:d.channel, content:d.blogDraft, productName:d.productName||'', deeplink:d.deeplink||'', image:d.image||null})});
     if(r.status===401){ toast('⚠️ 로그인이 풀렸어요. 새로고침 해주세요'); btn.textContent=o; return; }
     const res = await r.json();
-    if(res.ok){ toast('임시저장했어요 📥'); btn.textContent='저장됨 ✓'; }
+    if(res.ok){
+      if(res.zernio_saved){ toast('Zernio에 초안 저장됨 📥 (대시보드 Posts에서 확인)'); }
+      else { toast('임시저장했어요 📥'); }
+      btn.textContent='저장됨 ✓';
+    }
     else { toast('저장 실패: '+(res.error||r.status)); btn.textContent=o; }
   }catch(e){ toast('저장 오류: '+(e.message||e)); btn.textContent=o; }
 }
