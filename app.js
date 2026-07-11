@@ -234,7 +234,8 @@ async function regenForChannel(deeplink, pname){
   }catch(e){ toast('형식 변경 실패'); }
 }
 function setTone(el){
-  el.closest('.chips').querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+  const container = el.closest('.tone-scroll') || el.closest('.chips');
+  if(container) container.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
   el.classList.add('on'); window.curTone = el.dataset.tone;
   // 이미 만든 초안이 있으면 새 말투로 다시 생성
   const d = window.__lastResult;
@@ -732,9 +733,24 @@ function attachRailDrag(){
     if(key!==lastKey){
       lastKey = key;
       if(navigator.vibrate) navigator.vibrate(on?6:2);
-      // 활성 초성이면 그 그룹 표시. 비활성이면 이전 표시 유지(빈 화면 방지)
-      if(on) showGroup(key);
+      // 활성 초성이면 그 그룹, 비활성이면 가장 가까운 활성 초성 그룹 표시
+      if(on){ showGroup(key); }
+      else {
+        const nk = nearestActiveKey(clientY);
+        if(nk) showGroup(nk);
+      }
     }
+  }
+  // 가장 가까운 '활성(상품 있는)' 초성 찾기
+  function nearestActiveKey(y){
+    let best=null, bd=1e9;
+    for(const s of spans){
+      if(!s.classList.contains('on')) continue;
+      const r=s.getBoundingClientRect();
+      const d=Math.abs((r.top+r.bottom)/2 - y);
+      if(d<bd){ bd=d; best=s.textContent; }
+    }
+    return best;
   }
   function end(){
     active=false; lastKey=null; settled=false;
