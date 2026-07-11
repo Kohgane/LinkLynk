@@ -152,7 +152,7 @@ def search_images_api():
     r = search_images(keyword, limit=12)
     if r.get("ok"):
         return jsonify({"ok": True, "images": r["images"]})
-    return jsonify({"ok": False, "error": "이미지를 찾지 못했어요"}), 502
+    return jsonify({"ok": False, "error": "이미지를 찾지 못했어요", "detail": r.get("error", "")}), 200
 
 
 @app.route("/img-proxy")

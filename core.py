@@ -780,35 +780,69 @@ def claude_generate_topics(api_key, user_topic="", now_str="", n=3):
     return last_err
 
 
-# ── 상품 이미지 검색 (DuckDuckGo, 무료·토큰없음) ──
-def search_images(keyword, limit=12):
-    """키워드로 상품 이미지 검색. 쿠팡 크롤 없이 이미지 확보.
-    반환: [{image, thumbnail, width, height, title, source}, ...]"""
+# ── 상품 이미지 검색 (여러 소스 폴백) ──
+def _images_bing(keyword, limit=12):
+    """Bing 이미지 검색 (서버에서 안정적)."""
     import urllib.parse
     ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
     q = urllib.parse.quote(keyword)
     try:
-        # 1단계: vqd 토큰
+        url = f"https://www.bing.com/images/search?q={q}&form=HDRSC2&first=1"
+        req = urllib.request.Request(url, headers={"User-Agent": ua, "Accept-Language": "ko-KR,ko"})
+        html = urllib.request.urlopen(req, timeout=12, context=_ctx).read().decode("utf-8", "ignore")
+        # murl (원본 이미지 URL) 추출
+        urls = re.findall(r'murl&quot;:&quot;(https?://[^&]+?)&quot;', html)
+        if not urls:
+            urls = re.findall(r'"murl":"(https?://[^"]+?)"', html)
+        out = []
+        seen = set()
+        for u in urls:
+            u = u.replace("\\/", "/")
+            if u not in seen and u.startswith("http"):
+                seen.add(u)
+                out.append({"image": u, "thumbnail": u, "width": 500, "height": 500,
+                            "title": "", "source": "bing"})
+            if len(out) >= limit:
+                break
+        return out
+    except Exception:
+        return []
+
+
+def _images_ddg(keyword, limit=12):
+    """DuckDuckGo 이미지 검색."""
+    import urllib.parse
+    ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
+    q = urllib.parse.quote(keyword)
+    try:
         req = urllib.request.Request(f"https://duckduckgo.com/?q={q}", headers={"User-Agent": ua})
         html = urllib.request.urlopen(req, timeout=12, context=_ctx).read().decode("utf-8", "ignore")
         m = re.search(r'vqd=([\d-]+)', html) or re.search(r'vqd="([^"]+)"', html)
         if not m:
-            return {"ok": False, "error": "no_token"}
+            return []
         vqd = m.group(1)
-        # 2단계: 이미지 JSON
         iurl = f"https://duckduckgo.com/i.js?l=kr-kr&o=json&q={q}&vqd={vqd}&f=,,,&p=1"
         req2 = urllib.request.Request(iurl, headers={"User-Agent": ua, "Referer": "https://duckduckgo.com/"})
         data = json.loads(urllib.request.urlopen(req2, timeout=12, context=_ctx).read())
-        results = data.get("results", [])
         out = []
-        for r in results[:limit]:
+        for r in data.get("results", [])[:limit]:
             img = r.get("image", "")
-            # 정사각형에 가깝고 충분히 큰 이미지 우선 (상품 이미지 특성)
             w, h = r.get("width", 0), r.get("height", 0)
             if img.startswith("http") and w >= 300 and h >= 300:
                 out.append({"image": img, "thumbnail": r.get("thumbnail", img),
-                            "width": w, "height": h, "title": r.get("title", ""),
-                            "source": r.get("source", "")})
-        return {"ok": True, "images": out}
-    except Exception as e:
-        return {"ok": False, "error": str(e)[:100]}
+                            "width": w, "height": h, "title": r.get("title", ""), "source": "ddg"})
+        return out
+    except Exception:
+        return []
+
+
+def search_images(keyword, limit=12):
+    """키워드로 상품 이미지 검색. DDG→Bing 폴백. 쿠팡 크롤 없이 이미지 확보."""
+    imgs = _images_ddg(keyword, limit)
+    src = "ddg"
+    if not imgs:
+        imgs = _images_bing(keyword, limit)
+        src = "bing"
+    if imgs:
+        return {"ok": True, "images": imgs, "source": src}
+    return {"ok": False, "error": "no_results (ddg+bing 실패)"}
