@@ -73,6 +73,25 @@ def create_user(email, password, handle=None, display_name=None):
     except Exception:
         return {"ok": False, "error": "가입 처리 중 오류가 발생했습니다"}
 
+def get_or_create_oauth_user(email, provider, display_name=None):
+    """소셜 로그인: 이메일로 기존 유저 찾거나 새로 만듦 (비밀번호 없음)."""
+    email = (email or "").strip().lower()
+    if not email or "@" not in email:
+        return None
+    row = _q("SELECT * FROM linklynk_users WHERE email=%s", (email,), fetch="one")
+    if row:
+        return dict(row)
+    # 새 유저 (pw_hash는 소셜 마커)
+    try:
+        r = _q("INSERT INTO linklynk_users(email,pw_hash,handle,display_name,created_at) "
+               "VALUES(%s,%s,%s,%s,%s) RETURNING id",
+               (email, f"oauth:{provider}", None, display_name or email.split("@")[0], int(time.time())),
+               fetch="one")
+        return get_user(r["id"])
+    except Exception:
+        row = _q("SELECT * FROM linklynk_users WHERE email=%s", (email,), fetch="one")
+        return dict(row) if row else None
+
 def auth_user(email, password):
     row = _q("SELECT * FROM linklynk_users WHERE email=%s", (email,), fetch="one")
     if not row or not _verify_pw(password, row["pw_hash"]): return None

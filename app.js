@@ -87,9 +87,35 @@ async function boot(){
   }catch(e){ showAuth(); }
 }
 
+// 소셜 로그인 버튼 (설정된 제공자만 표시)
+async function renderSocialLogin(){
+  const box = document.getElementById('socialLogin');
+  if(!box) return;
+  let status = {};
+  try{ status = await (await fetch('/api/oauth-status')).json(); }catch(e){ return; }
+  const providers = [
+    {id:'google', label:'Google로 계속하기', bg:'#fff', color:'#222', border:'1px solid #dadce0', icon:'G'},
+    {id:'kakao', label:'카카오로 계속하기', bg:'#FEE500', color:'#000', border:'none', icon:'K'},
+    {id:'naver', label:'네이버로 계속하기', bg:'#03C75A', color:'#fff', border:'none', icon:'N'},
+  ];
+  const avail = providers.filter(p=>status[p.id]);
+  if(!avail.length){ box.innerHTML=''; return; }
+  box.innerHTML = `<div style="display:flex;align-items:center;gap:10px;margin:14px 0;color:var(--muted);font-size:12px">
+      <div style="flex:1;height:1px;background:var(--line)"></div>또는<div style="flex:1;height:1px;background:var(--line)"></div>
+    </div>` +
+    avail.map(p=>`<a href="/auth/${p.id}/login" class="social-btn" style="display:flex;align-items:center;justify-content:center;gap:10px;background:${p.bg};color:${p.color};border:${p.border};border-radius:10px;padding:12px;margin-bottom:8px;font-weight:600;font-size:14px;text-decoration:none">
+      <span style="width:20px;height:20px;border-radius:4px;display:grid;place-items:center;font-weight:800;font-size:13px">${p.icon}</span>
+      ${p.label}
+    </a>`).join('');
+}
+
 function showAuth(){
   document.getElementById('authView').classList.remove('hidden');
   document.getElementById('appView').classList.add('hidden');
+  renderSocialLogin();
+  // 로그인 에러 표시
+  const perr = new URLSearchParams(location.search).get('login_error');
+  if(perr){ toast('소셜 로그인 실패: '+perr); history.replaceState(null,'',location.pathname); }
   // 저장된 이메일 자동 입력
   try{
     const saved = localStorage.getItem('ll_email');
@@ -659,6 +685,7 @@ function attachRailDrag(){
   const spans = [...rail.querySelectorAll('span')];
   const list = document.querySelector('.nia-list');
   let active=false, lastKey=null, rafId=null;
+  let lastActiveKey=null;   // 마지막으로 멈춘 활성 초성 (손 떼면 유지)
   let targetY=0, smoothY=0;
   let lastMoveT=0, velocity=0, lastRawY=0;   // 속도 추적
   let settleTimer=null, settled=false;       // 멈춤 감지
@@ -775,10 +802,10 @@ function attachRailDrag(){
       lastKey = key;
       if(navigator.vibrate) navigator.vibrate(on?6:2);
       // 활성 초성이면 그 그룹, 비활성이면 가장 가까운 활성 초성 그룹 표시
-      if(on){ showGroup(key); }
+      if(on){ showGroup(key); lastActiveKey = key; }
       else {
         const nk = nearestActiveKey(clientY);
-        if(nk) showGroup(nk);
+        if(nk){ showGroup(nk); lastActiveKey = nk; }
       }
     }
   }
@@ -801,13 +828,17 @@ function attachRailDrag(){
     let ease = 1;
     const releaseY = smoothY;
     (function relax(){
-      ease *= 0.85;                       // 더 부드럽게 감쇠
+      ease *= 0.85;
       if(ease < 0.03){ reset(); return; }
       renderDamped(releaseY, ease);
       requestAnimationFrame(relax);
     })();
-    // ★손 떼면 조회수(clicks) 높은 순으로 전체 표시
-    showByViews();
+    // ★손 떼면: 멈춘 초성이 있으면 그 초성 글 유지, 없으면 조회수 높은 순
+    if(lastActiveKey){
+      showGroup(lastActiveKey);   // 멈춘 초성 글 유지 → 읽을 수 있게
+    } else {
+      showByViews();
+    }
     if(list){ list.classList.remove('idle'); list.style.opacity=''; }
   }
   // 조회수 높은 순 전체 표시 (손 뗐을 때)

@@ -115,6 +115,125 @@ def logout():
     session.clear()
     return jsonify({"ok": True})
 
+
+# ── 소셜 로그인 (구글/카카오/네이버 OAuth) ──
+import urllib.parse as _up, urllib.request as _ur, secrets as _secrets
+
+def _oauth_cfg():
+    """환경변수에서 OAuth 설정 읽기."""
+    base = os.environ.get("OAUTH_REDIRECT_BASE", "https://linklynk.onrender.com")
+    return {
+        "google": {
+            "client_id": os.environ.get("GOOGLE_CLIENT_ID", ""),
+            "client_secret": os.environ.get("GOOGLE_CLIENT_SECRET", ""),
+            "auth": "https://accounts.google.com/o/oauth2/v2/auth",
+            "token": "https://oauth2.googleapis.com/token",
+            "userinfo": "https://www.googleapis.com/oauth2/v2/userinfo",
+            "scope": "openid email profile",
+            "redirect": f"{base}/auth/google/callback",
+        },
+        "kakao": {
+            "client_id": os.environ.get("KAKAO_CLIENT_ID", ""),
+            "client_secret": os.environ.get("KAKAO_CLIENT_SECRET", ""),
+            "auth": "https://kauth.kakao.com/oauth/authorize",
+            "token": "https://kauth.kakao.com/oauth/token",
+            "userinfo": "https://kapi.kakao.com/v2/user/me",
+            "scope": "account_email",
+            "redirect": f"{base}/auth/kakao/callback",
+        },
+        "naver": {
+            "client_id": os.environ.get("NAVER_CLIENT_ID", ""),
+            "client_secret": os.environ.get("NAVER_CLIENT_SECRET", ""),
+            "auth": "https://nid.naver.com/oauth2.0/authorize",
+            "token": "https://nid.naver.com/oauth2.0/token",
+            "userinfo": "https://openapi.naver.com/v1/nid/me",
+            "scope": "",
+            "redirect": f"{base}/auth/naver/callback",
+        },
+    }
+
+
+@app.route("/auth/<provider>/login")
+def oauth_login(provider):
+    cfg = _oauth_cfg().get(provider)
+    if not cfg or not cfg["client_id"]:
+        return f"{provider} 로그인이 아직 설정되지 않았어요 (관리자: 환경변수 확인)", 503
+    state = _secrets.token_urlsafe(16)
+    session["oauth_state"] = state
+    session["oauth_provider"] = provider
+    params = {
+        "client_id": cfg["client_id"], "redirect_uri": cfg["redirect"],
+        "response_type": "code", "state": state,
+    }
+    if cfg["scope"]:
+        params["scope"] = cfg["scope"]
+    from flask import redirect
+    return redirect(cfg["auth"] + "?" + _up.urlencode(params))
+
+
+@app.route("/auth/<provider>/callback")
+def oauth_callback(provider):
+    from flask import redirect
+    cfg = _oauth_cfg().get(provider)
+    if not cfg:
+        return "알 수 없는 로그인 제공자", 400
+    if request.args.get("state") != session.get("oauth_state"):
+        return redirect("/?login_error=state")
+    code = request.args.get("code")
+    if not code:
+        return redirect("/?login_error=nocode")
+    try:
+        # 1) code → access_token
+        tok_data = _up.urlencode({
+            "grant_type": "authorization_code",
+            "client_id": cfg["client_id"], "client_secret": cfg["client_secret"],
+            "redirect_uri": cfg["redirect"], "code": code,
+            "state": request.args.get("state", ""),
+        }).encode()
+        treq = _ur.Request(cfg["token"], data=tok_data,
+                           headers={"Content-Type": "application/x-www-form-urlencoded",
+                                    "Accept": "application/json"}, method="POST")
+        tok = json.loads(_ur.urlopen(treq, timeout=15).read())
+        access = tok.get("access_token")
+        if not access:
+            return redirect("/?login_error=token")
+        # 2) access_token → 유저 이메일
+        ureq = _ur.Request(cfg["userinfo"], headers={"Authorization": f"Bearer {access}"})
+        uinfo = json.loads(_ur.urlopen(ureq, timeout=15).read())
+        email, name = _extract_oauth_email(provider, uinfo)
+        if not email:
+            return redirect("/?login_error=noemail")
+        # 3) 유저 생성/로그인
+        u = store.get_or_create_oauth_user(email, provider, display_name=name)
+        if not u:
+            return redirect("/?login_error=create")
+        session.permanent = True
+        session["uid"] = u["id"]
+        return redirect("/")
+    except Exception:
+        return redirect("/?login_error=exception")
+
+
+def _extract_oauth_email(provider, uinfo):
+    """제공자별 응답에서 이메일·이름 추출."""
+    if provider == "google":
+        return uinfo.get("email"), uinfo.get("name")
+    if provider == "kakao":
+        acc = uinfo.get("kakao_account", {})
+        prof = acc.get("profile", {})
+        return acc.get("email"), prof.get("nickname")
+    if provider == "naver":
+        r = uinfo.get("response", {})
+        return r.get("email"), r.get("name") or r.get("nickname")
+    return None, None
+
+
+@app.route("/api/oauth-status")
+def oauth_status():
+    """어떤 소셜 로그인이 설정됐는지 (버튼 표시용)."""
+    cfg = _oauth_cfg()
+    return jsonify({p: bool(c["client_id"]) for p, c in cfg.items()})
+
 @app.route("/api/me")
 @login_required
 def me():
