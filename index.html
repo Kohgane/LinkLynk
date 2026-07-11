@@ -278,6 +278,13 @@
           <button class="btn-go" id="go" onclick="generate()"><span class="lbl">내 간편 링크 만들기</span></button>
         </div>
       </div>
+      <div class="pastebox hidden" id="searchBox">
+        <input id="searchKw" placeholder="예: 홈캠, 무선청소기, 에어팟" style="border:none;background:none;box-shadow:none;padding:14px 14px 8px;font-size:15px;color:var(--text)" onkeydown="if(event.key==='Enter')doSearch()">
+        <div class="paste-row">
+          <div style="flex:1;font-size:11.5px;color:var(--muted);padding-left:4px">인기 상품을 찾아 링크를 자동으로 만들어요</div>
+          <button class="btn-go" id="searchGo" onclick="doSearch()"><span class="lbl">🔍 검색해서 링크 만들기</span></button>
+        </div>
+      </div>
       <div class="pastebox hidden" id="topicBox">
         <input id="topicKw" placeholder="예: 직장인 건강 / 육아 / 여름철 (비워도 됨)" style="border:none;background:none;box-shadow:none;padding:14px 14px 8px;font-size:15px;color:var(--text)" onkeydown="if(event.key==='Enter')doTopics()">
         <div class="paste-row">
@@ -437,6 +444,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="/app.js?v=1783751158"></script>
+<script src="/app.js?v=1783761956"></script>
 </body>
 </html>
