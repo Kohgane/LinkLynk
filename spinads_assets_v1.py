@@ -168,7 +168,7 @@ echo "SpinAds installed. Restart Claude Code (terminal) and sponsored verbs will
 
 PUBLISH_HTML = """<!doctype html><html lang="ko"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
-<title>SpinAds 퍼블리셔 — 스피너로 수익 만들기</title>
+<title>SpinAds — Claude Code 스피너 문구팩</title>
 <style>body{font-family:system-ui,-apple-system,'Noto Sans KR',sans-serif;background:#111;color:#eee;
 max-width:560px;margin:0 auto;padding:48px 20px;line-height:1.7}
 h1{font-size:26px}h2{font-size:16px;margin-top:32px}p,li{color:#bbb;font-size:14px}
@@ -179,14 +179,19 @@ font-size:14px;cursor:pointer;margin-top:10px}
 code,pre{font-family:ui-monospace,monospace;background:#1c1c1c;border-radius:6px}
 pre{padding:12px;overflow-x:auto;font-size:12px;white-space:pre-wrap;word-break:break-all}
 #result{display:none}.warn{color:#fc6;font-size:13px}</style></head><body>
-<h1>SpinAds 퍼블리셔</h1>
-<p>Claude Code 쓰는 그 시간, 스피너가 어차피 돕니다. 광고 문구를 섞으면 세션당 수익이 쌓입니다.
-배분율 60%, 원화 정산(토스/계좌) — 한국 개발자도 받을 수 있게 만들었습니다.</p>
+<h1>SpinAds 문구팩</h1>
+<p>Claude Code가 생각하는 동안, 스피너가 좀 놀아도 됩니다.
+<span class="mono">"레거시 코드에게 정중히 사과하는 중…"</span> 같은 문구들이 세션마다 새로 로테이션되고,
+그 사이에 스폰서 한 줄이 섞입니다. 굴리다 보면 커피값이 쌓이는 구조 — 배분 60%, 토스·계좌·PayPal·Payoneer 정산.</p>
+<style>.mono{font-family:ui-monospace,monospace;background:#1c1c1c;padding:2px 6px;border-radius:4px;font-size:13px}</style>
 <div id="form-wrap">
 <h2>1분 가입</h2>
 <form id="f">
 <input name="name" placeholder="닉네임 (필수)" required maxlength="40">
 <input name="email" placeholder="이메일 (정산 안내용, 필수)" required maxlength="120" type="email">
+<select name="lang">
+<option value="ko">문구팩: 한국어</option><option value="en">Pack: English</option>
+</select>
 <select name="payout_method">
 <option value="toss">정산: 토스</option><option value="bank_krw">정산: 계좌이체(KRW)</option>
 <option value="paypal">정산: PayPal</option><option value="payoneer">정산: Payoneer</option>
@@ -199,8 +204,8 @@ pre{padding:12px;overflow-x:auto;font-size:12px;white-space:pre-wrap;word-break:
 <p class="warn">아래 키는 지금 한 번만 표시됩니다. 설치 명령에 이미 포함돼 있으니 그대로 복사해 실행하세요.</p>
 <h2>Windows (PowerShell)</h2><pre id="cmd-win"></pre>
 <h2>macOS / Linux</h2><pre id="cmd-nix"></pre>
-<p>실행 후 Claude Code(터미널)를 재시작하면 다음 세션부터 스피너에 스폰서 문구가 섞여 돕니다.
-기존 커스텀 verb는 보존되고, 언제든 settings.json의 spinnerVerbs와 SessionStart 훅을 지우면 해제됩니다.</p>
+<p>실행 후 Claude Code(터미널)를 재시작하면 다음 세션부터 문구팩이 돕니다.
+기존 커스텀 verb는 보존되고, settings.json의 spinnerVerbs와 SessionStart 훅을 지우면 언제든 해제됩니다.</p>
 </div>
 <p style="font-size:12px;color:#666">수익은 세션 단위로 원장에 적립되며 월 단위 정산 안내를 이메일로 드립니다.
 문의: ikymximy@kohganemultishop.org · <a style="color:#7aa2ff" href="/spinads">광고주이신가요?</a></p>

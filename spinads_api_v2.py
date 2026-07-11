@@ -6,7 +6,7 @@ import psycopg2, psycopg2.extras
 psycopg2.extras.register_uuid()  # uuid.UUID insert 어댑터 (없으면 can't adapt type 'UUID')
 
 DB_URL = os.environ["DATABASE_URL"]  # LinkLynk 기존 pooler URL 재사용
-MAX_ADS_PER_SESSION = 3
+MAX_ADS_PER_SESSION = 5
 
 spinads_bp = Blueprint("spinads", __name__)
 
@@ -24,16 +24,16 @@ def spinads_verbs():
         return jsonify(error="missing api key"), 401
     with _db() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute("select id, share_pct from spinads.publishers where api_key=%s and active", (key,))
+            cur.execute("select id, share_pct, lang from spinads.publishers where api_key=%s and active", (key,))
             pub = cur.fetchone()
             if not pub:
                 return jsonify(error="invalid api key"), 403
             cur.execute("""
                 select id, verb, short_code, bid_krw, weight from spinads.campaigns
-                where active and starts_at <= now()
+                where active and lang in (%s, 'all') and starts_at <= now()
                   and (ends_at is null or ends_at > now())
                   and (budget_krw is null or spent_krw < budget_krw)
-            """)
+            """, (pub["lang"],))
             camps = cur.fetchall()
             if not camps:
                 return jsonify(verbs=[], session_id=None)
@@ -156,7 +156,7 @@ def spinads_apply():
 
 @spinads_bp.get("/api/spinads/health")
 def spinads_health():
-    return jsonify(ok=True, service="spinads", version="v2.1")
+    return jsonify(ok=True, service="spinads", version="v3")
 
 # ---- 퍼블리셔 온보딩 (v2.1) ----
 from flask import Response
@@ -176,10 +176,11 @@ def spinads_publisher_register():
         return jsonify(error="missing fields"), 400
     if method not in ("toss", "bank_krw", "paypal", "payoneer"):
         method = "toss"
+    lang = d.get("lang") if d.get("lang") in ("ko", "en") else "ko"
     with _db() as conn:
         with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
-            cur.execute("""insert into spinads.publishers (name, email, payout_method)
-                           values (%s,%s,%s) returning id, api_key""", (name, email, method))
+            cur.execute("""insert into spinads.publishers (name, email, payout_method, lang)
+                           values (%s,%s,%s,%s) returning id, api_key""", (name, email, method, lang))
             row = cur.fetchone()
     return jsonify(ok=True, publisher_id=str(row["id"]), api_key=row["api_key"]), 201
 
