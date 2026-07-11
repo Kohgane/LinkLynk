@@ -164,24 +164,65 @@ def guess_category(name: str):
 
 
 def extract_keywords(name: str):
-    """상품명에서 핵심 키워드 추출 → 글에 자연스럽게 녹임.
-    예: '슈어홈 BLDC 차일드락 14단 가정용 선풍기' → 핵심='선풍기', 특징=['BLDC','차일드락','14단','가정용']"""
+    """상품명에서 핵심 제품종류 추출. 쿠팡 상품명 구조(브랜드 수식어 제품종류, 수량, 색상)에 맞게.
+    예: 'HOMEY NEST ... 메모리폼 베개, 1개, 화이트' → core='베개' (1개/화이트 무시)"""
     if not name:
         return {"core": "이거", "brand": "", "features": []}
-    words = name.replace(",", " ").split()
-    # 브랜드 = 보통 첫 단어 (한글/영문 고유명사)
-    brand = words[0] if words else ""
-    # 핵심 명사 = 보통 마지막 단어 (제품 종류)
-    core = words[-1] if len(words) > 1 else (words[0] if words else "이거")
-    # 특징 = 중간 단어들 (숫자+단위, 기능 키워드)
+
+    # 1) 쉼표 앞부분만 사용 (쉼표 뒤는 보통 수량·색상·옵션)
+    main = name.split(",")[0].strip()
+    # + 뒤도 옵션인 경우가 많음 (예: 홈캠 + 스탠드) → 앞부분 우선
+    main_head = main.split(" + ")[0].split("+")[0].strip() if (" + " in main or "+" in main) else main
+    words_all = main.split()
+    brand = words_all[0] if words_all else ""
+
+    # 2) 노이즈 단어 제거 (수량·색상·사이즈·순수숫자)
+    JUNK = re.compile(r'^\d+(개|매|매입|p|P|ea|세트|팩|입|장|병|포|캡슐|정|ml|L|g|kg|cm|mm|호|단)?$', re.I)
+    COLORS = {"화이트","블랙","그레이","네이비","블루","레드","핑크","베이지","브라운","그린",
+              "옐로우","퍼플","실버","골드","아이보리","카키","민트","라벤더","연그레이","다크그레이"}
+    SIZE = {"s","m","l","xl","xxl","free","프리","대","중","소","특대"}
+    def is_junk(w):
+        wl = w.lower()
+        return JUNK.match(w) or w in COLORS or wl in SIZE or w.startswith("타입") or w.startswith("type")
+
+    # 3) 제품종류 명사 사전 (실제 core가 될 명사들 — 길이순으로 최장 매칭)
+    PRODUCT_NOUNS = [
+        "무선청소기","로봇청소기","핸디청소기","차량용청소기","물걸레청소기","청소기",
+        "냉감이불","여름이불","차렵이불","극세사이불","이불","매트리스","토퍼","침구",
+        "메모리폼베개","경추베개","다리베개","목베개","바디필로우","베개",
+        "넥밴드선풍기","목걸이선풍기","휴대용선풍기","탁상용선풍기","서큘레이터","선풍기",
+        "넥쿨러","넥밴드","아이스밴드","쿨링밴드","쿨토시",
+        "베이비모니터","홈캠","홈카메라","cctv","웹캠",
+        "가습기","제습기","공기청정기","에어프라이어","전기포트","커피머신",
+        "무선이어폰","블루투스이어폰","이어폰","헤드폰","이어버드",
+        "보조배터리","충전기","고속충전기","케이블","멀티탭","거치대","스탠드",
+        "무선마우스","마우스","키보드","모니터암",
+        "니트릴장갑","고무장갑","주방장갑","장갑",
+        "모기퇴치기","포충기","살충기","해충퇴치기",
+        "아기띠","힙시트","유모차","카시트","젖병","분유포트","기저귀",
+        "무드등","led등","스탠드조명","무선조명","조명",
+        "텀블러","보온병","물병","밀폐용기","도시락",
+        "수면안경","수면유도등","안대","수면양말",
+    ]
+    low = name.lower().replace(" ", "")
+    for noun in PRODUCT_NOUNS:  # 사전 순서 = 길이 우선(구체적인 것 먼저)
+        if noun.lower() in low:
+            core = noun
+            break
+    else:
+        # 사전에 없으면: 쉼표+옵션 제거 후 마지막 의미 단어
+        head_words = [w for w in main_head.split() if not is_junk(w)]
+        core = head_words[-1] if len(head_words) >= 1 else (words_all[-1] if words_all else "이거")
+
+    # 4) 특징 = 중간 단어들 (core·브랜드·노이즈 제외)
     features = []
-    for w in words[1:-1] if len(words) > 2 else []:
-        # 너무 짧거나 순수 숫자만은 제외, 의미있는 특징만
-        if len(w) >= 2 and not w.isdigit():
+    for w in words_all[1:]:
+        if is_junk(w): continue
+        if w == core or (core in w) or (w in core): continue
+        if len(w) >= 2:
             features.append(w)
-    # core와 중복되거나 서로 포함하는 feature 제거 (예: core=안경, feat=수면유도안경)
-    features = [f for f in features if f != core and core not in f and f not in core]
-    return {"core": core, "brand": brand, "features": features[:3]}
+    features = features[:3]
+    return {"core": core, "brand": brand, "features": features}
 
 
 def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", channel: str = "blog", info: dict = None) -> str:
@@ -205,11 +246,11 @@ def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", ch
     if channel == "x":
         hooks = [
             f"{name} 써봤는데 이거 물건이네 👀",
-            f"요즘 {first} 이거 하나로 버팀",
+            f"요즘 {core} 이거 하나로 버팀",
             f"{name} 진작 살걸 후회 중",
-            f"별 기대 안 했는데 {first} 이거 의외로 대박",
+            f"별 기대 안 했는데 {core} 이거 의외로 대박",
             f"{name} 3주째 쓰는 중인데 만족도 높음",
-            f"솔직히 {first} 이 가격이면 안 살 이유가 없음",
+            f"솔직히 {core} 이 가격이면 안 살 이유가 없음",
         ]
         tails = [
             f"{'지금 '+price_txt+' ' if price_txt else ''}👉 {deeplink}",
@@ -217,7 +258,7 @@ def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", ch
             f"밑에 링크 둠 {deeplink}",
             f"{'가격 '+price_txt+' ' if price_txt else ''}{deeplink}",
         ]
-        tags = R([f"#쿠팡추천 #{first}", f"#{first} #추천템", f"#내돈내산 #{first}"])
+        tags = R([f"#쿠팡추천 #{core}", f"#{core} #추천템", f"#내돈내산 #{core}"])
         return append_disclosure(f"{R(hooks)}\n\n{R(tails)}\n\n{tags}")
 
     # ── 쓰레드: 6분할, 매번 다른 골격·말투 (THREADS 가이드) ──
@@ -230,7 +271,7 @@ def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", ch
                     f"{core} 고르는 게 생각보다 어렵더라고요\n다들 어떤 기준으로 보시나요?",
                     f"{core} 관련해서 여쭤보는 분들이 많아서 정리해봤어요",
                     f"{core}, 사기 전에 저처럼 고민하시는 분 계실까요?",
-                    f"{first} {core} 써보신 분 있으신가요? 후기 남겨봐요",
+                    f"{core} 써보신 분 있으신가요? 후기 남겨봐요",
                     f"{core} 하나 새로 들였는데 생각보다 괜찮아서 공유드려요",
                     f"요즘 {core} 찾는 분들 많으시더라고요. 제 경험 적어볼게요",
                     f"{featph} {core} 찾다가 이거로 정착했어요",
@@ -248,7 +289,7 @@ def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", ch
                     f"{core}, 실사용 기준으로 평가해봤습니다",
                     f"{feat+' 사양 ' if feat else ''}{core} 살 때 놓치기 쉬운 것",
                     f"{core} 스펙만 보면 안 되는 이유",
-                    f"{first} {core} 실측 후기입니다",
+                    f"{core} 실측 후기입니다",
                 ],
                 "r1": [f"핵심은 실사용 만족도인데\n{cat_line} 합격점이었습니다", "스펙보다 실제 사용감이 중요합니다", f"{feat+' 성능은 기대 이상이었습니다' if feat else '기본기가 탄탄합니다'}"],
                 "r2": [f"{'가격 대비 성능이 '+price_txt+' 기준 우수합니다' if price_txt else '가성비가 뛰어납니다'}", "동급 대비 경쟁력 있습니다"],
@@ -280,7 +321,7 @@ def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", ch
                     f"{core} 하나 샀는데 생각보다 좋아서 공유해요~",
                     f"{feat+' ' if feat else ''}{core} 고민 중이신 분들 이거 어때요?",
                     f"{core} 바꿨더니 확실히 편해졌어요ㅎㅎ",
-                    f"{first} {core} 써보고 있는데 만족 중이에요",
+                    f"{core} 써보고 있는데 만족 중이에요",
                     f"{core} 살까 말까 고민 많이 했는데 잘 산 것 같아요",
                 ],
                 "r1": [f"며칠 고민하다 샀는데\n{cat_line} 만족해요", f"처음엔 반신반의했는데\n{cat_line} 웬걸요ㅎㅎ", f"{feat+' 기능 은근 잘 써요' if feat else '생각보다 손이 자주 가요'}"],
@@ -379,9 +420,9 @@ def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", ch
             },
             # ── 심리학 기반 훅 (정보격차·손실회피·문제증폭·사회적증거) ──
             "gap": {  # 정보격차: "진짜 원인은 따로 있다"
-                "posts": [f"{core} 문제, 사실 그거 때문 아닐 수도 있음.", f"다들 {core} 이유를 엉뚱한 데서 찾더라.", f"{core} 진짜 원인 알면 좀 허무함."],
-                "r1": [f"진짜 원인은 따로 있는데 대부분 이걸 모름.\n나도 한참을 헤맸고.", "알고 보면 간단한데 아무도 안 알려줌."],
-                "r2": [f"{feat+' 이게 핵심이더라' if feat else '핵심은 딴 데 있었음'}.\n그래서 이걸로 바꿈.", "원인 잡으니까 바로 해결됨."],
+                "posts": [f"{core} 고를 때 다들 엉뚱한 걸 본다.", f"{core}, 진짜 중요한 건 따로 있더라.", f"{core} 이거 하나 바꿨더니 알겠더라. 원인이 딴 데 있었음."],
+                "r1": [f"{core} 살 때 대부분 이걸 놓침.\n나도 한참 헤맸고.", "알고 보면 간단한데 아무도 안 알려줌."],
+                "r2": [f"{feat+' 이게 핵심이더라' if feat else '핵심은 딴 데 있었음'}.\n그래서 이걸로 바꿈.", f"{core} 제대로 고르니까 바로 해결됨."],
                 "r3": ["바꾸고 며칠 만에 확 달라짐.", "진작 알았으면 좋았을 걸."],
                 "link": ["밑에 링크.", "여기 남겨둠."],
                 "end": [f"원인 알고 나니 허무하더라.\n{deeplink}", f"아는 사람만 아는 거였음.\n{deeplink}"],
@@ -461,15 +502,15 @@ def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", ch
         }
         P = POOLS.get(TONE, POOLS["friendly"])
         r4 = f"{R(P['link'])}\n{deeplink}\n\n(광고) 쿠팡파트너스 활동으로 수수료를 받습니다"
-        r5 = f"{R(P['end'])}\n\n#{first} " + R(["#추천템", "#내돈내산", "#꿀템", f"#{core}"])
+        r5 = f"{R(P['end'])}\n\n#{core} " + R(["#추천템", "#내돈내산", "#꿀템", f"#{core}"])
         parts = [R(P["posts"]), R(P["r1"]), R(P["r2"]), R(P["r3"]), r4, r5]
         return "\n===THREAD===\n".join(parts)
 
     # ── 인스타: 감성, 매번 다른 캡션·해시태그 ──
     if channel == "insta":
         opens = [
-            f"✨ {name} ✨", f"🤍 {first} 기록 🤍", f"📌 요즘 최애템 : {first}",
-            f"⭐ {name} ⭐", f"💫 데일리 {first} 💫",
+            f"✨ {name} ✨", f"🤍 {core} 기록 🤍", f"📌 요즘 최애템 : {core}",
+            f"⭐ {name} ⭐", f"💫 데일리 {core} 💫",
         ]
         bodies = [
             f"요즘 데일리로 챙기는 {core} 🤍",
@@ -485,7 +526,7 @@ def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", ch
             "링크는 프로필에 걸어뒀어요 👆",
         ]
         base_tags = ["#쿠팡추천", "#데일리템", "#추천템", "#내돈내산", "#일상템", "#꿀템", "#살림템"]
-        tags = f"#{first} " + " ".join(random.sample(base_tags, 4))
+        tags = f"#{core} " + " ".join(random.sample(base_tags, 4))
         body = (f"{R(opens)}\n\n{R(bodies)}\n"
                 f"{'가격 '+price_txt+' / ' if price_txt else ''}{R(guides)}\n\n"
                 f"👉 {deeplink}\n\n{tags}")
@@ -495,7 +536,7 @@ def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", ch
     if channel == "youtube":
         intros = [
             f"📌 {name} 상세정보",
-            f"📌 오늘 영상에서 소개한 {first}",
+            f"📌 오늘 영상에서 소개한 {core}",
             f"📌 많이 물어보신 {name} 정보",
         ]
         descs = [
@@ -516,10 +557,10 @@ def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", ch
         f"[{name} 솔직 후기 & 구매 정보]",
         f"[내돈내산] {name} 3주 사용 후기",
         f"{name}, 사기 전에 이거 보세요",
-        f"[추천] {first} 고민이라면 {name} 어때요?",
+        f"[추천] {core} 고민이라면 {name} 어때요?",
         f"{name} 써보고 정리한 장단점",
         f"요즘 뜨는 {name}, 진짜 괜찮을까?",
-        f"{first} 뭐 살지 고민이라면 (feat. {name})",
+        f"{core} 뭐 살지 고민이라면 (feat. {name})",
         f"{name} 한 달 써본 리얼 후기",
         f"솔직히 말하는 {name} 후기",
         f"{name} 구매 전 꼭 알아야 할 것",
@@ -543,7 +584,7 @@ def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", ch
         ],
         "casual": [
             f"{name} 써봤는데 솔직하게 적어봄.",
-            f"{first} 살까 말까 고민했는데 그냥 질렀다. 후기 시작.",
+            f"{core} 살까 말까 고민했는데 그냥 질렀다. 후기 시작.",
             f"{name} 별 기대 안 했는데 의외였음. 정리해봄.",
         ],
     }
