@@ -156,4 +156,48 @@ def spinads_apply():
 
 @spinads_bp.get("/api/spinads/health")
 def spinads_health():
-    return jsonify(ok=True, service="spinads", version="v2")
+    return jsonify(ok=True, service="spinads", version="v2.1")
+
+# ---- 퍼블리셔 온보딩 (v2.1) ----
+from flask import Response
+import spinads_assets_v1 as _assets
+
+@spinads_bp.get("/spinads/publish")
+def spinads_publish_page():
+    return _assets.PUBLISH_HTML
+
+@spinads_bp.post("/api/spinads/publishers/register")
+def spinads_publisher_register():
+    d = request.get_json(silent=True) or {}
+    name = (d.get("name") or "").strip()[:40]
+    email = (d.get("email") or "").strip()[:120]
+    method = d.get("payout_method") or "toss"
+    if not name or not email or "@" not in email:
+        return jsonify(error="missing fields"), 400
+    if method not in ("toss", "bank_krw", "paypal", "payoneer"):
+        method = "toss"
+    with _db() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("""insert into spinads.publishers (name, email, payout_method)
+                           values (%s,%s,%s) returning id, api_key""", (name, email, method))
+            row = cur.fetchone()
+    return jsonify(ok=True, publisher_id=str(row["id"]), api_key=row["api_key"]), 201
+
+def _script(text):
+    return Response(text, mimetype="text/plain; charset=utf-8")
+
+@spinads_bp.get("/spinads/install.ps1")
+def spinads_install_ps1():
+    return _script(_assets.INSTALL_PS1)
+
+@spinads_bp.get("/spinads/install.sh")
+def spinads_install_sh():
+    return _script(_assets.INSTALL_SH)
+
+@spinads_bp.get("/spinads/client.ps1")
+def spinads_client_ps1():
+    return _script(_assets.CLIENT_PS1)
+
+@spinads_bp.get("/spinads/client.py")
+def spinads_client_py():
+    return _script(_assets.CLIENT_PY)
