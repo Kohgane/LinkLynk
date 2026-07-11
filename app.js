@@ -36,7 +36,38 @@ let authMode = "login"; // login | signup
 let recent = [];
 
 // ── 부팅: 로그인 상태 확인 ──
+// ── 자동 임시저장: 앱을 나가거나 백그라운드로 가면 작성 중 초안을 앱 DB에 저장 ──
+let __autoSavedHash = null;
+function setupAutoSave(){
+  const doAutoSave = () => {
+    const d = window.__lastResult;
+    if(!d || !d.blogDraft) return;
+    const hash = (d.channel||'') + '|' + (d.blogDraft||'').slice(0,100);
+    if(hash === __autoSavedHash) return;
+    __autoSavedHash = hash;
+    const payload = JSON.stringify({
+      channel: d.channel || channel || 'blog',
+      content: d.blogDraft,
+      productName: d.productName || '',
+      deeplink: d.deeplink || '',
+      image: d.image || null,
+      auto: true
+    });
+    try{
+      const blob = new Blob([payload], {type:'application/json'});
+      navigator.sendBeacon('/api/save-draft', blob);
+    }catch(e){
+      fetch('/api/save-draft',{method:'POST',headers:{'Content-Type':'application/json'},body:payload,keepalive:true}).catch(()=>{});
+    }
+  };
+  document.addEventListener('visibilitychange', ()=>{ if(document.visibilityState==='hidden') doAutoSave(); });
+  window.addEventListener('pagehide', doAutoSave);
+  window.addEventListener('beforeunload', doAutoSave);
+}
+
 async function boot(){
+  // ── 앱 나가면 작성 중이던 초안 자동 임시저장 (앱 내부 DB에만) ──
+  setupAutoSave();
   // 북마클릿에서 넘어온 쿠팡 이미지 처리
   const params = new URLSearchParams(location.search);
   const bmkData = params.get('bmk');
@@ -632,10 +663,10 @@ function attachRailDrag(){
 
   // 곡선 렌더. settle(멈춤)이면 정점 크게, 이동중이면 작게 (영상: 움직일땐 15px, 멈추면 37px)
   function render(y, big){
-    // 목표 실측 곡선: σ50(완만한 넓은 활) + 정점 돌출 중앙 살짝 넘게
-    const peakScale = big ? 3.0 : 2.0;
-    const sigmaWide = 78;                 // 아주 완만한 넓은 활 (더 부드럽게)
-    const sigmaPeak = 22;                 // 정점도 부드럽게
+    // big: 0~1 연속값 (정점 크기 부드러운 전환). 곡선은 넓은 활 + 정점 돌출
+    const peakScale = 2.0 + big*1.0;      // 2.0(이동중)~3.0(멈춤) 부드럽게
+    const sigmaWide = 82;                 // 아주 완만한 넓은 활
+    const sigmaPeak = 24;                 // 정점
     spans.forEach(s=>{
       const r = s.getBoundingClientRect();
       const cy = (r.top + r.bottom)/2;
@@ -643,11 +674,10 @@ function attachRailDrag(){
       const gWide = Math.exp(-(dist*dist)/(2*sigmaWide*sigmaWide));
       const gPeak = Math.exp(-(dist*dist)/(2*sigmaPeak*sigmaPeak));
       const scale = 1 + gPeak*(peakScale-1);
-      // 돌출: 완만한 활 크게(중앙 살짝 넘게) + 정점 추가
-      const shiftX = -gWide*185 - gPeak*35;   // 완만한 활 → 중앙 살짝 넘게
+      const shiftX = -gWide*190 - gPeak*38;
       s.style.transform = `translate3d(${shiftX}px,0,0) scale(${scale})`;
       const on = s.classList.contains('on');
-      s.style.opacity = on ? (0.78 + gPeak*0.22) : (0.28 + gWide*0.4 + gPeak*0.3);
+      s.style.opacity = on ? (0.8 + gPeak*0.2) : (0.28 + gWide*0.42 + gPeak*0.3);
       s.style.color = (gPeak>0.3 && on) ? 'var(--mint-bright)' : (gPeak>0.3 ? 'var(--text)' : '');
       s.style.zIndex = gPeak>0.4 ? 6 : '';
     });
@@ -697,16 +727,25 @@ function attachRailDrag(){
     });
   }
 
-  // 60fps 보간 — 적응형(멀면 빠르게 따라가고, 가까우면 부드럽게 안착)
+  // 스프링 물리 보간 — iOS처럼 자연스러운 감속·안착 (velocity 기반)
+  let springVel = 0;   // 스프링 속도
+  let peakEase = 0;    // 정점 크기 부드러운 전환 (0~1)
   function loop(){
+    // 스프링: 목표로 당기는 힘(stiffness) + 감쇠(damping)
+    const stiffness = 0.16;   // 당기는 강도 (낮을수록 부드럽게 따라감)
+    const damping = 0.72;     // 감쇠 (0.7~0.8이 자연스러운 스프링감)
+    const force = (targetY - smoothY) * stiffness;
+    springVel = (springVel + force) * damping;
+    smoothY += springVel;
     const gap = Math.abs(targetY - smoothY);
-    // 거리 클수록 빠르게(0.5), 가까울수록 부드럽게(0.22) → 즉각적이되 스무스한 착지
-    const lerp = gap > 80 ? 0.5 : (gap > 25 ? 0.34 : 0.22);
-    smoothY += (targetY - smoothY) * lerp;
-    if(gap < 0.4) smoothY = targetY;
-    render(smoothY, settled && Math.abs(velocity)<0.4);
-    if(active || Math.abs(targetY-smoothY) > 0.4) rafId=requestAnimationFrame(loop);
-    else rafId=null;
+    if(gap < 0.3 && Math.abs(springVel) < 0.3){ smoothY = targetY; springVel = 0; }
+    // 정점 크기도 부드럽게 전환 (탁 커지지 않고 스르륵)
+    const wantBig = settled && Math.abs(velocity) < 0.35 ? 1 : 0;
+    peakEase += (wantBig - peakEase) * 0.15;
+    render(smoothY, peakEase);
+    if(active || gap > 0.3 || Math.abs(springVel) > 0.3 || Math.abs(wantBig-peakEase) > 0.02)
+      rafId = requestAnimationFrame(loop);
+    else rafId = null;
   }
 
   function moveTo(clientY){
@@ -1033,7 +1072,8 @@ async function loadPosts(status, btn){
     if(!d.ok || !d.posts.length){ box.innerHTML = '<div class="empty">아직 게시물이 없어요</div>'; return; }
     box.innerHTML = d.posts.map(p=>{
       const isPub = p.status==='published';
-      const badge = isPub ? '<span class="pbadge pub">게시완료</span>' : '<span class="pbadge draft">임시저장</span>';
+      const isAuto = p.status==='autodraft';
+      const badge = isPub ? '<span class="pbadge pub">게시완료</span>' : (isAuto ? '<span class="pbadge draft">💾 자동저장</span>' : '<span class="pbadge draft">임시저장</span>');
       const preview = esc((p.content||'').slice(0,80));
       let actions;
       if(isPub){

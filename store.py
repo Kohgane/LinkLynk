@@ -139,8 +139,13 @@ def mark_published(post_id, post_url=None, post_id_ext=None):
 
 def update_post_content(uid, post_id, content):
     """임시저장 글 내용 편집 (본인 것만)."""
-    _q("UPDATE linklynk_posts SET content=%s WHERE id=%s AND user_id=%s AND status='draft'",
+    _q("UPDATE linklynk_posts SET content=%s WHERE id=%s AND user_id=%s AND status IN ('draft','autodraft')",
        (content, post_id, uid))
+    return {"ok": True}
+
+def delete_auto_drafts(uid):
+    """이전 자동저장 초안 삭제 (최신 1개만 유지하려고)."""
+    _q("DELETE FROM linklynk_posts WHERE user_id=%s AND status='autodraft'", (uid,))
     return {"ok": True}
 
 def delete_post(uid, post_id):

@@ -307,11 +307,18 @@ def save_draft():
     d = request.get_json(force=True, silent=True) or {}
     channel = (d.get("channel") or "").strip()
     content = (d.get("content") or "").strip()
+    is_auto = d.get("auto", False)
     if not content:
         return jsonify({"ok": False, "error": "저장할 내용이 없어요"}), 400
+    # 자동저장은 직전 자동저장 초안을 정리 (계속 쌓이지 않게, 최신 1개만)
+    if is_auto:
+        try: store.delete_auto_drafts(session["uid"])
+        except Exception: pass
     pid = store.save_post(session["uid"], channel, d.get("productName", ""),
-                          content, d.get("deeplink", ""), d.get("image"), status="draft")
-    return jsonify({"ok": True, "post_id": pid, "message": "임시저장했어요 (내 게시물에서 편집·게시 가능)"})
+                          content, d.get("deeplink", ""), d.get("image"),
+                          status=("autodraft" if is_auto else "draft"))
+    msg = "자동 저장됨" if is_auto else "임시저장했어요 (내 게시물에서 편집·게시 가능)"
+    return jsonify({"ok": True, "post_id": pid, "message": msg})
 
 
 @app.route("/api/posts", methods=["GET"])
