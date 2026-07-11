@@ -140,6 +140,21 @@ def save_sns_key():
     return jsonify({"ok": True, "message": "SNS 자동 게시가 연결됐어요"})
 
 
+@app.route("/api/search-images", methods=["POST"])
+@login_required
+def search_images_api():
+    """키워드로 상품 이미지 검색 (쿠팡 크롤 없이 무료)."""
+    d = request.get_json(force=True, silent=True) or {}
+    keyword = (d.get("keyword") or "").strip()
+    if not keyword:
+        return jsonify({"ok": False, "error": "검색어를 입력하세요"}), 400
+    from core import search_images
+    r = search_images(keyword, limit=12)
+    if r.get("ok"):
+        return jsonify({"ok": True, "images": r["images"]})
+    return jsonify({"ok": False, "error": "이미지를 찾지 못했어요"}), 502
+
+
 @app.route("/img-proxy")
 @login_required
 def img_proxy():
@@ -147,7 +162,7 @@ def img_proxy():
     유저 브라우저에서 CORS 없이 쿠팡 이미지 사용 가능."""
     import urllib.request as _u, ssl as _s
     url = request.args.get("u", "")
-    if not url.startswith("http") or not any(d in url for d in ["coupangcdn.com", "coupang.com"]):
+    if not url.startswith("http"):
         return "", 400
     try:
         ctx = _s.create_default_context(); ctx.check_hostname=False; ctx.verify_mode=_s.CERT_NONE

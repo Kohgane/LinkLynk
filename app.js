@@ -329,8 +329,10 @@ async function doSearch(){
               <button class="btn-copy" onclick="copyText('${d.deeplink}', this)">복사</button></div>
             <div class="card-actions" style="margin-top:12px">
               <button class="btn btn-mint" onclick="genFromSearch('${d.deeplink}','${esc(d.product_name).replace(/'/g,'')}')">이 상품으로 글 만들기</button>
+              <button class="btn btn-ghost" onclick="findImages('${esc(kw).replace(/'/g,'')}')">🖼 이미지 더 찾기</button>
             </div>
           </div>
+          <div id="imgResults"></div>
         </div>`;
       document.getElementById('result').scrollIntoView({behavior:'smooth',block:'start'});
       window.__searchResult = d;
@@ -341,6 +343,39 @@ async function doSearch(){
   }catch(e){ toast('검색 실패 — 네트워크 확인'); }
   btn.classList.remove('loading');
 }
+// 상품 이미지 검색 (쿠팡 크롤 없이 무료 이미지 검색)
+async function findImages(keyword){
+  const box = document.getElementById('imgResults');
+  if(!box) return;
+  box.innerHTML = '<div style="text-align:center;padding:20px;color:var(--muted);font-size:13px">🖼 이미지 찾는 중…</div>';
+  try{
+    const r = await fetch('/api/search-images',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keyword})});
+    const d = await r.json();
+    if(d.ok && d.images && d.images.length){
+      window.__foundImages = d.images;
+      box.innerHTML = `<div class="card" style="margin-top:12px">
+        <div class="card-lbl">🖼 "${esc(keyword)}" 이미지 ${d.images.length}개</div>
+        <div style="font-size:12px;color:var(--text-2);margin:4px 0 12px">탭해서 글에 넣을 이미지를 고르세요.</div>
+        <div class="bmk-grid">${d.images.map((im,i)=>`<img src="/img-proxy?u=${encodeURIComponent(im.image)}" loading="lazy" onclick="pickImage(${i},this)" style="cursor:pointer">`).join('')}</div>
+      </div>`;
+    } else { box.innerHTML = '<div style="text-align:center;padding:16px;color:var(--muted);font-size:13px">이미지를 찾지 못했어요</div>'; }
+  }catch(e){ box.innerHTML = '<div style="text-align:center;padding:16px;color:var(--muted);font-size:13px">이미지 검색 실패</div>'; }
+}
+// 이미지 선택 → 현재 초안에 넣기
+function pickImage(idx, el){
+  const im = (window.__foundImages||[])[idx];
+  if(!im) return;
+  // 선택 표시
+  document.querySelectorAll('#imgResults img').forEach(i=>i.style.outline='');
+  el.style.outline = '3px solid var(--mint)';
+  window.__pickedImage = im.image;
+  // 현재 결과(초안)가 있으면 이미지 교체
+  if(window.__lastResult){ window.__lastResult.image = im.image; }
+  toast('이미지 선택됨 — 글 만들 때 들어가요 🖼');
+}
+
+async function doSearchImagesOnly(){}
+
 async function genFromSearch(deeplink, pname){
   document.getElementById('url').value = deeplink;
   document.getElementById('pname').value = pname;
