@@ -838,9 +838,14 @@ def _images_ddg(keyword, limit=12):
 
 def search_images(keyword, limit=12):
     """키워드로 상품 이미지 검색. DDG→Bing 폴백. 쿠팡 크롤 없이 이미지 확보."""
-    imgs = _images_ddg(keyword, limit)
+    # 상품 이미지가 나오도록 검색어 보강 (로고·일러스트 방지)
+    q = keyword if any(w in keyword for w in ["쿠팡", "상품", "제품"]) else keyword + " 상품"
+    imgs = _images_ddg(q, limit)
     src = "ddg"
     if not imgs:
+        imgs = _images_bing(q, limit)
+        src = "bing"
+    if not imgs:  # 보강어 빼고 재시도
         imgs = _images_bing(keyword, limit)
         src = "bing"
     if imgs:
