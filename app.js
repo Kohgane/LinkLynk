@@ -590,7 +590,7 @@ async function loadProfile(){
       html += `<div class="nia-glabel" id="g-${encodeURIComponent(k)}">${k}</div>`;
       groups[k].forEach(l=>{
         const dispName = l.product_name && l.product_name!=='쿠팡 상품' && l.product_name!=='이 상품' ? l.product_name : ('쿠팡 링크 '+(l.deeplink||'').replace('https://link.coupang.com/a/','').slice(0,6));
-        html += `<div class="nia-item" style="animation-delay:${Math.min(gi*20,300)}ms">
+        html += `<div class="nia-item" data-clicks="${l.clicks||0}" style="animation-delay:${Math.min(gi*20,300)}ms">
           <div class="nia-body" onclick="copyText('${l.deeplink}', this.parentNode.querySelector('.nia-act'))">
             <div class="nia-name ${(!l.product_name||l.product_name==='쿠팡 상품'||l.product_name==='이 상품')?'noname':''}">${esc(dispName)} <span style="font-size:12px;opacity:.6">${CH_ICON[l.channel]||''}</span></div>
             <div class="nia-sub">${timeAgo(l.created_at)} · ${l.deeplink.replace('https://link.coupang.com','쿠팡')}</div>
@@ -674,10 +674,12 @@ function attachRailDrag(){
   function showGroup(key){
     if(!list || shownGroup===key) return;
     shownGroup = key;
+    list.style.display=''; list.style.flexDirection='';
+    // order 초기화 (조회수 모드에서 돌아올 때)
+    list.querySelectorAll('.nia-item').forEach(el=>el.style.order='');
     const labels = list.querySelectorAll('.nia-glabel');
     const items = list.querySelectorAll('.nia-item');
     if(key===null){
-      // 아무 그룹도 표시 안 함
       labels.forEach(el=>el.style.display='none');
       items.forEach(el=>el.style.display='none');
       return;
@@ -726,27 +728,46 @@ function attachRailDrag(){
     const s = nearest(clientY);
     if(!s) return;
     const key = s.textContent;
+    const on = s.classList.contains('on');
     if(key!==lastKey){
       lastKey = key;
-      const on = s.classList.contains('on');
       if(navigator.vibrate) navigator.vibrate(on?6:2);
-      showGroup(on ? key : null);   // 활성 초성 그룹만 보이게 (나이아가라식)
+      // 활성 초성이면 그 그룹 표시. 비활성이면 이전 표시 유지(빈 화면 방지)
+      if(on) showGroup(key);
     }
   }
   function end(){
     active=false; lastKey=null; settled=false;
     clearTimeout(settleTimer);
     if(rafId){ cancelAnimationFrame(rafId); rafId=null; }
-    // 손 떼면 곡선이 부드럽게 풀리며 초성들이 일렬로 정렬
+    // 손 떼면 곡선이 부드럽게 풀림
     let ease = 1;
     const releaseY = smoothY;
     (function relax(){
-      ease *= 0.82;                       // 매 프레임 82%로 감쇠 → 부드럽게 0으로
+      ease *= 0.85;                       // 더 부드럽게 감쇠
       if(ease < 0.03){ reset(); return; }
-      renderDamped(releaseY, ease);       // 곡선 크기를 ease배로 줄여가며 렌더
+      renderDamped(releaseY, ease);
       requestAnimationFrame(relax);
     })();
+    // ★손 떼면 조회수(clicks) 높은 순으로 전체 표시
+    showByViews();
     if(list){ list.classList.remove('idle'); list.style.opacity=''; }
+  }
+  // 조회수 높은 순 전체 표시 (손 뗐을 때)
+  function showByViews(){
+    if(!list) return;
+    shownGroup = '__views__';
+    const labels = list.querySelectorAll('.nia-glabel');
+    labels.forEach(el=>el.style.display='none');
+    const items = [...list.querySelectorAll('.nia-item')];
+    // clicks 데이터로 정렬
+    items.sort((a,b)=>(parseInt(b.dataset.clicks||0)-parseInt(a.dataset.clicks||0)));
+    items.forEach((el,i)=>{
+      el.style.display='';
+      el.style.order = i;  // flex order로 재배치
+    });
+    list.style.display='flex';
+    list.style.flexDirection='column';
   }
   // 풀림 전용 렌더 (기존 곡선을 ease배 축소)
   function renderDamped(y, ease){
@@ -787,15 +808,8 @@ function attachRailDrag(){
   rail.addEventListener('touchstart', e=>e.preventDefault(), {passive:false});
   rail.addEventListener('touchmove', e=>e.preventDefault(), {passive:false});
 
-  // 초기 상태: 첫 번째 그룹(상품 있는 첫 초성)만 표시 → 나이아 쓸면 바뀜
-  const firstLabel = list && list.querySelector('.nia-glabel');
-  if(firstLabel){
-    const key = firstLabel.textContent;
-    showGroup(key);
-    // 해당 초성 레일 글자 강조
-    const sp = spans.find(s=>s.textContent===key);
-    if(sp){ sp.style.color='var(--mint-bright)'; }
-  }
+  // 초기 상태: 조회수 높은 순 전체 표시 (손 뗀 상태와 동일)
+  showByViews();
 }
 async function deleteLink(id, btn){
   if(!confirm('이 링크를 삭제할까요?')) return;
@@ -897,20 +911,21 @@ function renderTopics(topics, now){
         ${t.sample?`<div class="topic-row"><span class="topic-lbl">👥 표본</span> ${esc(t.sample)}</div>`:''}
         ${t.angle?`<div class="topic-row"><span class="topic-lbl">💡 앵글</span> ${esc(t.angle)}</div>`:''}
         ${t.hook?`<div class="topic-row"><span class="topic-lbl">🎣 훅</span> "${esc(t.hook)}"</div>`:''}
-        ${(t.keywords&&t.keywords.length)?`<div style="margin-top:10px"><div style="font-size:12px;color:var(--text-2);margin-bottom:6px">🛒 추천 상품 (탭하면 검색)</div>${t.keywords.map(k=>`<button class="kw-chip" onclick="searchFromTopic('${esc(k).replace(/'/g,'')}')">${esc(k)}</button>`).join('')}</div>`:''}
+        ${(t.keywords&&t.keywords.length)?`<div style="margin-top:10px"><div style="font-size:12px;color:var(--text-2);margin-bottom:6px">🛒 추천 상품 (탭하면 검색)</div>${t.keywords.map(k=>`<button class="kw-chip" data-kw="${esc(k)}">${esc(k)}</button>`).join('')}</div>`:''}
       </div>`).join('');
+  // 상품 칩 클릭 → 검색 (이벤트 위임, 인라인 onclick보다 안정적)
+  result.querySelectorAll('.kw-chip').forEach(chip=>{
+    chip.addEventListener('click', ()=>{ searchFromTopic(chip.dataset.kw||chip.textContent); });
+  });
   result.scrollIntoView({behavior:'smooth',block:'start'});
 }
 // 주제에서 추천 상품 클릭 → 검색 모드로 검색
 async function searchFromTopic(keyword){
-  document.getElementById('searchKw').value = keyword;
-  // 검색 모드로 전환
-  document.querySelectorAll('.mode').forEach(m=>m.classList.remove('on'));
+  // 검색 모드로 전환 (setMode로 박스 토글 일관성)
   const sm = [...document.querySelectorAll('.mode')].find(m=>m.dataset.mode==='search');
-  if(sm) sm.classList.add('on');
-  mode='search';
-  document.getElementById('topicBox').classList.add('hidden');
-  document.getElementById('searchBox').classList.remove('hidden');
+  if(sm) setMode(sm);
+  const kwInput = document.getElementById('searchKw');
+  if(kwInput) kwInput.value = keyword;
   doSearch();
 }
 

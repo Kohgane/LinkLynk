@@ -90,7 +90,8 @@
   .chip:active{transform:scale(.95)}
   .chip.on{background:linear-gradient(135deg,var(--mint),var(--mint-deep));border-color:transparent;color:var(--mint-ink);box-shadow:0 2px 12px rgba(34,233,164,.3);_x:1}
   .chip.__old.on{background:var(--mint);border-color:var(--mint);color:var(--mint-ink)}
-  .mode{flex:1;font-size:12px;font-weight:600;padding:10px 6px;border-radius:var(--radius-sm);background:transparent;border:none;color:var(--muted);cursor:pointer;transition:all .18s;white-space:nowrap}
+  .modeToggle::-webkit-scrollbar{display:none}
+  .mode{flex:0 0 auto;white-space:nowrap;font-size:12px;font-weight:600;padding:10px 14px;border-radius:var(--radius-sm);background:transparent;border:none;color:var(--muted);cursor:pointer;transition:all .18s;white-space:nowrap}
   .mode.on{background:var(--surface-3);color:var(--mint-bright);box-shadow:0 1px 6px rgba(0,0,0,.25)}
   .tone-scroll{display:flex;gap:7px;overflow-x:auto;padding:2px 20px 6px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
   .tone-scroll::-webkit-scrollbar{display:none}
@@ -263,7 +264,7 @@
     <div class="hero">
       <h1>상품 링크 붙여넣으면<br>간편 링크가 딸깍</h1>
       <div class="sub">쿠팡 상품 URL 하나면 끝. 블로그 글·고지문구까지 자동으로.</div>
-      <div class="modeToggle" style="display:flex;gap:4px;margin-bottom:14px;background:var(--surface-1);border:1px solid var(--line);border-radius:14px;padding:4px">
+      <div class="modeToggle" style="display:flex;gap:4px;margin-bottom:14px;background:var(--surface-1);border:1px solid var(--line);border-radius:14px;padding:4px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch">
         <button class="mode on" data-mode="auto" onclick="setMode(this)">간편링크 자동생성</button>
         <button class="mode" data-mode="manual" onclick="setMode(this)">링크 직접 붙여넣기</button>
         <button class="mode" data-mode="search" onclick="setMode(this)">🔍 상품 검색</button>
@@ -436,6 +437,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="/app.js?v=1783750417"></script>
+<script src="/app.js?v=1783751158"></script>
 </body>
 </html>
