@@ -117,7 +117,7 @@ def logout():
 
 
 # ── 소셜 로그인 (구글/카카오/네이버 OAuth) ──
-import urllib.parse as _up, urllib.request as _ur, secrets as _secrets
+import urllib.parse as _up, urllib.request as _ur, secrets as _secrets, json, ssl as _ssl_mod
 
 def _oauth_cfg():
     """환경변수에서 OAuth 설정 읽기."""
@@ -183,6 +183,7 @@ def oauth_callback(provider):
     if not code:
         return redirect("/?login_error=nocode")
     try:
+        _ctx = _ssl_mod.create_default_context()
         # 1) code → access_token
         tok_data = _up.urlencode({
             "grant_type": "authorization_code",
@@ -193,13 +194,13 @@ def oauth_callback(provider):
         treq = _ur.Request(cfg["token"], data=tok_data,
                            headers={"Content-Type": "application/x-www-form-urlencoded",
                                     "Accept": "application/json"}, method="POST")
-        tok = json.loads(_ur.urlopen(treq, timeout=15).read())
+        tok = json.loads(_ur.urlopen(treq, timeout=15, context=_ctx).read())
         access = tok.get("access_token")
         if not access:
             return redirect("/?login_error=token")
         # 2) access_token → 유저 이메일
         ureq = _ur.Request(cfg["userinfo"], headers={"Authorization": f"Bearer {access}"})
-        uinfo = json.loads(_ur.urlopen(ureq, timeout=15).read())
+        uinfo = json.loads(_ur.urlopen(ureq, timeout=15, context=_ctx).read())
         email, name = _extract_oauth_email(provider, uinfo)
         if not email:
             return redirect("/?login_error=noemail")
@@ -210,8 +211,9 @@ def oauth_callback(provider):
         session.permanent = True
         session["uid"] = u["id"]
         return redirect("/")
-    except Exception:
-        return redirect("/?login_error=exception")
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return redirect("/?login_error=" + _up.quote(str(e)[:80]))
 
 
 def _extract_oauth_email(provider, uinfo):

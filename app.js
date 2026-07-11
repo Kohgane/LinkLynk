@@ -651,9 +651,9 @@ async function loadProfile(){
       groups[k].forEach(l=>{
         const dispName = l.product_name && l.product_name!=='쿠팡 상품' && l.product_name!=='이 상품' ? l.product_name : ('쿠팡 링크 '+(l.deeplink||'').replace('https://link.coupang.com/a/','').slice(0,6));
         html += `<div class="nia-item" data-clicks="${l.clicks||0}" style="animation-delay:${Math.min(gi*20,300)}ms">
-          <div class="nia-body" onclick="copyText('${l.deeplink}', this.parentNode.querySelector('.nia-act'))">
+          <div class="nia-body" onclick="openLink(${l.id},'${l.deeplink}')">
             <div class="nia-name ${(!l.product_name||l.product_name==='쿠팡 상품'||l.product_name==='이 상품')?'noname':''}">${esc(dispName)} <span style="font-size:12px;opacity:.6">${CH_ICON[l.channel]||''}</span></div>
-            <div class="nia-sub">${timeAgo(l.created_at)} · ${l.deeplink.replace('https://link.coupang.com','쿠팡')}</div>
+            <div class="nia-sub">${timeAgo(l.created_at)} · 조회 ${l.clicks||0} · ${l.deeplink.replace('https://link.coupang.com','쿠팡')}</div>
           </div>
           <div class="nia-act" onclick="copyText('${l.deeplink}', this)">복사</div>
           <button class="nia-del" onclick="deleteLink(${l.id}, this)" title="삭제">🗑</button>
@@ -899,6 +899,12 @@ function attachRailDrag(){
   // 초기 상태: 조회수 높은 순 전체 표시 (손 뗀 상태와 동일)
   showByViews();
 }
+// 내 링크 클릭 → 클릭 트래킹되며 쿠팡으로 이동 (조회수 카운트)
+function openLink(id, deeplink){
+  // /r/<id> 경유하면 클릭 카운트됨 → 새 탭에서 쿠팡 열림
+  window.open('/r/'+id, '_blank');
+}
+
 async function deleteLink(id, btn){
   if(!confirm('이 링크를 삭제할까요?')) return;
   try{
