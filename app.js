@@ -348,6 +348,7 @@ async function doSearch(){
       const priceTxt = d.price ? ` · ${Number(d.price).toLocaleString()}원` : '';
       document.getElementById('result').innerHTML = `
         <div class="result">
+          ${window.__lastTopics?`<button class="btn btn-ghost" style="margin-bottom:10px" onclick="backToTopics()">← 주제 목록으로 돌아가기</button>`:''}
           <div class="card">
             <div class="card-lbl">🔍 "${esc(kw)}" 검색 결과${d.cached?' (저장된 결과)':''}</div>
             <div style="display:flex;gap:12px;align-items:center;margin:8px 0">
@@ -433,6 +434,7 @@ function renderResult(d){
   }
   document.getElementById('result').innerHTML = `
     <div class="result">
+      ${window.__lastTopics?`<button class="btn btn-ghost" style="margin-bottom:10px" onclick="backToTopics()">← 주제 목록으로 돌아가기</button>`:''}
       <div class="card">
         <div class="card-lbl">내 간편 링크</div>
         <div class="linkline"><div class="url">${link}</div>
@@ -957,6 +959,9 @@ async function doTopics(){
   btn.classList.remove('loading');
 }
 function renderTopics(topics, now){
+  // 주제 저장 (되돌아가기용)
+  window.__lastTopics = topics;
+  window.__lastTopicsNow = now;
   const result = document.getElementById('result');
   result.innerHTML = `<div style="font-size:12px;color:var(--muted);margin:4px 0 12px">🕐 ${esc(now||'')} 기준</div>` +
     topics.map((t,i)=>`
@@ -975,6 +980,16 @@ function renderTopics(topics, now){
   result.scrollIntoView({behavior:'smooth',block:'start'});
 }
 // 주제에서 추천 상품 클릭 → 검색 모드로 검색
+// 주제 목록으로 돌아가기 (왔다갔다 비교)
+function backToTopics(){
+  // 주제 모드로 전환
+  const tm = [...document.querySelectorAll('.mode')].find(m=>m.dataset.mode==='topic');
+  if(tm) setMode(tm);
+  if(window.__lastTopics){
+    renderTopics(window.__lastTopics, window.__lastTopicsNow);
+  }
+}
+
 async function searchFromTopic(keyword){
   // 검색 모드로 전환 (setMode로 박스 토글 일관성)
   const sm = [...document.querySelectorAll('.mode')].find(m=>m.dataset.mode==='search');
