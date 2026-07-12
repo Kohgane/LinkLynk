@@ -471,6 +471,7 @@ function renderResult(d){
       ${draftUI}
     </div>`;
   document.getElementById('result').scrollIntoView({behavior:'smooth',block:'start'});
+  fillDefaultSchedule();
 }
 
 // ── 쓰레드: 6개 말풍선(본글+답글5), 각각 복사 ──
@@ -489,16 +490,17 @@ function renderThreads(draft, d){
     <div class="disc">💡 아래 <b>예약/게시</b>를 쓰면 본글+답글 5개가 <b>답글체인으로 자동 발행</b>돼요.</div>
     <div id="accPicker">${renderAccountPicker('threads')}</div>
     <div style="margin:12px 0 4px">
-      <div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.1em;margin-bottom:8px">SCHEDULE · 예약 발행 (본글+답글 전부)</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+      <div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.1em;margin-bottom:8px">SCHEDULE · 예약 발행 (본글+답글 전부 자동)</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
         <button class="chip" onclick="quickSchedule(1,this)">1시간 뒤</button>
         <button class="chip" onclick="quickSchedule(3,this)">3시간 뒤</button>
-        <button class="chip" onclick="quickScheduleAt(20,this)">오늘 저녁 8시</button>
-        <button class="chip" onclick="quickScheduleAt(9,this,1)">내일 아침 9시</button>
+        <button class="chip" onclick="quickScheduleAt(20,this)">오늘 20시</button>
+        <button class="chip" onclick="quickScheduleAt(9,this,1)">내일 9시</button>
       </div>
-      <div style="display:flex;gap:8px;align-items:center">
-        <input type="datetime-local" id="schedAt" style="flex:1;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px;font-size:13px">
-        <button class="btn-sm" onclick="scheduleThread(this)">⏰ 예약</button>
+      <div style="background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:12px">
+        <div style="font-size:12px;color:var(--text-2);margin-bottom:8px">원하는 날짜·시각 직접 지정</div>
+        <input type="datetime-local" id="schedAt" style="width:100%;background:var(--surface-1);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:12px;font-size:15px;margin-bottom:8px;color-scheme:dark">
+        <button class="btn btn-mint" style="width:100%" onclick="scheduleThread(this)"><span class="lbl">⏰ 이 시각에 예약</span></button>
       </div>
     </div>
     <div class="card-actions">
@@ -1225,13 +1227,25 @@ async function quickScheduleAt(hour, btn, addDays){
   window.__scheduleAt = null;
 }
 
-// 예약 게시 (Zernio scheduledFor)
+// 예약 게시 (원하는 시각 직접 지정)
 async function scheduleThread(btn){
   const at = document.getElementById('schedAt');
-  if(!at || !at.value){ toast('예약 시각을 선택하세요'); return; }
-  window.__scheduleAt = new Date(at.value).toISOString();
+  if(!at || !at.value){ toast('예약할 날짜·시각을 골라주세요'); at && at.focus(); return; }
+  const t = new Date(at.value);
+  if(isNaN(t.getTime())){ toast('시각이 올바르지 않아요'); return; }
+  if(t <= new Date()){ toast('미래 시각을 골라주세요'); return; }
+  window.__scheduleAt = t.toISOString();
   await publishToSns('threads', btn);
   window.__scheduleAt = null;
+}
+// 예약 입력창 기본값 = 1시간 뒤 (바로 쓰기 편하게)
+function fillDefaultSchedule(){
+  const at = document.getElementById('schedAt');
+  if(!at || at.value) return;
+  const t = new Date(Date.now() + 3600*1000);
+  const pad = n=>String(n).padStart(2,'0');
+  at.value = `${t.getFullYear()}-${pad(t.getMonth()+1)}-${pad(t.getDate())}T${pad(t.getHours())}:${pad(t.getMinutes())}`;
+  at.min = at.value;
 }
 
 // AI 툴 선택·비교 (등록된 AI만 표시)

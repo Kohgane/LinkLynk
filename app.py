@@ -33,6 +33,24 @@ FALLBACK_SECRET = os.environ.get("COUPANG_PT_SECRET", "")
 store.init_db()
 
 
+def _auto_image(product_name, info=None):
+    """상품 이미지 자동 확보 (사람 손 안 가게).
+    1) 파트너스 API가 준 이미지 (서버 접근 가능) → 2) 없으면 이미지 검색."""
+    img = (info or {}).get("image")
+    if img:
+        return img
+    if not product_name:
+        return None
+    try:
+        from core import search_images
+        r = search_images(product_name, limit=1)
+        if r.get("ok") and r.get("images"):
+            return r["images"][0]["image"]
+    except Exception:
+        pass
+    return None
+
+
 def _gen_draft(uid, product_name, deeplink, tone, channel, info, provider=None):
     """초안 생성. AI 키 있으면 AI가 직접 작성(사람다움), 없으면 템플릿."""
     if channel == "threads":
@@ -77,8 +95,11 @@ def _partners_for(user):
 @app.route("/")
 def home():
     resp = make_response(send_from_directory(".", "index.html"))
-    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0, private"
     resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    resp.headers["CDN-Cache-Control"] = "no-store"
+    resp.headers["Surrogate-Control"] = "no-store"
     return resp
 
 @app.route("/app.js")
@@ -764,7 +785,7 @@ def generate():
         "ok": True, "deeplink": deeplink, "landingUrl": items[0].get("landingUrl"),
         "disclosure": COUPANG_DISCLOSURE, "blogDraft": draft, "channel": channel,
         "usedOwnKey": own_key, "draftLimitReached": draft is None,
-        "naverHtml": naver_html, "image": (info or {}).get("image"),
+        "naverHtml": naver_html, "image": _auto_image(product_name, info),
         "productName": product_name,
     })
 
@@ -802,7 +823,8 @@ def generate_manual():
     naver_html = build_naver_html(product_name, deeplink, draft, info) if draft else None
     return jsonify({"ok": True, "deeplink": deeplink, "disclosure": COUPANG_DISCLOSURE,
                     "blogDraft": draft, "channel": channel, "manual": True,
-                    "naverHtml": naver_html, "productName": product_name})
+                    "naverHtml": naver_html, "productName": product_name,
+                    "image": _auto_image(product_name, info)})
 
 
 @app.route("/api/my-links")
