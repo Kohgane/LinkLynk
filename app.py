@@ -264,9 +264,11 @@ def me():
     usage = store.get_usage(u["id"])
     sns = store.get_zernio_key(u["id"])
     claude = store.get_anthropic_key(u["id"])
+    from core import detect_llm_provider
+    prov = detect_llm_provider(claude) if claude else None
     return jsonify({"ok": True, "email": u["email"], "handle": u["handle"],
                     "plan": u["plan"], "has_key": bool(key), "has_sns": bool(sns),
-                    "has_claude": bool(claude),
+                    "has_claude": bool(claude), "llm_provider": prov,
                     "usage": usage, "limits": store.FREE_LIMITS})
 
 
@@ -344,8 +346,13 @@ def save_anthropic_key_api():
     key = (d.get("key") or "").strip()
     if not key:
         return jsonify({"ok": False, "error": "키를 입력하세요"}), 400
+    from core import detect_llm_provider
+    p = detect_llm_provider(key)
+    if p == "unknown":
+        return jsonify({"ok": False, "error": "키 형식을 인식할 수 없어요. AIza…(Gemini 무료) / sk-or-…(OpenRouter 무료) / sk-ant-…(Claude)"}), 400
     store.save_anthropic_key(session["uid"], key)
-    return jsonify({"ok": True, "message": "Claude API 연결됐어요"})
+    names = {"gemini": "Google Gemini (무료)", "openrouter": "OpenRouter (무료 모델)", "anthropic": "Claude"}
+    return jsonify({"ok": True, "provider": p, "message": f"{names[p]} 연결됐어요"})
 
 
 @app.route("/api/claude-topics", methods=["POST"])

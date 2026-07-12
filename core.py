@@ -774,12 +774,9 @@ def zernio_publish(api_key, platforms, content, media_urls=None, account_ids=Non
 
 # ── Claude API: 주제 먼저 생성 (개인 API 키 사용) ──
 def claude_generate_topics(api_key, user_topic="", now_str="", n=3):
-    """개인 Anthropic API 키로 주제 생성. 상품이 아니라 '주제'가 먼저.
-    시각·표본·앵글을 정하고, 그 주제에 맞는 쿠팡 검색 키워드(상품)를 추천.
-    반환: {ok, topics:[{title, time_context, sample, angle, hook, keywords:[...]}], error}"""
+    """주제 생성 (무료 Gemini/OpenRouter 또는 Claude). 상품이 아니라 '주제'가 먼저."""
     if not api_key:
         return {"ok": False, "error": "no_key"}
-
     sys_prompt = (
         "당신은 쿠팡 파트너스 쓰레드 마케팅 전략가입니다. "
         "상품이 아니라 '주제'가 먼저입니다. 사람들이 공감할 상황·고민을 주제로 잡고, "
@@ -796,121 +793,14 @@ def claude_generate_topics(api_key, user_topic="", now_str="", n=3):
     else:
         user_msg += f"지금 시각·계절에 맞는 주제 {n}개를 제안해주세요. 표본이 넓은 걸로."
 
-    # 확실한 모델부터 폴백 (계정마다 접근 가능한 모델이 다름)
-    models = ["claude-haiku-4-5-20251001", "claude-sonnet-4-6", "claude-sonnet-5", "claude-opus-4-8"]
-    last_err = {}
-    for model in models:
-        payload = {
-            "model": model,
-            "max_tokens": 1500,
-            "system": sys_prompt,
-            "messages": [{"role": "user", "content": user_msg}],
-        }
-        try:
-            req = urllib.request.Request(
-                "https://api.anthropic.com/v1/messages",
-                data=json.dumps(payload).encode(),
-                headers={"x-api-key": api_key, "anthropic-version": "2023-06-01",
-                         "content-type": "application/json"},
-                method="POST")
-            with urllib.request.urlopen(req, timeout=60, context=_ctx) as r:
-                data = json.loads(r.read().decode())
-            text = ""
-            for block in data.get("content", []):
-                if block.get("type") == "text":
-                    text += block.get("text", "")
-            text = text.strip()
-            if text.startswith("```"):
-                text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text).strip()
-            parsed = json.loads(text)
-            return {"ok": True, "topics": parsed.get("topics", []), "model": model}
-        except urllib.error.HTTPError as e:
-            detail = ""
-            try: detail = e.read().decode()[:300]
-            except Exception: pass
-            last_err = {"ok": False, "error": f"http_{e.code}", "detail": detail, "model": model}
-            # 401/403은 키 문제라 폴백 무의미 → 즉시 반환
-            if e.code in (401, 403):
-                return last_err
-            # 400(모델 접근 불가 등)은 다음 모델 시도
-            continue
-        except Exception as e:
-            last_err = {"ok": False, "error": str(e)[:150], "model": model}
-            continue
-    return last_err
-
-
-# ── 상품 이미지 검색 (여러 소스 폴백) ──
-def _images_bing(keyword, limit=12):
-    """Bing 이미지 검색 (서버에서 안정적)."""
-    import urllib.parse
-    ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
-    q = urllib.parse.quote(keyword)
+    r = llm_chat(api_key, sys_prompt, user_msg, max_tokens=1500)
+    if not r.get("ok"):
+        return r
     try:
-        url = f"https://www.bing.com/images/search?q={q}&form=HDRSC2&first=1"
-        req = urllib.request.Request(url, headers={"User-Agent": ua, "Accept-Language": "ko-KR,ko"})
-        html = urllib.request.urlopen(req, timeout=12, context=_ctx).read().decode("utf-8", "ignore")
-        # murl (원본 이미지 URL) 추출
-        urls = re.findall(r'murl&quot;:&quot;(https?://[^&]+?)&quot;', html)
-        if not urls:
-            urls = re.findall(r'"murl":"(https?://[^"]+?)"', html)
-        out = []
-        seen = set()
-        for u in urls:
-            u = u.replace("\\/", "/")
-            if u not in seen and u.startswith("http"):
-                seen.add(u)
-                out.append({"image": u, "thumbnail": u, "width": 500, "height": 500,
-                            "title": "", "source": "bing"})
-            if len(out) >= limit:
-                break
-        return out
-    except Exception:
-        return []
-
-
-def _images_ddg(keyword, limit=12):
-    """DuckDuckGo 이미지 검색."""
-    import urllib.parse
-    ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0 Safari/537.36"
-    q = urllib.parse.quote(keyword)
-    try:
-        req = urllib.request.Request(f"https://duckduckgo.com/?q={q}", headers={"User-Agent": ua})
-        html = urllib.request.urlopen(req, timeout=12, context=_ctx).read().decode("utf-8", "ignore")
-        m = re.search(r'vqd=([\d-]+)', html) or re.search(r'vqd="([^"]+)"', html)
-        if not m:
-            return []
-        vqd = m.group(1)
-        iurl = f"https://duckduckgo.com/i.js?l=kr-kr&o=json&q={q}&vqd={vqd}&f=,,,&p=1"
-        req2 = urllib.request.Request(iurl, headers={"User-Agent": ua, "Referer": "https://duckduckgo.com/"})
-        data = json.loads(urllib.request.urlopen(req2, timeout=12, context=_ctx).read())
-        out = []
-        for r in data.get("results", [])[:limit]:
-            img = r.get("image", "")
-            w, h = r.get("width", 0), r.get("height", 0)
-            if img.startswith("http") and w >= 300 and h >= 300:
-                out.append({"image": img, "thumbnail": r.get("thumbnail", img),
-                            "width": w, "height": h, "title": r.get("title", ""), "source": "ddg"})
-        return out
-    except Exception:
-        return []
-
-
-def search_images(keyword, limit=12):
-    """키워드로 상품 이미지 검색. DDG→Bing 폴백. 쿠팡 크롤 없이 이미지 확보."""
-    # 상품 이미지가 나오도록 검색어 보강 (로고·일러스트 방지)
-    q = keyword if any(w in keyword for w in ["쿠팡", "상품", "제품"]) else keyword + " 상품"
-    imgs = _images_ddg(q, limit)
-    src = "ddg"
-    if not imgs:
-        imgs = _images_bing(q, limit)
-        src = "bing"
-    if not imgs:  # 보강어 빼고 재시도
-        imgs = _images_bing(keyword, limit)
-        src = "bing"
-    if imgs:
-        return {"ok": True, "images": imgs, "source": src}
-    return {"ok": False, "error": "no_results (ddg+bing 실패)"}
+        parsed = _parse_json_out(r["text"])
+        return {"ok": True, "topics": parsed.get("topics", [])}
+    except Exception as e:
+        return {"ok": False, "error": "parse_error", "detail": str(e)[:100]}
 
 
 # ── Claude가 직접 쓰레드 글 작성 (템플릿 아님 → 제품마다 완전히 다른 글) ──
@@ -936,7 +826,7 @@ TONE_GUIDE = {
 }
 
 def claude_write_thread(api_key, product_name, deeplink, tone="friendly", price=None, extra=""):
-    """Claude가 쓰레드 6분할(본글+답글5)을 직접 작성. 템플릿 아님."""
+    """LLM이 쓰레드 6분할(본글+답글5) 직접 작성. 무료 Gemini/OpenRouter 또는 Claude."""
     if not api_key:
         return {"ok": False, "error": "no_key"}
     tone_desc = TONE_GUIDE.get(tone, TONE_GUIDE["friendly"])
@@ -949,7 +839,7 @@ def claude_write_thread(api_key, product_name, deeplink, tone="friendly", price=
         "구조: 본글 1개 + 답글 5개. 본글에는 링크 절대 넣지 마라(노출 저하).\n"
         "답글1~3: 공감 → 원인/발견 → 변화. 답글4: 링크+고지문구. 답글5: 마무리+링크+해시태그 3개.\n"
         "답글4에 반드시 '(광고) 쿠팡파트너스 활동으로 수수료를 받습니다' 포함.\n"
-        "각 글은 2~3줄 이내로 짧게(쓰레드는 짧은 호흡).\n"
+        "각 글은 2~3줄 이내로 짧게(쓰레드는 짧은 호흡). 각 글 400자 이내.\n"
         '출력은 JSON만: {"posts":["본글","답글1","답글2","답글3","답글4","답글5"]}'
     )
     user_msg = (
@@ -959,25 +849,50 @@ def claude_write_thread(api_key, product_name, deeplink, tone="friendly", price=
         "이 상품에만 해당하는 구체적 상황·디테일로 써라. "
         "다른 상품에 그대로 갖다 써도 말이 되는 글이면 실패다."
     )
-    models = ["claude-haiku-4-5-20251001", "claude-sonnet-4-6", "claude-sonnet-5"]
+    r = llm_chat(api_key, sys_prompt, user_msg, max_tokens=1200)
+    if not r.get("ok"):
+        return r
+    try:
+        posts = _parse_json_out(r["text"]).get("posts", [])
+        if len(posts) >= 4:
+            return {"ok": True, "content": "\n===THREAD===\n".join(str(p).strip() for p in posts)}
+        return {"ok": False, "error": "bad_format"}
+    except Exception as e:
+        return {"ok": False, "error": "parse_error", "detail": str(e)[:100]}
+
+
+# ── 무료 LLM 지원: 키 접두어로 제공자 자동 감지 ──
+# Gemini(AIza...) = 무료 티어 / OpenRouter(sk-or-...) = 무료 모델 / Anthropic(sk-ant-...) = 유료
+def detect_llm_provider(api_key):
+    k = (api_key or "").strip()
+    if k.startswith("AIza"): return "gemini"
+    if k.startswith("sk-or-"): return "openrouter"
+    if k.startswith("sk-ant-"): return "anthropic"
+    return "unknown"
+
+
+def _llm_gemini(api_key, sys_prompt, user_msg, max_tokens=1200):
+    """Google Gemini — 무료 티어 (aistudio.google.com에서 키 발급)."""
+    models = ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash"]
     last = {}
-    for model in models:
-        payload = {"model": model, "max_tokens": 1200, "temperature": 1.0,
-                   "system": sys_prompt, "messages": [{"role": "user", "content": user_msg}]}
+    for m in models:
+        url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={api_key}"
+        payload = {
+            "system_instruction": {"parts": [{"text": sys_prompt}]},
+            "contents": [{"parts": [{"text": user_msg}]}],
+            "generationConfig": {"temperature": 1.0, "maxOutputTokens": max_tokens,
+                                 "responseMimeType": "application/json"},
+        }
         try:
-            req = urllib.request.Request("https://api.anthropic.com/v1/messages",
-                data=json.dumps(payload).encode(),
-                headers={"x-api-key": api_key, "anthropic-version": "2023-06-01",
-                         "content-type": "application/json"}, method="POST")
+            req = urllib.request.Request(url, data=json.dumps(payload).encode(),
+                headers={"Content-Type": "application/json"}, method="POST")
             with urllib.request.urlopen(req, timeout=60, context=_ctx) as r:
                 data = json.loads(r.read().decode())
-            text = "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text").strip()
-            if text.startswith("```"):
-                text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text).strip()
-            posts = json.loads(text).get("posts", [])
-            if len(posts) >= 4:
-                return {"ok": True, "content": "\n===THREAD===\n".join(p.strip() for p in posts)}
-            last = {"ok": False, "error": "bad_format"}
+            cands = data.get("candidates", [])
+            if not cands:
+                last = {"ok": False, "error": "no_candidates"}; continue
+            text = "".join(p.get("text", "") for p in cands[0].get("content", {}).get("parts", []))
+            return {"ok": True, "text": text.strip()}
         except urllib.error.HTTPError as e:
             detail = ""
             try: detail = e.read().decode()[:200]
@@ -986,6 +901,86 @@ def claude_write_thread(api_key, product_name, deeplink, tone="friendly", price=
             if e.code in (401, 403): return last
             continue
         except Exception as e:
-            last = {"ok": False, "error": str(e)[:120]}
-            continue
+            last = {"ok": False, "error": str(e)[:120]}; continue
     return last
+
+
+def _llm_openrouter(api_key, sys_prompt, user_msg, max_tokens=1200):
+    """OpenRouter — :free 모델은 무료 (openrouter.ai에서 키 발급)."""
+    models = [
+        "google/gemini-2.0-flash-exp:free",
+        "meta-llama/llama-3.3-70b-instruct:free",
+        "qwen/qwen-2.5-72b-instruct:free",
+        "mistralai/mistral-small-3.1-24b-instruct:free",
+    ]
+    last = {}
+    for m in models:
+        payload = {"model": m, "max_tokens": max_tokens, "temperature": 1.0,
+                   "messages": [{"role": "system", "content": sys_prompt},
+                                {"role": "user", "content": user_msg}]}
+        try:
+            req = urllib.request.Request("https://openrouter.ai/api/v1/chat/completions",
+                data=json.dumps(payload).encode(),
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json",
+                         "HTTP-Referer": "https://linklynk.onrender.com", "X-Title": "LinkLynk"},
+                method="POST")
+            with urllib.request.urlopen(req, timeout=60, context=_ctx) as r:
+                data = json.loads(r.read().decode())
+            text = (data.get("choices") or [{}])[0].get("message", {}).get("content", "")
+            if text:
+                return {"ok": True, "text": text.strip()}
+            last = {"ok": False, "error": "empty"}
+        except urllib.error.HTTPError as e:
+            detail = ""
+            try: detail = e.read().decode()[:200]
+            except Exception: pass
+            last = {"ok": False, "error": f"http_{e.code}", "detail": detail}
+            if e.code in (401, 403): return last
+            continue
+        except Exception as e:
+            last = {"ok": False, "error": str(e)[:120]}; continue
+    return last
+
+
+def _llm_anthropic(api_key, sys_prompt, user_msg, max_tokens=1200):
+    """Anthropic Claude — 유료(크레딧 필요)."""
+    models = ["claude-haiku-4-5-20251001", "claude-sonnet-4-6", "claude-sonnet-5"]
+    last = {}
+    for m in models:
+        payload = {"model": m, "max_tokens": max_tokens, "temperature": 1.0,
+                   "system": sys_prompt, "messages": [{"role": "user", "content": user_msg}]}
+        try:
+            req = urllib.request.Request("https://api.anthropic.com/v1/messages",
+                data=json.dumps(payload).encode(),
+                headers={"x-api-key": api_key, "anthropic-version": "2023-06-01",
+                         "content-type": "application/json"}, method="POST")
+            with urllib.request.urlopen(req, timeout=60, context=_ctx) as r:
+                data = json.loads(r.read().decode())
+            text = "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text")
+            return {"ok": True, "text": text.strip()}
+        except urllib.error.HTTPError as e:
+            detail = ""
+            try: detail = e.read().decode()[:200]
+            except Exception: pass
+            last = {"ok": False, "error": f"http_{e.code}", "detail": detail}
+            if e.code in (401, 403): return last
+            continue
+        except Exception as e:
+            last = {"ok": False, "error": str(e)[:120]}; continue
+    return last
+
+
+def llm_chat(api_key, sys_prompt, user_msg, max_tokens=1200):
+    """어떤 키든 자동 라우팅 (Gemini 무료 / OpenRouter 무료 / Claude 유료)."""
+    p = detect_llm_provider(api_key)
+    if p == "gemini": return _llm_gemini(api_key, sys_prompt, user_msg, max_tokens)
+    if p == "openrouter": return _llm_openrouter(api_key, sys_prompt, user_msg, max_tokens)
+    if p == "anthropic": return _llm_anthropic(api_key, sys_prompt, user_msg, max_tokens)
+    return {"ok": False, "error": "unknown_key", "detail": "키 형식을 알 수 없어요 (AIza… / sk-or-… / sk-ant-…)"}
+
+
+def _parse_json_out(text):
+    t = (text or "").strip()
+    if t.startswith("```"):
+        t = re.sub(r"^```(?:json)?\s*|\s*```$", "", t).strip()
+    return json.loads(t)

@@ -970,7 +970,7 @@ async function saveClaudeKey(){
   try{
     const r = await fetch('/api/anthropic-key',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key})});
     const d = await r.json();
-    if(d.ok){ msg.innerHTML='<div class="msg msg-ok">연결됐어요! 🧠</div>'; if(window.__me) window.__me.has_claude=true; renderClaude(window.__me||{has_claude:true}); }
+    if(d.ok){ msg.innerHTML='<div class="msg msg-ok">'+(d.message||'연결됐어요!')+' 🧠</div>'; if(window.__me){ window.__me.has_claude=true; window.__me.llm_provider=d.provider; } renderClaude(window.__me||{has_claude:true}); }
     else msg.innerHTML=`<div class="msg msg-err">${d.error||'연결 실패'}</div>`;
   }catch(e){ msg.innerHTML='<div class="msg msg-err">네트워크 오류</div>'; }
   btn.classList.remove('loading');
@@ -978,7 +978,8 @@ async function saveClaudeKey(){
 function renderClaude(me){
   const el = document.getElementById('claudeStatus');
   if(!el) return;
-  el.innerHTML = me.has_claude ? '<span style="color:var(--mint)">✓ 연결됨 — 주제부터 AI가 기획해요</span>' : '연결 안 됨';
+  const pn = {gemini:'Google Gemini (무료)', openrouter:'OpenRouter (무료)', anthropic:'Claude'}[me.llm_provider] || 'AI';
+  el.innerHTML = me.has_claude ? '<span style="color:var(--mint)">✓ '+pn+' 연결됨 — 주제·글 작성 가능</span>' : '연결 안 됨';
   // 북마클릿 코드 설정 (쿠팡 상세이미지 긁어서 우리 앱으로 — URL 파라미터 전달)
   const bmk = document.getElementById('bmk');
   if(bmk){
