@@ -310,7 +310,7 @@ def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", ch
                 ],
                 "r1": [f"핵심은 실사용 만족도인데\n{cat_line} 합격점이었습니다", "스펙보다 실제 사용감이 중요합니다", f"{feat+' 성능은 기대 이상이었습니다' if feat else '기본기가 탄탄합니다'}"],
                 "r2": [f"{'가격 대비 성능이 '+price_txt+' 기준 우수합니다' if price_txt else '가성비가 뛰어납니다'}", "동급 대비 경쟁력 있습니다"],
-                "r3": ["종합적으로 추천할 만합니다", "재구매 가치 있다고 판단됩니다"],
+                "r3": ["쓸 만합니다", "재구매 가치 있다고 판단됩니다"],
                 "link": ["구매 링크 첨부합니다", "아래에서 확인 가능합니다"],
                 "end": [f"판단에 도움 되시길\n{deeplink}", f"참고하시기 바랍니다\n{deeplink}"],
             },
@@ -327,7 +327,7 @@ def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", ch
                 ],
                 "r1": [f"며칠 고민하다 그냥 질렀는데\n{cat_line} 생각보다 만족", f"반신반의하면서 샀는데\n{cat_line} 웬걸", f"{feat+' 이거 생각보다 쓸만함' if feat else '기대 안 했는데 의외로 좋음'}"],
                 "r2": [f"{'가격도 '+price_txt+'이라 부담 없었고' if price_txt else '가격도 착했고'}\n써보니 확실히 다름", "비싼 거랑 비교해봤는데 이걸로 충분", f"{core}치고 이 정도면 훌륭"],
-                "r3": ["이젠 없으면 아쉬울 듯", "재구매 의사 100%임", "주변에 다 영업하고 다니는 중ㅋㅋ"],
+                "r3": ["이젠 없으면 아쉬울 듯", "이제 딴 거 안 씀", "주변에 다 영업하고 다니는 중ㅋㅋ"],
                 "link": ["찾기 귀찮을까 봐 밑에 링크 둠 👇", "광고 맞음ㅋㅋ 그래도 쓰는 건 진짜", "밑에 링크.", "혹시 몰라 남겨둠"],
                 "end": [f"나만 알기 아까워서 공유함ㅋㅋ\n{deeplink}", f"필요한 사람 참고하셈\n{deeplink}", f"암튼 강추임\n{deeplink}"],
             },
@@ -343,7 +343,7 @@ def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", ch
                 ],
                 "r1": [f"며칠 고민하다 샀는데\n{cat_line} 만족해요", f"처음엔 반신반의했는데\n{cat_line} 웬걸요ㅎㅎ", f"{feat+' 기능 은근 잘 써요' if feat else '생각보다 손이 자주 가요'}"],
                 "r2": [f"{'가격도 '+price_txt+'이라 부담 없었어요' if price_txt else '가격도 착했어요'}\n써보니 좋더라고요", "이 값이면 충분한 것 같아요"],
-                "r3": ["지금은 주변에도 추천 중이에요ㅎㅎ", "재구매 의사 100%예요"],
+                "r3": ["지금은 주변에도 추천 중이에요ㅎㅎ", "당분간 딴 거 안 볼 듯해요"],
                 "link": ["찾기 귀찮을까 봐 링크 둘게요 👇", "궁금한 분 있을까 봐 걸어둬요~"],
                 "end": [f"도움 됐으면 좋겠어요\n{deeplink}", f"필요한 분 참고하세요~\n{deeplink}"],
             },
@@ -351,9 +351,9 @@ def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", ch
                 "posts": [f"{core} 이거 진짜 대박이에요!!! 🔥\n왜 이제 샀지 싶음", f"{core} 사고 완전 신세계 열림ㅠㅠ 미쳤다", f"{feat+' ' if feat else ''}{core} 이건 진짜 사야 함!! 강추!!"],
                 "r1": [f"{cat_line} 첫날부터 감동;;;", "기대 이상이라 소리 질렀어요 진짜"],
                 "r2": [f"{'가격 '+price_txt+'에 이 퀄?! 말도 안 됨' if price_txt else '이 가격에 이 퀄리티 실화?!'}", "가성비 미쳤어요 완전 이득!!"],
-                "r3": ["벌써 하나 더 사려고요ㅋㅋㅋ", "주변에 다 사라고 영업 중!!"],
+                "r3": ["벌써 하나 더 사려고요ㅋㅋㅋ", "친구한테도 보냈음"],
                 "link": ["빨리 봐요 이거 👇🔥", "링크 여기!! 놓치지 마세요"],
-                "end": [f"진짜 강추합니다!!!\n{deeplink}", f"안 사면 손해예요ㅠㅠ\n{deeplink}"],
+                "end": [f"안 샀으면 아쉬웠을 듯\n{deeplink}", f"안 사면 손해예요ㅠㅠ\n{deeplink}"],
             },
             "minimal": {
                 "posts": [f"{core}.\n괜찮음.", f"{core} 추천.\n이유는 밑에.", f"{feat+' ' if feat else ''}{core}. 만족."],
@@ -826,26 +826,26 @@ TONE_GUIDE = {
 }
 
 def claude_write_thread(api_key, product_name, deeplink, tone="friendly", price=None, extra=""):
-    """LLM이 쓰레드 6분할 작성. few-shot 예시 + 품질기준 + 2패스 검수로 퀄리티 확보."""
+    """쓰레드 6분할 작성. ★사람다움 최우선: few-shot + 휴머나이즈 규칙 + AI티 검출 재작성."""
     if not api_key:
         return {"ok": False, "error": "no_key"}
     tone_desc = TONE_GUIDE.get(tone, TONE_GUIDE["friendly"])
     price_line = f"가격: {int(price):,}원\n" if price else ""
     sys_prompt = (
-        "너는 쿠팡 파트너스 쓰레드(Threads) 글을 쓰는 한국인 크리에이터다.\n"
-        "★AI가 쓴 티가 나면 실패다. 광고 문구·상투적 표현·과장 금지.\n"
+        "너는 쿠팡 파트너스 쓰레드(Threads) 글을 쓰는 한국인이다. 마케터가 아니라 그냥 사람이다.\n"
+        "★1순위: 사람이 쓴 글처럼. AI 티가 나면 그 글은 실패다.\n"
         "구조: 본글 1개 + 답글 5개. 본글에는 링크 절대 넣지 마라.\n"
         "답글1~3: 공감 → 원인/발견 → 변화(링크 없음). 답글4: 링크+고지문구. 답글5: 마무리+링크+해시태그 3개.\n"
-        "답글4·5에 반드시 링크를 넣고, 답글4에 '(광고) 쿠팡파트너스 활동으로 수수료를 받습니다' 포함.\n"
+        "답글4에 '(광고) 쿠팡파트너스 활동으로 수수료를 받습니다' 포함.\n"
         "각 글 2~3줄, 400자 이내.\n\n"
-        + FEWSHOT + "\n" + QUALITY_RULES +
+        + HUMANIZE_RULES + "\n" + FEWSHOT + "\n" + QUALITY_RULES +
         '\n출력은 JSON만: {"posts":["본글","답글1","답글2","답글3","답글4","답글5"]}'
     )
     user_msg = (
         f"상품: {product_name}\n{price_line}링크: {deeplink}\n"
         f"말투/심리기제: {tone_desc}\n"
         f"{('추가 요청: '+extra) if extra else ''}\n\n"
-        "위 예시들의 결(담백함·구체성)을 그대로 따라 이 상품 글을 써라."
+        "예시들의 결(담백함·구체성·사람다움)을 그대로 따라 이 상품 글을 써라."
     )
     r = llm_chat(api_key, sys_prompt, user_msg, max_tokens=1400)
     if not r.get("ok"):
@@ -857,11 +857,20 @@ def claude_write_thread(api_key, product_name, deeplink, tone="friendly", price=
     if len(posts) < 4:
         return {"ok": False, "error": "bad_format"}
 
-    # ★2패스: 자체 검수·재작성 (무료 모델도 퀄리티 상승)
-    refined = _quality_critique(api_key, product_name, tone_desc,
-                                json.dumps({"posts": posts}, ensure_ascii=False))
-    final = refined if refined else posts
-    return {"ok": True, "content": "\n===THREAD===\n".join(str(p).strip() for p in final)}
+    # ★사람다움 검증 루프: AI 티 검출되면 최대 2회까지 강제 재작성
+    for _ in range(2):
+        joined = "\n".join(str(p) for p in posts)
+        tells = detect_ai_tells(joined)
+        if not tells:
+            break
+        fixed = _humanize_pass(api_key, product_name, tone_desc, posts, tells)
+        if not fixed:
+            break
+        posts = fixed
+
+    # 남은 AI 티는 기계적으로 정리
+    posts = [scrub_ai_artifacts(str(p)) for p in posts]
+    return {"ok": True, "content": "\n===THREAD===\n".join(posts)}
 
 
 # ── 무료 LLM 지원: 키 접두어로 제공자 자동 감지 ──
@@ -1051,5 +1060,85 @@ def _quality_critique(api_key, product_name, tone_desc, draft_json_text):
     try:
         posts = _parse_json_out(r["text"]).get("posts", [])
         return posts if len(posts) >= 4 else None
+    except Exception:
+        return None
+
+
+# ── 휴머나이저: AI 티 탐지 → 강제 재작성 → 기계적 정리 ──
+AI_TELLS = [
+    # 광고·AI 클리셰
+    "강추", "필수템", "후회 없는", "후회없는", "인생템", "갓성비", "가성비 갑",
+    "정말 좋아요", "너무 좋아요", "완전 만족", "대만족", "적극 추천", "추천드립니다",
+    "고민하지 마세요", "후회하지 않으실", "선택이었습니다", "탁월한 선택",
+    "여러분", "많은 분들", "다양한", "뛰어난", "우수한", "최고의", "완벽한",
+    "혁신적", "놀라운", "특별한 경험", "새로운 경험",
+    # AI 특유 접속·마무리
+    "결론적으로", "종합적으로", "마지막으로", "무엇보다", "특히나",
+    "~에 대해 알아보았습니다", "도움이 되셨길", "참고하시기 바랍니다",
+    "라고 할 수 있습니다", "라고 볼 수 있습니다",
+    # 과장
+    "혁명", "게임 체인저", "인생이 바뀌", "삶의 질이 수직",
+]
+# AI가 즐겨쓰는 문장부호·패턴
+AI_PATTERNS = [
+    (r"—", " "),            # em dash (한국인 잘 안 씀)
+    (r"–", " "),
+    (r"…{2,}", "…"),
+    (r"!{2,}", "!"),
+    (r"\?{2,}", "?"),
+    (r"\s{2,}", " "),
+]
+
+HUMANIZE_RULES = '''사람이 쓴 글처럼(가장 중요):
+- 문장 길이를 들쭉날쭉하게. 한 줄짜리 짧은 문장을 섞어라.
+- 완결된 결론·요약으로 끝내지 마라. 말하다 만 것처럼 툭 끊어도 된다.
+- 사소한 곁가지를 하나 넣어라(관련 없어 보이는 개인적 디테일).
+- 자기 확신을 낮춰라. "~인 것 같다", "~더라", "~였음" 같은 관찰조.
+- 과장·감탄사·이모지 최소(0~1개). 느낌표 남발 금지.
+- 브랜드명을 반복하지 마라. 대명사나 '이거'로 받아라.
+- 문장을 병렬로 예쁘게 맞추지 마라(AI 티의 대표).
+- 사전 같은 설명 금지. 겪은 것만 써라.
+금지어(절대 쓰지 마라): 강추, 필수템, 인생템, 갓성비, 적극 추천, 후회 없는 선택,
+정말 좋아요, 대만족, 여러분, 다양한, 뛰어난, 최고의, 완벽한, 결론적으로, 종합적으로,
+도움이 되셨길, 참고하시기 바랍니다.
+'''
+
+
+def detect_ai_tells(text):
+    """AI 티 나는 표현 검출 → 리스트 반환."""
+    found = []
+    t = text or ""
+    for w in AI_TELLS:
+        if w in t:
+            found.append(w)
+    return found
+
+
+def scrub_ai_artifacts(text):
+    """기계적 정리: AI 특유 문장부호·공백 정리."""
+    t = text or ""
+    for pat, rep in AI_PATTERNS:
+        t = re.sub(pat, rep, t)
+    return t.strip()
+
+
+def _humanize_pass(api_key, product_name, tone_desc, posts, tells):
+    """AI 티가 검출되면 → 그 부분을 사람 말투로 강제 재작성."""
+    sys_p = (
+        "너는 한국어 문장을 '사람이 쓴 것처럼' 고치는 에디터다.\n"
+        "아래 글에서 AI 티 나는 표현을 전부 제거하고, 실제 사람이 쓴 것처럼 다시 써라.\n"
+        + HUMANIZE_RULES +
+        f"\n검출된 금지 표현: {', '.join(tells)}\n"
+        "이 표현들을 반드시 없애고, 구체적 장면·관찰로 바꿔라.\n"
+        "구조(본글+답글5)와 링크·고지문구 위치는 그대로 유지.\n"
+        '출력은 JSON만: {"posts":["본글","답글1","답글2","답글3","답글4","답글5"]}'
+    )
+    user_p = f"상품: {product_name}\n말투: {tone_desc}\n\n원문:\n{json.dumps({'posts': posts}, ensure_ascii=False)}"
+    r = llm_chat(api_key, sys_p, user_p, max_tokens=1300)
+    if not r.get("ok"):
+        return None
+    try:
+        out = _parse_json_out(r["text"]).get("posts", [])
+        return out if len(out) >= 4 else None
     except Exception:
         return None
