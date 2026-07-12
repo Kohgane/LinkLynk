@@ -36,6 +36,10 @@ def init_db():
     except Exception: pass
     try: _q("ALTER TABLE linklynk_users ADD COLUMN IF NOT EXISTS linked_emails TEXT")
     except Exception: pass
+    try: _q("ALTER TABLE linklynk_users ADD COLUMN IF NOT EXISTS gemini_key_enc TEXT")
+    except Exception: pass
+    try: _q("ALTER TABLE linklynk_users ADD COLUMN IF NOT EXISTS openrouter_key_enc TEXT")
+    except Exception: pass
     _q("""CREATE TABLE IF NOT EXISTS linklynk_usage(
         user_id BIGINT, month TEXT, link_count INTEGER DEFAULT 0, draft_count INTEGER DEFAULT 0,
         PRIMARY KEY(user_id, month));""")
@@ -290,3 +294,32 @@ def get_click_stats(uid):
 if __name__=="__main__":
     if not DATABASE_URL: print("DATABASE_URL 설정 필요")
     else: init_db(); print("테이블 초기화 완료")
+
+
+# ── 제공자별 LLM 키 (Gemini/OpenRouter/Claude 각각 저장 → 비교 가능) ──
+_KEY_COL = {"gemini": "gemini_key_enc", "openrouter": "openrouter_key_enc", "anthropic": "anthropic_key_enc"}
+
+def save_llm_key(uid, provider, key):
+    col = _KEY_COL.get(provider)
+    if not col: return {"ok": False, "error": "unknown_provider"}
+    ek = _fernet.encrypt(key.encode()).decode()
+    _q(f"UPDATE linklynk_users SET {col}=%s WHERE id=%s", (ek, uid))
+    return {"ok": True}
+
+def get_llm_key(uid, provider):
+    col = _KEY_COL.get(provider)
+    if not col: return None
+    row = _q(f"SELECT {col} FROM linklynk_users WHERE id=%s", (uid,), fetch="one")
+    if not row or not row.get(col): return None
+    try:
+        return _fernet.decrypt(row[col].encode()).decode()
+    except Exception:
+        return None
+
+def get_llm_keys(uid):
+    """등록된 모든 LLM 키 → {provider: key}"""
+    out = {}
+    for p in _KEY_COL:
+        k = get_llm_key(uid, p)
+        if k: out[p] = k
+    return out

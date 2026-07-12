@@ -33,13 +33,21 @@ FALLBACK_SECRET = os.environ.get("COUPANG_PT_SECRET", "")
 store.init_db()
 
 
-def _gen_draft(uid, product_name, deeplink, tone, channel, info):
-    """초안 생성. Claude 키 있으면 Claude가 직접 작성(AI스러움 제거), 없으면 템플릿."""
+def _gen_draft(uid, product_name, deeplink, tone, channel, info, provider=None):
+    """초안 생성. AI 키 있으면 AI가 직접 작성(사람다움), 없으면 템플릿."""
     if channel == "threads":
         try:
-            akey = store.get_anthropic_key(uid)
+            keys = store.get_llm_keys(uid)
         except Exception:
-            akey = None
+            keys = {}
+        akey = None
+        if provider and provider in keys:
+            akey = keys[provider]
+        elif keys:
+            # 선호: gemini > openrouter > anthropic (무료 우선)
+            for p in ("gemini", "openrouter", "anthropic"):
+                if p in keys:
+                    akey = keys[p]; break
         if akey:
             from core import claude_write_thread
             price = (info or {}).get("price")
@@ -350,9 +358,46 @@ def save_anthropic_key_api():
     p = detect_llm_provider(key)
     if p == "unknown":
         return jsonify({"ok": False, "error": "키 형식을 인식할 수 없어요. AIza…(Gemini 무료) / sk-or-…(OpenRouter 무료) / sk-ant-…(Claude)"}), 400
-    store.save_anthropic_key(session["uid"], key)
-    names = {"gemini": "Google Gemini (무료)", "openrouter": "OpenRouter (무료 모델)", "anthropic": "Claude"}
+    store.save_llm_key(session["uid"], p, key)
+    if p == "anthropic":
+        store.save_anthropic_key(session["uid"], key)   # 하위호환
+    names = {"gemini": "Google Gemini (무료)", "openrouter": "OpenRouter (무료)", "anthropic": "Claude"}
     return jsonify({"ok": True, "provider": p, "message": f"{names[p]} 연결됐어요"})
+
+
+@app.route("/api/llm-list")
+@login_required
+def llm_list():
+    """등록된 AI 목록 (글쓰기 툴 선택·비교용)."""
+    keys = store.get_llm_keys(session["uid"])
+    names = {"gemini": "Gemini (무료)", "openrouter": "OpenRouter (무료)", "anthropic": "Claude"}
+    return jsonify({"ok": True, "providers": [{"id": p, "name": names[p]} for p in keys]})
+
+
+@app.route("/api/compare-write", methods=["POST"])
+@login_required
+def compare_write():
+    """여러 AI로 같은 글을 써서 비교."""
+    d = request.get_json(force=True, silent=True) or {}
+    product = (d.get("productName") or "").strip()
+    deeplink = (d.get("deeplink") or "").strip()
+    tone = d.get("tone") or "friendly"
+    price = d.get("price")
+    providers = d.get("providers") or []
+    keys = store.get_llm_keys(session["uid"])
+    if not keys:
+        return jsonify({"ok": False, "need_key": True, "error": "설정에서 AI 키를 먼저 등록하세요"}), 403
+    targets = [p for p in providers if p in keys] or list(keys.keys())
+    from core import claude_write_thread
+    results = []
+    names = {"gemini": "Gemini (무료)", "openrouter": "OpenRouter (무료)", "anthropic": "Claude"}
+    for p in targets[:3]:
+        r = claude_write_thread(keys[p], product, deeplink, tone, price)
+        results.append({"provider": p, "name": names.get(p, p),
+                        "ok": r.get("ok", False),
+                        "content": r.get("content", ""),
+                        "error": r.get("error", "")})
+    return jsonify({"ok": True, "results": results})
 
 
 @app.route("/api/claude-topics", methods=["POST"])
@@ -690,7 +735,7 @@ def generate():
     draft = None
     ok_d, _, _ = store.check_and_bump(user["id"], "draft", user["plan"])
     if ok_d:
-        draft = _gen_draft(user["id"], product_name, deeplink, tone, channel, info)
+        draft = _gen_draft(user["id"], product_name, deeplink, tone, channel, info, d.get("provider"))
 
     store.save_link(user["id"], url, deeplink, product_name, channel)
 
@@ -732,7 +777,7 @@ def generate_manual():
     draft = None
     ok_d, _, _ = store.check_and_bump(user["id"], "draft", user["plan"])
     if ok_d:
-        draft = _gen_draft(user["id"], product_name, deeplink, tone, channel, info)
+        draft = _gen_draft(user["id"], product_name, deeplink, tone, channel, info, d.get("provider"))
     store.save_link(user["id"], "", deeplink, product_name, channel)
     naver_html = build_naver_html(product_name, deeplink, draft, info) if draft else None
     return jsonify({"ok": True, "deeplink": deeplink, "disclosure": COUPANG_DISCLOSURE,

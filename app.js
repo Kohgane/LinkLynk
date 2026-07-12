@@ -135,6 +135,7 @@ function showApp(me){
   renderUsage(me);
   renderKeyStatus(me);
   if(me.has_sns) loadSnsAccounts();
+  renderLlmPicker();
   // 북마클릿으로 가져온 쿠팡 이미지가 있으면 표시
   if(window.__bmkImages && window.__bmkImages.images){
     setTimeout(()=>showBmkImages(window.__bmkImages), 400);
@@ -285,7 +286,7 @@ async function regenForChannel(deeplink, pname){
   if(result) result.innerHTML = '<div class="card"><div style="text-align:center;padding:20px;color:var(--muted)">형식 바꾸는 중…</div></div>';
   try{
     const r = await fetch('/api/generate-manual',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({deeplink, channel, tone:(window.curTone||'friendly'), productName:pname})});
+      body:JSON.stringify({deeplink, channel, tone:(window.curTone||'friendly'), productName:pname, provider:(window.__llmPick||null)})});
     const d = await r.json();
     if(d.ok){ renderResult(d); }
     else { toast('형식 변경 실패'); }
@@ -1162,11 +1163,11 @@ function renderAccountPicker(platform){
     return p === platform;
   });
   if(accs.length < 2) return '';   // 1개면 선택 불필요
-  const sel = (window.__pickedAccount||{})[platform] || accs[0].id;
+  const sel = (window.__pickedAccount||{})[platform] || accs[0].accountId;
   return `<div style="margin:10px 0 4px">
     <div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.1em;margin-bottom:6px">ACCOUNT · 게시할 계정</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap">
-      ${accs.map(a=>`<button class="chip ${a.id===sel?'on':''}" data-acc="${a.id}" data-plat="${platform}" onclick="pickAccount(this)">@${esc(a.username||a.name||'계정')}</button>`).join('')}
+      ${accs.map(a=>`<button class="chip ${a.accountId===sel?'on':''}" data-acc="${a.accountId}" data-plat="${platform}" onclick="pickAccount(this)">@${esc(a.name||'계정')}</button>`).join('')}
     </div></div>`;
 }
 function pickAccount(el){
@@ -1202,6 +1203,74 @@ async function scheduleThread(btn){
   window.__scheduleAt = new Date(at.value).toISOString();
   await publishToSns('threads', btn);
   window.__scheduleAt = null;
+}
+
+// AI 툴 선택·비교 (등록된 AI만 표시)
+async function renderLlmPicker(){
+  const box = document.getElementById('llmPicker');
+  if(!box) return;
+  let list = [];
+  try{ const d = await (await fetch('/api/llm-list')).json(); list = d.providers || []; }catch(e){}
+  if(!list.length){ box.innerHTML = ''; return; }
+  window.__llmList = list;
+  if(!window.__llmPick) window.__llmPick = list[0].id;
+  box.innerHTML = `<div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.1em;margin-bottom:6px">AI · 글 쓰는 도구</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
+      ${list.map(p=>`<button class="chip ${p.id===window.__llmPick?'on':''}" onclick="pickLlm('${p.id}',this)">${esc(p.name)}</button>`).join('')}
+      ${list.length>1?`<button class="chip" onclick="compareLlms(this)">⚖️ 둘 다 비교</button>`:''}
+    </div>`;
+}
+function pickLlm(id, el){
+  window.__llmPick = id;
+  el.parentNode.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+  // 이미 초안 있으면 그 AI로 재생성
+  const d = window.__lastResult;
+  if(d && d.deeplink) regenForChannel(d.deeplink, d.productName||'');
+}
+// 여러 AI로 같은 글 써서 비교
+async function compareLlms(btn){
+  const d = window.__lastResult;
+  if(!d || !d.deeplink){ toast('먼저 상품을 골라 초안을 만들어주세요'); return; }
+  const o = btn.textContent; btn.textContent='비교 중…'; btn.disabled=true;
+  const result = document.getElementById('result');
+  result.innerHTML = '<div class="card"><div style="text-align:center;padding:26px;color:var(--muted)">⚖️ 각 AI로 글 쓰는 중…<br><span style="font-size:12px">30초 정도 걸려요</span></div></div>';
+  try{
+    const r = await fetch('/api/compare-write',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({productName:d.productName||'', deeplink:d.deeplink, tone:(window.curTone||'friendly'), providers:(window.__llmList||[]).map(p=>p.id)})});
+    const res = await r.json();
+    if(res.ok && res.results){ renderCompare(res.results, d); }
+    else { toast(res.error||'비교 실패'); result.innerHTML=''; }
+  }catch(e){ toast('비교 실패'); result.innerHTML=''; }
+  btn.textContent=o; btn.disabled=false;
+}
+function renderCompare(results, d){
+  const result = document.getElementById('result');
+  result.innerHTML = `<div style="font-size:12px;color:var(--muted);margin:4px 0 12px">⚖️ AI별 결과 — 마음에 드는 걸 고르세요</div>` +
+    results.map((r,i)=>{
+      if(!r.ok) return `<div class="card" style="margin-bottom:12px"><div class="card-lbl">${esc(r.name)}</div><div style="color:var(--err-tx);font-size:13px">실패: ${esc(r.error||'')}</div></div>`;
+      const parts = (r.content||'').split('\n===THREAD===\n');
+      return `<div class="card" style="margin-bottom:12px">
+        <div class="card-lbl">${esc(r.name)}</div>
+        <div style="margin:8px 0;font-size:13.5px;line-height:1.65;color:var(--text);white-space:pre-wrap">${esc(parts[0]||'')}</div>
+        <div style="font-size:12px;color:var(--text-2);margin-bottom:10px">답글 ${Math.max(0,parts.length-1)}개 · 탭해서 전체 보기</div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-sm mint" onclick="useCompareResult(${i})">이 글 쓰기</button>
+          <button class="btn-sm ghost" onclick="alert(${JSON.stringify(r.content).replace(/"/g,'&quot;')})">전체 보기</button>
+        </div>
+      </div>`;
+    }).join('');
+  window.__compareResults = results;
+  window.__compareBase = d;
+  result.scrollIntoView({behavior:'smooth',block:'start'});
+}
+function useCompareResult(i){
+  const r = (window.__compareResults||[])[i];
+  const d = window.__compareBase;
+  if(!r || !r.ok || !d) return;
+  window.__llmPick = r.provider;
+  renderResult({...d, blogDraft: r.content, channel: 'threads'});
+  toast(r.name + ' 글로 정했어요');
 }
 
 async function publishToSns(platform, btn){
