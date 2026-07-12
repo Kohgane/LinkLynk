@@ -14,25 +14,26 @@
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.css">
 <style>
   :root{
-    /* 다크 팔레트 — 딥 잉크 네이비(순검정 아님) + 민트 브랜드 */
-    --bg:#0D1220;           /* 최하단 배경 */
-    --surface-1:#141B2E;    /* 카드/서피스 1층 */
-    --surface-2:#1B2540;    /* 서피스 2층 (입력창 등) */
-    --surface-3:#243050;    /* hover/강조 서피스 */
-    --line:#26314F;         /* 경계선 */
-    --line-soft:#1E2740;
-    --mint:#22E9A4;--mint-deep:#1FD693;--mint-bright:#3DF0B0;--mint-ink:#052A1D;
-    --text:#EAF0FA;         /* 본문 텍스트 (거의 흰색) */
-    --text-2:#A8B3C9;       /* 보조 텍스트 */
-    --muted:#6B7794;        /* 흐린 텍스트 */
-    --ink:#0D1220;          /* 다크 위 어두운 요소 */
-    --ink-soft:#A8B3C9;
-    --warn-bg:#2A2416;--warn-line:#4A3F1E;--warn-tx:#E6C766;
-    --err-bg:#2A1518;--err-line:#4A2228;--err-tx:#F08A8A;
-    --ok-bg:#0F2A1F;--ok-tx:#3DF0B0;
-    --radius:18px;--radius-sm:12px;
-    --shadow:0 8px 32px rgba(0,0,0,.4);
-    --glow:0 0 24px rgba(34,233,164,.15);
+    /* PROMETHEUS — 모노크롬 다크 (근-블랙 + 무채색 + 화이트 액센트) */
+    --bg:#0A0A0B;           /* 최하단 배경 */
+    --surface-1:#131315;    /* 카드 */
+    --surface-2:#191A1C;    /* 입력창 */
+    --surface-3:#232427;    /* hover/활성 */
+    --line:#2A2B2E;         /* 경계선 */
+    --line-soft:#1F2023;
+    /* 액센트 = 화이트 (기존 mint 변수명 유지, 값만 무채색으로) */
+    --mint:#F2F2F3;--mint-deep:#DDDEE0;--mint-bright:#FFFFFF;--mint-ink:#0A0A0B;
+    --text:#F2F2F3;
+    --text-2:#9B9CA1;
+    --muted:#6A6B70;
+    --ink:#0A0A0B;
+    --ink-soft:#9B9CA1;
+    --warn-bg:#1E1B14;--warn-line:#3A3320;--warn-tx:#C9B071;
+    --err-bg:#231618;--err-line:#3E2429;--err-tx:#D98A8A;
+    --ok-bg:#16211B;--ok-tx:#EAEAEB;
+    --radius:16px;--radius-sm:12px;
+    --shadow:0 6px 28px rgba(0,0,0,.5);
+    --glow:0 0 0 rgba(0,0,0,0);
   }
   *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
   html,body{background:var(--bg);color:var(--text);font-family:'Pretendard',-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
@@ -88,11 +89,11 @@
   .chips{display:flex;gap:7px;padding:14px 20px 4px;flex-wrap:wrap}
   .chip{font-size:12px;font-weight:600;padding:7px 14px;border-radius:20px;background:var(--surface-1);border:1px solid var(--line);color:var(--text-2);cursor:pointer;transition:all .15s;white-space:nowrap}
   .chip:active{transform:scale(.95)}
-  .chip.on{background:linear-gradient(135deg,var(--mint),var(--mint-deep));border-color:transparent;color:var(--mint-ink);box-shadow:0 2px 12px rgba(34,233,164,.3);_x:1}
+  .chip.on{background:var(--mint);border-color:transparent;color:var(--mint-ink);box-shadow:none;font-weight:700}
   .chip.__old.on{background:var(--mint);border-color:var(--mint);color:var(--mint-ink)}
   .modeToggle::-webkit-scrollbar{display:none}
   .mode{flex:0 0 auto;white-space:nowrap;font-size:12px;font-weight:600;padding:10px 14px;border-radius:var(--radius-sm);background:transparent;border:none;color:var(--muted);cursor:pointer;transition:all .18s;white-space:nowrap}
-  .mode.on{background:var(--surface-3);color:var(--mint-bright);box-shadow:0 1px 6px rgba(0,0,0,.25)}
+  .mode.on{background:var(--mint);color:var(--mint-ink);box-shadow:none;font-weight:700}
   .tone-scroll{display:flex;gap:7px;overflow-x:auto;padding:2px 20px 6px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
   .tone-scroll::-webkit-scrollbar{display:none}
   .tone-scroll .chip{flex:0 0 auto}
@@ -100,7 +101,7 @@
   .tone-head .tone-lbl{font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.03em}
   .result{padding:8px 20px 0;animation:rise .3s ease}
   .card{background:var(--surface-1);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:12px;box-shadow:var(--shadow)}
-  .card-lbl{font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
+  .card-lbl{letter-spacing:.02em;font-size:11px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--muted);margin-bottom:9px}
   .linkline{display:flex;align-items:center;gap:8px;background:var(--bg);border-radius:var(--radius-sm);padding:12px 14px}
   .linkline .url{flex:1;font-size:13px;color:var(--mint-deep);font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
   .btn-copy{flex:0 0 auto;background:var(--mint);color:var(--mint-ink);border:none;border-radius:9px;padding:8px 13px;font-size:12px;font-weight:700;cursor:pointer}
@@ -159,7 +160,7 @@
   .post-item{background:var(--surface-1);border:1px solid var(--line);border-radius:12px;padding:13px 15px;margin-bottom:10px}
   .post-top{font-size:12px;color:var(--text-2);font-weight:600;margin-bottom:6px;display:flex;align-items:center;gap:8px}
   .pbadge{font-size:10px;padding:2px 8px;border-radius:10px;font-weight:700}
-  .pbadge.pub{background:rgba(34,233,164,.15);color:var(--mint-bright)}
+  .pbadge.pub{background:rgba(255,255,255,.10);color:var(--mint-bright)}
   .pbadge.draft{background:rgba(255,180,60,.15);color:#ffb43c}
   .post-prev{font-size:13px;color:var(--text);line-height:1.5;margin-bottom:10px;white-space:pre-wrap}
   .post-act{display:flex;gap:8px}
@@ -169,10 +170,21 @@
   .acc-chip{display:inline-block;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:6px 12px;margin:6px 6px 0 0;font-size:12px;color:var(--text)}
   .topic-row{font-size:13px;color:var(--text-2);line-height:1.6;margin:4px 0}
   .topic-lbl{color:var(--mint-bright);font-weight:600;font-size:12px}
-  .kw-chip{display:inline-block;background:var(--mint);color:var(--ink);border:none;border-radius:8px;padding:8px 14px;margin:0 6px 6px 0;font-size:13px;font-weight:600;cursor:pointer}
-  .bmk-btn{display:inline-block;background:linear-gradient(135deg,var(--mint),var(--mint-deep));color:var(--mint-ink);font-weight:700;font-size:14px;padding:12px 20px;border-radius:12px;text-decoration:none;box-shadow:0 2px 12px rgba(34,233,164,.3)}
+  .kw-chip{display:inline-block;background:transparent;color:var(--text);border:1px solid var(--line);border-radius:999px;padding:9px 16px;margin:0 6px 6px 0;font-size:13px;font-weight:500;cursor:pointer;transition:all .15s}
+  .kw-chip:active{background:var(--surface-3)}
+  .bmk-btn{display:inline-block;background:var(--mint);color:var(--mint-ink);font-weight:700;font-size:14px;padding:12px 20px;border-radius:10px;text-decoration:none}
   .bmk-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
   .bmk-grid img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px;cursor:pointer;background:var(--surface-2)}
+  /* PROMETHEUS: 섹션 헤더 + 스텝 배지 */
+  .sec-head{display:flex;align-items:center;gap:12px;margin:22px 0 12px}
+  .sec-num{width:34px;height:34px;border-radius:10px;background:var(--surface-2);border:1px solid var(--line);display:grid;place-items:center;font-size:14px;font-weight:700;color:var(--text-2);flex:0 0 auto}
+  .sec-meta{display:flex;flex-direction:column;gap:2px;min-width:0}
+  .sec-kicker{font-size:10px;font-weight:700;letter-spacing:.14em;text-transform:uppercase;color:var(--muted)}
+  .sec-title{font-size:16px;font-weight:600;color:var(--text)}
+  .stepper{display:flex;align-items:center;gap:0;margin:14px 0 4px}
+  .stepper .dot{width:28px;height:28px;border-radius:50%;border:1px solid var(--line);background:var(--surface-2);display:grid;place-items:center;font-size:12px;font-weight:700;color:var(--muted);flex:0 0 auto}
+  .stepper .dot.on{background:var(--mint);color:var(--mint-ink);border-color:transparent}
+  .stepper .bar{flex:1;height:1px;background:var(--line)}
   .hint{font-size:12px;color:var(--text-2);margin-top:10px;padding:10px;background:var(--surface-1);border-radius:8px;line-height:1.5}
   .nia-wrap{padding-right:24px;min-height:200px}
   .nia-list{display:flex;flex-direction:column;transition:opacity .4s cubic-bezier(.22,1,.36,1)}
@@ -257,14 +269,24 @@
 <div id="appView" class="hidden">
   <div class="top">
     <div class="logo">Link<span>Lynk</span></div>
-    <div class="av" id="avatar" onclick="go('settings')">고</div>
+    <div class="av" id="avatar" onclick="go('settings')" title="설정">⚙</div>
   </div>
 
   <!-- 만들기 -->
   <div class="page on" id="page-make">
     <div class="hero">
-      <h1>상품 링크 붙여넣으면<br>간편 링크가 딸깍</h1>
-      <div class="sub">쿠팡 상품 URL 하나면 끝. 블로그 글·고지문구까지 자동으로.</div>
+      <div class="stepper">
+        <div class="dot on">1</div><div class="bar"></div>
+        <div class="dot">2</div><div class="bar"></div>
+        <div class="dot">3</div>
+      </div>
+      <div class="sec-head">
+        <div class="sec-num">◆</div>
+        <div class="sec-meta">
+          <div class="sec-kicker">Create</div>
+          <div class="sec-title">주제 → 상품 → 글, 한 번에</div>
+        </div>
+      </div>
       <div class="modeToggle" style="display:flex;gap:4px;margin-bottom:14px;background:var(--surface-1);border:1px solid var(--line);border-radius:14px;padding:4px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch">
         <button class="mode on" data-mode="auto" onclick="setMode(this)">간편링크 자동생성</button>
         <button class="mode" data-mode="manual" onclick="setMode(this)">링크 직접 붙여넣기</button>
@@ -301,7 +323,7 @@
       <div class="chip" data-ch="x" onclick="setCh(this)">X</div>
       <div class="chip" data-ch="youtube" onclick="setCh(this)">유튜브</div>
     </div>
-    <div class="tone-head"><span class="tone-lbl">말투 15가지 · 좌우로 넘겨보세요</span></div>
+    <div class="tone-head"><span class="tone-lbl">TONE · 25가지 — 좌우로 넘기세요</span></div>
     <div class="tone-scroll">
         <div class="chip on" data-tone="friendly" onclick="setTone(this)">친근하게</div>
         <div class="chip" data-tone="polite" onclick="setTone(this)">정중하게</div>
@@ -445,6 +467,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="/app.js?v=1783838471"></script>
+<script src="/app.js?v=1783839763"></script>
 </body>
 </html>
