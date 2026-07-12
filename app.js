@@ -1089,23 +1089,23 @@ async function saveDraft(btn){
 }
 
 // SNS 게시 (Zernio) — 실패 시 정확한 이유 표시
-// 쓰레드 앱 작성창을 열어 임시저장 (본글+답글 전부 넘김)
+// 쓰레드 작성창 열기: 본글만 넣고, 답글은 순서대로 이어붙이게 도우미 제공
 async function draftToThreads(btn){
   const d = window.__lastResult;
   if(!d || !d.blogDraft){ toast('⚠️ 초안이 없어요'); return; }
   const parts = d.blogDraft.split('\n===THREAD===\n').filter(Boolean);
-  // 앱에도 백업 (전체)
+  const main = parts[0] || '';
+  window.__threadReplies = parts.slice(1);
+  window.__threadReplyIdx = 0;
+  // 앱에도 전체 백업
   try{
     await fetch('/api/save-draft',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({channel:'threads', content:d.blogDraft, productName:d.productName||'', deeplink:d.deeplink||'', image:d.image||null})});
   }catch(e){}
-  // 본글+답글 전부를 작성창에 넣음 (쓰레드에서 임시저장 → 나눠 올리기)
-  const full = parts.join('\n\n---\n\n');
-  window.__threadReplies = parts.slice(1);
-  window.__threadReplyIdx = 0;
-  const url = 'https://www.threads.net/intent/post?text=' + encodeURIComponent(full);
+  // ★본글만 (쓰레드 500자 제한) → 쓰레드 작성창에서 임시저장/예약 가능
+  const url = 'https://www.threads.net/intent/post?text=' + encodeURIComponent(main.slice(0, 480));
   window.open(url, '_blank');
-  toast('쓰레드 작성창 열림 → 임시저장 누르세요 (본글+답글 전부 들어감) 🧵');
+  toast('본글이 들어갔어요. 답글은 아래 도우미로 하나씩 추가하세요 🧵');
   showReplyHelper();
 }
 // 답글 순서대로 복사 도우미
@@ -1125,7 +1125,7 @@ function showReplyHelper(){
       <button class="btn-sm ghost" style="margin-left:8px" onclick="document.getElementById('replyHelper').remove()">닫기</button></div>`;
     return;
   }
-  box.innerHTML = `<div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.1em;margin-bottom:6px">REPLY ${i+1} / ${reps.length}</div>
+  box.innerHTML = `<div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.1em;margin-bottom:6px">답글 ${i+1} / ${reps.length} — 쓰레드에서 ⊕ 눌러 추가 후 붙여넣기</div>
     <div style="font-size:13px;color:var(--text);line-height:1.5;max-height:60px;overflow:hidden;margin-bottom:10px">${esc(reps[i].slice(0,80))}${reps[i].length>80?'…':''}</div>
     <div style="display:flex;gap:8px">
       <button class="btn-sm mint" style="flex:1" onclick="copyReplyNext(this)">📋 답글 ${i+1} 복사</button>
@@ -1201,8 +1201,10 @@ async function publishToSns(platform, btn){
     if(r.status===401){ toast('⚠️ 로그인이 풀렸어요. 새로고침 해주세요'); btn.textContent=o; btn.disabled=false; return; }
     const res = await r.json();
     if(res.ok){
-      toast('게시됐어요! 🚀'); btn.textContent='게시 완료 ✓';
-      if(res.post_url){
+      const isSched = !!window.__scheduleAt;
+      toast(isSched ? '예약됐어요! ⏰ 그 시각에 본글+답글 자동 게시' : '게시됐어요! 🚀');
+      btn.textContent = isSched ? '예약 완료 ✓' : '게시 완료 ✓';
+      if(res.post_url && !isSched){
         setTimeout(()=>{ if(confirm('게시됐어요! 지금 확인하러 갈까요?')) window.open(res.post_url,'_blank'); }, 300);
       }
     }
