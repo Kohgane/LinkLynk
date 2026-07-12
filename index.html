@@ -460,22 +460,29 @@
         </div>
       </div>
       <div class="card">
-        <div class="card-lbl">🧠 AI 연결 (주제·글 작성)</div>
-        <div id="claudeStatus" style="font-size:13px;color:var(--muted);margin-bottom:12px">연결 안 됨</div>
-        <div style="font-size:12px;color:var(--text-2);margin-bottom:10px;line-height:1.55">
-          <b>무료로 쓸 수 있어요.</b> 아래 중 하나의 키를 넣으세요 (자동 인식).
+        <div class="card-lbl">🧠 AI 연결 (여러 개 넣고 비교 가능)</div>
+        <div id="claudeStatus" style="font-size:13px;color:var(--muted);margin-bottom:14px">연결 안 됨</div>
+
+        <div class="field"><label>① Google Gemini — 무료 (추천)</label>
+          <input id="k_gemini" placeholder="AIza…" autocomplete="off"></div>
+        <div style="font-size:11px;color:var(--muted);margin:-6px 0 12px;line-height:1.5">
+          aistudio.google.com/apikey → Get API key (카드 없이 무료)
         </div>
-        <div style="background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:12px;margin-bottom:12px;font-size:12px;line-height:1.7;color:var(--text-2)">
-          <div><b style="color:var(--text)">① Google Gemini — 무료</b> (추천)<br>
-            <span style="color:var(--muted)">aistudio.google.com/apikey → Get API key<br>키가 <code>AIza…</code>로 시작</span></div>
-          <div style="margin-top:8px"><b style="color:var(--text)">② OpenRouter — 무료 모델</b><br>
-            <span style="color:var(--muted)">openrouter.ai/keys → 키 발급<br>키가 <code>sk-or-…</code>로 시작</span></div>
-          <div style="margin-top:8px"><b style="color:var(--text)">③ Claude — 유료</b><br>
-            <span style="color:var(--muted)">크레딧 필요. 키가 <code>sk-ant-…</code></span></div>
+
+        <div class="field"><label>② OpenRouter — 무료 모델</label>
+          <input id="k_openrouter" placeholder="sk-or-…" autocomplete="off"></div>
+        <div style="font-size:11px;color:var(--muted);margin:-6px 0 12px;line-height:1.5">
+          openrouter.ai/keys → 무료 모델(:free)만 사용
         </div>
-        <div class="field"><label>API Key</label><input id="c_key" placeholder="AIza… / sk-or-… / sk-ant-…" autocomplete="off"></div>
+
+        <div class="field"><label>③ Claude — 유료</label>
+          <input id="k_anthropic" placeholder="sk-ant-…" autocomplete="off"></div>
+        <div style="font-size:11px;color:var(--muted);margin:-6px 0 14px;line-height:1.5">
+          크레딧 필요. 안 넣어도 돼요.
+        </div>
+
         <div id="claudeMsg"></div>
-        <button class="btn btn-mint" id="claudeBtn" onclick="saveClaudeKey()"><span class="lbl">연결하기</span></button>
+        <button class="btn btn-mint" id="claudeBtn" onclick="saveAllLlmKeys()"><span class="lbl">연결하기</span></button>
       </div>
       <div class="card">
         <div class="card-lbl">📸 쿠팡 상세 이미지 가져오기</div>
@@ -500,6 +507,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="/app.js?v=1783851251"></script>
+<script src="/app.js?v=1783851550"></script>
 </body>
 </html>

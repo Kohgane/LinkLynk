@@ -271,12 +271,10 @@ def me():
     key = store.get_partners_key(u["id"])
     usage = store.get_usage(u["id"])
     sns = store.get_zernio_key(u["id"])
-    claude = store.get_anthropic_key(u["id"])
-    from core import detect_llm_provider
-    prov = detect_llm_provider(claude) if claude else None
+    llm_keys = store.get_llm_keys(u["id"])
     return jsonify({"ok": True, "email": u["email"], "handle": u["handle"],
                     "plan": u["plan"], "has_key": bool(key), "has_sns": bool(sns),
-                    "has_claude": bool(claude), "llm_provider": prov,
+                    "has_claude": bool(llm_keys), "llm_providers": list(llm_keys.keys()),
                     "usage": usage, "limits": store.FREE_LIMITS})
 
 
@@ -403,13 +401,18 @@ def compare_write():
 @app.route("/api/claude-topics", methods=["POST"])
 @login_required
 def claude_topics_api():
-    """주제 먼저 생성 (개인 Claude API 키). 시각·표본·앵글·상품키워드 제안."""
+    """주제 먼저 생성 (등록된 AI 아무거나: Gemini/OpenRouter/Claude)."""
     d = request.get_json(force=True, silent=True) or {}
     user_topic = (d.get("topic") or "").strip()
-    key = store.get_anthropic_key(session["uid"])
-    if not key:
+    keys = store.get_llm_keys(session["uid"])
+    if not keys:
         return jsonify({"ok": False, "need_key": True,
-                        "error": "설정에서 Claude API 키를 먼저 등록하세요"}), 403
+                        "error": "설정에서 AI 키를 먼저 등록하세요 (Gemini 무료 추천)"}), 403
+    # 선택된 제공자 우선, 없으면 무료 우선
+    prov = d.get("provider")
+    if prov not in keys:
+        prov = next((p for p in ("gemini", "openrouter", "anthropic") if p in keys), None)
+    key = keys[prov]
     import time as _t
     from datetime import datetime, timezone, timedelta as _td
     kst = datetime.now(timezone.utc) + _td(hours=9)   # 한국 시간 (서버는 UTC)

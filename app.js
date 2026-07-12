@@ -961,6 +961,34 @@ async function saveAsImage(btn){
   btn.textContent = o;
 }
 
+// AI 키 여러 개 한 번에 저장 (Gemini/OpenRouter/Claude)
+async function saveAllLlmKeys(){
+  const btn = document.getElementById('claudeBtn');
+  const msg = document.getElementById('claudeMsg');
+  msg.innerHTML = '';
+  const fields = [
+    {id:'k_gemini', name:'Gemini'},
+    {id:'k_openrouter', name:'OpenRouter'},
+    {id:'k_anthropic', name:'Claude'},
+  ];
+  const toSave = fields.map(f=>({...f, val:(document.getElementById(f.id)?.value||'').trim()})).filter(f=>f.val);
+  if(!toSave.length){ msg.innerHTML = '<div class="msg msg-err">키를 하나 이상 입력하세요</div>'; return; }
+  btn.classList.add('loading');
+  const done = [], failed = [];
+  for(const f of toSave){
+    try{
+      const r = await fetch('/api/anthropic-key',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key:f.val})});
+      const d = await r.json();
+      if(d.ok) done.push(f.name); else failed.push(f.name+': '+(d.error||''));
+    }catch(e){ failed.push(f.name); }
+  }
+  btn.classList.remove('loading');
+  msg.innerHTML = (done.length ? `<div class="msg msg-ok">${done.join(', ')} 연결됐어요 🧠</div>` : '')
+    + (failed.length ? `<div class="msg msg-err">${failed.join(' / ')}</div>` : '');
+  await refreshMe();
+  renderLlmPicker();
+}
+
 async function saveClaudeKey(){
   const key = (document.getElementById('c_key').value||'').trim();
   const btn = document.getElementById('claudeBtn');
@@ -979,8 +1007,9 @@ async function saveClaudeKey(){
 function renderClaude(me){
   const el = document.getElementById('claudeStatus');
   if(!el) return;
-  const pn = {gemini:'Google Gemini (무료)', openrouter:'OpenRouter (무료)', anthropic:'Claude'}[me.llm_provider] || 'AI';
-  el.innerHTML = me.has_claude ? '<span style="color:var(--mint)">✓ '+pn+' 연결됨 — 주제·글 작성 가능</span>' : '연결 안 됨';
+  const names = {gemini:'Gemini (무료)', openrouter:'OpenRouter (무료)', anthropic:'Claude'};
+  const provs = (me.llm_providers||[]).map(p=>names[p]||p);
+  el.innerHTML = provs.length ? '<span style="color:var(--mint)">✓ 연결됨: '+provs.join(' · ')+'</span>' : '연결 안 됨';
   // 북마클릿 코드 설정 (쿠팡 상세이미지 긁어서 우리 앱으로 — URL 파라미터 전달)
   const bmk = document.getElementById('bmk');
   if(bmk){
@@ -1001,7 +1030,7 @@ async function doTopics(){
   const result = document.getElementById('result');
   result.innerHTML = '<div class="card"><div style="text-align:center;padding:30px;color:var(--muted)">🧠 주제 기획 중…<br><span style="font-size:12px">지금 시각·표본·앵글 분석</span></div></div>';
   try{
-    const r = await fetch('/api/claude-topics',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic})});
+    const r = await fetch('/api/claude-topics',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic, provider:(window.__llmPick||null)})});
     const d = await r.json();
     if(d.ok && d.topics && d.topics.length){
       renderTopics(d.topics, d.now);
