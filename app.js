@@ -492,10 +492,10 @@ function renderThreads(draft, d){
     <div style="margin:12px 0 4px">
       <div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.1em;margin-bottom:8px">SCHEDULE · 예약 발행 (본글+답글 전부 자동)</div>
       <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
-        <button class="chip" onclick="quickSchedule(1,this)">1시간 뒤</button>
-        <button class="chip" onclick="quickSchedule(3,this)">3시간 뒤</button>
-        <button class="chip" onclick="quickScheduleAt(20,this)">오늘 20시</button>
-        <button class="chip" onclick="quickScheduleAt(9,this,1)">내일 9시</button>
+        <button class="chip" onclick="fillSched(1)">+1시간</button>
+        <button class="chip" onclick="fillSched(3)">+3시간</button>
+        <button class="chip" onclick="fillSchedAt(20)">오늘 20시</button>
+        <button class="chip" onclick="fillSchedAt(9,1)">내일 9시</button>
       </div>
       <div style="background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:12px">
         <div style="font-size:12px;color:var(--text-2);margin-bottom:8px">원하는 날짜·시각 직접 지정</div>
@@ -892,26 +892,46 @@ function attachRailDrag(){
     });
   }
 
-  // Pointer Events로 통합 — iOS/안드로이드/데스크탑 모두 동일 작동
-  // (touch/mouse 따로 처리하면 안드로이드에서 좌표·타이밍 문제 발생)
-  rail.addEventListener('pointerdown', e=>{
-    e.preventDefault();
-    active=true;
-    lastRawY=e.clientY; lastMoveT=performance.now();
-    try{ rail.setPointerCapture(e.pointerId); }catch(_){}
-    moveTo(e.clientY);
-  });
-  rail.addEventListener('pointermove', e=>{
-    if(!active) return;
-    e.preventDefault();
-    moveTo(e.clientY);
-  });
-  rail.addEventListener('pointerup', e=>{ if(active){ end(); try{ rail.releasePointerCapture(e.pointerId); }catch(_){} } });
-  rail.addEventListener('pointercancel', end);
-  rail.addEventListener('pointerleave', e=>{ /* capture 중이라 leave 무시 */ });
-  // 안드로이드 크롬: 부모 스크롤/제스처가 레일 터치를 가로채지 않도록
-  rail.addEventListener('touchstart', e=>e.preventDefault(), {passive:false});
-  rail.addEventListener('touchmove', e=>e.preventDefault(), {passive:false});
+  // ★document 위임: 레일이 몇 번 재생성돼도 절대 안 깨짐 (전역 핸들러 1회만 등록)
+  if(!window.__niaDelegated){
+    window.__niaDelegated = true;
+    const inRail = (e) => {
+      const r = document.querySelector('#nia-rail-fixed .nia-rail');
+      if(!r) return false;
+      const b = r.getBoundingClientRect();
+      return e.clientX >= b.left - 8 && e.clientX <= b.right + 8 &&
+             e.clientY >= b.top && e.clientY <= b.bottom;
+    };
+    document.addEventListener('pointerdown', e=>{
+      const h = window.__niaHandlers;
+      if(!h || !inRail(e)) return;
+      e.preventDefault();
+      h.start(e.clientY);
+    }, {passive:false});
+    document.addEventListener('pointermove', e=>{
+      const h = window.__niaHandlers;
+      if(!h || !h.isActive()) return;
+      e.preventDefault();
+      h.move(e.clientY);
+    }, {passive:false});
+    document.addEventListener('pointerup', ()=>{ const h=window.__niaHandlers; if(h && h.isActive()) h.end(); });
+    document.addEventListener('pointercancel', ()=>{ const h=window.__niaHandlers; if(h && h.isActive()) h.end(); });
+    // 레일 위에서 브라우저 기본 제스처(스크롤·뒤로가기) 차단
+    document.addEventListener('touchstart', e=>{
+      if(window.__niaHandlers && e.touches[0] && inRail(e.touches[0])) e.preventDefault();
+    }, {passive:false});
+    document.addEventListener('touchmove', e=>{
+      const h = window.__niaHandlers;
+      if(h && h.isActive()) e.preventDefault();
+    }, {passive:false});
+  }
+  // 현재 레일의 핸들러를 전역에 등록 (재생성 시 갱신)
+  window.__niaHandlers = {
+    start: (y)=>{ active=true; lastRawY=y; lastMoveT=performance.now(); moveTo(y); },
+    move: (y)=>{ moveTo(y); },
+    end: ()=>{ end(); },
+    isActive: ()=>active,
+  };
 
   // 초기 상태: 조회수 높은 순 전체 표시 (손 뗀 상태와 동일)
   showByViews();
@@ -1207,6 +1227,26 @@ function pickAccount(el){
   window.__pickedAccount[plat] = id;
   el.parentNode.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
   el.classList.add('on');
+}
+
+// 프리셋 → 시각 입력칸에 채우기만 (게시는 유저가 버튼 눌러서)
+function _toLocalInput(dt){
+  const p = n => String(n).padStart(2,'0');
+  return `${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())}T${p(dt.getHours())}:${p(dt.getMinutes())}`;
+}
+function fillSched(hours){
+  const el = document.getElementById('schedAt'); if(!el) return;
+  el.value = _toLocalInput(new Date(Date.now() + hours*3600*1000));
+  toast('시각이 채워졌어요 — 고쳐도 됩니다');
+}
+function fillSchedAt(hour, addDays){
+  const el = document.getElementById('schedAt'); if(!el) return;
+  const t = new Date();
+  t.setDate(t.getDate() + (addDays||0));
+  t.setHours(hour, 0, 0, 0);
+  if(t <= new Date()) t.setDate(t.getDate()+1);
+  el.value = _toLocalInput(t);
+  toast('시각이 채워졌어요 — 고쳐도 됩니다');
 }
 
 // 빠른 예약: N시간 뒤
