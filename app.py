@@ -421,10 +421,21 @@ def claude_topics_api():
     h12 = kst.hour if kst.hour <= 12 else kst.hour - 12
     if h12 == 0: h12 = 12
     now_str = f"{kst.year}년 {kst.month}월 {kst.day}일 {ampm} {h12}시 ({weekdays[kst.weekday()]}요일)"
+    # 등록된 AI들을 순서대로 시도 (하나 실패하면 다음 것)
+    order = []
+    if prov: order.append(prov)
+    for p in ("gemini", "openrouter", "anthropic"):
+        if p in keys and p not in order:
+            order.append(p)
+
     from core import claude_generate_topics
-    r = claude_generate_topics(key, user_topic, now_str, n=3)
-    if r.get("ok"):
-        return jsonify({"ok": True, "topics": r["topics"], "now": now_str})
+    last_err = {}
+    for p in order:
+        r = claude_generate_topics(keys[p], user_topic, now_str, n=3)
+        if r.get("ok") and r.get("topics"):
+            return jsonify({"ok": True, "topics": r["topics"], "now": now_str, "provider": p})
+        last_err = r
+    r = last_err
     # 에러 메시지
     err = r.get("error", "")
     if err.startswith("http_401"): msg = "Claude API 키가 유효하지 않아요. 설정에서 다시 등록하세요."

@@ -793,7 +793,7 @@ def claude_generate_topics(api_key, user_topic="", now_str="", n=3):
     else:
         user_msg += f"지금 시각·계절에 맞는 주제 {n}개를 제안해주세요. 표본이 넓은 걸로."
 
-    r = llm_chat(api_key, sys_prompt, user_msg, max_tokens=1500)
+    r = llm_chat(api_key, sys_prompt, user_msg, max_tokens=3000)
     if not r.get("ok"):
         return r
     try:
@@ -847,7 +847,7 @@ def claude_write_thread(api_key, product_name, deeplink, tone="friendly", price=
         f"{('추가 요청: '+extra) if extra else ''}\n\n"
         "예시들의 결(담백함·구체성·사람다움)을 그대로 따라 이 상품 글을 써라."
     )
-    r = llm_chat(api_key, sys_prompt, user_msg, max_tokens=1400)
+    r = llm_chat(api_key, sys_prompt, user_msg, max_tokens=3000)
     if not r.get("ok"):
         return r
     try:
@@ -892,8 +892,9 @@ def _llm_gemini(api_key, sys_prompt, user_msg, max_tokens=1200):
         payload = {
             "system_instruction": {"parts": [{"text": sys_prompt}]},
             "contents": [{"parts": [{"text": user_msg}]}],
-            "generationConfig": {"temperature": 1.0, "maxOutputTokens": max_tokens,
-                                 "responseMimeType": "application/json"},
+            "generationConfig": {"temperature": 1.0, "maxOutputTokens": max(max_tokens, 4000),
+                                 "responseMimeType": "application/json",
+                                 "thinkingConfig": {"thinkingBudget": 0}},
         }
         try:
             req = urllib.request.Request(url, data=json.dumps(payload).encode(),
@@ -957,7 +958,7 @@ def _openrouter_free_models():
             "qwen/qwen3-next-80b-a3b-instruct:free", "google/gemma-4-31b-it:free"]
 
 
-def _llm_openrouter(api_key, sys_prompt, user_msg, max_tokens=1200):
+def _llm_openrouter(api_key, sys_prompt, user_msg, max_tokens=3000):
     """OpenRouter — :free 모델만 사용 (0원). 살아있는 모델 실시간 조회."""
     models = _openrouter_free_models()
     last = {}
@@ -1027,10 +1028,33 @@ def llm_chat(api_key, sys_prompt, user_msg, max_tokens=1200):
 
 
 def _parse_json_out(text):
+    """LLM JSON 파싱. 잘린 응답(Unterminated string)도 최대한 복구."""
     t = (text or "").strip()
     if t.startswith("```"):
         t = re.sub(r"^```(?:json)?\s*|\s*```$", "", t).strip()
-    return json.loads(t)
+    # 1) 정상 파싱
+    try:
+        return json.loads(t)
+    except Exception:
+        pass
+    # 2) 앞뒤 잡음 제거 후 재시도 ({ ... } 만 추출)
+    m = re.search(r"\{.*\}", t, re.S)
+    if m:
+        try:
+            return json.loads(m.group(0))
+        except Exception:
+            pass
+    # 3) 잘린 JSON 복구: 문자열 배열 항목만 뽑아내기
+    #    "posts":["...","...", ... 형태에서 완성된 문자열만 수집
+    items = re.findall(r'"((?:[^"\\]|\\.)*)"', t)
+    # key 이름(posts/topics 등) 제거하고 실제 값만
+    KEYS = {"posts", "topics", "title", "time_context", "sample", "angle", "hook", "keywords"}
+    vals = [json.loads('"%s"' % i) for i in items if i not in KEYS]
+    if "posts" in t and len(vals) >= 4:
+        return {"posts": vals[:6]}
+    if "topics" in t:
+        raise ValueError("topics 복구 불가")
+    raise ValueError("JSON 복구 실패")
 
 
 # ── 퀄리티 핵심: 실제 잘 쓴 글을 few-shot 예시로 (사용자 검증 샘플) ──
@@ -1087,7 +1111,7 @@ def _quality_critique(api_key, product_name, tone_desc, draft_json_text):
         '\n출력은 JSON만: {"posts":["본글","답글1","답글2","답글3","답글4","답글5"]}'
     )
     user_p = f"상품: {product_name}\n말투: {tone_desc}\n\n초안:\n{draft_json_text}\n\n위 기준으로 다시 써라."
-    r = llm_chat(api_key, sys_p, user_p, max_tokens=1300)
+    r = llm_chat(api_key, sys_p, user_p, max_tokens=3000)
     if not r.get("ok"):
         return None
     try:
@@ -1167,7 +1191,7 @@ def _humanize_pass(api_key, product_name, tone_desc, posts, tells):
         '출력은 JSON만: {"posts":["본글","답글1","답글2","답글3","답글4","답글5"]}'
     )
     user_p = f"상품: {product_name}\n말투: {tone_desc}\n\n원문:\n{json.dumps({'posts': posts}, ensure_ascii=False)}"
-    r = llm_chat(api_key, sys_p, user_p, max_tokens=1300)
+    r = llm_chat(api_key, sys_p, user_p, max_tokens=3000)
     if not r.get("ok"):
         return None
     try:
