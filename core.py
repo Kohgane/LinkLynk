@@ -885,7 +885,7 @@ def detect_llm_provider(api_key):
 
 def _llm_gemini(api_key, sys_prompt, user_msg, max_tokens=1200):
     """Google Gemini — 무료 티어 (aistudio.google.com에서 키 발급)."""
-    models = ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash"]
+    models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-pro", "gemini-flash-latest"]
     last = {}
     for m in models:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={api_key}"
@@ -917,16 +917,49 @@ def _llm_gemini(api_key, sys_prompt, user_msg, max_tokens=1200):
     return last
 
 
+_OR_CACHE = {"models": [], "at": 0}
+
+def _openrouter_free_models():
+    """살아있는 무료 모델을 실시간 조회 (모델 ID가 바뀌어도 안 깨지게). 1시간 캐시."""
+    now = time.time()
+    if _OR_CACHE["models"] and now - _OR_CACHE["at"] < 3600:
+        return _OR_CACHE["models"]
+    # 선호 순서 (한국어·창작 강한 대형 우선)
+    PREFER = ["nemotron-3-ultra", "nemotron-3-super", "qwen3-next-80b", "gpt-oss-120b",
+              "llama-3.3-70b", "gemma-4-31b", "gemma-4-26b", "hy3", "nemotron-3-nano-30b"]
+    try:
+        req = urllib.request.Request("https://openrouter.ai/api/v1/models")
+        data = json.loads(urllib.request.urlopen(req, timeout=15, context=_ctx).read())
+        free = []
+        for m in data.get("data", []):
+            mid = m.get("id", "")
+            pricing = m.get("pricing", {})
+            if str(pricing.get("prompt")) not in ("0", "0.0"):
+                continue
+            if any(k in mid for k in ["coder", "lyria", "vision", "embed", "safety", "-vl"]):
+                continue
+            free.append(mid)
+        # 선호 순서로 정렬
+        def rank(mid):
+            for i, p in enumerate(PREFER):
+                if p in mid:
+                    return i
+            return 99
+        free.sort(key=rank)
+        if free:
+            _OR_CACHE["models"] = free[:6]
+            _OR_CACHE["at"] = now
+            return _OR_CACHE["models"]
+    except Exception:
+        pass
+    # 조회 실패 시 하드코딩 폴백
+    return ["meta-llama/llama-3.3-70b-instruct:free", "openai/gpt-oss-120b:free",
+            "qwen/qwen3-next-80b-a3b-instruct:free", "google/gemma-4-31b-it:free"]
+
+
 def _llm_openrouter(api_key, sys_prompt, user_msg, max_tokens=1200):
-    """OpenRouter — :free 모델은 무료 (openrouter.ai에서 키 발급)."""
-    models = [
-        "deepseek/deepseek-chat-v3-0324:free",     # 무료 중 최상위급 (한국어 우수)
-        "qwen/qwen3-235b-a22b:free",               # 대형 MoE
-        "moonshotai/kimi-k2:free",                 # 한국어·창작 강함
-        "z-ai/glm-4.5-air:free",
-        "meta-llama/llama-3.3-70b-instruct:free",
-        "google/gemini-2.0-flash-exp:free",
-    ]
+    """OpenRouter — :free 모델만 사용 (0원). 살아있는 모델 실시간 조회."""
+    models = _openrouter_free_models()
     last = {}
     for m in models:
         payload = {"model": m, "max_tokens": max_tokens, "temperature": 1.0,
@@ -938,11 +971,11 @@ def _llm_openrouter(api_key, sys_prompt, user_msg, max_tokens=1200):
                 headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json",
                          "HTTP-Referer": "https://linklynk.onrender.com", "X-Title": "LinkLynk"},
                 method="POST")
-            with urllib.request.urlopen(req, timeout=60, context=_ctx) as r:
+            with urllib.request.urlopen(req, timeout=90, context=_ctx) as r:
                 data = json.loads(r.read().decode())
             text = (data.get("choices") or [{}])[0].get("message", {}).get("content", "")
-            if text:
-                return {"ok": True, "text": text.strip()}
+            if text and text.strip():
+                return {"ok": True, "text": text.strip(), "model": m}
             last = {"ok": False, "error": "empty"}
         except urllib.error.HTTPError as e:
             detail = ""
