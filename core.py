@@ -826,39 +826,42 @@ TONE_GUIDE = {
 }
 
 def claude_write_thread(api_key, product_name, deeplink, tone="friendly", price=None, extra=""):
-    """LLM이 쓰레드 6분할(본글+답글5) 직접 작성. 무료 Gemini/OpenRouter 또는 Claude."""
+    """LLM이 쓰레드 6분할 작성. few-shot 예시 + 품질기준 + 2패스 검수로 퀄리티 확보."""
     if not api_key:
         return {"ok": False, "error": "no_key"}
     tone_desc = TONE_GUIDE.get(tone, TONE_GUIDE["friendly"])
     price_line = f"가격: {int(price):,}원\n" if price else ""
     sys_prompt = (
         "너는 쿠팡 파트너스 쓰레드(Threads) 글을 쓰는 한국인 크리에이터다.\n"
-        "★절대 원칙: AI가 쓴 티가 나면 실패다. 광고 문구, 상투적 표현, 과장 금지.\n"
-        "★사람이 실제로 겪은 구체적 순간에서 시작해라. 제품 설명이 아니라 '상황'이 먼저다.\n"
-        "★훅처럼 들리는 훅은 최악이다. 담백하게 툭 던져라.\n"
-        "구조: 본글 1개 + 답글 5개. 본글에는 링크 절대 넣지 마라(노출 저하).\n"
-        "답글1~3: 공감 → 원인/발견 → 변화. 답글4: 링크+고지문구. 답글5: 마무리+링크+해시태그 3개.\n"
-        "답글4에 반드시 '(광고) 쿠팡파트너스 활동으로 수수료를 받습니다' 포함.\n"
-        "각 글은 2~3줄 이내로 짧게(쓰레드는 짧은 호흡). 각 글 400자 이내.\n"
-        '출력은 JSON만: {"posts":["본글","답글1","답글2","답글3","답글4","답글5"]}'
+        "★AI가 쓴 티가 나면 실패다. 광고 문구·상투적 표현·과장 금지.\n"
+        "구조: 본글 1개 + 답글 5개. 본글에는 링크 절대 넣지 마라.\n"
+        "답글1~3: 공감 → 원인/발견 → 변화(링크 없음). 답글4: 링크+고지문구. 답글5: 마무리+링크+해시태그 3개.\n"
+        "답글4·5에 반드시 링크를 넣고, 답글4에 '(광고) 쿠팡파트너스 활동으로 수수료를 받습니다' 포함.\n"
+        "각 글 2~3줄, 400자 이내.\n\n"
+        + FEWSHOT + "\n" + QUALITY_RULES +
+        '\n출력은 JSON만: {"posts":["본글","답글1","답글2","답글3","답글4","답글5"]}'
     )
     user_msg = (
         f"상품: {product_name}\n{price_line}링크: {deeplink}\n"
         f"말투/심리기제: {tone_desc}\n"
         f"{('추가 요청: '+extra) if extra else ''}\n\n"
-        "이 상품에만 해당하는 구체적 상황·디테일로 써라. "
-        "다른 상품에 그대로 갖다 써도 말이 되는 글이면 실패다."
+        "위 예시들의 결(담백함·구체성)을 그대로 따라 이 상품 글을 써라."
     )
-    r = llm_chat(api_key, sys_prompt, user_msg, max_tokens=1200)
+    r = llm_chat(api_key, sys_prompt, user_msg, max_tokens=1400)
     if not r.get("ok"):
         return r
     try:
         posts = _parse_json_out(r["text"]).get("posts", [])
-        if len(posts) >= 4:
-            return {"ok": True, "content": "\n===THREAD===\n".join(str(p).strip() for p in posts)}
-        return {"ok": False, "error": "bad_format"}
     except Exception as e:
         return {"ok": False, "error": "parse_error", "detail": str(e)[:100]}
+    if len(posts) < 4:
+        return {"ok": False, "error": "bad_format"}
+
+    # ★2패스: 자체 검수·재작성 (무료 모델도 퀄리티 상승)
+    refined = _quality_critique(api_key, product_name, tone_desc,
+                                json.dumps({"posts": posts}, ensure_ascii=False))
+    final = refined if refined else posts
+    return {"ok": True, "content": "\n===THREAD===\n".join(str(p).strip() for p in final)}
 
 
 # ── 무료 LLM 지원: 키 접두어로 제공자 자동 감지 ──
@@ -873,7 +876,7 @@ def detect_llm_provider(api_key):
 
 def _llm_gemini(api_key, sys_prompt, user_msg, max_tokens=1200):
     """Google Gemini — 무료 티어 (aistudio.google.com에서 키 발급)."""
-    models = ["gemini-2.0-flash", "gemini-2.5-flash", "gemini-1.5-flash"]
+    models = ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash"]
     last = {}
     for m in models:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={api_key}"
@@ -908,10 +911,12 @@ def _llm_gemini(api_key, sys_prompt, user_msg, max_tokens=1200):
 def _llm_openrouter(api_key, sys_prompt, user_msg, max_tokens=1200):
     """OpenRouter — :free 모델은 무료 (openrouter.ai에서 키 발급)."""
     models = [
-        "google/gemini-2.0-flash-exp:free",
+        "deepseek/deepseek-chat-v3-0324:free",     # 무료 중 최상위급 (한국어 우수)
+        "qwen/qwen3-235b-a22b:free",               # 대형 MoE
+        "moonshotai/kimi-k2:free",                 # 한국어·창작 강함
+        "z-ai/glm-4.5-air:free",
         "meta-llama/llama-3.3-70b-instruct:free",
-        "qwen/qwen-2.5-72b-instruct:free",
-        "mistralai/mistral-small-3.1-24b-instruct:free",
+        "google/gemini-2.0-flash-exp:free",
     ]
     last = {}
     for m in models:
@@ -984,3 +989,67 @@ def _parse_json_out(text):
     if t.startswith("```"):
         t = re.sub(r"^```(?:json)?\s*|\s*```$", "", t).strip()
     return json.loads(t)
+
+
+# ── 퀄리티 핵심: 실제 잘 쓴 글을 few-shot 예시로 (사용자 검증 샘플) ──
+FEWSHOT = '''다음은 실제로 반응이 좋았던 글들이다. 이 결의 담백함·구체성을 그대로 따라라.
+
+[예시1 — 정보격차 / 반말 건조 / 경추베개]
+본글: 아침에 목 뻐근한 거, 사실 베개 때문 아닐 수도 있음.
+답글1: 진짜 원인은 따로 있는데 대부분 이걸 모름.\\n나도 3년을 엉뚱한 데서 찾았고.
+답글2: 목이 자는 동안 15도만 꺾여도 아침에 결린다더라.\\n그래서 높이 아니라 '각도' 잡아주는 베개로 바꿈.
+답글3: 바꾸고 일주일 만에 목 돌릴 때 뚝뚝 나던 게 없어짐.
+답글4: 밑에 링크.\\n{링크}\\n\\n(광고) 쿠팡파트너스 활동으로 수수료를 받습니다.
+답글5: 원인 알고 나니까 허무하더라. 진작 바꿀걸.\\n{링크}\\n\\n#꿀잠 #목통증 #경추베개
+
+[예시2 — 정밀 오버셰어링 / 존댓말 / 홈캠]
+본글: 아기 재워놓고 문 닫고 나오는데, 문틈으로 3초를 더 쳐다보고 있는 나를 발견함.
+답글1: 혹시 자다가 이불 얼굴 덮으면 어쩌지, 그 생각 하나로요.\\n이 마음, 부모면 다 아실 거예요.
+답글2: 홈캠 달고부터는 그 3초를 폰으로 대신하게 됐어요.\\n어디 있든 실시간으로 보이고 소리도 감지되니까요.
+답글3: 별거 아닌 것 같아도 그 3초의 불안이 사라진 게 컸어요.
+답글4: 혹시 저 같은 분 계실까 봐 남겨둘게요.\\n{링크}\\n\\n(광고) 쿠팡파트너스 활동으로 수수료를 받습니다.
+답글5: 그 작은 불안들이 쌓이는 게 육아더라고요.\\n{링크}\\n\\n#육아 #홈캠 #베이비모니터
+
+[예시3 — 손실회피 / 반말 담백 / 넥선풍기]
+본글: 작년에 손선풍기 사느라 쓴 돈이 아까워서 계산해봤다.
+답글1: 세 개 사서 다 버렸으니 3만원 넘게 날린 셈.\\n손에 드는 거라 결국 안 쓰게 되더라고.
+답글2: 그 돈이면 목에 거는 거 하나 제대로 살 걸 그랬음.\\n손 안 쓰니까 계속 걸고 있게 됨.
+답글3: 날개 없어서 애 머리 안 빨리는 것도 몰랐던 장점.
+답글4: 밑에.\\n{링크}\\n\\n(광고) 쿠팡파트너스 활동으로 수수료를 받습니다.
+답글5: 싼 거 여러 번 사는 게 결국 더 비쌌음.\\n{링크}\\n\\n#여름 #넥선풍기 #쿨템
+
+관찰할 것:
+- 본글은 '제품'이 아니라 '내가 겪은 순간·계산·발견'에서 시작한다.
+- 숫자와 디테일이 구체적이다(3초, 15도, 3만원, 세 개).
+- 광고 티가 없다. 설명하지 않고 툭 던진다.
+- 답글3까지 링크가 없다. 감정이 연결된 뒤 답글4에서 링크.
+'''
+
+QUALITY_RULES = '''품질 기준(반드시 지킬 것):
+1) 첫 문장에 제품명을 넣지 마라. 상황부터 시작해라.
+2) 구체적 숫자·시간·장면을 최소 1개 넣어라(며칠, 몇 시, 몇 원, 몇 번).
+3) '~해요 좋아요' 식 뭉뚱그린 칭찬 금지. 무엇이 어떻게 달라졌는지 써라.
+4) '강추', '대박', '필수템', '후회 없는 선택' 같은 광고 클리셰 금지.
+5) 단점이나 의외의 점을 한 줄 넣으면 신뢰도가 올라간다.
+6) 이 글을 다른 제품에 그대로 붙여도 말이 되면 실패다. 이 제품에만 맞는 디테일을 써라.
+'''
+
+
+def _quality_critique(api_key, product_name, tone_desc, draft_json_text):
+    """2패스: 생성된 글을 기준에 맞춰 자체 검수·재작성 (무료 모델도 퀄 상승)."""
+    sys_p = (
+        "너는 한국어 카피 에디터다. 아래 쓰레드 초안을 품질 기준에 맞춰 고쳐 써라.\n"
+        "AI 티, 광고 클리셰, 뭉뚱그린 칭찬을 제거하고 구체적 장면·숫자로 바꿔라.\n"
+        "구조(본글+답글5)와 링크·고지문구 위치는 유지해라.\n"
+        + QUALITY_RULES +
+        '\n출력은 JSON만: {"posts":["본글","답글1","답글2","답글3","답글4","답글5"]}'
+    )
+    user_p = f"상품: {product_name}\n말투: {tone_desc}\n\n초안:\n{draft_json_text}\n\n위 기준으로 다시 써라."
+    r = llm_chat(api_key, sys_p, user_p, max_tokens=1300)
+    if not r.get("ok"):
+        return None
+    try:
+        posts = _parse_json_out(r["text"]).get("posts", [])
+        return posts if len(posts) >= 4 else None
+    except Exception:
+        return None
