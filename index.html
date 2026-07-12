@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta name="build" content="0712-1153">
+<meta name="build" content="0712-1205">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -17,7 +17,7 @@
 
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<meta name="theme-color" content="#0D1220">
+<meta name="theme-color" content="#0A0A0B">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="LinkLynk">
@@ -308,6 +308,14 @@
   .av{background:linear-gradient(180deg,#FFFFFF,#DCDDE0);color:#0A0A0B;box-shadow:0 4px 14px rgba(0,0,0,.35)}
   .nia-rail span.on{color:#FFFFFF}
   .nia-rail span.cur{color:#FFFFFF!important}
+  /* 비교 선택 체크박스 */
+  .cmp-row{display:flex;align-items:center;gap:12px;padding:12px 4px;cursor:pointer;border-bottom:1px solid var(--line-soft)}
+  .cmp-row:last-child{border-bottom:none}
+  .cmp-row input{display:none}
+  .cmp-box{width:22px;height:22px;border-radius:50%;border:1.5px solid rgba(255,255,255,.2);flex:0 0 auto;display:grid;place-items:center;transition:all .15s}
+  .cmp-row input:checked + .cmp-box{background:linear-gradient(180deg,#FFF,#E6E7EA);border-color:transparent}
+  .cmp-row input:checked + .cmp-box::after{content:'';width:8px;height:8px;border-radius:50%;background:#0A0A0B}
+  .cmp-name{font-size:14.5px;color:var(--text)}
 </style>
 </head>
 <body>
@@ -578,6 +586,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="/app.js?v=1783857183"></script>
+<script src="/app.js?v=1783857906"></script>
 </body>
 </html>

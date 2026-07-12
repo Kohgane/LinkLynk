@@ -283,14 +283,19 @@ function setCh(el){
 // 같은 링크로 현재 채널 형식의 글을 다시 생성 (딥링크 있으니 검색 안 함)
 async function regenForChannel(deeplink, pname){
   const result = document.getElementById('result');
-  if(result) result.innerHTML = '<div class="card"><div style="text-align:center;padding:20px;color:var(--muted)">형식 바꾸는 중…</div></div>';
-  try{
-    const r = await fetch('/api/generate-manual',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({deeplink, channel, tone:(window.curTone||'friendly'), productName:pname, provider:(window.__llmPick||null)})});
-    const d = await r.json();
-    if(d.ok){ renderResult(d); }
-    else { toast('형식 변경 실패'); }
-  }catch(e){ toast('형식 변경 실패'); }
+  if(result) result.innerHTML = '<div class="card"><div style="text-align:center;padding:22px;color:var(--muted)">✍️ 글 쓰는 중…<br><span style="font-size:12px">다른 화면 가도 계속 진행돼요</span></div></div>';
+  const jobId = 'gen-' + Date.now();
+  const p = fetch('/api/generate-manual',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({deeplink, channel, tone:(window.curTone||'friendly'), productName:pname, provider:(window.__llmPick||null)})})
+    .then(r=>r.json())
+    .then(d=>{ if(!d.ok) throw new Error('생성 실패'); return {draft: d}; });
+  startJob(jobId, '글 작성', p, (res)=>{
+    const page = document.getElementById('page-make');
+    if(page && !page.classList.contains('hidden')){
+      window.__jobs[jobId].seen = true;
+      renderResult(res.draft);
+    }
+  });
 }
 function setTone(el){
   const container = el.closest('.tone-scroll') || el.closest('.chips');
@@ -1322,6 +1327,56 @@ function fillDefaultSchedule(){
   at.min = at.value;
 }
 
+
+// ── 백그라운드 작업: 화면을 나가도 계속 진행되고, 돌아오면 결과 표시 ──
+window.__jobs = window.__jobs || {};   // {id: {status, result, kind}}
+function startJob(id, kind, promise, onDone){
+  window.__jobs[id] = {status:'running', kind, startedAt:Date.now()};
+  showJobBanner();
+  promise.then(res=>{
+    window.__jobs[id] = {status:'done', kind, result:res, at:Date.now()};
+    if(onDone) onDone(res);
+    showJobBanner();
+  }).catch(err=>{
+    window.__jobs[id] = {status:'error', kind, error:String(err).slice(0,80), at:Date.now()};
+    showJobBanner();
+  });
+  return id;
+}
+function runningJobs(){ return Object.entries(window.__jobs).filter(([,j])=>j.status==='running'); }
+function doneJobs(){ return Object.entries(window.__jobs).filter(([,j])=>j.status==='done' && !j.seen); }
+// 진행 중/완료 배너 (어느 화면에서든 보임)
+function showJobBanner(){
+  let el = document.getElementById('jobBanner');
+  const running = runningJobs();
+  const done = doneJobs();
+  if(!running.length && !done.length){ if(el) el.remove(); return; }
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'jobBanner';
+    el.style.cssText = 'position:fixed;left:16px;right:16px;bottom:78px;z-index:70;background:var(--surface-1);border:1px solid var(--line);border-radius:14px;padding:12px 14px;box-shadow:var(--shadow);font-size:13px;color:var(--text);display:flex;align-items:center;gap:10px';
+    document.body.appendChild(el);
+  }
+  if(running.length){
+    const kind = running[0][1].kind;
+    el.innerHTML = `<span class="spin" style="width:16px;height:16px;border:2px solid rgba(255,255,255,.2);border-top-color:#fff;border-radius:50%;display:inline-block;animation:sp .8s linear infinite"></span>
+      <span style="flex:1">${esc(kind)} 진행 중… (화면 이동해도 계속돼요)</span>`;
+  } else if(done.length){
+    const [id, j] = done[0];
+    el.innerHTML = `<span style="flex:1">✅ ${esc(j.kind)} 완료됐어요</span>
+      <button class="btn-sm mint" onclick="openJob('${id}')">결과 보기</button>`;
+  }
+}
+function openJob(id){
+  const j = window.__jobs[id];
+  if(!j || j.status!=='done') return;
+  j.seen = true;
+  go('make');
+  if(j.kind === 'AI 비교' && j.result) renderCompare(j.result.results, j.result.base);
+  else if(j.result && j.result.draft) renderResult(j.result.draft);
+  showJobBanner();
+}
+
 // AI 툴 선택 (등록된 AI만 표시). 유료(Claude)는 명시적으로 골라야만 사용
 async function renderLlmPicker(){
   const box = document.getElementById('llmPicker');
@@ -1351,34 +1406,64 @@ function pickLlm(id, el){
   const d = window.__lastResult;
   if(d && d.deeplink) regenForChannel(d.deeplink, d.productName||'');
 }
-// 비교할 AI를 직접 고르게
+// 비교할 AI를 체크박스로 고르기
 function openCompare(){
   const list = window.__llmList || [];
   if(list.length < 2){ toast('AI를 2개 이상 등록하세요'); return; }
-  const free = list.filter(p=>p.id!=='anthropic');
-  const names = list.map((p,i)=>`${i+1}. ${p.name}${p.id==='anthropic'?' (유료 💰)':''}`).join('\n');
-  const sel = prompt(`비교할 AI 번호를 쉼표로 (예: 1,2)\n\n${names}`, free.map(p=>list.indexOf(p)+1).join(','));
-  if(!sel) return;
-  const idx = sel.split(',').map(x=>parseInt(x.trim())-1).filter(i=>i>=0 && i<list.length);
-  if(idx.length < 2){ toast('2개 이상 골라주세요'); return; }
-  const picked = idx.map(i=>list[i]);
-  if(picked.some(p=>p.id==='anthropic') && !confirm('Claude가 포함됐어요. 유료 호출이 발생합니다. 계속할까요?')) return;
-  compareLlms(picked.map(p=>p.id));
+  let box = document.getElementById('cmpModal');
+  if(box) box.remove();
+  box = document.createElement('div');
+  box.id = 'cmpModal';
+  box.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.6);backdrop-filter:blur(6px);z-index:100;display:grid;place-items:center;padding:20px';
+  box.innerHTML = `<div style="width:100%;max-width:380px;background:var(--surface-1);border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:var(--shadow)">
+    <div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.14em;margin-bottom:4px">COMPARE</div>
+    <div style="font-size:17px;font-weight:600;color:var(--text);margin-bottom:14px">비교할 AI 고르기</div>
+    <div id="cmpList">
+      ${list.map(p=>`
+        <label class="cmp-row">
+          <input type="checkbox" value="${p.id}" ${p.id!=='anthropic'?'checked':''}>
+          <span class="cmp-box"></span>
+          <span class="cmp-name">${esc(p.name)}${p.id==='anthropic'?' <span style="color:var(--warn-tx)">💰 유료</span>':''}</span>
+        </label>`).join('')}
+    </div>
+    <div style="display:flex;gap:8px;margin-top:16px">
+      <button class="btn btn-mint" style="flex:1" onclick="runCompare()"><span class="lbl">⚖️ 비교하기</span></button>
+      <button class="btn btn-ghost" onclick="document.getElementById('cmpModal').remove()">취소</button>
+    </div>
+  </div>`;
+  document.body.appendChild(box);
+  box.addEventListener('click', e=>{ if(e.target===box) box.remove(); });
+}
+function runCompare(){
+  const checked = [...document.querySelectorAll('#cmpList input:checked')].map(i=>i.value);
+  if(checked.length < 2){ toast('2개 이상 고르세요'); return; }
+  if(checked.includes('anthropic') && !confirm('Claude가 포함됐어요. 유료 호출이 발생합니다. 계속할까요?')) return;
+  document.getElementById('cmpModal').remove();
+  compareLlms(checked);
 }
 
 async function compareLlms(providers){
   const d = window.__lastResult;
   if(!d || !d.deeplink){ toast('먼저 상품을 골라 초안을 만들어주세요'); return; }
   const result = document.getElementById('result');
-  result.innerHTML = '<div class="card"><div style="text-align:center;padding:26px;color:var(--muted)">⚖️ 각 AI로 글 쓰는 중…<br><span style="font-size:12px">30초 정도 걸려요</span></div></div>';
-  try{
-    const r = await fetch('/api/compare-write',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({productName:d.productName||'', deeplink:d.deeplink, tone:(window.curTone||'friendly'), providers})});
-    const res = await r.json();
-    if(res.ok && res.results){ renderCompare(res.results, d); }
-    else { toast(res.error||'비교 실패'); result.innerHTML=''; }
-  }catch(e){ toast('비교 실패'); result.innerHTML=''; }
+  if(result) result.innerHTML = '<div class="card"><div style="text-align:center;padding:26px;color:var(--muted)">⚖️ 각 AI로 글 쓰는 중…<br><span style="font-size:12px">다른 화면 가도 계속 진행돼요</span></div></div>';
+  const jobId = 'cmp-' + Date.now();
+  const p = fetch('/api/compare-write',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({productName:d.productName||'', deeplink:d.deeplink, tone:(window.curTone||'friendly'), providers})})
+    .then(r=>r.json())
+    .then(res=>{
+      if(!res.ok || !res.results) throw new Error(res.error||'비교 실패');
+      return {results: res.results, base: d};
+    });
+  startJob(jobId, 'AI 비교', p, (res)=>{
+    // 아직 만들기 화면이면 바로 표시
+    if(document.getElementById('page-make') && !document.getElementById('page-make').classList.contains('hidden')){
+      window.__jobs[jobId].seen = true;
+      renderCompare(res.results, res.base);
+    }
+  });
 }
+
 function renderCompare(results, d){
   const result = document.getElementById('result');
   result.innerHTML = `<div style="font-size:12px;color:var(--muted);margin:4px 0 12px">⚖️ AI별 결과 — 마음에 드는 걸 고르세요</div>` +
