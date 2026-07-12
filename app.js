@@ -485,21 +485,26 @@ function renderThreads(draft, d){
   return `<div class="card">
     <div class="card-lbl">🧵 쓰레드 초안 · 본글 + 답글 5개</div>
     <div class="th-wrap">${bubbles}</div>
-    <div class="disc">💡 본글 먼저 올리고, 답글로 1→2→3→4→5 순서로 이어달면 돼요. 링크는 답글 4·5에만.</div>
+    <div class="disc">💡 아래 <b>예약/게시</b>를 쓰면 본글+답글 5개가 <b>답글체인으로 자동 발행</b>돼요.</div>
     <div id="accPicker">${renderAccountPicker('threads')}</div>
-    <div style="margin:10px 0 4px">
-      <div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.1em;margin-bottom:6px">SCHEDULE · 예약 (선택)</div>
+    <div style="margin:12px 0 4px">
+      <div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.1em;margin-bottom:8px">SCHEDULE · 예약 발행 (본글+답글 전부)</div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+        <button class="chip" onclick="quickSchedule(1,this)">1시간 뒤</button>
+        <button class="chip" onclick="quickSchedule(3,this)">3시간 뒤</button>
+        <button class="chip" onclick="quickScheduleAt(20,this)">오늘 저녁 8시</button>
+        <button class="chip" onclick="quickScheduleAt(9,this,1)">내일 아침 9시</button>
+      </div>
       <div style="display:flex;gap:8px;align-items:center">
         <input type="datetime-local" id="schedAt" style="flex:1;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px;font-size:13px">
-        <button class="btn-sm" onclick="scheduleThread(this)">⏰ 예약 게시</button>
+        <button class="btn-sm" onclick="scheduleThread(this)">⏰ 예약</button>
       </div>
     </div>
     <div class="card-actions">
-      <button class="btn btn-mint" onclick="publishToSns('threads',this)">🚀 바로 게시</button>
-      <button class="btn btn-mint" onclick="draftToThreads(this)">🧵 쓰레드에 임시저장</button>
+      <button class="btn btn-mint" onclick="publishToSns('threads',this)">🚀 지금 바로 게시</button>
+      <button class="btn btn-ghost" onclick="draftToThreads(this)">🧵 쓰레드 앱에서 쓰기</button>
       <button class="btn btn-ghost" onclick="copyText(${JSON.stringify(parts.join('\\n\\n')).replace(/"/g,'&quot;')}, this)">전체 복사</button>
       <button class="btn btn-ghost" onclick="saveDraft(this)">📥 앱에 저장</button>
-      <button class="btn btn-ghost" onclick="saveAsImage(this)">📸 이미지 저장</button>
     </div></div>`;
 }
 
@@ -1171,6 +1176,24 @@ function pickAccount(el){
   el.classList.add('on');
 }
 
+// 빠른 예약: N시간 뒤
+async function quickSchedule(hours, btn){
+  const t = new Date(Date.now() + hours*3600*1000);
+  window.__scheduleAt = t.toISOString();
+  await publishToSns('threads', btn);
+  window.__scheduleAt = null;
+}
+// 빠른 예약: 오늘/내일 특정 시각
+async function quickScheduleAt(hour, btn, addDays){
+  const t = new Date();
+  t.setDate(t.getDate() + (addDays||0));
+  t.setHours(hour, 0, 0, 0);
+  if(t <= new Date()){ t.setDate(t.getDate()+1); }   // 이미 지났으면 다음 날
+  window.__scheduleAt = t.toISOString();
+  await publishToSns('threads', btn);
+  window.__scheduleAt = null;
+}
+
 // 예약 게시 (Zernio scheduledFor)
 async function scheduleThread(btn){
   const at = document.getElementById('schedAt');
@@ -1229,11 +1252,14 @@ async function loadPosts(status, btn){
     if(!d.ok || !d.posts.length){ box.innerHTML = '<div class="empty">아직 게시물이 없어요</div>'; return; }
     box.innerHTML = d.posts.map(p=>{
       const isPub = p.status==='published';
+      const isSched = p.status==='scheduled';
       const isAuto = p.status==='autodraft';
-      const badge = isPub ? '<span class="pbadge pub">게시완료</span>' : (isAuto ? '<span class="pbadge draft">💾 자동저장</span>' : '<span class="pbadge draft">임시저장</span>');
+      const badge = isPub ? '<span class="pbadge pub">게시완료</span>'
+        : isSched ? '<span class="pbadge pub">⏰ 예약됨</span>'
+        : (isAuto ? '<span class="pbadge draft">💾 자동저장</span>' : '<span class="pbadge draft">임시저장</span>');
       const preview = esc((p.content||'').slice(0,80));
       let actions;
-      if(isPub){
+      if(isPub || isSched){
         actions = p.post_url ? `<button class="btn-sm" onclick="window.open('${p.post_url}','_blank')">글 보기 ↗</button>` : '';
       } else {
         actions = `<button class="btn-sm" onclick="editPost(${p.id},this)">✏️ 편집</button>

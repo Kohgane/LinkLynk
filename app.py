@@ -549,7 +549,7 @@ def publish_sns():
         else:
             new_id = store.save_post(session["uid"], channel, d.get("productName", ""),
                                      content, d.get("deeplink", ""), (media[0] if media else None),
-                                     status="published")
+                                     status=("scheduled" if d.get("scheduled_for") else "published"))
             if new_id:
                 store.mark_published(new_id, prof_url, str((r.get("data") or {}).get("post", {}).get("_id", "")))
         return jsonify({"ok": True, "message": "게시됐어요!", "post_url": prof_url})
