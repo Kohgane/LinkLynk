@@ -825,7 +825,7 @@ TONE_GUIDE = {
     "pov": "POV 상황극 — 특정 순간에 독자를 놓기",
 }
 
-def claude_write_thread(api_key, product_name, deeplink, tone="friendly", price=None, extra=""):
+def claude_write_thread(api_key, product_name, deeplink, tone="friendly", price=None, extra="", fast=False):
     """쓰레드 6분할 작성. ★사람다움 최우선: few-shot + 휴머나이즈 규칙 + AI티 검출 재작성."""
     if not api_key:
         return {"ok": False, "error": "no_key"}
@@ -856,6 +856,11 @@ def claude_write_thread(api_key, product_name, deeplink, tone="friendly", price=
         return {"ok": False, "error": "parse_error", "detail": str(e)[:100]}
     if len(posts) < 4:
         return {"ok": False, "error": "bad_format"}
+
+    if fast:
+        # 비교용 빠른 모드: 추가 패스 생략 (검출된 AI티만 기계적 정리)
+        posts = [scrub_ai_artifacts(str(p)) for p in posts]
+        return {"ok": True, "content": "\n===THREAD===\n".join(posts)}
 
     # ★사람다움 검증 루프: AI 티 검출되면 최대 2회까지 강제 재작성
     for _ in range(2):
@@ -947,7 +952,7 @@ def _llm_groq(api_key, sys_prompt, user_msg, max_tokens=3000):
 
 def _llm_gemini(api_key, sys_prompt, user_msg, max_tokens=1200):
     """Google Gemini — 무료 티어 (aistudio.google.com에서 키 발급)."""
-    models = ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest"]
+    models = ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash", "gemini-flash-latest"]
     last = {}
     for m in models:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={api_key}"
@@ -988,8 +993,8 @@ def _openrouter_free_models():
     if _OR_CACHE["models"] and now - _OR_CACHE["at"] < 3600:
         return _OR_CACHE["models"]
     # 선호 순서 (한국어·창작 강한 대형 우선)
-    PREFER = ["nemotron-3-ultra", "nemotron-3-super", "qwen3-next-80b", "gpt-oss-120b",
-              "llama-3.3-70b", "gemma-4-31b", "gemma-4-26b", "hy3", "nemotron-3-nano-30b"]
+    PREFER = ["llama-3.3-70b", "gpt-oss-120b", "qwen3-next-80b", "gemma-4-31b",
+              "nemotron-3-super", "gemma-4-26b", "nemotron-3-nano-30b", "hy3"]
     try:
         req = urllib.request.Request("https://openrouter.ai/api/v1/models")
         data = json.loads(urllib.request.urlopen(req, timeout=15, context=_ctx).read())
@@ -1034,7 +1039,7 @@ def _llm_openrouter(api_key, sys_prompt, user_msg, max_tokens=3000):
                 headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json",
                          "HTTP-Referer": "https://linklynk.onrender.com", "X-Title": "LinkLynk"},
                 method="POST")
-            with urllib.request.urlopen(req, timeout=90, context=_ctx) as r:
+            with urllib.request.urlopen(req, timeout=45, context=_ctx) as r:
                 data = json.loads(r.read().decode())
             text = (data.get("choices") or [{}])[0].get("message", {}).get("content", "")
             if text and text.strip():

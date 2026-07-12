@@ -398,7 +398,7 @@ def llm_list():
 @app.route("/api/compare-write", methods=["POST"])
 @login_required
 def compare_write():
-    """여러 AI로 같은 글을 써서 비교."""
+    """여러 AI로 같은 글을 써서 비교. ★병렬 호출 + 빠른모드(1패스)로 속도 확보."""
     d = request.get_json(force=True, silent=True) or {}
     product = (d.get("productName") or "").strip()
     deeplink = (d.get("deeplink") or "").strip()
@@ -411,15 +411,32 @@ def compare_write():
     targets = [p for p in providers if p in keys]
     if not targets:
         targets = [p for p in ("gemini", "groq", "openrouter") if p in keys]   # 유료(Claude) 자동 사용 안 함
+
     from core import claude_write_thread
+    import concurrent.futures as _cf
+    names = {"gemini": "Gemini (무료)", "openrouter": "OpenRouter (무료)",
+             "groq": "Groq (무료)", "anthropic": "Claude"}
+
+    def _one(p):
+        # 비교는 속도가 생명 → fast=True (1패스, 검수/폴리시 생략)
+        r = claude_write_thread(keys[p], product, deeplink, tone, price, fast=True)
+        return {"provider": p, "name": names.get(p, p),
+                "ok": r.get("ok", False), "content": r.get("content", ""),
+                "error": r.get("error", "")}
+
     results = []
-    names = {"gemini": "Gemini (무료)", "openrouter": "OpenRouter (무료)", "groq": "Groq (무료)", "anthropic": "Claude"}
-    for p in targets[:3]:
-        r = claude_write_thread(keys[p], product, deeplink, tone, price)
-        results.append({"provider": p, "name": names.get(p, p),
-                        "ok": r.get("ok", False),
-                        "content": r.get("content", ""),
-                        "error": r.get("error", "")})
+    with _cf.ThreadPoolExecutor(max_workers=4) as ex:
+        futs = {ex.submit(_one, p): p for p in targets[:4]}
+        for f in _cf.as_completed(futs, timeout=75):
+            try:
+                results.append(f.result())
+            except Exception as e:
+                p = futs[f]
+                results.append({"provider": p, "name": names.get(p, p),
+                                "ok": False, "content": "", "error": str(e)[:60]})
+    # 요청 순서대로 정렬
+    order = {p: i for i, p in enumerate(targets)}
+    results.sort(key=lambda r: order.get(r["provider"], 99))
     return jsonify({"ok": True, "results": results})
 
 
@@ -642,7 +659,10 @@ def publish_sns():
         # 게시물 URL: Zernio가 permalink를 안 주므로 계정 프로필로 연결
         prof_url = _profile_url_from_zernio(r.get("data"), platforms[0])
         if post_id:
-            store.mark_published(post_id, prof_url, str((r.get("data") or {}).get("post", {}).get("_id", "")))
+            if d.get("scheduled_for"):
+                store.mark_scheduled(post_id, str((r.get("data") or {}).get("post", {}).get("_id", "")))
+            else:
+                store.mark_published(post_id, prof_url, str((r.get("data") or {}).get("post", {}).get("_id", "")))
         else:
             new_id = store.save_post(session["uid"], channel, d.get("productName", ""),
                                      content, d.get("deeplink", ""), (media[0] if media else None),

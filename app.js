@@ -1553,7 +1553,8 @@ async function loadPosts(status, btn){
         actions = p.post_url ? `<button class="btn-sm" onclick="window.open('${p.post_url}','_blank')">글 보기 ↗</button>` : '';
       } else {
         actions = `<button class="btn-sm" onclick="editPost(${p.id},this)">✏️ 편집</button>
-          <button class="btn-sm mint" onclick="publishPost(${p.id},this)">🚀 게시</button>`;
+          <button class="btn-sm mint" onclick="publishPost(${p.id},this)">🚀 게시</button>
+          <button class="btn-sm" onclick="schedulePost(${p.id},this)">⏰ 예약</button>`;
       }
       return `<div class="post-item" id="post-${p.id}">
         <div class="post-top">${CH_LABEL(p.channel)} ${badge}</div>
@@ -1602,6 +1603,40 @@ async function publishEdited(id, btn){
     else if(res.need_connect){ toast('설정에서 SNS 연결 먼저'); go('settings'); }
     else { toast('게시 실패: '+(res.error||'')); btn.textContent='🚀 저장 후 게시'; btn.disabled=false; }
   }catch(e){ toast('게시 실패'); btn.textContent='🚀 저장 후 게시'; btn.disabled=false; }
+}
+
+// 저장된 글 예약 게시 (통계 → 내 게시물)
+function schedulePost(id, btn){
+  const item = document.getElementById('post-'+id);
+  if(!item) return;
+  const act = item.querySelector('.post-act');
+  const now = new Date(Date.now() + 3600*1000);
+  const p = n => String(n).padStart(2,'0');
+  const def = `${now.getFullYear()}-${p(now.getMonth()+1)}-${p(now.getDate())}T${p(now.getHours())}:${p(now.getMinutes())}`;
+  act.innerHTML = `<div style="width:100%">
+    <div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.1em;margin-bottom:6px">SCHEDULE</div>
+    <input type="datetime-local" id="ps-${id}" value="${def}" style="width:100%;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:10px;font-size:14px;margin-bottom:8px;color-scheme:dark">
+    <div style="display:flex;gap:6px">
+      <button class="btn-sm mint" style="flex:1" onclick="doSchedulePost(${id},this)">⏰ 이 시각에 예약</button>
+      <button class="btn-sm ghost" onclick="loadPosts('all')">취소</button>
+    </div></div>`;
+}
+async function doSchedulePost(id, btn){
+  const el = document.getElementById('ps-'+id);
+  if(!el || !el.value){ toast('시각을 골라주세요'); return; }
+  const t = new Date(el.value);
+  if(isNaN(t.getTime()) || t <= new Date()){ toast('미래 시각을 골라주세요'); return; }
+  btn.textContent='예약 중…'; btn.disabled=true;
+  try{
+    const accIds = {};
+    const picked = (window.__pickedAccount||{})['threads'];
+    if(picked) accIds['threads'] = picked;
+    const r = await fetch('/api/publish',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({post_id:id, scheduled_for:t.toISOString(), account_ids:accIds})});
+    const res = await r.json();
+    if(res.ok){ toast('예약됐어요! ⏰ 본글+답글 자동 게시'); loadPosts('all'); }
+    else { toast('예약 실패: '+(res.error||'')); btn.textContent='⏰ 이 시각에 예약'; btn.disabled=false; }
+  }catch(e){ toast('예약 실패'); btn.textContent='⏰ 이 시각에 예약'; btn.disabled=false; }
 }
 
 async function publishPost(id, btn){

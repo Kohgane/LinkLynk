@@ -181,6 +181,10 @@ def mark_published(post_id, post_url=None, post_id_ext=None):
           WHERE id=%s""", (post_url, post_id_ext, int(time.time()), post_id))
     return {"ok": True}
 
+def mark_scheduled(post_id, post_id_ext=None):
+    _q("UPDATE linklynk_posts SET status='scheduled', post_id=%s WHERE id=%s", (post_id_ext, post_id))
+    return {"ok": True}
+
 def update_post_content(uid, post_id, content):
     """임시저장 글 내용 편집 (본인 것만)."""
     _q("UPDATE linklynk_posts SET content=%s WHERE id=%s AND user_id=%s AND status IN ('draft','autodraft')",
