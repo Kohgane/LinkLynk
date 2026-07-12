@@ -94,10 +94,10 @@
   .modeToggle::-webkit-scrollbar{display:none}
   .mode{flex:0 0 auto;white-space:nowrap;font-size:12px;font-weight:600;padding:10px 14px;border-radius:var(--radius-sm);background:transparent;border:none;color:var(--muted);cursor:pointer;transition:all .18s;white-space:nowrap}
   .mode.on{background:var(--mint);color:var(--mint-ink);box-shadow:none;font-weight:700}
-  .tone-scroll{display:flex;gap:7px;overflow-x:auto;padding:2px 20px 6px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
+  .tone-scroll{display:flex;gap:7px;overflow-x:auto;padding:2px 0 6px;scrollbar-width:none;-webkit-overflow-scrolling:touch}
   .tone-scroll::-webkit-scrollbar{display:none}
   .tone-scroll .chip{flex:0 0 auto}
-  .tone-head{display:flex;align-items:center;gap:8px;padding:12px 20px 2px}
+  .tone-head{display:flex;align-items:center;gap:8px;padding:10px 0 2px}
   .tone-head .tone-lbl{font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.03em}
   .result{padding:8px 20px 0;animation:rise .3s ease}
   .card{background:var(--surface-1);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:12px;box-shadow:var(--shadow)}
@@ -185,6 +185,9 @@
   .stepper .dot{width:28px;height:28px;border-radius:50%;border:1px solid var(--line);background:var(--surface-2);display:grid;place-items:center;font-size:12px;font-weight:700;color:var(--muted);flex:0 0 auto}
   .stepper .dot.on{background:var(--mint);color:var(--mint-ink);border-color:transparent}
   .stepper .bar{flex:1;height:1px;background:var(--line)}
+  /* 스텝 카드: 각 섹션 분리 */
+  .step-card{background:var(--surface-1);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px}
+  .step-card .sec-head{margin:0 0 12px}
   .hint{font-size:12px;color:var(--text-2);margin-top:10px;padding:10px;background:var(--surface-1);border-radius:8px;line-height:1.5}
   .nia-wrap{padding-right:24px;min-height:200px}
   .nia-list{display:flex;flex-direction:column;transition:opacity .4s cubic-bezier(.22,1,.36,1)}
@@ -287,12 +290,17 @@
           <div class="sec-title">주제 → 상품 → 글, 한 번에</div>
         </div>
       </div>
-      <div class="modeToggle" style="display:flex;gap:4px;margin-bottom:14px;background:var(--surface-1);border:1px solid var(--line);border-radius:14px;padding:4px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch">
+      <div class="step-card">
+      <div class="sec-head"><div class="sec-num">1</div><div class="sec-meta"><div class="sec-kicker">Input</div><div class="sec-title">어떻게 시작할까요?</div></div></div>
+      <div class="modeToggle" style="display:flex;gap:4px;margin-bottom:0;background:var(--surface-1);border:1px solid var(--line);border-radius:14px;padding:4px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch">
         <button class="mode on" data-mode="auto" onclick="setMode(this)">간편링크 자동생성</button>
         <button class="mode" data-mode="manual" onclick="setMode(this)">링크 직접 붙여넣기</button>
         <button class="mode" data-mode="search" onclick="setMode(this)">🔍 상품 검색</button>
         <button class="mode" data-mode="topic" onclick="setMode(this)">🧠 주제부터 (AI)</button>
       </div>
+      </div>
+      <div class="step-card">
+      <div class="sec-head"><div class="sec-num">2</div><div class="sec-meta"><div class="sec-kicker">Product</div><div class="sec-title">상품·주제 정하기</div></div></div>
       <div class="pastebox" id="pasteBox">
         <textarea id="url" placeholder="쿠팡 상품 링크 붙여넣기&#10;(앱 공유링크 그대로 OK)"></textarea>
         <input id="pname" placeholder="상품 이름 (선택 — 나중에 찾기 쉬워요)" style="border:none;background:none;box-shadow:none;padding:4px 12px 8px;font-size:13.5px;color:var(--text-2)">
@@ -315,8 +323,11 @@
           <button class="btn-go" id="topicGo" onclick="doTopics()"><span class="lbl">🧠 주제 기획하기</span></button>
         </div>
       </div>
+      </div>
     </div>
-    <div class="chips">
+    <div class="step-card" style="margin:0 20px 14px">
+    <div class="sec-head"><div class="sec-num">3</div><div class="sec-meta"><div class="sec-kicker">Write</div><div class="sec-title">채널 · 말투 고르기</div></div></div>
+    <div class="chips" style="padding:0 0 4px">
       <div class="chip on" data-ch="blog" onclick="setCh(this)">블로그</div>
       <div class="chip" data-ch="insta" onclick="setCh(this)">인스타</div>
       <div class="chip" data-ch="threads" onclick="setCh(this)">쓰레드</div>
@@ -350,6 +361,7 @@
         <div class="chip" data-tone="observe" onclick="setTone(this)">🧠 구체적관찰</div>
         <div class="chip" data-tone="onlyme" onclick="setTone(this)">🧠 나만그런줄</div>
         <div class="chip" data-tone="pov" onclick="setTone(this)">🧠 POV상황극</div>
+    </div>
     </div>
     <div id="result"></div>
     <div class="sec">
@@ -467,6 +479,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="/app.js?v=1783839763"></script>
+<script src="/app.js?v=1783841923"></script>
 </body>
 </html>

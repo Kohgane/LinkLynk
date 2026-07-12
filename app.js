@@ -486,11 +486,11 @@ function renderThreads(draft, d){
     <div class="th-wrap">${bubbles}</div>
     <div class="disc">💡 본글 먼저 올리고, 답글로 1→2→3→4→5 순서로 이어달면 돼요. 링크는 답글 4·5에만.</div>
     <div class="card-actions">
-      <button class="btn btn-mint" onclick="copyText(${JSON.stringify(parts.join('\\n\\n')).replace(/"/g,'&quot;')}, this)">전체 복사</button>
       <button class="btn btn-mint" onclick="publishToSns('threads',this)">🚀 바로 게시</button>
-      <button class="btn btn-ghost" onclick="saveDraft(this)">📥 임시저장</button>
+      <button class="btn btn-mint" onclick="draftToThreads(this)">🧵 쓰레드에 임시저장</button>
+      <button class="btn btn-ghost" onclick="copyText(${JSON.stringify(parts.join('\\n\\n')).replace(/"/g,'&quot;')}, this)">전체 복사</button>
+      <button class="btn btn-ghost" onclick="saveDraft(this)">📥 앱에 저장</button>
       <button class="btn btn-ghost" onclick="saveAsImage(this)">📸 이미지 저장</button>
-      <button class="btn btn-ghost" onclick="window.open('https://threads.net','_blank')">쓰레드 열기</button>
     </div></div>`;
 }
 
@@ -1080,6 +1080,60 @@ async function saveDraft(btn){
 }
 
 // SNS 게시 (Zernio) — 실패 시 정확한 이유 표시
+// 쓰레드 앱 작성창을 본글로 채워서 열기 → 거기서 쓰레드 자체 "임시저장" 가능
+async function draftToThreads(btn){
+  const d = window.__lastResult;
+  if(!d || !d.blogDraft){ toast('⚠️ 초안이 없어요'); return; }
+  const parts = d.blogDraft.split('\n===THREAD===\n').filter(Boolean);
+  const main = parts[0] || '';
+  // 답글들은 클립보드에 (본글 저장 후 이어붙이기 편하게)
+  window.__threadReplies = parts.slice(1);
+  window.__threadReplyIdx = 0;
+  // 앱에도 자동 백업
+  try{
+    await fetch('/api/save-draft',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({channel:'threads', content:d.blogDraft, productName:d.productName||'', deeplink:d.deeplink||'', image:d.image||null})});
+  }catch(e){}
+  // 쓰레드 작성창 열기 (본글 미리 채움) → 쓰레드 앱에서 "임시저장" 누르면 진짜 쓰레드 초안됨
+  const url = 'https://www.threads.net/intent/post?text=' + encodeURIComponent(main);
+  window.open(url, '_blank');
+  toast('쓰레드 작성창이 열렸어요 → 거기서 임시저장 누르세요 🧵');
+  // 답글 복사 버튼 노출
+  showReplyHelper();
+}
+// 답글 순서대로 복사 도우미
+function showReplyHelper(){
+  const reps = window.__threadReplies || [];
+  if(!reps.length) return;
+  let box = document.getElementById('replyHelper');
+  if(!box){
+    box = document.createElement('div');
+    box.id = 'replyHelper';
+    box.style.cssText = 'position:fixed;left:16px;right:16px;bottom:80px;background:var(--surface-1);border:1px solid var(--line);border-radius:14px;padding:14px;z-index:60;box-shadow:var(--shadow)';
+    document.body.appendChild(box);
+  }
+  const i = window.__threadReplyIdx || 0;
+  if(i >= reps.length){
+    box.innerHTML = `<div style="font-size:13px;color:var(--text-2);text-align:center">답글 ${reps.length}개 다 복사했어요 ✓
+      <button class="btn-sm ghost" style="margin-left:8px" onclick="document.getElementById('replyHelper').remove()">닫기</button></div>`;
+    return;
+  }
+  box.innerHTML = `<div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.1em;margin-bottom:6px">REPLY ${i+1} / ${reps.length}</div>
+    <div style="font-size:13px;color:var(--text);line-height:1.5;max-height:60px;overflow:hidden;margin-bottom:10px">${esc(reps[i].slice(0,80))}${reps[i].length>80?'…':''}</div>
+    <div style="display:flex;gap:8px">
+      <button class="btn-sm mint" style="flex:1" onclick="copyReplyNext(this)">📋 답글 ${i+1} 복사</button>
+      <button class="btn-sm ghost" onclick="document.getElementById('replyHelper').remove()">닫기</button>
+    </div>`;
+}
+function copyReplyNext(btn){
+  const reps = window.__threadReplies || [];
+  const i = window.__threadReplyIdx || 0;
+  if(i >= reps.length) return;
+  copyText(reps[i], btn);
+  window.__threadReplyIdx = i + 1;
+  setTimeout(showReplyHelper, 600);
+}
+
 async function publishToSns(platform, btn){
   const d = window.__lastResult;
   if(!d){ toast('⚠️ 초안 데이터가 없어요 (다시 만들어주세요)'); return; }
@@ -1105,7 +1159,7 @@ async function publishToSns(platform, btn){
     }
     else if(res.need_connect){ toast('설정에서 SNS 연결 먼저'); go('settings'); btn.textContent=o; btn.disabled=false; }
     else {
-      toast('게시 실패: '+(res.error || r.status));
+      toast('게시 실패: '+(res.error || r.status) + (res.detail ? ' / '+String(res.detail).slice(0,80) : ''));
       if(res.detail) console.log('게시 실패 상세:', res.detail);
       btn.textContent=o; btn.disabled=false;
     }
