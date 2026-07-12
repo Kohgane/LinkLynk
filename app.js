@@ -692,7 +692,7 @@ async function loadProfile(){
     railEl.innerHTML = rail;
     document.body.appendChild(railEl);
     attachRailDrag();
-  }catch(e){}
+  }catch(e){ console.error('[나이아 렌더 실패]', e); }
 }
 
 // ── 나이아가라 인덱스 드래그 스크롤 + 큰 글자 오버레이 ──
@@ -984,6 +984,32 @@ async function saveAsImage(btn){
 }
 
 // AI 키 여러 개 한 번에 저장 (Gemini/OpenRouter/Claude)
+// 강제 새로고침: 서비스워커·캐시 전부 지우고 최신 받기
+async function hardRefresh(){
+  try{
+    if('serviceWorker' in navigator){
+      const rs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(rs.map(r=>r.unregister()));
+    }
+    if(window.caches){
+      const ks = await caches.keys();
+      await Promise.all(ks.map(k=>caches.delete(k)));
+    }
+  }catch(e){}
+  location.replace(location.pathname + '?fresh=' + Date.now());
+}
+// 현재 실행 중인 버전 표시 (디버깅용)
+function showBuildInfo(){
+  const el = document.getElementById('buildInfo');
+  if(!el) return;
+  const meta = document.querySelector('meta[name="build"]');
+  const build = meta ? meta.content : '알 수 없음';
+  const js = (document.querySelector('script[src*="app.js"]')||{}).src || '';
+  const v = (js.match(/v=(\d+)/)||[])[1] || '?';
+  const nia = window.__niaDelegated ? '✓ 나이아 최신' : '✗ 나이아 구버전';
+  el.innerHTML = `빌드 ${esc(build)} · JS ${esc(v)}<br><span style="color:${window.__niaDelegated?'var(--mint)':'var(--err-tx)'}">${nia}</span>`;
+}
+
 async function saveAllLlmKeys(){
   const btn = document.getElementById('claudeBtn');
   const msg = document.getElementById('claudeMsg');
