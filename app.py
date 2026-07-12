@@ -535,7 +535,8 @@ def publish_sns():
 
     r = zernio_publish(key, platforms, content, media,
                        account_ids=(d.get("account_ids") or {}),
-                       thread_items=thread_items)
+                       thread_items=thread_items,
+                       scheduled_for=d.get("scheduled_for"))
     if r.get("ok"):
         # 게시물 URL: Zernio가 permalink를 안 주므로 계정 프로필로 연결
         prof_url = _profile_url_from_zernio(r.get("data"), platforms[0])
@@ -562,7 +563,7 @@ def _publish_error_msg(r):
     if err.startswith("http_409"): return "이미 같은 내용을 게시했어요. 초안을 다시 만들면(매번 다른 글) 게시할 수 있어요."
     if err.startswith("http_429"): return "잠시 후 다시 시도해주세요. (너무 빠른 연속 게시)"
     if err.startswith("http_"): return f"게시 실패 ({err}). 잠시 후 다시 시도해주세요."
-    return "게시에 실패했어요. Zernio 연결 상태를 확인해주세요."
+    return f"게시 실패: {err or '알 수 없는 오류'} / {r.get('detail','')[:100]}"
 
 
 def _profile_url_from_zernio(data, platform):

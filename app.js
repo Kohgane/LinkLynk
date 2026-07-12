@@ -134,6 +134,7 @@ function showApp(me){
   window.__me = me;
   renderUsage(me);
   renderKeyStatus(me);
+  if(me.has_sns) loadSnsAccounts();
   // 북마클릿으로 가져온 쿠팡 이미지가 있으면 표시
   if(window.__bmkImages && window.__bmkImages.images){
     setTimeout(()=>showBmkImages(window.__bmkImages), 400);
@@ -485,6 +486,14 @@ function renderThreads(draft, d){
     <div class="card-lbl">🧵 쓰레드 초안 · 본글 + 답글 5개</div>
     <div class="th-wrap">${bubbles}</div>
     <div class="disc">💡 본글 먼저 올리고, 답글로 1→2→3→4→5 순서로 이어달면 돼요. 링크는 답글 4·5에만.</div>
+    <div id="accPicker">${renderAccountPicker('threads')}</div>
+    <div style="margin:10px 0 4px">
+      <div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.1em;margin-bottom:6px">SCHEDULE · 예약 (선택)</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="datetime-local" id="schedAt" style="flex:1;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;color:var(--text);padding:9px;font-size:13px">
+        <button class="btn-sm" onclick="scheduleThread(this)">⏰ 예약 게시</button>
+      </div>
+    </div>
     <div class="card-actions">
       <button class="btn btn-mint" onclick="publishToSns('threads',this)">🚀 바로 게시</button>
       <button class="btn btn-mint" onclick="draftToThreads(this)">🧵 쓰레드에 임시저장</button>
@@ -1080,25 +1089,23 @@ async function saveDraft(btn){
 }
 
 // SNS 게시 (Zernio) — 실패 시 정확한 이유 표시
-// 쓰레드 앱 작성창을 본글로 채워서 열기 → 거기서 쓰레드 자체 "임시저장" 가능
+// 쓰레드 앱 작성창을 열어 임시저장 (본글+답글 전부 넘김)
 async function draftToThreads(btn){
   const d = window.__lastResult;
   if(!d || !d.blogDraft){ toast('⚠️ 초안이 없어요'); return; }
   const parts = d.blogDraft.split('\n===THREAD===\n').filter(Boolean);
-  const main = parts[0] || '';
-  // 답글들은 클립보드에 (본글 저장 후 이어붙이기 편하게)
-  window.__threadReplies = parts.slice(1);
-  window.__threadReplyIdx = 0;
-  // 앱에도 자동 백업
+  // 앱에도 백업 (전체)
   try{
     await fetch('/api/save-draft',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({channel:'threads', content:d.blogDraft, productName:d.productName||'', deeplink:d.deeplink||'', image:d.image||null})});
   }catch(e){}
-  // 쓰레드 작성창 열기 (본글 미리 채움) → 쓰레드 앱에서 "임시저장" 누르면 진짜 쓰레드 초안됨
-  const url = 'https://www.threads.net/intent/post?text=' + encodeURIComponent(main);
+  // 본글+답글 전부를 작성창에 넣음 (쓰레드에서 임시저장 → 나눠 올리기)
+  const full = parts.join('\n\n---\n\n');
+  window.__threadReplies = parts.slice(1);
+  window.__threadReplyIdx = 0;
+  const url = 'https://www.threads.net/intent/post?text=' + encodeURIComponent(full);
   window.open(url, '_blank');
-  toast('쓰레드 작성창이 열렸어요 → 거기서 임시저장 누르세요 🧵');
-  // 답글 복사 버튼 노출
+  toast('쓰레드 작성창 열림 → 임시저장 누르세요 (본글+답글 전부 들어감) 🧵');
   showReplyHelper();
 }
 // 답글 순서대로 복사 도우미
@@ -1134,6 +1141,45 @@ function copyReplyNext(btn){
   setTimeout(showReplyHelper, 600);
 }
 
+// 연결된 SNS 계정 로드 (게시 대상 선택용)
+async function loadSnsAccounts(){
+  try{
+    const d = await (await fetch('/api/sns-accounts')).json();
+    window.__snsAccounts = d.accounts || [];
+  }catch(e){ window.__snsAccounts = []; }
+  return window.__snsAccounts;
+}
+// 계정 선택 칩 렌더 (플랫폼별)
+function renderAccountPicker(platform){
+  const accs = (window.__snsAccounts||[]).filter(a=>{
+    const p = a.platform === 'twitter' ? 'x' : a.platform;
+    return p === platform;
+  });
+  if(accs.length < 2) return '';   // 1개면 선택 불필요
+  const sel = (window.__pickedAccount||{})[platform] || accs[0].id;
+  return `<div style="margin:10px 0 4px">
+    <div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.1em;margin-bottom:6px">ACCOUNT · 게시할 계정</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      ${accs.map(a=>`<button class="chip ${a.id===sel?'on':''}" data-acc="${a.id}" data-plat="${platform}" onclick="pickAccount(this)">@${esc(a.username||a.name||'계정')}</button>`).join('')}
+    </div></div>`;
+}
+function pickAccount(el){
+  const plat = el.dataset.plat, id = el.dataset.acc;
+  window.__pickedAccount = window.__pickedAccount || {};
+  window.__pickedAccount[plat] = id;
+  el.parentNode.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
+  el.classList.add('on');
+}
+
+// 예약 게시 (Zernio scheduledFor)
+async function scheduleThread(btn){
+  const at = document.getElementById('schedAt');
+  if(!at || !at.value){ toast('예약 시각을 선택하세요'); return; }
+  window.__scheduleAt = new Date(at.value).toISOString();
+  await publishToSns('threads', btn);
+  window.__scheduleAt = null;
+}
+
 async function publishToSns(platform, btn){
   const d = window.__lastResult;
   if(!d){ toast('⚠️ 초안 데이터가 없어요 (다시 만들어주세요)'); return; }
@@ -1147,8 +1193,11 @@ async function publishToSns(platform, btn){
   const media = d.image ? [d.image] : [];
   const o = btn.textContent; btn.textContent='게시 중…'; btn.disabled=true;
   try{
+    const accIds = {};
+    const picked = (window.__pickedAccount||{})[platform];
+    if(picked) accIds[platform] = picked;
     const r = await fetch('/api/publish',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({platforms:[platform], content, media, channel:d.channel, productName:d.productName||'', deeplink:d.deeplink||''})});
+      body:JSON.stringify({platforms:[platform], content, media, channel:d.channel, productName:d.productName||'', deeplink:d.deeplink||'', account_ids:accIds, scheduled_for:(window.__scheduleAt||null)})});
     if(r.status===401){ toast('⚠️ 로그인이 풀렸어요. 새로고침 해주세요'); btn.textContent=o; btn.disabled=false; return; }
     const res = await r.json();
     if(res.ok){
