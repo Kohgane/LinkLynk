@@ -259,8 +259,17 @@ def save_link(uid, url, deeplink, pname, channel):
            "VALUES(%s,%s,%s,%s,%s,%s) RETURNING id",(uid,url,deeplink,pname,channel,int(time.time())),fetch="one")
     return row["id"]
 def get_user_links(uid, profile_only=False):
-    q="SELECT * FROM linklynk_links WHERE user_id=%s"+(" AND on_profile=1" if profile_only else "")+" ORDER BY position ASC, created_at DESC"
-    rows=_q(q,(uid,),fetch="all"); return [dict(r) for r in rows] if rows else []
+    """내 링크 목록. 그 링크로 게시한 글이 있으면 post_url·post_channel도 함께."""
+    q = ("SELECT l.*, "
+         "(SELECT p.post_url FROM linklynk_posts p WHERE p.user_id=l.user_id AND p.deeplink=l.deeplink "
+         " AND p.status='published' AND p.post_url IS NOT NULL ORDER BY p.published_at DESC LIMIT 1) AS post_url, "
+         "(SELECT p.channel FROM linklynk_posts p WHERE p.user_id=l.user_id AND p.deeplink=l.deeplink "
+         " AND p.status='published' ORDER BY p.published_at DESC LIMIT 1) AS post_channel "
+         "FROM linklynk_links l WHERE l.user_id=%s"
+         + (" AND l.on_profile=1" if profile_only else "")
+         + " ORDER BY l.position ASC, l.created_at DESC")
+    rows = _q(q, (uid,), fetch="all")
+    return [dict(r) for r in rows] if rows else []
 
 def get_link(link_id):
     row=_q("SELECT * FROM linklynk_links WHERE id=%s",(link_id,),fetch="one")
@@ -317,9 +326,18 @@ def get_llm_key(uid, provider):
         return None
 
 def get_llm_keys(uid):
-    """등록된 모든 LLM 키 → {provider: key}"""
+    """등록된 모든 LLM 키 → {provider: key}. 옛 키(anthropic 컬럼에 잘못 저장된 것)도 자동 교정."""
     out = {}
     for p in _KEY_COL:
         k = get_llm_key(uid, p)
         if k: out[p] = k
+    # 하위호환: anthropic 컬럼에 있는 키가 실제로는 Gemini/OpenRouter일 수 있음 → 옮김
+    legacy = out.get("anthropic")
+    if legacy:
+        real = "gemini" if legacy.startswith("AIza") else ("openrouter" if legacy.startswith("sk-or-") else "anthropic")
+        if real != "anthropic":
+            save_llm_key(uid, real, legacy)
+            _q("UPDATE linklynk_users SET anthropic_key_enc=NULL WHERE id=%s", (uid,))
+            out.pop("anthropic", None)
+            out[real] = legacy
     return out

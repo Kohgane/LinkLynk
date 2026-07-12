@@ -411,7 +411,13 @@ def claude_topics_api():
         return jsonify({"ok": False, "need_key": True,
                         "error": "설정에서 Claude API 키를 먼저 등록하세요"}), 403
     import time as _t
-    now_str = _t.strftime("%Y년 %m월 %d일 %H시 (%A)", _t.localtime())
+    from datetime import datetime, timezone, timedelta as _td
+    kst = datetime.now(timezone.utc) + _td(hours=9)   # 한국 시간 (서버는 UTC)
+    weekdays = ["월", "화", "수", "목", "금", "토", "일"]
+    ampm = "오전" if kst.hour < 12 else "오후"
+    h12 = kst.hour if kst.hour <= 12 else kst.hour - 12
+    if h12 == 0: h12 = 12
+    now_str = f"{kst.year}년 {kst.month}월 {kst.day}일 {ampm} {h12}시 ({weekdays[kst.weekday()]}요일)"
     from core import claude_generate_topics
     r = claude_generate_topics(key, user_topic, now_str, n=3)
     if r.get("ok"):
