@@ -33,6 +33,22 @@ FALLBACK_SECRET = os.environ.get("COUPANG_PT_SECRET", "")
 store.init_db()
 
 
+def _gen_draft(uid, product_name, deeplink, tone, channel, info):
+    """초안 생성. Claude 키 있으면 Claude가 직접 작성(AI스러움 제거), 없으면 템플릿."""
+    if channel == "threads":
+        try:
+            akey = store.get_anthropic_key(uid)
+        except Exception:
+            akey = None
+        if akey:
+            from core import claude_write_thread
+            price = (info or {}).get("price")
+            r = claude_write_thread(akey, product_name, deeplink, tone, price)
+            if r.get("ok"):
+                return r["content"]
+    return make_blog_draft(product_name, deeplink, tone, channel, info)
+
+
 def login_required(f):
     @wraps(f)
     def wrap(*a, **k):
@@ -662,7 +678,7 @@ def generate():
     draft = None
     ok_d, _, _ = store.check_and_bump(user["id"], "draft", user["plan"])
     if ok_d:
-        draft = make_blog_draft(product_name, deeplink, tone, channel, info)
+        draft = _gen_draft(user["id"], product_name, deeplink, tone, channel, info)
 
     store.save_link(user["id"], url, deeplink, product_name, channel)
 
@@ -704,7 +720,7 @@ def generate_manual():
     draft = None
     ok_d, _, _ = store.check_and_bump(user["id"], "draft", user["plan"])
     if ok_d:
-        draft = make_blog_draft(product_name, deeplink, tone, channel, info)
+        draft = _gen_draft(user["id"], product_name, deeplink, tone, channel, info)
     store.save_link(user["id"], "", deeplink, product_name, channel)
     naver_html = build_naver_html(product_name, deeplink, draft, info) if draft else None
     return jsonify({"ok": True, "deeplink": deeplink, "disclosure": COUPANG_DISCLOSURE,

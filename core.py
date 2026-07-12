@@ -910,3 +910,81 @@ def search_images(keyword, limit=12):
     if imgs:
         return {"ok": True, "images": imgs, "source": src}
     return {"ok": False, "error": "no_results (ddg+bing 실패)"}
+
+
+# ── Claude가 직접 쓰레드 글 작성 (템플릿 아님 → 제품마다 완전히 다른 글) ──
+TONE_GUIDE = {
+    "friendly": "친근한 존댓말", "polite": "정중한 존댓말",
+    "expert": "전문가 톤, 단정적", "casual": "반말 솔직담백",
+    "excited": "텐션 높은 반말", "minimal": "아주 짧고 건조한 단문",
+    "story": "경험담 서사체", "curious": "질문형 호기심 유발",
+    "warm": "다정하고 따뜻한 존댓말", "witty": "위트있는 자조 섞인 반말",
+    "honest": "내돈내산 찐후기, 장단점 다 말함", "trendy": "MZ 인터넷 밈 말투",
+    "calm": "차분하고 담백한 존댓말", "urgent": "지금 아니면 늦는다는 긴박함",
+    "friend": "친구한테 말하듯 반말",
+    "gap": "정보격차 — '진짜 원인은 따로 있다'로 궁금증 유발, 답글에서 반드시 해소",
+    "loss": "손실회피 — '싼 거 여러 번 사다 결국 더 비쌌다'는 후회 프레임",
+    "amplify": "문제증폭 — 작은 증상 방치하면 커진다(과장·공포조장 금지, 실제 공감만)",
+    "social": "사회적증거 — '요즘 조용히 다들 쓰더라'",
+    "parent": "부모 공감 — 실재하는 육아 걱정에 공감하고 안심시킴(불안 조장 금지)",
+    "reverse": "통념반전 — '비쌀수록 좋을 줄 알았는데 아니더라'",
+    "overshare": "정밀 오버셰어링 — 아주 구체적이고 사적인 순간 고백",
+    "observe": "구체적 관찰 — 디테일한 순간 묘사로 몰입",
+    "onlyme": "나만그런줄 — '나만 불편한 줄 알았는데 다들 그렇더라'",
+    "pov": "POV 상황극 — 특정 순간에 독자를 놓기",
+}
+
+def claude_write_thread(api_key, product_name, deeplink, tone="friendly", price=None, extra=""):
+    """Claude가 쓰레드 6분할(본글+답글5)을 직접 작성. 템플릿 아님."""
+    if not api_key:
+        return {"ok": False, "error": "no_key"}
+    tone_desc = TONE_GUIDE.get(tone, TONE_GUIDE["friendly"])
+    price_line = f"가격: {int(price):,}원\n" if price else ""
+    sys_prompt = (
+        "너는 쿠팡 파트너스 쓰레드(Threads) 글을 쓰는 한국인 크리에이터다.\n"
+        "★절대 원칙: AI가 쓴 티가 나면 실패다. 광고 문구, 상투적 표현, 과장 금지.\n"
+        "★사람이 실제로 겪은 구체적 순간에서 시작해라. 제품 설명이 아니라 '상황'이 먼저다.\n"
+        "★훅처럼 들리는 훅은 최악이다. 담백하게 툭 던져라.\n"
+        "구조: 본글 1개 + 답글 5개. 본글에는 링크 절대 넣지 마라(노출 저하).\n"
+        "답글1~3: 공감 → 원인/발견 → 변화. 답글4: 링크+고지문구. 답글5: 마무리+링크+해시태그 3개.\n"
+        "답글4에 반드시 '(광고) 쿠팡파트너스 활동으로 수수료를 받습니다' 포함.\n"
+        "각 글은 2~3줄 이내로 짧게(쓰레드는 짧은 호흡).\n"
+        '출력은 JSON만: {"posts":["본글","답글1","답글2","답글3","답글4","답글5"]}'
+    )
+    user_msg = (
+        f"상품: {product_name}\n{price_line}링크: {deeplink}\n"
+        f"말투/심리기제: {tone_desc}\n"
+        f"{('추가 요청: '+extra) if extra else ''}\n\n"
+        "이 상품에만 해당하는 구체적 상황·디테일로 써라. "
+        "다른 상품에 그대로 갖다 써도 말이 되는 글이면 실패다."
+    )
+    models = ["claude-haiku-4-5-20251001", "claude-sonnet-4-6", "claude-sonnet-5"]
+    last = {}
+    for model in models:
+        payload = {"model": model, "max_tokens": 1200, "temperature": 1.0,
+                   "system": sys_prompt, "messages": [{"role": "user", "content": user_msg}]}
+        try:
+            req = urllib.request.Request("https://api.anthropic.com/v1/messages",
+                data=json.dumps(payload).encode(),
+                headers={"x-api-key": api_key, "anthropic-version": "2023-06-01",
+                         "content-type": "application/json"}, method="POST")
+            with urllib.request.urlopen(req, timeout=60, context=_ctx) as r:
+                data = json.loads(r.read().decode())
+            text = "".join(b.get("text", "") for b in data.get("content", []) if b.get("type") == "text").strip()
+            if text.startswith("```"):
+                text = re.sub(r"^```(?:json)?\s*|\s*```$", "", text).strip()
+            posts = json.loads(text).get("posts", [])
+            if len(posts) >= 4:
+                return {"ok": True, "content": "\n===THREAD===\n".join(p.strip() for p in posts)}
+            last = {"ok": False, "error": "bad_format"}
+        except urllib.error.HTTPError as e:
+            detail = ""
+            try: detail = e.read().decode()[:200]
+            except Exception: pass
+            last = {"ok": False, "error": f"http_{e.code}", "detail": detail}
+            if e.code in (401, 403): return last
+            continue
+        except Exception as e:
+            last = {"ok": False, "error": str(e)[:120]}
+            continue
+    return last
