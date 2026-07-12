@@ -34,6 +34,8 @@ def init_db():
     except Exception: pass
     try: _q("ALTER TABLE linklynk_users ADD COLUMN IF NOT EXISTS anthropic_key_enc TEXT")
     except Exception: pass
+    try: _q("ALTER TABLE linklynk_users ADD COLUMN IF NOT EXISTS linked_emails TEXT")
+    except Exception: pass
     _q("""CREATE TABLE IF NOT EXISTS linklynk_usage(
         user_id BIGINT, month TEXT, link_count INTEGER DEFAULT 0, draft_count INTEGER DEFAULT 0,
         PRIMARY KEY(user_id, month));""")
@@ -74,14 +76,20 @@ def create_user(email, password, handle=None, display_name=None):
         return {"ok": False, "error": "가입 처리 중 오류가 발생했습니다"}
 
 def get_or_create_oauth_user(email, provider, display_name=None):
-    """소셜 로그인: 이메일로 기존 유저 찾거나 새로 만듦 (비밀번호 없음)."""
+    """소셜 로그인: 기존 유저(본 이메일 또는 연결된 이메일)를 찾거나 새로 만듦.
+    ★같은 사람이 여러 소셜로 로그인해도 하나의 계정으로 통합."""
     email = (email or "").strip().lower()
     if not email or "@" not in email:
         return None
+    # 1) 본 이메일로 찾기
     row = _q("SELECT * FROM linklynk_users WHERE email=%s", (email,), fetch="one")
     if row:
         return dict(row)
-    # 새 유저 (pw_hash는 소셜 마커)
+    # 2) 연결된 이메일(linked_emails)로 찾기 → 통합 계정
+    row = _q("SELECT * FROM linklynk_users WHERE linked_emails LIKE %s", (f"%{email}%",), fetch="one")
+    if row:
+        return dict(row)
+    # 3) 새 유저
     try:
         r = _q("INSERT INTO linklynk_users(email,pw_hash,handle,display_name,created_at) "
                "VALUES(%s,%s,%s,%s,%s) RETURNING id",
@@ -91,6 +99,17 @@ def get_or_create_oauth_user(email, provider, display_name=None):
     except Exception:
         row = _q("SELECT * FROM linklynk_users WHERE email=%s", (email,), fetch="one")
         return dict(row) if row else None
+
+def link_email(uid, email):
+    """현재 계정에 다른 이메일(소셜) 연결 → 그 소셜로 로그인해도 이 계정으로."""
+    email = (email or "").strip().lower()
+    row = _q("SELECT linked_emails FROM linklynk_users WHERE id=%s", (uid,), fetch="one")
+    cur = (row or {}).get("linked_emails") or ""
+    emails = [e for e in cur.split(",") if e.strip()]
+    if email not in emails:
+        emails.append(email)
+    _q("UPDATE linklynk_users SET linked_emails=%s WHERE id=%s", (",".join(emails), uid))
+    return {"ok": True, "linked": emails}
 
 def auth_user(email, password):
     row = _q("SELECT * FROM linklynk_users WHERE email=%s", (email,), fetch="one")

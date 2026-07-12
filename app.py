@@ -220,7 +220,11 @@ def oauth_callback(provider):
         email, name = _extract_oauth_email(provider, uinfo)
         if not email:
             return redirect("/?login_error=noemail")
-        # 3) 유저 생성/로그인
+        # ★이미 로그인 중이면 → 현재 계정에 이 소셜 이메일을 연결 (계정 통합)
+        if session.get("uid"):
+            store.link_email(session["uid"], email)
+            return redirect("/?linked=1")
+        # 3) 유저 생성/로그인 (연결된 이메일도 확인)
         u = store.get_or_create_oauth_user(email, provider, display_name=name)
         if not u:
             return redirect("/?login_error=create")
