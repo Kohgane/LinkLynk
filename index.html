@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta name="build" content="0712-1135">
+<meta name="build" content="0712-1153">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -251,6 +251,63 @@
   .tab.on .tab-ic{animation:pop .3s cubic-bezier(.34,1.56,.64,1)}
   @keyframes pop{0%{transform:scale(1)}50%{transform:scale(1.2)}100%{transform:scale(1)}}
   @media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+  /* ── 고급화 폴리시 (구조 유지, 질감만 향상) ── */
+  body{background:radial-gradient(1200px 600px at 50% -10%, #16171A 0%, var(--bg) 60%) fixed}
+  .card, .step-card{
+    background:linear-gradient(180deg, rgba(255,255,255,.028), rgba(255,255,255,.008));
+    border:1px solid rgba(255,255,255,.07);
+    box-shadow:0 1px 0 rgba(255,255,255,.04) inset, 0 10px 30px rgba(0,0,0,.35);
+    backdrop-filter:saturate(120%);
+  }
+  .sec-num{
+    background:linear-gradient(180deg, rgba(255,255,255,.10), rgba(255,255,255,.02));
+    border:1px solid rgba(255,255,255,.10);
+    box-shadow:0 1px 0 rgba(255,255,255,.06) inset;
+    color:var(--text);
+  }
+  .sec-kicker{color:#8A8B92;letter-spacing:.16em}
+  .sec-title{letter-spacing:-.01em}
+  .btn-mint, .btn.btn-mint{
+    background:linear-gradient(180deg,#FFFFFF,#E6E7EA);
+    color:#0A0A0B;border:none;
+    box-shadow:0 1px 0 rgba(255,255,255,.7) inset, 0 6px 18px rgba(0,0,0,.35);
+    letter-spacing:-.01em;
+  }
+  .btn-mint:active{transform:translateY(1px)}
+  .chip{
+    background:linear-gradient(180deg, rgba(255,255,255,.05), rgba(255,255,255,.02));
+    border:1px solid rgba(255,255,255,.08);
+    letter-spacing:-.01em;
+  }
+  .chip.on{
+    background:linear-gradient(180deg,#FFFFFF,#E9EAEC);
+    color:#0A0A0B;border-color:transparent;
+    box-shadow:0 1px 0 rgba(255,255,255,.7) inset, 0 4px 14px rgba(0,0,0,.3);
+  }
+  .stepper .dot{
+    background:linear-gradient(180deg, rgba(255,255,255,.06), rgba(255,255,255,.02));
+    border:1px solid rgba(255,255,255,.09);
+  }
+  .stepper .dot.on{
+    background:linear-gradient(180deg,#FFFFFF,#E9EAEC);color:#0A0A0B;border-color:transparent;
+    box-shadow:0 4px 14px rgba(0,0,0,.35);
+  }
+  .stepper .bar{background:linear-gradient(90deg, rgba(255,255,255,.14), rgba(255,255,255,.05))}
+  input, textarea{
+    background:rgba(255,255,255,.035)!important;
+    border:1px solid rgba(255,255,255,.08)!important;
+    transition:border-color .18s, background .18s;
+  }
+  input:focus, textarea:focus{
+    border-color:rgba(255,255,255,.22)!important;
+    background:rgba(255,255,255,.05)!important;
+    outline:none;
+  }
+  .tabbar{backdrop-filter:blur(18px) saturate(140%);background:rgba(10,10,11,.72);border-top:1px solid rgba(255,255,255,.07)}
+  .logo{letter-spacing:-.02em}
+  .av{background:linear-gradient(180deg,#FFFFFF,#DCDDE0);color:#0A0A0B;box-shadow:0 4px 14px rgba(0,0,0,.35)}
+  .nia-rail span.on{color:#FFFFFF}
+  .nia-rail span.cur{color:#FFFFFF!important}
 </style>
 </head>
 <body>
@@ -483,7 +540,13 @@
           openrouter.ai/keys → 무료 모델(:free)만 사용
         </div>
 
-        <div class="field"><label>③ Claude — 유료</label>
+        <div class="field"><label>③ Groq — 무료 (초고속)</label>
+          <input id="k_groq" placeholder="gsk_…" autocomplete="off"></div>
+        <div style="font-size:11px;color:var(--muted);margin:-6px 0 12px;line-height:1.5">
+          console.groq.com/keys → 무료 발급. Llama 3.3 70B 등
+        </div>
+
+        <div class="field"><label>④ Claude — 유료 💰</label>
           <input id="k_anthropic" placeholder="sk-ant-…" autocomplete="off"></div>
         <div style="font-size:11px;color:var(--muted);margin:-6px 0 14px;line-height:1.5">
           크레딧 필요. 안 넣어도 돼요.
@@ -515,6 +578,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="/app.js?v=1783856152"></script>
+<script src="/app.js?v=1783857183"></script>
 </body>
 </html>

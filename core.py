@@ -868,9 +868,38 @@ def claude_write_thread(api_key, product_name, deeplink, tone="friendly", price=
             break
         posts = fixed
 
+    # 3패스: 최종 다듬기 (구체성·리듬 강화)
+    polished = _polish_pass(api_key, product_name, tone_desc, posts)
+    if polished:
+        posts = polished
     # 남은 AI 티는 기계적으로 정리
     posts = [scrub_ai_artifacts(str(p)) for p in posts]
     return {"ok": True, "content": "\n===THREAD===\n".join(posts)}
+
+
+def _polish_pass(api_key, product_name, tone_desc, posts):
+    """3패스: 마지막 다듬기 — 구체성·리듬·훅 강도를 한 단계 올린다."""
+    sys_p = (
+        "너는 최고의 한국어 카피 에디터다. 아래 쓰레드 글을 '한 단계 더' 끌어올려라.\n"
+        "할 일:\n"
+        "1) 본글 첫 문장을 더 구체적인 장면으로 (숫자·시간·행동이 보이게).\n"
+        "2) 뻔한 문장을 하나 골라 그 사람만의 디테일로 교체.\n"
+        "3) 문장 리듬을 다양하게 (짧은 문장 하나는 반드시).\n"
+        "4) 답글5는 여운을 남기며 끝내라. 설명하지 마라.\n"
+        "절대 하지 말 것: 광고 문구 추가, 과장, 이모지 늘리기, 문장 길이 균일화.\n"
+        "구조(본글+답글5)와 링크·고지문구는 그대로.\n"
+        + HUMANIZE_RULES +
+        '\n출력은 JSON만: {"posts":["본글","답글1","답글2","답글3","답글4","답글5"]}'
+    )
+    user_p = f"상품: {product_name}\n말투: {tone_desc}\n\n원문:\n{json.dumps({'posts': posts}, ensure_ascii=False)}"
+    r = llm_chat(api_key, sys_p, user_p, max_tokens=3000)
+    if not r.get("ok"):
+        return None
+    try:
+        out = _parse_json_out(r["text"]).get("posts", [])
+        return out if len(out) >= 4 else None
+    except Exception:
+        return None
 
 
 # ── 무료 LLM 지원: 키 접두어로 제공자 자동 감지 ──
@@ -879,13 +908,46 @@ def detect_llm_provider(api_key):
     k = (api_key or "").strip()
     if k.startswith("AIza"): return "gemini"
     if k.startswith("sk-or-"): return "openrouter"
+    if k.startswith("gsk_"): return "groq"          # Groq — 무료·초고속
     if k.startswith("sk-ant-"): return "anthropic"
     return "unknown"
 
 
+def _llm_groq(api_key, sys_prompt, user_msg, max_tokens=3000):
+    """Groq — 무료 티어 (console.groq.com). Llama 4 / Qwen 등 고성능."""
+    models = ["llama-3.3-70b-versatile", "qwen/qwen3-32b", "llama-3.1-8b-instant"]
+    last = {}
+    for m in models:
+        payload = {"model": m, "max_tokens": max_tokens, "temperature": 1.0,
+                   "messages": [{"role": "system", "content": sys_prompt},
+                                {"role": "user", "content": user_msg}],
+                   "response_format": {"type": "json_object"}}
+        try:
+            req = urllib.request.Request("https://api.groq.com/openai/v1/chat/completions",
+                data=json.dumps(payload).encode(),
+                headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
+                method="POST")
+            with urllib.request.urlopen(req, timeout=60, context=_ctx) as r:
+                data = json.loads(r.read().decode())
+            text = (data.get("choices") or [{}])[0].get("message", {}).get("content", "")
+            if text and text.strip():
+                return {"ok": True, "text": text.strip(), "model": m}
+            last = {"ok": False, "error": "empty"}
+        except urllib.error.HTTPError as e:
+            detail = ""
+            try: detail = e.read().decode()[:200]
+            except Exception: pass
+            last = {"ok": False, "error": f"http_{e.code}", "detail": detail}
+            if e.code in (401, 403): return last
+            continue
+        except Exception as e:
+            last = {"ok": False, "error": str(e)[:120]}; continue
+    return last
+
+
 def _llm_gemini(api_key, sys_prompt, user_msg, max_tokens=1200):
     """Google Gemini — 무료 티어 (aistudio.google.com에서 키 발급)."""
-    models = ["gemini-2.5-flash", "gemini-2.0-flash", "gemini-2.5-pro", "gemini-flash-latest"]
+    models = ["gemini-2.5-pro", "gemini-2.5-flash", "gemini-2.0-flash", "gemini-flash-latest"]
     last = {}
     for m in models:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={api_key}"
@@ -1023,8 +1085,9 @@ def llm_chat(api_key, sys_prompt, user_msg, max_tokens=1200):
     p = detect_llm_provider(api_key)
     if p == "gemini": return _llm_gemini(api_key, sys_prompt, user_msg, max_tokens)
     if p == "openrouter": return _llm_openrouter(api_key, sys_prompt, user_msg, max_tokens)
+    if p == "groq": return _llm_groq(api_key, sys_prompt, user_msg, max_tokens)
     if p == "anthropic": return _llm_anthropic(api_key, sys_prompt, user_msg, max_tokens)
-    return {"ok": False, "error": "unknown_key", "detail": "키 형식을 알 수 없어요 (AIza… / sk-or-… / sk-ant-…)"}
+    return {"ok": False, "error": "unknown_key", "detail": "키 형식을 알 수 없어요 (AIza… / sk-or-… / gsk_… / sk-ant-…)"}
 
 
 def _parse_json_out(text):

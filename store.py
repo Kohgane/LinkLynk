@@ -40,6 +40,8 @@ def init_db():
     except Exception: pass
     try: _q("ALTER TABLE linklynk_users ADD COLUMN IF NOT EXISTS openrouter_key_enc TEXT")
     except Exception: pass
+    try: _q("ALTER TABLE linklynk_users ADD COLUMN IF NOT EXISTS groq_key_enc TEXT")
+    except Exception: pass
     _q("""CREATE TABLE IF NOT EXISTS linklynk_usage(
         user_id BIGINT, month TEXT, link_count INTEGER DEFAULT 0, draft_count INTEGER DEFAULT 0,
         PRIMARY KEY(user_id, month));""")
@@ -306,7 +308,7 @@ if __name__=="__main__":
 
 
 # ── 제공자별 LLM 키 (Gemini/OpenRouter/Claude 각각 저장 → 비교 가능) ──
-_KEY_COL = {"gemini": "gemini_key_enc", "openrouter": "openrouter_key_enc", "anthropic": "anthropic_key_enc"}
+_KEY_COL = {"gemini": "gemini_key_enc", "openrouter": "openrouter_key_enc", "groq": "groq_key_enc", "anthropic": "anthropic_key_enc"}
 
 def save_llm_key(uid, provider, key):
     col = _KEY_COL.get(provider)

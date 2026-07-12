@@ -697,10 +697,12 @@ async function loadProfile(){
 
 // ── 나이아가라 인덱스 드래그 스크롤 + 큰 글자 오버레이 ──
 function attachRailDrag(){
-  const rail = document.querySelector('#nia-rail-fixed .nia-rail') || document.querySelector('.nia-rail');
+  // ★DOM을 매번 새로 읽는다 (레일이 재생성돼도 옛 노드를 붙잡지 않게)
+  const getRail = () => document.querySelector('#nia-rail-fixed .nia-rail');
+  const getSpans = () => { const r = getRail(); return r ? [...r.querySelectorAll('span')] : []; };
+  const getList = () => document.querySelector('.nia-list');
+  const rail = getRail();
   if(!rail) return;
-  const spans = [...rail.querySelectorAll('span')];
-  const list = document.querySelector('.nia-list');
   let active=false, lastKey=null, rafId=null;
   let lastActiveKey=null;   // 마지막으로 멈춘 활성 초성 (손 떼면 유지)
   let targetY=0, smoothY=0;
@@ -713,7 +715,7 @@ function attachRailDrag(){
     const peakScale = 2.0 + big*1.0;      // 2.0(이동중)~3.0(멈춤) 부드럽게
     const sigmaWide = 82;                 // 아주 완만한 넓은 활
     const sigmaPeak = 24;                 // 정점
-    spans.forEach(s=>{
+    getSpans().forEach(s=>{
       const r = s.getBoundingClientRect();
       const cy = (r.top + r.bottom)/2;
       const dist = Math.abs(cy - y);
@@ -728,11 +730,11 @@ function attachRailDrag(){
       s.style.zIndex = gPeak>0.4 ? 6 : '';
     });
   }
-  function reset(){ spans.forEach(s=>{ s.style.transform=''; s.style.opacity=''; s.style.color=''; s.style.zIndex=''; }); }
+  function reset(){ getSpans().forEach(s=>{ s.style.transform=''; s.style.opacity=''; s.style.color=''; s.style.zIndex=''; }); }
 
   function nearest(y){
     let best=null,bd=1e9;
-    for(const s of spans){ const r=s.getBoundingClientRect(); const d=Math.abs((r.top+r.bottom)/2-y); if(d<bd){bd=d;best=s;} }
+    for(const s of getSpans()){ const r=s.getBoundingClientRect(); const d=Math.abs((r.top+r.bottom)/2-y); if(d<bd){bd=d;best=s;} }
     return best;
   }
 
@@ -741,6 +743,8 @@ function attachRailDrag(){
   function showList(show){
     if(!list || listShown===show) return;
     listShown = show;
+    const list = getList();
+    if(!list) return;
     list.classList.remove('idle');
     list.style.transition = 'opacity .22s cubic-bezier(.22,1,.36,1)';
     list.style.opacity = show ? '1' : '0';
@@ -749,6 +753,7 @@ function attachRailDrag(){
   // 나이아가라: 드래그한 초성 그룹만 보이게, 나머지는 숨김
   let shownGroup = undefined;
   function showGroup(key){
+    const list = getList();
     if(!list || shownGroup===key) return;
     shownGroup = key;
     list.style.display=''; list.style.flexDirection='';
@@ -829,7 +834,7 @@ function attachRailDrag(){
   // 가장 가까운 '활성(상품 있는)' 초성 찾기
   function nearestActiveKey(y){
     let best=null, bd=1e9;
-    for(const s of spans){
+    for(const s of getSpans()){
       if(!s.classList.contains('on')) continue;
       const r=s.getBoundingClientRect();
       const d=Math.abs((r.top+r.bottom)/2 - y);
@@ -856,10 +861,12 @@ function attachRailDrag(){
     } else {
       showByViews();
     }
+    const list = getList();
     if(list){ list.classList.remove('idle'); list.style.opacity=''; }
   }
   // 조회수 높은 순 전체 표시 (손 뗐을 때)
   function showByViews(){
+    const list = getList();
     if(!list) return;
     shownGroup = '__views__';
     const labels = list.querySelectorAll('.nia-glabel');
@@ -877,7 +884,7 @@ function attachRailDrag(){
   // 풀림 전용 렌더 (기존 곡선을 ease배 축소)
   function renderDamped(y, ease){
     const sigmaWide=78, sigmaPeak=22;
-    spans.forEach(s=>{
+    getSpans().forEach(s=>{
       const r=s.getBoundingClientRect();
       const cy=(r.top+r.bottom)/2;
       const dist=Math.abs(cy-y);
@@ -1017,6 +1024,7 @@ async function saveAllLlmKeys(){
   const fields = [
     {id:'k_gemini', name:'Gemini'},
     {id:'k_openrouter', name:'OpenRouter'},
+    {id:'k_groq', name:'Groq'},
     {id:'k_anthropic', name:'Claude'},
   ];
   const toSave = fields.map(f=>({...f, val:(document.getElementById(f.id)?.value||'').trim()})).filter(f=>f.val);
@@ -1055,7 +1063,7 @@ async function saveClaudeKey(){
 function renderClaude(me){
   const el = document.getElementById('claudeStatus');
   if(!el) return;
-  const names = {gemini:'Gemini (무료)', openrouter:'OpenRouter (무료)', anthropic:'Claude'};
+  const names = {gemini:'Gemini (무료)', openrouter:'OpenRouter (무료)', groq:'Groq (무료)', anthropic:'Claude'};
   const provs = (me.llm_providers||[]).map(p=>names[p]||p);
   el.innerHTML = provs.length ? '<span style="color:var(--mint)">✓ 연결됨: '+provs.join(' · ')+'</span>' : '연결 안 됨';
   // 북마클릿 코드 설정 (쿠팡 상세이미지 긁어서 우리 앱으로 — URL 파라미터 전달)
@@ -1314,7 +1322,7 @@ function fillDefaultSchedule(){
   at.min = at.value;
 }
 
-// AI 툴 선택·비교 (등록된 AI만 표시)
+// AI 툴 선택 (등록된 AI만 표시). 유료(Claude)는 명시적으로 골라야만 사용
 async function renderLlmPicker(){
   const box = document.getElementById('llmPicker');
   if(!box) return;
@@ -1322,36 +1330,54 @@ async function renderLlmPicker(){
   try{ const d = await (await fetch('/api/llm-list')).json(); list = d.providers || []; }catch(e){}
   if(!list.length){ box.innerHTML = ''; return; }
   window.__llmList = list;
-  if(!window.__llmPick) window.__llmPick = list[0].id;
+  // 기본 선택: 무료 우선 (Claude 자동 선택 안 함 = 돈 안 나감)
+  if(!window.__llmPick || !list.some(p=>p.id===window.__llmPick)){
+    const free = list.find(p=>p.id==='gemini') || list.find(p=>p.id==='openrouter');
+    window.__llmPick = (free || list[0]).id;
+  }
+  const PAID = {anthropic:true};
   box.innerHTML = `<div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.1em;margin-bottom:6px">AI · 글 쓰는 도구</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-      ${list.map(p=>`<button class="chip ${p.id===window.__llmPick?'on':''}" onclick="pickLlm('${p.id}',this)">${esc(p.name)}</button>`).join('')}
-      ${list.length>1?`<button class="chip" onclick="compareLlms(this)">⚖️ 둘 다 비교</button>`:''}
-    </div>`;
+      ${list.map(p=>`<button class="chip ${p.id===window.__llmPick?'on':''}" onclick="pickLlm('${p.id}',this)">${esc(p.name)}${PAID[p.id]?' 💰':''}</button>`).join('')}
+      ${list.length>1?`<button class="chip" onclick="openCompare()">⚖️ 비교</button>`:''}
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:6px">💰 = 유료(호출 시 과금). 선택한 도구로만 글을 씁니다.</div>`;
 }
 function pickLlm(id, el){
+  if(id==='anthropic' && !confirm('Claude는 유료예요. 호출할 때마다 크레딧이 차감됩니다.\n그래도 사용할까요?')) return;
   window.__llmPick = id;
   el.parentNode.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
   el.classList.add('on');
-  // 이미 초안 있으면 그 AI로 재생성
   const d = window.__lastResult;
   if(d && d.deeplink) regenForChannel(d.deeplink, d.productName||'');
 }
-// 여러 AI로 같은 글 써서 비교
-async function compareLlms(btn){
+// 비교할 AI를 직접 고르게
+function openCompare(){
+  const list = window.__llmList || [];
+  if(list.length < 2){ toast('AI를 2개 이상 등록하세요'); return; }
+  const free = list.filter(p=>p.id!=='anthropic');
+  const names = list.map((p,i)=>`${i+1}. ${p.name}${p.id==='anthropic'?' (유료 💰)':''}`).join('\n');
+  const sel = prompt(`비교할 AI 번호를 쉼표로 (예: 1,2)\n\n${names}`, free.map(p=>list.indexOf(p)+1).join(','));
+  if(!sel) return;
+  const idx = sel.split(',').map(x=>parseInt(x.trim())-1).filter(i=>i>=0 && i<list.length);
+  if(idx.length < 2){ toast('2개 이상 골라주세요'); return; }
+  const picked = idx.map(i=>list[i]);
+  if(picked.some(p=>p.id==='anthropic') && !confirm('Claude가 포함됐어요. 유료 호출이 발생합니다. 계속할까요?')) return;
+  compareLlms(picked.map(p=>p.id));
+}
+
+async function compareLlms(providers){
   const d = window.__lastResult;
   if(!d || !d.deeplink){ toast('먼저 상품을 골라 초안을 만들어주세요'); return; }
-  const o = btn.textContent; btn.textContent='비교 중…'; btn.disabled=true;
   const result = document.getElementById('result');
   result.innerHTML = '<div class="card"><div style="text-align:center;padding:26px;color:var(--muted)">⚖️ 각 AI로 글 쓰는 중…<br><span style="font-size:12px">30초 정도 걸려요</span></div></div>';
   try{
     const r = await fetch('/api/compare-write',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({productName:d.productName||'', deeplink:d.deeplink, tone:(window.curTone||'friendly'), providers:(window.__llmList||[]).map(p=>p.id)})});
+      body:JSON.stringify({productName:d.productName||'', deeplink:d.deeplink, tone:(window.curTone||'friendly'), providers})});
     const res = await r.json();
     if(res.ok && res.results){ renderCompare(res.results, d); }
     else { toast(res.error||'비교 실패'); result.innerHTML=''; }
   }catch(e){ toast('비교 실패'); result.innerHTML=''; }
-  btn.textContent=o; btn.disabled=false;
 }
 function renderCompare(results, d){
   const result = document.getElementById('result');

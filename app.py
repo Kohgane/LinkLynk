@@ -63,9 +63,11 @@ def _gen_draft(uid, product_name, deeplink, tone, channel, info, provider=None):
             akey = keys[provider]
         elif keys:
             # 선호: gemini > openrouter > anthropic (무료 우선)
-            for p in ("gemini", "openrouter", "anthropic"):
+            for p in ("gemini", "groq", "openrouter"):   # 유료(anthropic)는 자동 선택 안 함
                 if p in keys:
                     akey = keys[p]; break
+            if not akey and "anthropic" in keys and provider == "anthropic":
+                akey = keys["anthropic"]
         if akey:
             from core import claude_write_thread
             price = (info or {}).get("price")
@@ -380,7 +382,7 @@ def save_anthropic_key_api():
     store.save_llm_key(session["uid"], p, key)
     if p == "anthropic":
         store.save_anthropic_key(session["uid"], key)   # 하위호환
-    names = {"gemini": "Google Gemini (무료)", "openrouter": "OpenRouter (무료)", "anthropic": "Claude"}
+    names = {"gemini": "Google Gemini (무료)", "openrouter": "OpenRouter (무료)", "groq": "Groq (무료)", "anthropic": "Claude"}
     return jsonify({"ok": True, "provider": p, "message": f"{names[p]} 연결됐어요"})
 
 
@@ -389,7 +391,7 @@ def save_anthropic_key_api():
 def llm_list():
     """등록된 AI 목록 (글쓰기 툴 선택·비교용)."""
     keys = store.get_llm_keys(session["uid"])
-    names = {"gemini": "Gemini (무료)", "openrouter": "OpenRouter (무료)", "anthropic": "Claude"}
+    names = {"gemini": "Gemini (무료)", "openrouter": "OpenRouter (무료)", "groq": "Groq (무료)", "anthropic": "Claude"}
     return jsonify({"ok": True, "providers": [{"id": p, "name": names[p]} for p in keys]})
 
 
@@ -406,10 +408,12 @@ def compare_write():
     keys = store.get_llm_keys(session["uid"])
     if not keys:
         return jsonify({"ok": False, "need_key": True, "error": "설정에서 AI 키를 먼저 등록하세요"}), 403
-    targets = [p for p in providers if p in keys] or list(keys.keys())
+    targets = [p for p in providers if p in keys]
+    if not targets:
+        targets = [p for p in ("gemini", "groq", "openrouter") if p in keys]   # 유료(Claude) 자동 사용 안 함
     from core import claude_write_thread
     results = []
-    names = {"gemini": "Gemini (무료)", "openrouter": "OpenRouter (무료)", "anthropic": "Claude"}
+    names = {"gemini": "Gemini (무료)", "openrouter": "OpenRouter (무료)", "groq": "Groq (무료)", "anthropic": "Claude"}
     for p in targets[:3]:
         r = claude_write_thread(keys[p], product, deeplink, tone, price)
         results.append({"provider": p, "name": names.get(p, p),
@@ -432,7 +436,7 @@ def claude_topics_api():
     # 선택된 제공자 우선, 없으면 무료 우선
     prov = d.get("provider")
     if prov not in keys:
-        prov = next((p for p in ("gemini", "openrouter", "anthropic") if p in keys), None)
+        prov = next((p for p in ("gemini", "groq", "openrouter", "anthropic") if p in keys), None)
     key = keys[prov]
     import time as _t
     from datetime import datetime, timezone, timedelta as _td
@@ -445,7 +449,7 @@ def claude_topics_api():
     # 등록된 AI들을 순서대로 시도 (하나 실패하면 다음 것)
     order = []
     if prov: order.append(prov)
-    for p in ("gemini", "openrouter", "anthropic"):
+    for p in ("gemini", "groq", "openrouter", "anthropic"):
         if p in keys and p not in order:
             order.append(p)
 
