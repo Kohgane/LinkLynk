@@ -1316,14 +1316,22 @@ function renderTopics(topics, now){
       <div class="lp-sub">주제를 고른 다음 상품 키워드를 누르면 쿠팡에서 실제 상품명을 검색합니다.</div>
 
       <div class="lp-tabs" id="lpTabs">
-        ${topics.map((t,i)=>`<button class="lp-tab ${i===0?'on':''}" onclick="pickTopicTab(${i},this)">${i+1}. ${esc((t.title||'').slice(0,22))}${(t.title||'').length>22?'…':''}</button>`).join('')}
+        ${topics.map((t,i)=>`<button class="lp-tab ${i===0?'on':''}" data-ti="${i}" style="${i>=5?'display:none':''}" onclick="pickTopicTab(${i},this)">${i+1}. ${esc((t.title||'').slice(0,22))}${(t.title||'').length>22?'…':''}</button>`).join('')}
       </div>
 
+      ${topics.length>5?`<div class="tabs-more" id="tabsMore">
+        <button class="btn-tabs-more" onclick="showMoreTopics()">주제 ${topics.length-5}개 더보기</button>
+      </div>`:''}
       <div class="lp-detail" id="lpDetail"></div>
     </div>`;
   renderTopicDetail(0);
   window.__pgLock = Date.now() + 900;
   result.scrollIntoView({behavior:'smooth', block:'start'});
+}
+function showMoreTopics(){
+  document.querySelectorAll('#lpTabs .lp-tab').forEach(b=>b.style.display='');
+  const m = document.getElementById('tabsMore');
+  if(m) m.remove();
 }
 function pickTopicTab(i, el){
   window.__topicIdx = i;

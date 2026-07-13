@@ -519,7 +519,7 @@ def claude_topics_api():
     timings = {}
     for p in order:
         _t = _time.time()
-        r = claude_generate_topics(keys[p], user_topic, now_str, n=5)
+        r = claude_generate_topics(keys[p], user_topic, now_str, n=8)
         timings[p] = int((_time.time() - _t) * 1000)
         if r.get("ok") and r.get("topics"):
             return jsonify({"ok": True, "topics": r["topics"], "now": now_str,

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta name="build" content="0713-noautogen">
+<meta name="build" content="0713-topics8">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -29,7 +29,7 @@
 <script>
 /* 기준 폭 430dp. 어떤 기기든 같은 비율로 렌더 (아이폰 393pt -> 0.914x). */
 (function(){
-  var BASE = 452;
+  var BASE = 472;
   function fit(){
     var w = document.documentElement.clientWidth || window.innerWidth || BASE;
     var z = (w > 0 && w <= 700) ? (w / BASE) : 1;
@@ -536,6 +536,26 @@
   .pbtn{white-space:normal}
   .radar-cats{margin:0 !important}
 
+  /* iOS Safari의 datetime-local은 고유 최소폭을 고집해서 width:100%를 무시하고
+     컨테이너를 뚫고 나온다 (화면에 반투명 네모가 삐져나오던 원인).
+     appearance 제거 + min-width:0 + border-box 로 강제 봉인. */
+  input[type="datetime-local"], input[type="date"], input[type="time"]{
+    -webkit-appearance:none !important; appearance:none !important;
+    width:100% !important; max-width:100% !important; min-width:0 !important;
+    box-sizing:border-box !important; display:block !important;
+  }
+  input[type="datetime-local"]::-webkit-date-and-time-value{
+    text-align:left; margin:0; min-width:0; width:100%;
+  }
+  input[type="datetime-local"]::-webkit-calendar-picker-indicator{ margin-left:auto; }
+  /* 안전망: 폼 요소가 카드를 뚫고 나갈 여지를 전부 차단 */
+  input,select,textarea,button{max-width:100% !important;min-width:0 !important;box-sizing:border-box !important}
+
+  /* 주제 탭 더보기 */
+  .tabs-more{display:flex;justify-content:center;padding:6px 0 2px}
+  .btn-tabs-more{background:var(--surface-2);border:1px solid var(--line);color:var(--text-2);
+    border-radius:999px;padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer;white-space:nowrap}
+
   /* 설정을 바꿨을 때 '다시 쓰기'를 유도하는 표시 */
   .btn-go.dirty{box-shadow:0 0 0 2px var(--text) inset, 0 6px 20px rgba(0,0,0,.4)}
 
@@ -547,14 +567,14 @@
 
   /* ═══════════════════════════════════════════════════════════════
      ★ LAYOUT LOCK — 2026-07-13 확정. 사용자 승인됨. 건드리지 말 것.
-       기준 폭 BASE=452 (상단 <script> zoom 정규화)
-       .page 좌우 7px / .step-card 14px 10px / .card 13px 10px
+       기준 폭 BASE=472 (상단 <script> zoom 정규화)
+       .page 좌우 5px / .step-card 14px 10px / .card 13px 10px
        .sec-title 20px / .sec-kicker 11px / .chip 13px
        앱바 12px 18px, 배지·기어 40px r12, sec-num 40px r14
        변경 요청이 명시적으로 오기 전까지 이 블록의 값은 고정이다.
      ═══════════════════════════════════════════════════════════════ */
   /* ── 최종 스페이싱: PROMETHEUS 스샷 실측 기준 + 사용자 확정 ── */
-  .page{padding:0 7px}
+  .page{padding:0 5px}
   #page-make{padding-bottom:170px}
   .hero{padding:21px 0 0}
 
@@ -932,6 +952,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="/app.js?v=1783933868"></script>
+<script src="/app.js?v=1783934853"></script>
 </body>
 </html>
