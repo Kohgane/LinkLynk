@@ -603,11 +603,24 @@ function renderThreads(draft, d){
     <div id="accPicker">${renderAccountPicker('threads')}</div>
     <div style="margin:12px 0 4px">
       <div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.1em;margin-bottom:8px">SCHEDULE · 예약 발행 (본글+답글 전부 자동)</div>
-      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
+        <button class="chip" onclick="fillSched(0.5)">+30분</button>
         <button class="chip" onclick="fillSched(1)">+1시간</button>
         <button class="chip" onclick="fillSched(3)">+3시간</button>
-        <button class="chip" onclick="fillSchedAt(20)">오늘 20시</button>
+        <button class="chip" onclick="fillSched(6)">+6시간</button>
+        <button class="chip" onclick="fillSched(24)">+1일</button>
+        <button class="chip" onclick="schedReset()">↺ 초기화</button>
+      </div>
+      <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">
+        <button class="chip" onclick="fillSchedAt(8)">오늘 8시</button>
+        <button class="chip" onclick="fillSchedAt(12)">점심 12시</button>
+        <button class="chip" onclick="fillSchedAt(20)">저녁 20시</button>
+        <button class="chip" onclick="fillSchedAt(22)">밤 22시</button>
         <button class="chip" onclick="fillSchedAt(9,1)">내일 9시</button>
+        <button class="chip" onclick="fillSchedAt(20,1)">내일 20시</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-bottom:10px;line-height:1.5">
+        +버튼은 <b>누를 때마다 더해집니다</b> (＋1시간 세 번 = 3시간 뒤). 초기화로 비울 수 있어요.
       </div>
       <div style="background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:12px">
         <div style="font-size:12px;color:var(--text-2);margin-bottom:8px">원하는 날짜·시각 직접 지정</div>
@@ -1202,7 +1215,7 @@ async function loadRadar(refresh){
         <span style="font-size:10px;font-weight:700;letter-spacing:.16em;color:var(--muted)">LIVE SIGNAL</span>
       </div>
       <div style="font-size:19px;font-weight:600;color:var(--text);margin-bottom:6px;letter-spacing:-.01em">지금 뜨는 주제 레이더</div>
-      <div style="font-size:12.5px;color:var(--text-2);margin-bottom:14px;line-height:1.5">생활·육아·건강과 직접 관련 있는 급상승 신호만 추천합니다.</div>
+      <div style="font-size:12.5px;color:var(--text-2);margin-bottom:14px;line-height:1.5">생활·소비와 직접 이어지는 급상승 신호만 추천합니다. (연예·정치·스포츠 제외)</div>
 
       <div class="seg" id="radarRange">
         ${['4시간','24시간','7일'].map(r=>`<button class="seg-btn ${r===radarRange?'on':''}" onclick="setRadarRange('${r}',this)">${r}</button>`).join('')}
@@ -1210,7 +1223,7 @@ async function loadRadar(refresh){
       </div>
 
       <div class="radar-cats" id="radarCats">
-        ${['추천','전체','생활','육아','건강','날씨','쇼핑'].map(c=>`<button class="chip ${c===radarCat?'on':''}" onclick="setRadarCat('${c}',this)">${c}</button>`).join('')}
+        ${['추천','전체','생활','육아','건강','날씨','주방','가전','뷰티','패션','반려동물','자동차','아웃도어','여행','인테리어','홈오피스','취미','학습','쇼핑'].map(c=>`<button class="chip ${c===radarCat?'on':''}" onclick="setRadarCat('${c}',this)">${c}</button>`).join('')}
       </div>
       <div id="radarList"></div>
     </div>`;
@@ -1510,10 +1523,33 @@ function _toLocalInput(dt){
   const p = n => String(n).padStart(2,'0');
   return `${dt.getFullYear()}-${p(dt.getMonth()+1)}-${p(dt.getDate())}T${p(dt.getHours())}:${p(dt.getMinutes())}`;
 }
+function _schedBase(){
+  // 이미 값이 있고 미래면 그 값에 더한다(누적). 없거나 과거면 지금부터.
+  const el = document.getElementById('schedAt');
+  const now = Date.now();
+  if(el && el.value){
+    const t = new Date(el.value).getTime();
+    if(!isNaN(t) && t > now) return t;
+  }
+  return now;
+}
+function _fmtSched(el){
+  const t = new Date(el.value);
+  const d = Math.round((t.getTime() - Date.now())/60000);
+  const h = Math.floor(d/60), m = d%60;
+  const rel = h>0 ? `${h}시간 ${m}분 뒤` : `${m}분 뒤`;
+  toast(`⏰ ${t.getMonth()+1}/${t.getDate()} ${String(t.getHours()).padStart(2,'0')}:${String(t.getMinutes()).padStart(2,'0')} · ${rel}`);
+}
+// +N분/시간 = 누를 때마다 누적으로 더해진다
 function fillSched(hours){
   const el = document.getElementById('schedAt'); if(!el) return;
-  el.value = _toLocalInput(new Date(Date.now() + hours*3600*1000));
-  toast('시각이 채워졌어요 — 고쳐도 됩니다');
+  el.value = _toLocalInput(new Date(_schedBase() + hours*3600*1000));
+  _fmtSched(el);
+}
+function schedReset(){
+  const el = document.getElementById('schedAt'); if(!el) return;
+  el.value = '';
+  toast('예약 시각을 비웠어요');
 }
 function fillSchedAt(hour, addDays){
   const el = document.getElementById('schedAt'); if(!el) return;
@@ -1522,7 +1558,7 @@ function fillSchedAt(hour, addDays){
   t.setHours(hour, 0, 0, 0);
   if(t <= new Date()) t.setDate(t.getDate()+1);
   el.value = _toLocalInput(t);
-  toast('시각이 채워졌어요 — 고쳐도 됩니다');
+  _fmtSched(el);
 }
 
 // 빠른 예약: N시간 뒤
