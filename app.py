@@ -504,19 +504,26 @@ def claude_topics_api():
     h12 = kst.hour if kst.hour <= 12 else kst.hour - 12
     if h12 == 0: h12 = 12
     now_str = f"{kst.year}년 {kst.month}월 {kst.day}일 {ampm} {h12}시 ({weekdays[kst.weekday()]}요일)"
-    # 등록된 AI들을 순서대로 시도 (하나 실패하면 다음 것)
+    # 폴백은 최대 2번까지만. (예전엔 4개를 전부 순차 시도해서
+    #  실패할 때마다 풀 타임아웃을 물었다 = 주제 기획이 하염없이 느려지던 원인)
     order = []
     if prov: order.append(prov)
     for p in ("groq", "gemini", "openrouter", "anthropic"):
         if p in keys and p not in order:
             order.append(p)
+    order = order[:2]
 
+    import time as _time
     from core import claude_generate_topics
     last_err = {}
+    timings = {}
     for p in order:
+        _t = _time.time()
         r = claude_generate_topics(keys[p], user_topic, now_str, n=3)
+        timings[p] = int((_time.time() - _t) * 1000)
         if r.get("ok") and r.get("topics"):
-            return jsonify({"ok": True, "topics": r["topics"], "now": now_str, "provider": p})
+            return jsonify({"ok": True, "topics": r["topics"], "now": now_str,
+                            "provider": p, "ms": timings})
         last_err = r
     r = last_err
     # 에러 메시지
@@ -525,7 +532,7 @@ def claude_topics_api():
     elif err.startswith("http_429"): msg = "Claude API 사용량 한도예요. 잠시 후 다시 시도하세요."
     elif err.startswith("http_400"): msg = "API 요청 오류: " + (r.get("detail","")[:120] or "형식 오류")
     else: msg = "주제 생성 실패: " + (err[:60] or "알 수 없음") + (" / "+r.get("detail","")[:80] if r.get("detail") else "")
-    return jsonify({"ok": False, "error": msg, "detail": r.get("detail", "")}), 502
+    return jsonify({"ok": False, "error": msg, "detail": r.get("detail", ""), "ms": timings}), 502
 
 
 @app.route("/api/search-product", methods=["POST"])
@@ -572,7 +579,14 @@ def search_product_api():
         plist = []
     _t_search = int((_time.time() - _t0) * 1000)
     if not plist:
-        return jsonify({"ok": False, "error": "상품을 찾지 못했어요. 다른 검색어를 써보세요."}), 404
+        why = getattr(partners, "last_error", None)
+        msg = "상품을 찾지 못했어요. 다른 검색어를 써보세요."
+        if why and "rCode" in why:
+            msg = "쿠팡 검색 API가 거절했어요 (시간당 호출 제한일 수 있어요). 잠시 뒤 다시 시도해 주세요."
+        elif why:
+            msg = "쿠팡 검색 연결 실패. 잠시 뒤 다시 시도해 주세요."
+        return jsonify({"ok": False, "error": msg, "detail": why,
+                        "ms": {"search": _t_search}}), 404
     info = plist[0]
 
     # 3-b) 딥링크

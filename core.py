@@ -74,8 +74,9 @@ class CoupangPartners:
                 "productId": p.get("productId")}
 
     def search_products(self, keyword, limit=12):
-        """파트너스 상품검색 — 여러 개 반환 (이미지처럼 3개 카드용)."""
+        """파트너스 상품검색. 실패 사유는 self.last_error에 남긴다(예전엔 통째로 삼켰음)."""
         import urllib.parse
+        self.last_error = None
         q = f"keyword={urllib.parse.quote(keyword)}&limit={limit}"
         path = "/v2/providers/affiliate_open_api/apis/openapi/products/search"
         dt = time.strftime('%y%m%dT%H%M%SZ', time.gmtime())
@@ -84,10 +85,18 @@ class CoupangPartners:
         req = urllib.request.Request(COUPANG_DOMAIN+path+"?"+q,
             headers={"Authorization": auth, "Content-Type": "application/json"}, method="GET")
         try:
-            res = json.loads(urllib.request.urlopen(req, context=_ctx, timeout=15).read())
-        except Exception:
+            res = json.loads(urllib.request.urlopen(req, context=_ctx, timeout=8).read())
+        except urllib.error.HTTPError as e:
+            body = ""
+            try: body = e.read().decode()[:200]
+            except Exception: pass
+            self.last_error = f"http_{e.code}: {body}"
+            return []
+        except Exception as e:
+            self.last_error = f"net: {type(e).__name__} {str(e)[:120]}"
             return []
         if res.get("rCode") != "0":
+            self.last_error = f"coupang rCode={res.get('rCode')} {str(res.get('rMessage'))[:120]}"
             return []
         pd = (res.get("data") or {}).get("productData") or []
         out = []

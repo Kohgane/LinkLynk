@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta name="build" content="0713-parity-6">
+<meta name="build" content="0713-parity-7">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -542,7 +542,15 @@
     border-radius:999px;padding:10px 22px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
   .btn-more:active{background:var(--surface-3)}
 
-  /* ── 최종 스페이싱: PROMETHEUS 스샷 실측(갤럭시 412dp) ── */
+  /* ═══════════════════════════════════════════════════════════════
+     ★ LAYOUT LOCK — 2026-07-13 확정. 사용자 승인됨. 건드리지 말 것.
+       기준 폭 BASE=452 (상단 <script> zoom 정규화)
+       .page 좌우 7px / .step-card 14px 10px / .card 13px 10px
+       .sec-title 20px / .sec-kicker 11px / .chip 13px
+       앱바 12px 18px, 배지·기어 40px r12, sec-num 40px r14
+       변경 요청이 명시적으로 오기 전까지 이 블록의 값은 고정이다.
+     ═══════════════════════════════════════════════════════════════ */
+  /* ── 최종 스페이싱: PROMETHEUS 스샷 실측 기준 + 사용자 확정 ── */
   .page{padding:0 7px}
   #page-make{padding-bottom:170px}
   .hero{padding:21px 0 0}
@@ -921,6 +929,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="/app.js?v=1783927302"></script>
+<script src="/app.js?v=1783927938"></script>
 </body>
 </html>
