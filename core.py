@@ -829,7 +829,7 @@ def zernio_publish(api_key, platforms, content, media_urls=None, account_ids=Non
 
 
 # ── Claude API: 주제 먼저 생성 (개인 API 키 사용) ──
-def claude_generate_topics(api_key, user_topic="", now_str="", n=3):
+def claude_generate_topics(api_key, user_topic="", now_str="", n=5):
     """주제 생성 (무료 Gemini/OpenRouter 또는 Claude). 상품이 아니라 '주제'가 먼저."""
     if not api_key:
         return {"ok": False, "error": "no_key"}
@@ -838,7 +838,8 @@ def claude_generate_topics(api_key, user_topic="", now_str="", n=3):
         "상품이 아니라 '주제'가 먼저입니다. 사람들이 공감할 상황·고민을 주제로 잡고, "
         "거기서 자연스럽게 필요한 상품으로 연결합니다. "
         "각 주제마다: 현재 시각/계절 맥락, 타겟 표본(누구), 반전 앵글, 훅 문장, "
-        "그리고 그 주제에 맞는 쿠팡 검색 키워드 2~3개를 제시하세요. "
+        "그리고 그 주제에 맞는 쿠팡 검색 키워드를 주제마다 3~4개씩 제시하세요. "
+        "키워드는 실제 쿠팡에서 검색될 법한 상품명이어야 합니다(추상어 금지). "
         "죄책감 반전('내 탓이 아니라 구조 탓'), 상황 공감, 의외의 사실 같은 훅을 활용하세요. "
         "반드시 JSON만 출력. 형식: "
         '{"topics":[{"title":"...","time_context":"...","sample":"...","angle":"...","hook":"...","keywords":["...","..."]}]}'
@@ -851,7 +852,7 @@ def claude_generate_topics(api_key, user_topic="", now_str="", n=3):
 
     # ★max_tokens를 1400으로 줄였더니 JSON이 중간에 잘려 parse_error가 났다(2026-07-13).
     #  주제 3개 + 키워드까지 한글로 담으면 1400토큰을 넘는다. 넉넉히 준다.
-    r = llm_chat(api_key, sys_prompt, user_msg, max_tokens=2600)
+    r = llm_chat(api_key, sys_prompt, user_msg, max_tokens=4000)
     if not r.get("ok"):
         return r
     raw = r.get("text") or ""
@@ -1034,7 +1035,7 @@ def _llm_gemini(api_key, sys_prompt, user_msg, max_tokens=1200):
         payload = {
             "system_instruction": {"parts": [{"text": sys_prompt}]},
             "contents": [{"parts": [{"text": user_msg}]}],
-            "generationConfig": {"temperature": 1.0, "maxOutputTokens": min(max(max_tokens, 1500), 2600),
+            "generationConfig": {"temperature": 1.0, "maxOutputTokens": min(max(max_tokens, 1500), 4096),
                                  "responseMimeType": "application/json",
                                  "thinkingConfig": {"thinkingBudget": 0}},
         }

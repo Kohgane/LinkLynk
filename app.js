@@ -275,11 +275,7 @@ function setMode(el){
 function setCh(el){
   el.closest('.chips').querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
   el.classList.add('on'); channel = el.dataset.ch;
-  // 이미 만든 초안이 있으면, 새 채널 형식으로 즉시 다시 생성
-  const d = window.__lastResult;
-  if(d && d.deeplink){
-    regenForChannel(d.deeplink, d.productName || '');
-  }
+  markDirty();   // 선택만 바꾼다. 글은 '✍️ 글 작성하기'를 눌러야 만든다.
 }
 // 같은 링크로 현재 채널 형식의 글을 다시 생성 (딥링크 있으니 검색 안 함)
 // 품질 다듬기 (3패스: 휴머나이즈 + 폴리시)
@@ -306,6 +302,9 @@ function polishDraft(btn){
 // 현재 고른 채널·말투·AI로 글 만들기
 function writeWithSettings(){
   if(window.__writing) return;                  // 연타 방지
+  const _b0 = document.getElementById('writeGo');
+  if(_b0) _b0.classList.remove('dirty');
+  window.__lastDraft = true;
   const d = window.__lastResult;
   const typed = (document.getElementById('w_link')?.value || '').trim();
   const deeplink = typed || (d && d.deeplink);
@@ -344,11 +343,7 @@ function setTone(el){
   const container = el.closest('.tone-scroll') || el.closest('.chips');
   if(container) container.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
   el.classList.add('on'); window.curTone = el.dataset.tone;
-  // 이미 만든 초안이 있으면 새 말투로 다시 생성
-  const d = window.__lastResult;
-  if(d && d.deeplink){
-    regenForChannel(d.deeplink, d.productName || '');
-  }
+  markDirty();
 }
 async function pasteUrl(){
   try{ const t = await navigator.clipboard.readText(); if(t) document.getElementById('url').value = t.trim(); }
@@ -538,8 +533,9 @@ function pickProduct(i){
   if(!p) return;
   window.__lastResult = {deeplink: p.deeplink, productName: p.name, image: p.image, price: p.price, channel};
   showPicked(p.name, p.deeplink);
-  toast('상품을 골랐어요 — 말투 고르고 글 만들기');
-  const s3 = document.querySelectorAll('#page-make .step-card')[2];
+  toast('상품을 골랐어요 — 말투 고른 뒤 "글 작성하기"를 누르세요');
+  window.__pgLock = Date.now() + 900;
+  const s3 = document.querySelector('#page-make [data-sec="3"]');
   if(s3) s3.scrollIntoView({behavior:'smooth', block:'start'});
 }
 
@@ -1659,8 +1655,18 @@ function pickLlm(id, el){
   window.__llmPick = id;
   el.parentNode.querySelectorAll('.chip').forEach(c=>c.classList.remove('on'));
   el.classList.add('on');
-  const d = window.__lastResult;
-  if(d && d.deeplink) regenForChannel(d.deeplink, d.productName||'');
+  markDirty();
+}
+
+/* 채널·말투·AI를 바꿨다고 글을 자동 재생성하지 않는다.
+   (예전엔 칩 하나 누를 때마다 LLM을 통째로 다시 호출 = 계속 느리던 진짜 원인)
+   선택은 선택일 뿐, 결정은 '✍️ 글 작성하기' 버튼이 한다. */
+function markDirty(){
+  const b = document.getElementById('writeGo');
+  if(!b) return;
+  b.classList.add('dirty');
+  const lbl = b.querySelector('.lbl');
+  if(lbl && window.__lastDraft) lbl.textContent = '✍️ 이 설정으로 다시 쓰기';
 }
 // 비교할 AI를 체크박스로 고르기
 function openCompare(){
