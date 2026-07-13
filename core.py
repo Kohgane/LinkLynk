@@ -849,14 +849,31 @@ def claude_generate_topics(api_key, user_topic="", now_str="", n=3):
     else:
         user_msg += f"지금 시각·계절에 맞는 주제 {n}개를 제안해주세요. 표본이 넓은 걸로."
 
-    r = llm_chat(api_key, sys_prompt, user_msg, max_tokens=1400)
+    # ★max_tokens를 1400으로 줄였더니 JSON이 중간에 잘려 parse_error가 났다(2026-07-13).
+    #  주제 3개 + 키워드까지 한글로 담으면 1400토큰을 넘는다. 넉넉히 준다.
+    r = llm_chat(api_key, sys_prompt, user_msg, max_tokens=2600)
     if not r.get("ok"):
         return r
+    raw = r.get("text") or ""
     try:
-        parsed = _parse_json_out(r["text"])
-        return {"ok": True, "topics": parsed.get("topics", [])}
+        parsed = _parse_json_out(raw)
     except Exception as e:
-        return {"ok": False, "error": "parse_error", "detail": str(e)[:100]}
+        return {"ok": False, "error": "parse_error",
+                "detail": f"{type(e).__name__}: {str(e)[:60]} | 응답머리: {raw[:80]}"}
+    # 모델이 {"topics":[...]} 대신 배열만 뱉는 경우도 받아준다
+    if isinstance(parsed, list):
+        topics = parsed
+    elif isinstance(parsed, dict):
+        topics = parsed.get("topics") or parsed.get("items") or parsed.get("data") or []
+        if isinstance(topics, dict):
+            topics = [topics]
+    else:
+        topics = []
+    topics = [t for t in topics if isinstance(t, dict) and t.get("title")]
+    if not topics:
+        return {"ok": False, "error": "empty_topics",
+                "detail": f"파싱은 됐는데 주제가 비었어요. 응답머리: {raw[:80]}"}
+    return {"ok": True, "topics": topics}
 
 
 # ── Claude가 직접 쓰레드 글 작성 (템플릿 아님 → 제품마다 완전히 다른 글) ──
