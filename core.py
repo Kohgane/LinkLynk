@@ -987,9 +987,96 @@ def detect_llm_provider(api_key):
     k = (api_key or "").strip()
     if k.startswith("AIza"): return "gemini"
     if k.startswith("sk-or-"): return "openrouter"
-    if k.startswith("gsk_"): return "groq"          # Groq — 무료·초고속
+    if k.startswith("gsk_"): return "groq"            # Groq — 무료·초고속(LPU)
+    if k.startswith("csk-"): return "cerebras"        # Cerebras — 무료·최고속(웨이퍼)
+    if k.startswith("nvapi-"): return "nvidia"        # NVIDIA NIM — 무료·일일한도 없음
+    if k.startswith("ghp_") or k.startswith("github_pat_"): return "github"  # GitHub Models — 무료
     if k.startswith("sk-ant-"): return "anthropic"
+    if k == "__free__": return "llm7"                 # 키 없이 쓰는 무료 AI
+    if re.match(r"^[0-9a-f]{32}\.[A-Za-z0-9]{16}$", k): return "zai"        # Z.AI (GLM) — 무료
     return "unknown"
+
+
+# ── OpenAI 호환 엔드포인트 공용 호출기 (Groq/Cerebras/NVIDIA/GitHub/OpenRouter/LLM7/Z.AI) ──
+def _llm_openai_compat(name, url, api_key, models, sys_prompt, user_msg,
+                       max_tokens, timeout=25, extra_headers=None, json_mode=True):
+    models = _order(name, models)
+    last = {}
+    for m in models:
+        payload = {"model": m, "max_tokens": max_tokens, "temperature": 1.0,
+                   "messages": [{"role": "system", "content": sys_prompt},
+                                {"role": "user", "content": user_msg}]}
+        if json_mode and "JSON" in sys_prompt:
+            payload["response_format"] = {"type": "json_object"}
+        headers = {"Content-Type": "application/json"}
+        if api_key:
+            headers["Authorization"] = f"Bearer {api_key}"
+        if extra_headers:
+            headers.update(extra_headers)
+        try:
+            req = urllib.request.Request(url, data=json.dumps(payload).encode(),
+                                         headers=headers, method="POST")
+            with urllib.request.urlopen(req, timeout=timeout, context=_ctx) as r:
+                data = json.loads(r.read().decode())
+            text = (data.get("choices") or [{}])[0].get("message", {}).get("content", "")
+            if text and text.strip():
+                _sticky_ok(name, m)
+                return {"ok": True, "text": text.strip(), "model": m}
+            last = {"ok": False, "error": "empty"}
+        except urllib.error.HTTPError as e:
+            detail = ""
+            try: detail = e.read().decode()[:200]
+            except Exception: pass
+            last = {"ok": False, "error": f"http_{e.code}", "detail": detail}
+            if e.code in (401, 403): return last
+            continue
+        except Exception as e:
+            last = {"ok": False, "error": str(e)[:120]}
+            continue
+    return last
+
+
+def _llm_cerebras(api_key, sys_prompt, user_msg, max_tokens=3000):
+    """Cerebras — 무료·초고속(~2,600 tok/s). 무료 티어는 컨텍스트 8K 상한."""
+    return _llm_openai_compat(
+        "cerebras", "https://api.cerebras.ai/v1/chat/completions", api_key,
+        ["llama-3.3-70b", "gpt-oss-120b", "qwen-3-32b"],
+        sys_prompt, user_msg, min(max_tokens, 6000), timeout=25)
+
+
+def _llm_nvidia(api_key, sys_prompt, user_msg, max_tokens=3000):
+    """NVIDIA NIM — 무료(개발자 프로그램), 일일 토큰 상한 없음."""
+    return _llm_openai_compat(
+        "nvidia", "https://integrate.api.nvidia.com/v1/chat/completions", api_key,
+        ["meta/llama-3.3-70b-instruct", "qwen/qwen2.5-72b-instruct",
+         "nvidia/nemotron-3-nano-30b-a3b"],
+        sys_prompt, user_msg, max_tokens, timeout=30, json_mode=False)
+
+
+def _llm_github(api_key, sys_prompt, user_msg, max_tokens=3000):
+    """GitHub Models — GitHub 계정만 있으면 무료. gpt-4.1-mini 등."""
+    return _llm_openai_compat(
+        "github", "https://models.github.ai/inference/chat/completions", api_key,
+        ["openai/gpt-4.1-mini", "meta/Meta-Llama-3.3-70B-Instruct", "openai/gpt-4o-mini"],
+        sys_prompt, user_msg, min(max_tokens, 4000), timeout=30,
+        extra_headers={"X-GitHub-Api-Version": "2022-11-28"})
+
+
+def _llm_zai(api_key, sys_prompt, user_msg, max_tokens=3000):
+    """Z.AI (Zhipu) — GLM-4.x Flash 영구 무료."""
+    return _llm_openai_compat(
+        "zai", "https://open.bigmodel.cn/api/paas/v4/chat/completions", api_key,
+        ["glm-4.5-flash", "glm-4-flash"],
+        sys_prompt, user_msg, max_tokens, timeout=30, json_mode=False)
+
+
+def _llm_llm7(api_key, sys_prompt, user_msg, max_tokens=3000):
+    """LLM7.io — ★키 없이 익명으로 쓰는 무료 AI. 회원가입도 필요 없다.
+    (2026-07-13 실측: minimax-m2.7 익명 호출 1.5초, 한국어 정상. 익명 30 RPM)"""
+    return _llm_openai_compat(
+        "llm7", "https://api.llm7.io/v1/chat/completions", None,
+        ["minimax-m2.7"],
+        sys_prompt, user_msg, max_tokens, timeout=40, json_mode=False)
 
 
 def _llm_groq(api_key, sys_prompt, user_msg, max_tokens=3000):
@@ -1104,7 +1191,12 @@ def _openrouter_free_models():
 
 def _llm_openrouter(api_key, sys_prompt, user_msg, max_tokens=3000):
     """OpenRouter — :free 모델만 사용 (0원). 살아있는 모델 실시간 조회."""
-    models = _order("openrouter", _openrouter_free_models())
+    # ★무료 모델은 큐 대기가 붙어 느리다. 실측상 빠른 축부터 태운다.
+    FAST = ["meta-llama/llama-3.3-70b-instruct:free", "openai/gpt-oss-120b:free",
+            "google/gemma-4-31b-it:free", "minimax/minimax-m2.5:free"]
+    avail = _openrouter_free_models()
+    ranked = [m for m in FAST if m in avail] + [m for m in avail if m not in FAST]
+    models = _order("openrouter", ranked)[:4]      # 4개까지만 시도(폴백 지옥 방지)
     last = {}
     for m in models:
         payload = {"model": m, "max_tokens": max_tokens, "temperature": 1.0,
@@ -1116,7 +1208,7 @@ def _llm_openrouter(api_key, sys_prompt, user_msg, max_tokens=3000):
                 headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json",
                          "HTTP-Referer": "https://linklynk.onrender.com", "X-Title": "LinkLynk"},
                 method="POST")
-            with urllib.request.urlopen(req, timeout=30, context=_ctx) as r:
+            with urllib.request.urlopen(req, timeout=20, context=_ctx) as r:
                 data = json.loads(r.read().decode())
             text = (data.get("choices") or [{}])[0].get("message", {}).get("content", "")
             if text and text.strip():
@@ -1169,8 +1261,14 @@ def llm_chat(api_key, sys_prompt, user_msg, max_tokens=1200):
     if p == "gemini": return _llm_gemini(api_key, sys_prompt, user_msg, max_tokens)
     if p == "openrouter": return _llm_openrouter(api_key, sys_prompt, user_msg, max_tokens)
     if p == "groq": return _llm_groq(api_key, sys_prompt, user_msg, max_tokens)
+    if p == "cerebras": return _llm_cerebras(api_key, sys_prompt, user_msg, max_tokens)
+    if p == "nvidia": return _llm_nvidia(api_key, sys_prompt, user_msg, max_tokens)
+    if p == "github": return _llm_github(api_key, sys_prompt, user_msg, max_tokens)
+    if p == "zai": return _llm_zai(api_key, sys_prompt, user_msg, max_tokens)
+    if p == "llm7": return _llm_llm7(api_key, sys_prompt, user_msg, max_tokens)
     if p == "anthropic": return _llm_anthropic(api_key, sys_prompt, user_msg, max_tokens)
-    return {"ok": False, "error": "unknown_key", "detail": "키 형식을 알 수 없어요 (AIza… / sk-or-… / gsk_… / sk-ant-…)"}
+    return {"ok": False, "error": "unknown_key",
+            "detail": "키 형식을 알 수 없어요 (AIza… / gsk_… / csk-… / nvapi-… / ghp_… / sk-or-… / sk-ant-…)"}
 
 
 def _parse_json_out(text):

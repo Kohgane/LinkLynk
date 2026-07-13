@@ -432,8 +432,23 @@ def trend_radar():
 def llm_list():
     """등록된 AI 목록 (글쓰기 툴 선택·비교용)."""
     keys = store.get_llm_keys(session["uid"])
-    names = {"gemini": "Gemini (무료)", "openrouter": "OpenRouter (무료)", "groq": "Groq (무료)", "anthropic": "Claude"}
-    return jsonify({"ok": True, "providers": [{"id": p, "name": names[p]} for p in keys]})
+    keys["llm7"] = "__free__"          # 키 없이 쓰는 무료 AI (항상 사용 가능)
+    names = {
+        "llm7":       "무료 AI (키 없이) ✨",
+        "cerebras":   "Cerebras (무료) ⚡⚡",
+        "groq":       "Groq (무료) ⚡",
+        "gemini":     "Gemini (무료)",
+        "github":     "GitHub Models (무료)",
+        "nvidia":     "NVIDIA (무료)",
+        "zai":        "Z.AI GLM (무료)",
+        "openrouter": "OpenRouter (무료·느림)",
+        "anthropic":  "Claude",
+    }
+    # 빠른 순 → 느린 순. 키 없이 쓰는 무료 AI는 항상 제공한다.
+    order = ["llm7", "cerebras", "groq", "gemini", "github", "nvidia", "zai", "openrouter", "anthropic"]
+    have = set(keys) | {"llm7"}
+    return jsonify({"ok": True,
+                    "providers": [{"id": p, "name": names[p]} for p in order if p in have]})
 
 
 @app.route("/api/compare-write", methods=["POST"])
@@ -447,6 +462,7 @@ def compare_write():
     price = d.get("price")
     providers = d.get("providers") or []
     keys = store.get_llm_keys(session["uid"])
+    keys["llm7"] = "__free__"          # 키 없이 쓰는 무료 AI (항상 사용 가능)
     if not keys:
         return jsonify({"ok": False, "need_key": True, "error": "설정에서 AI 키를 먼저 등록하세요"}), 403
     targets = [p for p in providers if p in keys]
@@ -488,13 +504,14 @@ def claude_topics_api():
     d = request.get_json(force=True, silent=True) or {}
     user_topic = (d.get("topic") or "").strip()
     keys = store.get_llm_keys(session["uid"])
+    keys["llm7"] = "__free__"          # 키 없이 쓰는 무료 AI (항상 사용 가능)
     if not keys:
         return jsonify({"ok": False, "need_key": True,
                         "error": "설정에서 AI 키를 먼저 등록하세요 (Gemini 무료 추천)"}), 403
     # 선택된 제공자 우선, 없으면 무료 우선
     prov = d.get("provider")
     if prov not in keys:
-        prov = next((p for p in ("groq", "gemini", "openrouter", "anthropic") if p in keys), None)
+        prov = next((p for p in ("cerebras", "groq", "gemini", "github", "nvidia", "zai", "llm7", "openrouter", "anthropic") if p in keys), None)
     key = keys[prov]
     import time as _t
     from datetime import datetime, timezone, timedelta as _td
@@ -508,7 +525,7 @@ def claude_topics_api():
     #  실패할 때마다 풀 타임아웃을 물었다 = 주제 기획이 하염없이 느려지던 원인)
     order = []
     if prov: order.append(prov)
-    for p in ("groq", "gemini", "openrouter", "anthropic"):
+    for p in ("cerebras", "groq", "gemini", "github", "nvidia", "zai", "llm7", "openrouter", "anthropic"):
         if p in keys and p not in order:
             order.append(p)
     order = order[:2]
