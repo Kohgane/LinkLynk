@@ -294,7 +294,7 @@ async function regenForChannel(deeplink, pname){
   if(result) result.innerHTML = '<div class="card"><div style="text-align:center;padding:22px;color:var(--muted)">✍️ 글 쓰는 중…<br><span style="font-size:12px">다른 화면 가도 계속 진행돼요</span></div></div>';
   const jobId = 'gen-' + Date.now();
   const p = fetch('/api/generate-manual',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({deeplink, channel, tone:(window.curTone||'friendly'), productName:pname, provider:(window.__llmPick||null)})})
+      body:JSON.stringify({deeplink, channel, tone:(window.curTone||'friendly'), productName:pname, provider:(window.__llmPick||null), extra:(document.getElementById('w_extra')?.value||'')})})
     .then(r=>r.json())
     .then(d=>{ if(!d.ok) throw new Error('생성 실패'); return {draft: d}; });
   startJob(jobId, '글 작성', p, (res)=>{
@@ -408,7 +408,7 @@ async function doSearch(){
                   <div class="prod-name">${esc(p.name||'')}</div>
                   <div class="prod-price">${p.price?Number(p.price).toLocaleString()+'원':''}</div>
                   <button class="pbtn" onclick="window.open('${p.deeplink}','_blank')">상품 보기</button>
-                  <button class="pbtn" onclick="findImages('${esc(p.name||kw).replace(/'/g,'').slice(0,20)}')">특징 확인</button>
+                  <button class="pbtn" onclick="showResearch(${i},this)">특징 확인</button>
                   <button class="pbtn" onclick="copyText('${p.deeplink}', this)">파트너스 링크 복사</button>
                   <button class="pbtn pbtn-primary" onclick="pickProduct(${i})">이 상품으로 글쓰기</button>
                 </div>`).join('')}
@@ -456,13 +456,53 @@ function pickImage(idx, el){
 
 async function doSearchImagesOnly(){}
 
+// 특징 확인 → 검색 리서치 블록 (이미지: NAVER SEARCH RESEARCH)
+async function showResearch(i, btn){
+  const p = (window.__searchProducts||[])[i];
+  if(!p) return;
+  const box = document.getElementById('imgResults');
+  if(!box) return;
+  const o = btn.textContent; btn.disabled = true; btn.innerHTML = '<span class="spin-sm"></span>';
+  box.innerHTML = `<div class="card">
+    <div class="radar-loading"><span class="spin-sm"></span><span>검색 결과 분석 중…</span></div>
+    ${[1,2,3].map(()=>`<div class="rs-row skel"><div class="sk-line" style="width:92%"></div><div class="sk-line" style="width:70%;margin-top:8px"></div></div>`).join('')}
+  </div>`;
+  try{
+    const d = await (await fetch('/api/research',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({productName: p.name})})).json();
+    const items = d.items || [];
+    box.innerHTML = `<div class="card">
+      <div style="font-size:9.5px;font-weight:700;letter-spacing:.18em;color:var(--muted);margin-bottom:8px">SEARCH RESEARCH</div>
+      <div class="rs-name">${esc(p.name||'')}</div>
+      <div class="rs-price">${p.price?Number(p.price).toLocaleString()+'원부터':''}</div>
+      <div class="rs-tags">
+        <a class="rs-link" href="https://search.naver.com/search.naver?query=${encodeURIComponent(p.name||'')}" target="_blank">네이버 상품 보기 ↗</a>
+      </div>
+      <div class="rs-h">검색 결과에서 확인할 특징 후보</div>
+      <div class="rs-sub">글로 요약해 출처와 링크로 표시됩니다.</div>
+      ${items.length ? items.map((it,n)=>`
+        <div class="rs-row">
+          <span class="rs-num">${String(n+1).padStart(2,'0')}</span>
+          <div style="flex:1;min-width:0">
+            <div class="rs-snip">${esc(it.snippet||'')}</div>
+            <a class="rs-src" href="${it.url}" target="_blank">${esc((it.title||'').slice(0,34))}… ↗</a>
+          </div>
+        </div>`).join('') : '<div class="radar-empty">검색 결과를 못 가져왔어요</div>'}
+    </div>`;
+    box.scrollIntoView({behavior:'smooth', block:'start'});
+  }catch(e){ box.innerHTML = '<div class="card"><div class="radar-empty">분석 실패</div></div>'; }
+  btn.disabled = false; btn.textContent = o;
+}
+
 // 상품 카드 선택 → 그 상품으로 링크·글 준비
 function pickProduct(i){
   const p = (window.__searchProducts||[])[i];
   if(!p) return;
   window.__lastResult = {deeplink: p.deeplink, productName: p.name, image: p.image, price: p.price, channel};
+  showPicked(p.name, p.deeplink);
   toast('상품을 골랐어요 — 말투 고르고 글 만들기');
-  renderResult(window.__lastResult);
+  const s3 = document.querySelectorAll('#page-make .step-card')[2];
+  if(s3) s3.scrollIntoView({behavior:'smooth', block:'start'});
 }
 
 async function genFromSearch(deeplink, pname){
@@ -1227,27 +1267,56 @@ async function doTopics(){
   btn.classList.remove('loading');
 }
 function renderTopics(topics, now){
-  // 주제 저장 (되돌아가기용)
   window.__lastTopics = topics;
   window.__lastTopicsNow = now;
+  window.__topicIdx = 0;
+  const total = topics.reduce((a,t)=>a + ((t.keywords||[]).length||0), 0);
   const result = document.getElementById('result');
-  result.innerHTML = `<div style="font-size:12px;color:var(--muted);margin:4px 0 12px">🕐 ${esc(now||'')} 기준</div>` +
-    topics.map((t,i)=>`
-      <div class="card" style="margin-bottom:12px">
-        <div style="font-size:15px;color:var(--text);font-weight:600;margin-bottom:8px">${i+1}. ${esc(t.title||'')}</div>
-        ${t.time_context?`<div class="topic-row"><span class="topic-lbl">🕐 맥락</span> ${esc(t.time_context)}</div>`:''}
-        ${t.sample?`<div class="topic-row"><span class="topic-lbl">👥 표본</span> ${esc(t.sample)}</div>`:''}
-        ${t.angle?`<div class="topic-row"><span class="topic-lbl">💡 앵글</span> ${esc(t.angle)}</div>`:''}
-        ${t.hook?`<div class="topic-row"><span class="topic-lbl">🎣 훅</span> "${esc(t.hook)}"</div>`:''}
-        ${(t.keywords&&t.keywords.length)?`<div style="margin-top:10px"><div style="font-size:12px;color:var(--text-2);margin-bottom:6px">🛒 추천 상품 (탭하면 검색)</div>${t.keywords.map(k=>`<button class="kw-chip" data-kw="${esc(k)}">${esc(k)}</button>`).join('')}</div>`:''}
-      </div>`).join('');
-  // 상품 칩 클릭 → 검색 (이벤트 위임, 인라인 onclick보다 안정적)
-  result.querySelectorAll('.kw-chip').forEach(chip=>{
-    chip.addEventListener('click', ()=>{ searchFromTopic(chip.dataset.kw||chip.textContent); });
-  });
-  result.scrollIntoView({behavior:'smooth',block:'start'});
+  result.innerHTML = `
+    <div class="card linkprod">
+      <div class="lp-head">
+        <div style="font-size:9.5px;font-weight:700;letter-spacing:.18em;color:var(--muted)">AI → COUPANG</div>
+        <span class="lp-count">${total}개</span>
+      </div>
+      <div class="lp-title">답변에서 뽑은 연결 상품</div>
+      <div class="lp-sub">주제를 고른 다음 상품 키워드를 누르면 쿠팡에서 실제 상품명을 검색합니다.</div>
+
+      <div class="lp-tabs" id="lpTabs">
+        ${topics.map((t,i)=>`<button class="lp-tab ${i===0?'on':''}" onclick="pickTopicTab(${i},this)">${i+1}. ${esc((t.title||'').slice(0,22))}${(t.title||'').length>22?'…':''}</button>`).join('')}
+      </div>
+
+      <div class="lp-detail" id="lpDetail"></div>
+    </div>`;
+  renderTopicDetail(0);
+  result.scrollIntoView({behavior:'smooth', block:'start'});
 }
-// 주제에서 추천 상품 클릭 → 검색 모드로 검색
+function pickTopicTab(i, el){
+  window.__topicIdx = i;
+  el.parentNode.querySelectorAll('.lp-tab').forEach(x=>x.classList.remove('on'));
+  el.classList.add('on');
+  renderTopicDetail(i);
+}
+function renderTopicDetail(i){
+  const t = (window.__lastTopics||[])[i];
+  const box = document.getElementById('lpDetail');
+  if(!t || !box) return;
+  const kws = t.keywords || [];
+  box.innerHTML = `
+    <div class="lp-dtitle">${esc(t.title||'')}</div>
+    <div class="lp-dhook">${esc(t.hook || t.angle || '')}</div>
+    ${(t.sample||t.time_context)?`<div class="lp-dmeta">${t.time_context?`🕐 ${esc(t.time_context)}`:''}${t.sample?`  👥 ${esc(t.sample)}`:''}</div>`:''}
+    <div class="lp-kws">
+      ${kws.map(k=>`<button class="lp-kw" data-kw="${esc(k)}">${esc(k)} <span>검색</span></button>`).join('')}
+    </div>`;
+  box.querySelectorAll('.lp-kw').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      box.querySelectorAll('.lp-kw').forEach(x=>x.classList.remove('on'));
+      b.classList.add('on');
+      searchFromTopic(b.dataset.kw);
+    });
+  });
+}
+
 // 주제 목록으로 돌아가기 (왔다갔다 비교)
 function backToTopics(){
   // 주제 모드로 전환
@@ -1922,3 +1991,41 @@ window.addEventListener('scroll', ()=>{
   cards.forEach((c,i)=>{ if(c.getBoundingClientRect().top < window.innerHeight*0.4) idx = i; });
   document.querySelectorAll('.pg').forEach((p,i)=>p.classList.toggle('on', i===idx));
 }, {passive:true});
+
+
+// ── 스텝3 입력 폼 ──
+window.__attachedImages = [];
+function clearPicked(){
+  const el = document.getElementById('pickedProd');
+  if(el) el.classList.add('hidden');
+  window.__lastResult = null;
+  const l = document.getElementById('w_link'); if(l) l.value = '';
+}
+function showPicked(name, link){
+  const el = document.getElementById('pickedProd');
+  const nm = document.getElementById('pickedName');
+  if(el && nm){ nm.textContent = name || ''; el.classList.remove('hidden'); }
+  const l = document.getElementById('w_link');
+  if(l && link) l.value = link;
+}
+function addImages(files){
+  const box = document.getElementById('imgThumbs');
+  if(!box || !files) return;
+  [...files].slice(0, 12 - window.__attachedImages.length).forEach(f=>{
+    const rd = new FileReader();
+    rd.onload = e => {
+      window.__attachedImages.push(e.target.result);
+      renderThumbs();
+    };
+    rd.readAsDataURL(f);
+  });
+}
+function renderThumbs(){
+  const box = document.getElementById('imgThumbs');
+  if(!box) return;
+  box.innerHTML = window.__attachedImages.map((src,i)=>`<img src="${src}" onclick="removeImage(${i})" title="탭해서 삭제">`).join('');
+}
+function removeImage(i){
+  window.__attachedImages.splice(i,1);
+  renderThumbs();
+}

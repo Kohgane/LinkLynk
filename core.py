@@ -1375,3 +1375,35 @@ def fetch_trend_radar(force=False):
     _TRENDS_CACHE["items"] = merged
     _TRENDS_CACHE["at"] = now
     return merged
+
+
+# ── 네이버 검색 리서치 (상품 특징 후보 추출) ──
+def naver_research(product_name, limit=6):
+    """네이버 검색에서 그 상품의 특징·후기 스니펫을 뽑아 '특징 후보'로 제시."""
+    import urllib.parse
+    ua = ("Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+          "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
+    q = urllib.parse.quote(product_name[:60])
+    out = []
+    # DuckDuckGo HTML(네이버 차단 회피) — site:naver 우선
+    for url in (f"https://html.duckduckgo.com/html/?q={q}+%EB%A6%AC%EB%B7%B0",
+                f"https://html.duckduckgo.com/html/?q={q}"):
+        try:
+            req = urllib.request.Request(url, headers={"User-Agent": ua})
+            body = urllib.request.urlopen(req, timeout=15, context=_ctx).read().decode("utf-8", "ignore")
+            blocks = re.findall(r'result__a"[^>]*href="([^"]+)"[^>]*>(.*?)</a>.*?result__snippet"[^>]*>(.*?)</a>',
+                                body, re.S)
+            for href, title, snip in blocks:
+                t = re.sub(r"<[^>]+>", "", title).strip()
+                sn = re.sub(r"<[^>]+>", "", snip).strip()
+                sn = re.sub(r"\s+", " ", sn)
+                if len(sn) < 25:
+                    continue
+                out.append({"title": t[:70], "snippet": sn[:180], "url": href})
+                if len(out) >= limit:
+                    break
+        except Exception:
+            pass
+        if out:
+            break
+    return out

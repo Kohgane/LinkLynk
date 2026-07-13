@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta name="build" content="0713-0401">
+<meta name="build" content="0713-0408">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -445,6 +445,60 @@
   input, textarea{font-size:14px}
   .btn{font-size:13.5px;padding:14px}
   .btn-sm{font-size:11.5px;padding:9px 12px}
+  /* ── 연결 상품 카드 (AI → COUPANG) ── */
+  .lp-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:8px}
+  .lp-count{font-size:10.5px;color:var(--text-2);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09);border-radius:999px;padding:5px 11px}
+  .lp-title{font-size:16px;font-weight:600;color:var(--text);margin-bottom:6px}
+  .lp-sub{font-size:11.5px;color:var(--muted);line-height:1.55;margin-bottom:14px}
+  .lp-tabs{display:flex;gap:8px;overflow-x:auto;padding-bottom:12px;scrollbar-width:none}
+  .lp-tabs::-webkit-scrollbar{display:none}
+  .lp-tab{flex:0 0 auto;max-width:250px;font-size:11.5px;font-weight:500;padding:11px 14px;border-radius:11px;
+    background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);color:var(--text-2);cursor:pointer;
+    white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .lp-tab.on{background:rgba(255,255,255,.10);border-color:rgba(255,255,255,.18);color:var(--text)}
+  .lp-detail{background:rgba(255,255,255,.03);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:16px}
+  .lp-dtitle{font-size:13.5px;font-weight:600;color:var(--text);margin-bottom:8px;line-height:1.5}
+  .lp-dhook{font-size:12px;color:var(--text-2);line-height:1.6;margin-bottom:10px}
+  .lp-dmeta{font-size:10.5px;color:var(--muted);margin-bottom:12px;line-height:1.6}
+  .lp-kws{display:flex;gap:8px;flex-wrap:wrap}
+  .lp-kw{font-size:12px;font-weight:500;padding:9px 14px;border-radius:999px;cursor:pointer;
+    background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);color:var(--text)}
+  .lp-kw span{font-size:9.5px;color:var(--muted);margin-left:4px}
+  .lp-kw.on{background:linear-gradient(180deg,#FFF,#E9EAEC);color:#0A0A0B;border-color:transparent;font-weight:600}
+  .lp-kw.on span{color:rgba(10,10,11,.5)}
+
+  /* ── 검색 리서치 ── */
+  .rs-name{font-size:15px;font-weight:600;color:var(--text);line-height:1.5;margin-bottom:8px}
+  .rs-price{font-size:14px;font-weight:700;color:var(--text);margin-bottom:12px}
+  .rs-tags{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:16px}
+  .rs-link{font-size:11px;color:var(--text-2);text-decoration:none;background:rgba(255,255,255,.05);
+    border:1px solid rgba(255,255,255,.09);border-radius:999px;padding:7px 12px}
+  .rs-h{font-size:13px;font-weight:600;color:var(--text);margin-bottom:4px}
+  .rs-sub{font-size:10.5px;color:var(--muted);margin-bottom:12px}
+  .rs-row{display:flex;gap:12px;padding:12px 0;border-bottom:1px solid rgba(255,255,255,.05)}
+  .rs-row:last-child{border-bottom:none}
+  .rs-num{font-size:10.5px;color:var(--muted);font-weight:600;flex:0 0 auto;padding-top:2px}
+  .rs-snip{font-size:12px;color:var(--text);line-height:1.6;margin-bottom:6px}
+  .rs-src{font-size:10px;color:var(--muted);text-decoration:none;display:block}
+
+  /* ── 스텝3 입력 폼 ── */
+  .picked{display:flex;align-items:center;gap:10px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.08);
+    border-radius:12px;padding:12px 14px;margin-bottom:16px}
+  .picked-lbl{font-size:10.5px;color:var(--muted);font-weight:600;flex:0 0 auto}
+  .picked-name{font-size:12px;color:var(--text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  .picked-x{background:none;border:none;color:var(--muted);font-size:14px;cursor:pointer;flex:0 0 auto}
+  .fgroup{margin-bottom:18px}
+  .flabel{display:block;font-size:12.5px;font-weight:600;color:var(--text);margin-bottom:8px}
+  .fhint{font-size:10.5px;font-weight:400;color:var(--muted);margin-left:6px}
+  .drop{border:1.5px dashed rgba(255,255,255,.13);border-radius:14px;padding:30px 16px;text-align:center;cursor:pointer;transition:all .16s}
+  .drop:active{background:rgba(255,255,255,.03)}
+  .drop-plus{width:46px;height:46px;border-radius:13px;background:rgba(255,255,255,.07);display:grid;place-items:center;
+    font-size:22px;color:var(--text);margin:0 auto 12px}
+  .drop-t{font-size:13px;font-weight:600;color:var(--text);margin-bottom:5px}
+  .drop-s{font-size:10.5px;color:var(--muted)}
+  .thumbs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}
+  .thumbs img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px}
+  .fdiv{height:1px;background:rgba(255,255,255,.06);margin:6px 0 18px}
 </style>
 </head>
 <body>
@@ -539,6 +593,35 @@
     </div>
     <div class="step-card" style="margin:0 20px 14px">
     <div class="sec-head"><div class="sec-num">3</div><div class="sec-meta"><div class="sec-kicker">WRITE &amp; EXPORT</div><div class="sec-title">글 작성하고 내보내기</div></div></div>
+
+    <div id="pickedProd" class="picked hidden">
+      <span class="picked-lbl">선택한 상품</span>
+      <span class="picked-name" id="pickedName"></span>
+      <button class="picked-x" onclick="clearPicked()">✕</button>
+    </div>
+
+    <div class="fgroup">
+      <label class="flabel">쿠팡파트너스 링크</label>
+      <input id="w_link" placeholder="https://link.coupang.com/..." autocomplete="off">
+    </div>
+
+    <div class="fgroup">
+      <label class="flabel">상품 상세 이미지 <span class="fhint">선택사항 · 최대 12장</span></label>
+      <div class="drop" id="imgDrop" onclick="document.getElementById('imgFile').click()">
+        <div class="drop-plus">+</div>
+        <div class="drop-t">이미지 첨부하기</div>
+        <div class="drop-s">갤러리에서 선택하거나 여기에 끌어다 놓으세요</div>
+      </div>
+      <input type="file" id="imgFile" accept="image/*" multiple style="display:none" onchange="addImages(this.files)">
+      <div class="thumbs" id="imgThumbs"></div>
+    </div>
+
+    <div class="fgroup">
+      <label class="flabel">추가 요청</label>
+      <textarea id="w_extra" rows="3" placeholder="예: 육아 경험담으로 시작하고, 광고처럼 보이지 않게 작성해줘"></textarea>
+    </div>
+
+    <div class="fdiv"></div>
     <div class="chips" style="padding:0 0 4px">
       <div class="chip on" data-ch="blog" onclick="setCh(this)">블로그</div>
       <div class="chip" data-ch="insta" onclick="setCh(this)">인스타</div>
@@ -722,6 +805,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="/app.js?v=1783915316"></script>
+<script src="/app.js?v=1783915730"></script>
 </body>
 </html>
