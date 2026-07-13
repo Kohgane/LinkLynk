@@ -389,13 +389,19 @@ def save_anthropic_key_api():
         return jsonify({"ok": False, "error": "키를 입력하세요"}), 400
     from core import detect_llm_provider
     p = detect_llm_provider(key)
-    if p == "unknown":
-        return jsonify({"ok": False, "error": "키 형식을 인식할 수 없어요. AIza…(Gemini 무료) / sk-or-…(OpenRouter 무료) / sk-ant-…(Claude)"}), 400
+    if p in ("unknown", "llm7"):
+        return jsonify({"ok": False, "error": "키 형식을 인식할 수 없어요. "
+                        "AIza…(Gemini) / gsk_…(Groq) / csk-…(Cerebras) / nvapi-…(NVIDIA) / "
+                        "ghp_…(GitHub) / sk-or-…(OpenRouter) / sk-ant-…(Claude)"}), 400
     store.save_llm_key(session["uid"], p, key)
     if p == "anthropic":
         store.save_anthropic_key(session["uid"], key)   # 하위호환
-    names = {"gemini": "Google Gemini (무료)", "openrouter": "OpenRouter (무료)", "groq": "Groq (무료)", "anthropic": "Claude"}
-    return jsonify({"ok": True, "provider": p, "message": f"{names[p]} 연결됐어요"})
+    names = {"gemini": "Google Gemini (무료)", "openrouter": "OpenRouter (무료)",
+             "groq": "Groq (무료)", "cerebras": "Cerebras (무료·최고속)",
+             "nvidia": "NVIDIA NIM (무료)", "github": "GitHub Models (무료)",
+             "zai": "Z.AI GLM (무료)", "anthropic": "Claude"}
+    return jsonify({"ok": True, "provider": p,
+                    "message": f"{names.get(p, p)} 연결됐어요"})
 
 
 @app.route("/api/research", methods=["POST"])

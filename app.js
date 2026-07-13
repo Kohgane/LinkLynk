@@ -1147,9 +1147,13 @@ async function saveAllLlmKeys(){
   const msg = document.getElementById('claudeMsg');
   msg.innerHTML = '';
   const fields = [
-    {id:'k_gemini', name:'Gemini'},
-    {id:'k_openrouter', name:'OpenRouter'},
+    {id:'k_cerebras', name:'Cerebras'},
     {id:'k_groq', name:'Groq'},
+    {id:'k_gemini', name:'Gemini'},
+    {id:'k_github', name:'GitHub Models'},
+    {id:'k_nvidia', name:'NVIDIA'},
+    {id:'k_zai', name:'Z.AI'},
+    {id:'k_openrouter', name:'OpenRouter'},
     {id:'k_anthropic', name:'Claude'},
   ];
   const toSave = fields.map(f=>({...f, val:(document.getElementById(f.id)?.value||'').trim()})).filter(f=>f.val);

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta name="build" content="0713-ai-tools">
+<meta name="build" content="0713-ai-keys">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -897,28 +897,65 @@
         <div class="card-lbl">🧠 AI 연결 (여러 개 넣고 비교 가능)</div>
         <div id="claudeStatus" style="font-size:13px;color:var(--muted);margin-bottom:14px">연결 안 됨</div>
 
-        <div class="field"><label>① Google Gemini — 무료 (추천)</label>
-          <input id="k_gemini" placeholder="AIza…" autocomplete="off"></div>
-        <div style="font-size:11px;color:var(--muted);margin:-6px 0 12px;line-height:1.5">
-          aistudio.google.com/apikey → Get API key (카드 없이 무료)
+        <div style="background:var(--surface-2);border:1px solid var(--line);border-radius:12px;
+                    padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--text-2);line-height:1.6">
+          ✨ <b style="color:var(--text)">키를 하나도 안 넣어도</b> 글을 쓸 수 있어요.
+          AI 목록의 <b style="color:var(--text)">무료 AI (키 없이)</b>가 기본으로 켜져 있습니다.
+          아래는 <b style="color:var(--text)">더 빠르고 더 좋은 글</b>을 원할 때만 넣으세요. 전부 무료·카드 불필요.
         </div>
 
-        <div class="field"><label>② OpenRouter — 무료 모델</label>
-          <input id="k_openrouter" placeholder="sk-or-…" autocomplete="off"></div>
+        <div class="field"><label>① Cerebras — 무료 ⚡⚡ (가장 빠름)</label>
+          <input id="k_cerebras" placeholder="csk-…" autocomplete="off"></div>
         <div style="font-size:11px;color:var(--muted);margin:-6px 0 12px;line-height:1.5">
-          openrouter.ai/keys → 무료 모델(:free)만 사용
+          <a href="https://cloud.cerebras.ai/" target="_blank" rel="noopener" style="color:var(--text-2)">cloud.cerebras.ai</a>
+          → 이메일만으로 발급. 초당 ~2,600토큰, 하루 100만 토큰.
         </div>
 
-        <div class="field"><label>③ Groq — 무료 (초고속)</label>
+        <div class="field"><label>② Groq — 무료 ⚡ (빠름)</label>
           <input id="k_groq" placeholder="gsk_…" autocomplete="off"></div>
         <div style="font-size:11px;color:var(--muted);margin:-6px 0 12px;line-height:1.5">
-          console.groq.com/keys → 무료 발급. Llama 3.3 70B 등
+          <a href="https://console.groq.com/keys" target="_blank" rel="noopener" style="color:var(--text-2)">console.groq.com/keys</a>
+          → 무료 발급. Llama 3.3 70B.
         </div>
 
-        <div class="field"><label>④ Claude — 유료 💰</label>
+        <div class="field"><label>③ Google Gemini — 무료</label>
+          <input id="k_gemini" placeholder="AIza…" autocomplete="off"></div>
+        <div style="font-size:11px;color:var(--muted);margin:-6px 0 12px;line-height:1.5">
+          <a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener" style="color:var(--text-2)">aistudio.google.com/apikey</a>
+          → Get API key (카드 없이 무료)
+        </div>
+
+        <div class="field"><label>④ GitHub Models — 무료</label>
+          <input id="k_github" placeholder="ghp_… 또는 github_pat_…" autocomplete="off"></div>
+        <div style="font-size:11px;color:var(--muted);margin:-6px 0 12px;line-height:1.5">
+          <a href="https://github.com/settings/tokens" target="_blank" rel="noopener" style="color:var(--text-2)">github.com/settings/tokens</a>
+          → 깃허브 계정만 있으면 무료. 권한(scope) 없는 토큰이면 충분해요. GPT-4.1-mini 사용.
+        </div>
+
+        <div class="field"><label>⑤ NVIDIA NIM — 무료</label>
+          <input id="k_nvidia" placeholder="nvapi-…" autocomplete="off"></div>
+        <div style="font-size:11px;color:var(--muted);margin:-6px 0 12px;line-height:1.5">
+          <a href="https://build.nvidia.com/" target="_blank" rel="noopener" style="color:var(--text-2)">build.nvidia.com</a>
+          → 개발자 가입(무료). <b>하루 사용량 제한 없음.</b>
+        </div>
+
+        <div class="field"><label>⑥ Z.AI (GLM) — 무료</label>
+          <input id="k_zai" placeholder="xxxxxxxx.xxxxxxxx" autocomplete="off"></div>
+        <div style="font-size:11px;color:var(--muted);margin:-6px 0 12px;line-height:1.5">
+          <a href="https://open.bigmodel.cn/usercenter/apikeys" target="_blank" rel="noopener" style="color:var(--text-2)">open.bigmodel.cn</a>
+          → GLM Flash 영구 무료.
+        </div>
+
+        <div class="field"><label>⑦ OpenRouter — 무료 (느림)</label>
+          <input id="k_openrouter" placeholder="sk-or-…" autocomplete="off"></div>
+        <div style="font-size:11px;color:var(--muted);margin:-6px 0 12px;line-height:1.5">
+          무료 모델은 유료 트래픽 뒤에 <b>큐로 대기</b>합니다. 급하면 위 것들을 쓰세요.
+        </div>
+
+        <div class="field"><label>⑧ Claude — 유료 💰</label>
           <input id="k_anthropic" placeholder="sk-ant-…" autocomplete="off"></div>
         <div style="font-size:11px;color:var(--muted);margin:-6px 0 14px;line-height:1.5">
-          크레딧 필요. 안 넣어도 돼요.
+          크레딧 필요. 안 넣어도 돼요. 글 품질은 확실히 제일 좋습니다.
         </div>
 
         <div id="claudeMsg"></div>
@@ -952,6 +989,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="/app.js?v=1783938945"></script>
+<script src="/app.js?v=1783939979"></script>
 </body>
 </html>
