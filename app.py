@@ -15,6 +15,13 @@ import store
 from spinads_api_v2 import spinads_bp
 
 app = Flask(__name__, static_folder=".")
+
+# 부팅 직후 트렌드 레이더 미리 채움 → 첫 요청도 대기 0
+try:
+    from core import warm_radar
+    warm_radar()
+except Exception:
+    pass
 app.register_blueprint(spinads_bp)
 app.secret_key = os.environ.get("LINKLYNK_SESSION_SECRET", "dev-secret-change-me")
 from datetime import timedelta
@@ -125,7 +132,12 @@ def icon(name):
 @app.route("/apple-touch-icon.png")
 @app.route("/apple-touch-icon-precomposed.png")
 def apple_icon():
-    return send_from_directory(".", "icon-192.png", mimetype="image/png")
+    return send_from_directory(".", "apple-touch-icon.png", mimetype="image/png")
+
+@app.route("/favicon.ico")
+@app.route("/favicon-32.png")
+def favicon():
+    return send_from_directory(".", "favicon-32.png", mimetype="image/png")
 
 @app.route("/api/health")
 def health():

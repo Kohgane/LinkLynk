@@ -3,7 +3,27 @@ LinkLynk — 코어 모듈
 쿠팡 파트너스 딥링크 생성 + 고지문구 삽입 + 블로그 초안 생성
 서버(app.py)에서 import해서 사용.
 """
-import hmac, hashlib, time, urllib.request, json, ssl, re, random
+import hmac, hashlib, time, urllib.request, json, ssl, re, random, threading
+
+# ── 살아있는 모델 기억 (죽은 모델 타임아웃 반복 방지) ──
+_GOOD_MODEL = {}   # provider -> (model, ts)
+_STICKY_TTL = 1800
+
+def _sticky(p):
+    v = _GOOD_MODEL.get(p)
+    if v and time.time() - v[1] < _STICKY_TTL:
+        return v[0]
+    return None
+
+def _sticky_ok(p, m):
+    _GOOD_MODEL[p] = (m, time.time())
+
+def _order(p, models):
+    m = _sticky(p)
+    if m and m in models:
+        return [m] + [x for x in models if x != m]
+    return models
+
 
 _ctx = ssl.create_default_context()
 _ctx.check_hostname = False
@@ -818,7 +838,7 @@ def claude_generate_topics(api_key, user_topic="", now_str="", n=3):
     else:
         user_msg += f"지금 시각·계절에 맞는 주제 {n}개를 제안해주세요. 표본이 넓은 걸로."
 
-    r = llm_chat(api_key, sys_prompt, user_msg, max_tokens=3000)
+    r = llm_chat(api_key, sys_prompt, user_msg, max_tokens=1400)
     if not r.get("ok"):
         return r
     try:
@@ -945,7 +965,7 @@ def detect_llm_provider(api_key):
 
 def _llm_groq(api_key, sys_prompt, user_msg, max_tokens=3000):
     """Groq — 무료 티어 (console.groq.com). Llama 4 / Qwen 등 고성능."""
-    models = ["llama-3.3-70b-versatile", "qwen/qwen3-32b", "llama-3.1-8b-instant"]
+    models = _order("groq", ["llama-3.3-70b-versatile", "qwen/qwen3-32b", "llama-3.1-8b-instant"])
     last = {}
     for m in models:
         payload = {"model": m, "max_tokens": max_tokens, "temperature": 1.0,
@@ -957,10 +977,11 @@ def _llm_groq(api_key, sys_prompt, user_msg, max_tokens=3000):
                 data=json.dumps(payload).encode(),
                 headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json"},
                 method="POST")
-            with urllib.request.urlopen(req, timeout=60, context=_ctx) as r:
+            with urllib.request.urlopen(req, timeout=25, context=_ctx) as r:
                 data = json.loads(r.read().decode())
             text = (data.get("choices") or [{}])[0].get("message", {}).get("content", "")
             if text and text.strip():
+                _sticky_ok("groq", m)
                 return {"ok": True, "text": text.strip(), "model": m}
             last = {"ok": False, "error": "empty"}
         except urllib.error.HTTPError as e:
@@ -977,27 +998,29 @@ def _llm_groq(api_key, sys_prompt, user_msg, max_tokens=3000):
 
 def _llm_gemini(api_key, sys_prompt, user_msg, max_tokens=1200):
     """Google Gemini — 무료 티어 (aistudio.google.com에서 키 발급)."""
-    models = ["gemini-2.5-flash", "gemini-2.5-pro", "gemini-2.0-flash", "gemini-flash-latest"]
+    models = _order("gemini", ["gemini-2.5-flash", "gemini-2.0-flash",
+                               "gemini-2.5-flash-lite", "gemini-flash-latest"])
     last = {}
     for m in models:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={api_key}"
         payload = {
             "system_instruction": {"parts": [{"text": sys_prompt}]},
             "contents": [{"parts": [{"text": user_msg}]}],
-            "generationConfig": {"temperature": 1.0, "maxOutputTokens": max(max_tokens, 4000),
+            "generationConfig": {"temperature": 1.0, "maxOutputTokens": min(max(max_tokens, 1500), 2600),
                                  "responseMimeType": "application/json",
                                  "thinkingConfig": {"thinkingBudget": 0}},
         }
         try:
             req = urllib.request.Request(url, data=json.dumps(payload).encode(),
                 headers={"Content-Type": "application/json"}, method="POST")
-            with urllib.request.urlopen(req, timeout=60, context=_ctx) as r:
+            with urllib.request.urlopen(req, timeout=30, context=_ctx) as r:
                 data = json.loads(r.read().decode())
             cands = data.get("candidates", [])
             if not cands:
                 last = {"ok": False, "error": "no_candidates"}; continue
             text = "".join(p.get("text", "") for p in cands[0].get("content", {}).get("parts", []))
-            return {"ok": True, "text": text.strip()}
+            _sticky_ok("gemini", m)
+            return {"ok": True, "text": text.strip(), "model": m}
         except urllib.error.HTTPError as e:
             detail = ""
             try: detail = e.read().decode()[:200]
@@ -1022,7 +1045,7 @@ def _openrouter_free_models():
               "nemotron-3-super", "gemma-4-26b", "nemotron-3-nano-30b", "hy3"]
     try:
         req = urllib.request.Request("https://openrouter.ai/api/v1/models")
-        data = json.loads(urllib.request.urlopen(req, timeout=15, context=_ctx).read())
+        data = json.loads(urllib.request.urlopen(req, timeout=8, context=_ctx).read())
         free = []
         for m in data.get("data", []):
             mid = m.get("id", "")
@@ -1052,7 +1075,7 @@ def _openrouter_free_models():
 
 def _llm_openrouter(api_key, sys_prompt, user_msg, max_tokens=3000):
     """OpenRouter — :free 모델만 사용 (0원). 살아있는 모델 실시간 조회."""
-    models = _openrouter_free_models()
+    models = _order("openrouter", _openrouter_free_models())
     last = {}
     for m in models:
         payload = {"model": m, "max_tokens": max_tokens, "temperature": 1.0,
@@ -1064,10 +1087,11 @@ def _llm_openrouter(api_key, sys_prompt, user_msg, max_tokens=3000):
                 headers={"Authorization": f"Bearer {api_key}", "Content-Type": "application/json",
                          "HTTP-Referer": "https://linklynk.onrender.com", "X-Title": "LinkLynk"},
                 method="POST")
-            with urllib.request.urlopen(req, timeout=45, context=_ctx) as r:
+            with urllib.request.urlopen(req, timeout=30, context=_ctx) as r:
                 data = json.loads(r.read().decode())
             text = (data.get("choices") or [{}])[0].get("message", {}).get("content", "")
             if text and text.strip():
+                _sticky_ok("openrouter", m)
                 return {"ok": True, "text": text.strip(), "model": m}
             last = {"ok": False, "error": "empty"}
         except urllib.error.HTTPError as e:
@@ -1296,6 +1320,7 @@ def _humanize_pass(api_key, product_name, tone_desc, posts, tells):
 
 # ── 지금 뜨는 주제 레이더 (Google Trends + 계절 신호, 무료·키 불필요) ──
 _TRENDS_CACHE = {"at": 0, "items": []}
+_TRENDS_BUSY = threading.Lock()
 
 # 생활·육아·건강·날씨·쇼핑과 관련된 신호만 통과 (연예·정치·스포츠·주식 제외)
 _TREND_ALLOW = [
@@ -1333,14 +1358,17 @@ def _season_topics():
 def fetch_trend_radar(force=False):
     """Google Trends 실시간 급상승 + 계절 신호 → 생활·육아·건강 관련만."""
     now = time.time()
-    if not force and _TRENDS_CACHE["items"] and now - _TRENDS_CACHE["at"] < 1800:
+    if not force and _TRENDS_CACHE["items"]:
+        # 캐시가 있으면 무조건 즉시 반환. 오래됐으면 뒤에서 조용히 갱신한다.
+        if now - _TRENDS_CACHE["at"] > 1800:
+            _spawn_radar_refresh()
         return _TRENDS_CACHE["items"]
     items = []
     try:
         ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36"
         req = urllib.request.Request("https://trends.google.com/trending/rss?geo=KR",
                                      headers={"User-Agent": ua})
-        body = urllib.request.urlopen(req, timeout=15, context=_ctx).read().decode("utf-8", "ignore")
+        body = urllib.request.urlopen(req, timeout=6, context=_ctx).read().decode("utf-8", "ignore")
         blocks = re.findall(r"<item>(.*?)</item>", body, re.S)
         for b in blocks:
             t = re.search(r"<title>(.*?)</title>", b, re.S)
@@ -1377,6 +1405,24 @@ def fetch_trend_radar(force=False):
     return merged
 
 
+def _spawn_radar_refresh():
+    """만료된 캐시를 백그라운드에서 갱신. 사용자는 절대 기다리지 않는다."""
+    if _TRENDS_BUSY.locked():
+        return
+    def run():
+        with _TRENDS_BUSY:
+            try:
+                fetch_trend_radar(force=True)
+            except Exception:
+                pass
+    threading.Thread(target=run, daemon=True).start()
+
+
+def warm_radar():
+    """서버 부팅 직후 미리 채워둔다 → 첫 사용자도 즉시."""
+    threading.Thread(target=lambda: fetch_trend_radar(force=True), daemon=True).start()
+
+
 # ── 네이버 검색 리서치 (상품 특징 후보 추출) ──
 def naver_research(product_name, limit=6):
     """네이버 검색에서 그 상품의 특징·후기 스니펫을 뽑아 '특징 후보'로 제시."""
@@ -1390,7 +1436,7 @@ def naver_research(product_name, limit=6):
                 f"https://html.duckduckgo.com/html/?q={q}"):
         try:
             req = urllib.request.Request(url, headers={"User-Agent": ua})
-            body = urllib.request.urlopen(req, timeout=15, context=_ctx).read().decode("utf-8", "ignore")
+            body = urllib.request.urlopen(req, timeout=7, context=_ctx).read().decode("utf-8", "ignore")
             blocks = re.findall(r'result__a"[^>]*href="([^"]+)"[^>]*>(.*?)</a>.*?result__snippet"[^>]*>(.*?)</a>',
                                 body, re.S)
             for href, title, snip in blocks:
