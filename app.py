@@ -565,7 +565,7 @@ def search_product_api():
     # 3) 실제 검색 (본인 키, 1회) — 상품 최대 20개
     try:
         store.log_search(session["uid"])
-        plist = partners.search_products(keyword, limit=20)
+        plist = partners.search_products(keyword, limit=12)
     except Exception:
         plist = []
     if not plist:
@@ -595,16 +595,8 @@ def search_product_api():
                              "isRocket": p.get("isRocket", False),
                              "url": p.get("url"), "deeplink": p.get("url")})
 
-    # 4) 딥링크 생성 (productUrl이 이미 파트너스 링크면 그대로, 아니면 생성)
-    deeplink = info.get("url") or ""
-    try:
-        if info.get("productId"):
-            product_url = f"https://www.coupang.com/vp/products/{info['productId']}"
-            res = partners.make_deeplinks([product_url], sub_id="search")
-            if res.get("ok") and res.get("data"):
-                deeplink = res["data"][0].get("shortenUrl") or deeplink
-    except Exception:
-        pass
+    # 4) 대표 상품 딥링크 — 위 배치 결과 재사용 (API 재호출 제거)
+    deeplink = (products[0].get("deeplink") if products else None) or info.get("url") or ""
 
     # 5) 캐시 저장 (다음엔 API 안 씀)
     store.set_search_cache(keyword, info["name"], deeplink, info.get("image"), info.get("price"), products)

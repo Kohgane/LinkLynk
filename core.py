@@ -60,7 +60,7 @@ class CoupangPartners:
         req = urllib.request.Request(COUPANG_DOMAIN+path+"?"+q,
             headers={"Authorization": auth, "Content-Type": "application/json"}, method="GET")
         try:
-            res = json.loads(urllib.request.urlopen(req, context=_ctx, timeout=15).read())
+            res = json.loads(urllib.request.urlopen(req, context=_ctx, timeout=8).read())
         except Exception:
             return None
         if res.get("rCode") != "0":
@@ -73,7 +73,7 @@ class CoupangPartners:
                 "image": p.get("productImage"), "url": p.get("productUrl"),
                 "productId": p.get("productId")}
 
-    def search_products(self, keyword, limit=20):
+    def search_products(self, keyword, limit=12):
         """파트너스 상품검색 — 여러 개 반환 (이미지처럼 3개 카드용)."""
         import urllib.parse
         q = f"keyword={urllib.parse.quote(keyword)}&limit={limit}"
@@ -112,7 +112,7 @@ class CoupangPartners:
             method="POST",
         )
         try:
-            res = json.loads(urllib.request.urlopen(req, context=_ctx, timeout=25).read())
+            res = json.loads(urllib.request.urlopen(req, context=_ctx, timeout=10).read())
         except urllib.error.HTTPError as e:
             return {"ok": False, "error": e.code, "detail": e.read().decode()[:300]}
         if res.get("rCode") != "0":

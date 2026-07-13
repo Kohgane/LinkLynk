@@ -417,7 +417,7 @@ async function doSearch(){
   const btn = document.getElementById('searchGo');
   if(kw.length<2){ toast('검색어를 2자 이상 입력하세요'); return; }
   btn.classList.add('loading');
-  const result = document.getElementById('result');
+  const result = document.getElementById('searchOut') || document.getElementById('result');
   if(result) result.innerHTML = `<div class="card"><div class="radar-loading"><span class="spin-sm"></span><span>"${esc(kw)}" 상품 찾는 중…</span></div>
     <div class="prod-grid">${[1,2,3].map(()=>`<div class="prod-card skel"><div class="sk-line" style="width:100%;aspect-ratio:1;height:auto;border-radius:9px"></div><div class="sk-line" style="width:90%;margin-top:8px"></div><div class="sk-line" style="width:60%;margin-top:6px"></div></div>`).join('')}</div></div>`;
   try{
@@ -427,7 +427,7 @@ async function doSearch(){
       const priceTxt = d.price ? ` · ${Number(d.price).toLocaleString()}원` : '';
       const prods = d.products && d.products.length ? d.products : [{name:d.product_name, price:d.price, image:d.image, deeplink:d.deeplink, url:d.deeplink}];
       window.__searchProducts = prods;
-      document.getElementById('result').innerHTML = `
+      (document.getElementById('searchOut') || document.getElementById('result')).innerHTML = `
         <div class="result">
           ${window.__lastTopics?`<button class="btn btn-ghost" style="margin-bottom:10px" onclick="backToTopics()">← 주제 목록으로 돌아가기</button>`:''}
           <div class="card">
@@ -1643,13 +1643,13 @@ async function renderLlmPicker(){
   window.__llmList = list;
   // 기본 선택: 무료 우선 (Claude 자동 선택 안 함 = 돈 안 나감)
   if(!window.__llmPick || !list.some(p=>p.id===window.__llmPick)){
-    const free = list.find(p=>p.id==='gemini') || list.find(p=>p.id==='openrouter');
+    const free = list.find(p=>p.id==='groq') || list.find(p=>p.id==='gemini') || list.find(p=>p.id==='openrouter');
     window.__llmPick = (free || list[0]).id;
   }
   const PAID = {anthropic:true};
   box.innerHTML = `<div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.1em;margin-bottom:6px">AI · 글 쓰는 도구</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;align-items:center">
-      ${list.map(p=>`<button class="chip ${p.id===window.__llmPick?'on':''}" onclick="pickLlm('${p.id}',this)">${esc(p.name)}${PAID[p.id]?' 💰':''}</button>`).join('')}
+      ${list.map(p=>`<button class="chip ${p.id===window.__llmPick?'on':''}" onclick="pickLlm('${p.id}',this)">${esc(p.name)}${p.id==='groq'?' ⚡':''}${PAID[p.id]?' 💰':''}</button>`).join('')}
       ${list.length>1?`<button class="chip" onclick="openCompare()">⚖️ 비교</button>`:''}
     </div>
     <div style="font-size:11px;color:var(--muted);margin-top:6px">💰 = 유료(호출 시 과금). 선택한 도구로만 글을 씁니다.</div>`;
