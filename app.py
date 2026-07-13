@@ -562,40 +562,53 @@ def search_product_api():
         return jsonify({"ok": False, "rate_limited": True,
                         "error": "검색을 너무 많이 했어요. 1시간 후 다시 시도하거나, 링크를 직접 붙여넣어 주세요."}), 429
 
-    # 3) 실제 검색 (본인 키, 1회) — 상품 최대 20개
+    # 3) 실제 검색 (본인 키, 1회)
+    import time as _time
+    _t0 = _time.time()
     try:
         store.log_search(session["uid"])
         plist = partners.search_products(keyword, limit=12)
     except Exception:
         plist = []
+    _t_search = int((_time.time() - _t0) * 1000)
     if not plist:
         return jsonify({"ok": False, "error": "상품을 찾지 못했어요. 다른 검색어를 써보세요."}), 404
     info = plist[0]
 
-    # 3-b) 각 상품 딥링크 생성 → 카드 3개로 반환
+    # 3-b) 딥링크
+    # 파트너스 검색 API가 돌려주는 productUrl은 이미 link.coupang.com 제휴링크다.
+    # 예전 코드는 여기서 make_deeplinks()를 또 불렀는데, 반환값(dict)을 리스트처럼 순회해
+    # 항상 예외가 나서 결과를 버렸다 = API 왕복 1회를 통째로 낭비. 제거한다.
+    _t1 = _time.time()
+    def _with_subid(u):
+        if not u:
+            return u
+        if "link.coupang.com" in u:
+            return u + ("&" if "?" in u else "?") + "subId=search"
+        return u
     products = []
-    try:
-        urls = [p.get("url") for p in plist if p.get("url")]
-        dls = partners.make_deeplinks(urls, sub_id="search") if urls else []
-        dmap = {}
-        for dl in (dls or []):
-            dmap[dl.get("originalUrl")] = dl.get("shortenUrl") or dl.get("landingUrl")
-        for p in plist:
-            products.append({
-                "name": p.get("name"), "price": p.get("price"),
-                "image": p.get("image"), "productId": p.get("productId"),
-                "isRocket": p.get("isRocket", False),
-                "url": p.get("url"),
-                "deeplink": dmap.get(p.get("url")) or p.get("url"),
-            })
-    except Exception:
-        for p in plist:
-            products.append({"name": p.get("name"), "price": p.get("price"),
-                             "image": p.get("image"), "productId": p.get("productId"),
-                             "isRocket": p.get("isRocket", False),
-                             "url": p.get("url"), "deeplink": p.get("url")})
+    need_dl = [p.get("url") for p in plist
+               if p.get("url") and "link.coupang.com" not in p.get("url")]
+    dmap = {}
+    if need_dl:                      # 제휴링크가 아닌 것만 (보통 0개)
+        try:
+            res = partners.make_deeplinks(need_dl, sub_id="search")
+            for dl in (res.get("data") or []):
+                dmap[dl.get("originalUrl")] = dl.get("shortenUrl") or dl.get("landingUrl")
+        except Exception:
+            pass
+    for p in plist:
+        u = p.get("url")
+        products.append({
+            "name": p.get("name"), "price": p.get("price"),
+            "image": p.get("image"), "productId": p.get("productId"),
+            "isRocket": p.get("isRocket", False),
+            "url": u,
+            "deeplink": dmap.get(u) or _with_subid(u),
+        })
+    _t_deeplink = int((_time.time() - _t1) * 1000)
 
-    # 4) 대표 상품 딥링크 — 위 배치 결과 재사용 (API 재호출 제거)
+    # 4) 대표 상품 딥링크
     deeplink = (products[0].get("deeplink") if products else None) or info.get("url") or ""
 
     # 5) 캐시 저장 (다음엔 API 안 씀)
@@ -603,6 +616,7 @@ def search_product_api():
     store.save_link(session["uid"], "", deeplink, info["name"], "search")
 
     return jsonify({"ok": True, "cached": False,
+                    "ms": {"search": _t_search, "deeplink": _t_deeplink},
                     "product_name": info["name"], "deeplink": deeplink,
                     "image": info.get("image"), "price": info.get("price"),
                     "products": products})
