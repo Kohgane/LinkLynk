@@ -534,7 +534,12 @@ def claude_topics_api():
     for p in ("cerebras", "groq", "gemini", "github", "nvidia", "zai", "llm7", "openrouter", "anthropic"):
         if p in keys and p not in order:
             order.append(p)
-    order = order[:2]
+    # ★2개로 묶어놨더니 Gemini가 503(과부하) 한 번 뱉는 순간 통째로 실패했다.
+    #  스티키 캐시 덕에 죽은 모델을 반복 시도하지 않으므로 체인을 넉넉히 준다.
+    #  마지막에는 키 없이도 되는 llm7이 있으니 반드시 하나는 성공한다.
+    if "llm7" in keys and "llm7" not in order:
+        order.append("llm7")
+    order = order[:4] + (["llm7"] if "llm7" in keys and "llm7" not in order[:4] else [])
 
     import time as _time
     from core import claude_generate_topics
@@ -551,8 +556,12 @@ def claude_topics_api():
     r = last_err
     # 에러 메시지
     err = r.get("error", "")
-    if err.startswith("http_401"): msg = "Claude API 키가 유효하지 않아요. 설정에서 다시 등록하세요."
-    elif err.startswith("http_429"): msg = "Claude API 사용량 한도예요. 잠시 후 다시 시도하세요."
+    if err.startswith("http_401") or err.startswith("http_403"):
+        msg = "AI 키가 유효하지 않아요. 설정에서 다시 등록하세요."
+    elif err.startswith("http_429"):
+        msg = "이 AI의 사용량 한도예요. 다른 AI를 골라보세요 (설정에 여러 개 넣을 수 있어요)."
+    elif err.startswith("http_503") or err.startswith("http_500") or err.startswith("http_502"):
+        msg = "AI 서버가 지금 과부하예요. 다른 AI를 고르거나 잠시 뒤 다시 눌러주세요."
     elif err.startswith("http_400"): msg = "API 요청 오류: " + (r.get("detail","")[:120] or "형식 오류")
     else: msg = "주제 생성 실패: " + (err[:60] or "알 수 없음") + (" / "+r.get("detail","")[:80] if r.get("detail") else "")
     return jsonify({"ok": False, "error": msg, "detail": r.get("detail", ""), "ms": timings}), 502

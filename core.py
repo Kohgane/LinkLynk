@@ -18,6 +18,13 @@ def _sticky(p):
 def _sticky_ok(p, m):
     _GOOD_MODEL[p] = (m, time.time())
 
+def _sticky_drop(p):
+    """과부하·레이트리밋을 맞은 모델은 '지금은 아픈 것'이다.
+    기억해두면 다음 요청도 같은 모델로 가서 또 죽는다. 즉시 버린다."""
+    _GOOD_MODEL.pop(p, None)
+
+RETRYABLE = (408, 409, 425, 429, 500, 502, 503, 504, 529)
+
 def _order(p, models):
     m = _sticky(p)
     if m and m in models:
@@ -1018,6 +1025,7 @@ def detect_llm_provider(api_key):
 # ── OpenAI 호환 엔드포인트 공용 호출기 (Groq/Cerebras/NVIDIA/GitHub/OpenRouter/LLM7/Z.AI) ──
 def _llm_openai_compat(name, url, api_key, models, sys_prompt, user_msg,
                        max_tokens, timeout=25, extra_headers=None, json_mode=True):
+    _PROV = name
     models = _order(name, models)
     last = {}
     for m in models:
@@ -1047,6 +1055,7 @@ def _llm_openai_compat(name, url, api_key, models, sys_prompt, user_msg,
             except Exception: pass
             last = {"ok": False, "error": f"http_{e.code}", "detail": detail}
             if e.code in (401, 403): return last
+            if e.code in RETRYABLE: _sticky_drop(_PROV)   # 과부하 → 기억한 모델 폐기
             continue
         except Exception as e:
             last = {"ok": False, "error": str(e)[:120]}
@@ -1099,6 +1108,7 @@ def _llm_llm7(api_key, sys_prompt, user_msg, max_tokens=3000):
 
 def _llm_groq(api_key, sys_prompt, user_msg, max_tokens=3000):
     """Groq — 무료 티어 (console.groq.com). Llama 4 / Qwen 등 고성능."""
+    _PROV = "groq"
     models = _order("groq", ["llama-3.3-70b-versatile", "qwen/qwen3-32b", "llama-3.1-8b-instant"])
     last = {}
     for m in models:
@@ -1124,6 +1134,7 @@ def _llm_groq(api_key, sys_prompt, user_msg, max_tokens=3000):
             except Exception: pass
             last = {"ok": False, "error": f"http_{e.code}", "detail": detail}
             if e.code in (401, 403): return last
+            if e.code in RETRYABLE: _sticky_drop(_PROV)   # 과부하 → 기억한 모델 폐기
             continue
         except Exception as e:
             last = {"ok": False, "error": str(e)[:120]}; continue
@@ -1132,6 +1143,7 @@ def _llm_groq(api_key, sys_prompt, user_msg, max_tokens=3000):
 
 def _llm_gemini(api_key, sys_prompt, user_msg, max_tokens=1200):
     """Google Gemini — 무료 티어 (aistudio.google.com에서 키 발급)."""
+    _PROV = "gemini"
     models = _order("gemini", ["gemini-2.5-flash", "gemini-2.0-flash",
                                "gemini-2.5-flash-lite", "gemini-flash-latest"])
     last = {}
@@ -1161,6 +1173,7 @@ def _llm_gemini(api_key, sys_prompt, user_msg, max_tokens=1200):
             except Exception: pass
             last = {"ok": False, "error": f"http_{e.code}", "detail": detail}
             if e.code in (401, 403): return last
+            if e.code in RETRYABLE: _sticky_drop(_PROV)   # 과부하 → 기억한 모델 폐기
             continue
         except Exception as e:
             last = {"ok": False, "error": str(e)[:120]}; continue
@@ -1209,6 +1222,7 @@ def _openrouter_free_models():
 
 def _llm_openrouter(api_key, sys_prompt, user_msg, max_tokens=3000):
     """OpenRouter — :free 모델만 사용 (0원). 살아있는 모델 실시간 조회."""
+    _PROV = "openrouter"
     # ★무료 모델은 큐 대기가 붙어 느리다. 실측상 빠른 축부터 태운다.
     FAST = ["meta-llama/llama-3.3-70b-instruct:free", "openai/gpt-oss-120b:free",
             "google/gemma-4-31b-it:free", "minimax/minimax-m2.5:free"]
@@ -1239,6 +1253,7 @@ def _llm_openrouter(api_key, sys_prompt, user_msg, max_tokens=3000):
             except Exception: pass
             last = {"ok": False, "error": f"http_{e.code}", "detail": detail}
             if e.code in (401, 403): return last
+            if e.code in RETRYABLE: _sticky_drop(_PROV)   # 과부하 → 기억한 모델 폐기
             continue
         except Exception as e:
             last = {"ok": False, "error": str(e)[:120]}; continue
@@ -1247,6 +1262,7 @@ def _llm_openrouter(api_key, sys_prompt, user_msg, max_tokens=3000):
 
 def _llm_anthropic(api_key, sys_prompt, user_msg, max_tokens=1200):
     """Anthropic Claude — 유료(크레딧 필요)."""
+    _PROV = "anthropic"
     models = ["claude-haiku-4-5-20251001", "claude-sonnet-4-6", "claude-sonnet-5"]
     last = {}
     for m in models:
@@ -1267,6 +1283,7 @@ def _llm_anthropic(api_key, sys_prompt, user_msg, max_tokens=1200):
             except Exception: pass
             last = {"ok": False, "error": f"http_{e.code}", "detail": detail}
             if e.code in (401, 403): return last
+            if e.code in RETRYABLE: _sticky_drop(_PROV)   # 과부하 → 기억한 모델 폐기
             continue
         except Exception as e:
             last = {"ok": False, "error": str(e)[:120]}; continue
