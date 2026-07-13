@@ -381,34 +381,40 @@ async function doSearch(){
   const btn = document.getElementById('searchGo');
   if(kw.length<2){ toast('검색어를 2자 이상 입력하세요'); return; }
   btn.classList.add('loading');
+  const result = document.getElementById('result');
+  if(result) result.innerHTML = `<div class="card"><div class="radar-loading"><span class="spin-sm"></span><span>"${esc(kw)}" 상품 찾는 중…</span></div>
+    <div class="prod-grid">${[1,2,3].map(()=>`<div class="prod-card skel"><div class="sk-line" style="width:100%;aspect-ratio:1;height:auto;border-radius:9px"></div><div class="sk-line" style="width:90%;margin-top:8px"></div><div class="sk-line" style="width:60%;margin-top:6px"></div></div>`).join('')}</div></div>`;
   try{
     const r = await fetch('/api/search-product',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({keyword:kw})});
     const d = await r.json();
     if(d.ok){
       const priceTxt = d.price ? ` · ${Number(d.price).toLocaleString()}원` : '';
+      const prods = d.products && d.products.length ? d.products : [{name:d.product_name, price:d.price, image:d.image, deeplink:d.deeplink, url:d.deeplink}];
+      window.__searchProducts = prods;
       document.getElementById('result').innerHTML = `
         <div class="result">
           ${window.__lastTopics?`<button class="btn btn-ghost" style="margin-bottom:10px" onclick="backToTopics()">← 주제 목록으로 돌아가기</button>`:''}
           <div class="card">
-            <div class="card-lbl">🔍 "${esc(kw)}" 검색 결과${d.cached?' (저장된 결과)':''}</div>
-            <div style="display:flex;gap:12px;align-items:center;margin:8px 0">
-              ${d.image?`<img src="${d.image}" style="width:60px;height:60px;border-radius:8px;object-fit:cover">`:''}
-              <div style="flex:1;min-width:0">
-                <div style="font-size:14px;color:var(--text);line-height:1.4">${esc(d.product_name)}</div>
-                <div style="font-size:12px;color:var(--mint-bright)">${priceTxt}</div>
-              </div>
-            </div>
-            <div class="linkline"><div class="url">${d.deeplink}</div>
-              <button class="btn-copy" onclick="copyText('${d.deeplink}', this)">복사</button></div>
-            <div class="card-actions" style="margin-top:12px">
-              <button class="btn btn-mint" onclick="genFromSearch('${d.deeplink}','${esc(d.product_name).replace(/'/g,'')}')">이 상품으로 글 만들기</button>
-              <button class="btn btn-ghost" onclick="findImages('${esc(kw).replace(/'/g,'')}')">🖼 이미지 더 찾기</button>
+            <div style="font-size:10px;font-weight:700;letter-spacing:.16em;color:var(--muted);margin-bottom:4px">PRODUCT SEARCH</div>
+            <div style="font-size:17px;font-weight:600;color:var(--text);margin-bottom:12px">"${esc(kw)}" 검색 결과${d.cached?' (저장됨)':''}</div>
+            <div class="prod-grid">
+              ${prods.map((p,i)=>`
+                <div class="prod-card">
+                  <div class="prod-thumb">
+                    ${p.image?`<img src="/img-proxy?u=${encodeURIComponent(p.image)}" loading="lazy" alt="">`:''}
+                    ${p.isRocket?'<span class="prod-badge">로켓</span>':''}
+                  </div>
+                  <div class="prod-name">${esc(p.name||'')}</div>
+                  <div class="prod-price">${p.price?Number(p.price).toLocaleString()+'원':''}</div>
+                  <button class="pbtn" onclick="window.open('${p.deeplink}','_blank')">상품 보기</button>
+                  <button class="pbtn" onclick="findImages('${esc(p.name||kw).replace(/'/g,'').slice(0,20)}')">특징 확인</button>
+                  <button class="pbtn" onclick="copyText('${p.deeplink}', this)">파트너스 링크 복사</button>
+                  <button class="pbtn pbtn-primary" onclick="pickProduct(${i})">이 상품으로 글쓰기</button>
+                </div>`).join('')}
             </div>
           </div>
           <div id="imgResults"></div>
         </div>`;
-      document.getElementById('result').scrollIntoView({behavior:'smooth',block:'start'});
-      window.__searchResult = d;
     }
     else if(d.need_key){ toast('설정에서 파트너스 키를 먼저 등록하세요'); go('settings'); }
     else if(d.rate_limited){ toast(d.error); }
@@ -448,6 +454,15 @@ function pickImage(idx, el){
 }
 
 async function doSearchImagesOnly(){}
+
+// 상품 카드 선택 → 그 상품으로 링크·글 준비
+function pickProduct(i){
+  const p = (window.__searchProducts||[])[i];
+  if(!p) return;
+  window.__lastResult = {deeplink: p.deeplink, productName: p.name, image: p.image, price: p.price, channel};
+  toast('상품을 골랐어요 — 말투 고르고 글 만들기');
+  renderResult(window.__lastResult);
+}
 
 async function genFromSearch(deeplink, pname){
   document.getElementById('url').value = deeplink;
@@ -1100,51 +1115,78 @@ function renderClaude(me){
 // 주제 먼저 생성 (Claude AI)
 // ── 지금 뜨는 주제 레이더 (LIVE SIGNAL) ──
 let radarCat = '추천';
+let radarRange = '24시간';
 async function loadRadar(refresh){
   const box = document.getElementById('trendRadar');
   if(!box) return;
   if(!box.dataset.init){
     box.dataset.init = '1';
-    box.innerHTML = `<div style="padding:14px 14px 4px">
-      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
-        <span style="width:7px;height:7px;border-radius:50%;background:#fff;box-shadow:0 0 8px rgba(255,255,255,.8);animation:pulse 1.6s infinite"></span>
+    box.innerHTML = `<div style="padding:16px 16px 6px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
+        <span class="live-dot"></span>
         <span style="font-size:10px;font-weight:700;letter-spacing:.16em;color:var(--muted)">LIVE SIGNAL</span>
       </div>
-      <div style="font-size:17px;font-weight:600;color:var(--text);margin-bottom:4px">지금 뜨는 주제 레이더</div>
-      <div style="font-size:12px;color:var(--text-2);margin-bottom:12px">생활·육아·건강과 직접 관련 있는 급상승 신호만 추천합니다.</div>
-      <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;scrollbar-width:none" id="radarCats">
-        ${['추천','전체','생활','육아','건강','날씨'].map(c=>`<button class="chip ${c===radarCat?'on':''}" onclick="setRadarCat('${c}',this)">${c}</button>`).join('')}
-        <button class="chip" onclick="loadRadar(true)" title="새로고침">↻</button>
+      <div style="font-size:19px;font-weight:600;color:var(--text);margin-bottom:6px;letter-spacing:-.01em">지금 뜨는 주제 레이더</div>
+      <div style="font-size:12.5px;color:var(--text-2);margin-bottom:14px;line-height:1.5">생활·육아·건강과 직접 관련 있는 급상승 신호만 추천합니다.</div>
+
+      <div class="seg" id="radarRange">
+        ${['4시간','24시간','7일'].map(r=>`<button class="seg-btn ${r===radarRange?'on':''}" onclick="setRadarRange('${r}',this)">${r}</button>`).join('')}
+        <button class="seg-btn seg-refresh" onclick="loadRadar(true)" title="새로고침">↻</button>
+      </div>
+
+      <div class="radar-cats" id="radarCats">
+        ${['추천','전체','생활','육아','건강','날씨','쇼핑'].map(c=>`<button class="chip ${c===radarCat?'on':''}" onclick="setRadarCat('${c}',this)">${c}</button>`).join('')}
       </div>
       <div id="radarList"></div>
     </div>`;
   }
   const list = document.getElementById('radarList');
-  list.innerHTML = '<div style="padding:18px;text-align:center;color:var(--muted);font-size:12.5px">신호 수집 중…</div>';
+  // ★로딩 상태를 확실히 (스켈레톤)
+  list.innerHTML = `<div class="radar-loading">
+      <span class="spin-sm"></span><span>신호 수집 중…</span>
+    </div>` + [1,2,3].map(()=>`<div class="radar-card skel">
+      <div class="sk-line" style="width:30%"></div>
+      <div class="sk-line" style="width:62%;height:18px;margin-top:10px"></div>
+      <div class="sk-line" style="width:88%;margin-top:10px"></div>
+      <div class="sk-line" style="width:46%;margin-top:14px;height:34px;border-radius:10px"></div>
+    </div>`).join('');
   try{
-    const d = await (await fetch(`/api/trend-radar?cat=${encodeURIComponent(radarCat)}${refresh?'&refresh=1':''}`)).json();
+    const d = await (await fetch(`/api/trend-radar?cat=${encodeURIComponent(radarCat)}&range=${encodeURIComponent(radarRange)}${refresh?'&refresh=1':''}`)).json();
     const items = d.items || [];
-    if(!items.length){ list.innerHTML = '<div style="padding:18px;text-align:center;color:var(--muted);font-size:12.5px">관련 신호가 없어요</div>'; return; }
+    if(!items.length){ list.innerHTML = '<div class="radar-empty">관련 신호가 없어요</div>'; return; }
     list.innerHTML = items.map((it,i)=>`
       <div class="radar-card">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
-          <span style="font-size:11px;color:var(--muted);font-weight:700">${String(i+1).padStart(2,'0')}</span>
+        <div class="radar-top">
+          <span class="radar-num">${String(i+1).padStart(2,'0')}</span>
           <div style="display:flex;gap:6px">
             <span class="radar-tag">${esc(it.cat)}</span>
             ${it.kind==='season'?'<span class="radar-tag">계절 추천</span>':(it.traffic?`<span class="radar-tag">${esc(it.traffic)}</span>`:'')}
           </div>
         </div>
-        <div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:6px">${esc(it.title)}</div>
-        <div style="font-size:13.5px;color:var(--text-2);line-height:1.55;margin-bottom:10px">${esc(it.hook||'')}</div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
-          <span style="font-size:11px;color:var(--muted)">${esc(it.source||'')}</span>
-          ${it.url?`<a href="${it.url}" target="_blank" style="font-size:11px;color:var(--text-2);text-decoration:none">원본 보기 ↗</a>`:''}
+        <div class="radar-title-row">
+          <div class="radar-title">${esc(it.title)}</div>
+          <div class="radar-meta">${it.kind==='season'?'계절 관심사':'급상승'}</div>
         </div>
-        <div style="display:flex;gap:8px">
-          <button class="btn-sm mint" style="flex:1" onclick="refineTopic('${esc(it.title).replace(/'/g,'')}')">주제로 다듬기</button>
+        <div class="radar-hook">${esc(it.hook||'')}</div>
+        <div class="radar-src">
+          <span>${esc(it.source||'')}</span>
+          ${it.url?`<a href="${it.url}" target="_blank">원본 보기 ↗</a>`:'<span></span>'}
+        </div>
+        <div class="radar-btns">
+          <button class="rbtn rbtn-primary" onclick="refineTopic('${esc(it.title).replace(/'/g,'')}',this)">주제로 다듬기</button>
+          <button class="rbtn" onclick="window.open('https://search.naver.com/search.naver?query=${encodeURIComponent(it.title)}','_blank')">네이버 확인</button>
         </div>
       </div>`).join('');
-  }catch(e){ list.innerHTML = '<div style="padding:18px;text-align:center;color:var(--muted);font-size:12.5px">신호를 못 가져왔어요</div>'; }
+    const upd = new Date();
+    list.insertAdjacentHTML('beforeend',
+      `<div class="radar-foot">Google Trends Korea · 실시간에 가까운 검색 신호<br><span>${upd.getHours()<12?'오전':'오후'} ${String(upd.getHours()%12||12).padStart(2,'0')}:${String(upd.getMinutes()).padStart(2,'0')} 갱신</span></div>`);
+  }catch(e){ list.innerHTML = '<div class="radar-empty">신호를 못 가져왔어요</div>'; }
+}
+function setRadarRange(r, el){
+  radarRange = r;
+  el.parentNode.querySelectorAll('.seg-btn').forEach(x=>x.classList.remove('on'));
+  el.classList.add('on');
+  loadRadar();
 }
 function setRadarCat(c, el){
   radarCat = c;
@@ -1152,11 +1194,12 @@ function setRadarCat(c, el){
   el.classList.add('on');
   loadRadar();
 }
-// 레이더 주제 → AI가 주제 기획
-function refineTopic(title){
+// 레이더 주제 → AI가 주제 기획 (로딩 표시 확실히)
+function refineTopic(title, btn){
+  if(btn){ btn.disabled = true; btn.innerHTML = '<span class="spin-sm"></span> 다듬는 중…'; }
   const el = document.getElementById('topicKw');
   if(el) el.value = title;
-  doTopics();
+  doTopics().finally(()=>{ if(btn){ btn.disabled=false; btn.textContent='주제로 다듬기'; } });
 }
 
 async function doTopics(){
@@ -1167,7 +1210,10 @@ async function doTopics(){
   }
   btn.classList.add('loading');
   const result = document.getElementById('result');
-  result.innerHTML = '<div class="card"><div style="text-align:center;padding:30px;color:var(--muted)">🧠 주제 기획 중…<br><span style="font-size:12px">지금 시각·표본·앵글 분석</span></div></div>';
+  result.innerHTML = `<div class="card">
+    <div class="radar-loading"><span class="spin-sm"></span><span>AI가 주제 기획 중… (시각·표본·앵글 분석)</span></div>
+    ${[1,2,3].map(()=>`<div class="radar-card skel"><div class="sk-line" style="width:55%;height:18px"></div><div class="sk-line" style="width:85%;margin-top:12px"></div><div class="sk-line" style="width:70%;margin-top:8px"></div><div class="sk-line" style="width:40%;margin-top:12px;height:30px;border-radius:9px"></div></div>`).join('')}
+  </div>`;
   try{
     const r = await fetch('/api/claude-topics',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic, provider:(window.__llmPick||null)})});
     const d = await r.json();

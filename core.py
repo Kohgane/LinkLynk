@@ -53,6 +53,31 @@ class CoupangPartners:
                 "image": p.get("productImage"), "url": p.get("productUrl"),
                 "productId": p.get("productId")}
 
+    def search_products(self, keyword, limit=3):
+        """파트너스 상품검색 — 여러 개 반환 (이미지처럼 3개 카드용)."""
+        import urllib.parse
+        q = f"keyword={urllib.parse.quote(keyword)}&limit={limit}"
+        path = "/v2/providers/affiliate_open_api/apis/openapi/products/search"
+        dt = time.strftime('%y%m%dT%H%M%SZ', time.gmtime())
+        sig = hmac.new(self.secret.encode(), (dt+"GET"+path+q).encode(), hashlib.sha256).hexdigest()
+        auth = f"CEA algorithm=HmacSHA256, access-key={self.access}, signed-date={dt}, signature={sig}"
+        req = urllib.request.Request(COUPANG_DOMAIN+path+"?"+q,
+            headers={"Authorization": auth, "Content-Type": "application/json"}, method="GET")
+        try:
+            res = json.loads(urllib.request.urlopen(req, context=_ctx, timeout=15).read())
+        except Exception:
+            return []
+        if res.get("rCode") != "0":
+            return []
+        pd = (res.get("data") or {}).get("productData") or []
+        out = []
+        for p in pd[:limit]:
+            out.append({"name": p.get("productName"), "price": p.get("productPrice"),
+                        "image": p.get("productImage"), "url": p.get("productUrl"),
+                        "productId": p.get("productId"),
+                        "isRocket": p.get("isRocket", False)})
+        return out
+
     def make_deeplinks(self, coupang_urls, sub_id="linklynk"):
         """
         쿠팡 URL 리스트 → 수익 딥링크 변환.

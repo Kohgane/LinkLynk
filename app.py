@@ -393,6 +393,7 @@ def trend_radar():
     from core import fetch_trend_radar
     force = request.args.get("refresh") == "1"
     items = fetch_trend_radar(force=force)
+    rng = request.args.get("range", "24시간")   # 표시용(트렌드 RSS는 실시간 기준)
     cat = request.args.get("cat")
     if cat and cat not in ("추천", "전체"):
         items = [i for i in items if i.get("cat") == cat]
@@ -530,14 +531,38 @@ def search_product_api():
         return jsonify({"ok": False, "rate_limited": True,
                         "error": "검색을 너무 많이 했어요. 1시간 후 다시 시도하거나, 링크를 직접 붙여넣어 주세요."}), 429
 
-    # 3) 실제 검색 (본인 키, 1회)
+    # 3) 실제 검색 (본인 키, 1회) — 상품 3개
     try:
         store.log_search(session["uid"])
-        info = partners.search_product(keyword)
+        plist = partners.search_products(keyword, limit=3)
     except Exception:
-        info = None
-    if not info or not info.get("name"):
+        plist = []
+    if not plist:
         return jsonify({"ok": False, "error": "상품을 찾지 못했어요. 다른 검색어를 써보세요."}), 404
+    info = plist[0]
+
+    # 3-b) 각 상품 딥링크 생성 → 카드 3개로 반환
+    products = []
+    try:
+        urls = [p.get("url") for p in plist if p.get("url")]
+        dls = partners.make_deeplinks(urls, sub_id="search") if urls else []
+        dmap = {}
+        for dl in (dls or []):
+            dmap[dl.get("originalUrl")] = dl.get("shortenUrl") or dl.get("landingUrl")
+        for p in plist:
+            products.append({
+                "name": p.get("name"), "price": p.get("price"),
+                "image": p.get("image"), "productId": p.get("productId"),
+                "isRocket": p.get("isRocket", False),
+                "url": p.get("url"),
+                "deeplink": dmap.get(p.get("url")) or p.get("url"),
+            })
+    except Exception:
+        for p in plist:
+            products.append({"name": p.get("name"), "price": p.get("price"),
+                             "image": p.get("image"), "productId": p.get("productId"),
+                             "isRocket": p.get("isRocket", False),
+                             "url": p.get("url"), "deeplink": p.get("url")})
 
     # 4) 딥링크 생성 (productUrl이 이미 파트너스 링크면 그대로, 아니면 생성)
     deeplink = info.get("url") or ""
@@ -556,7 +581,8 @@ def search_product_api():
 
     return jsonify({"ok": True, "cached": False,
                     "product_name": info["name"], "deeplink": deeplink,
-                    "image": info.get("image"), "price": info.get("price")})
+                    "image": info.get("image"), "price": info.get("price"),
+                    "products": products})
 
 
 @app.route("/api/sns-accounts", methods=["GET"])

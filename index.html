@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta name="build" content="0713-0323">
+<meta name="build" content="0713-0344">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -321,6 +321,61 @@
   .radar-tag{font-size:10.5px;color:var(--text-2);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:999px;padding:3px 9px}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.25}}
   #radarCats::-webkit-scrollbar{display:none}
+  /* ── 주제 레이더 (이미지 사양) ── */
+  .live-dot{width:8px;height:8px;border-radius:50%;background:#F2F2F3;box-shadow:0 0 10px rgba(255,255,255,.65);animation:pulse 1.6s ease-in-out infinite;flex:0 0 auto}
+  @keyframes pulse{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.3;transform:scale(.86)}}
+
+  /* 세그먼트 (4시간 / 24시간 / 7일) */
+  .seg{display:flex;gap:4px;background:rgba(255,255,255,.04);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:4px;margin-bottom:12px}
+  .seg-btn{flex:1;font-size:13px;font-weight:500;padding:10px 6px;border-radius:9px;background:transparent;border:none;color:var(--text-2);cursor:pointer;transition:all .16s;white-space:nowrap}
+  .seg-btn.on{background:linear-gradient(180deg,#FFFFFF,#EAEBED);color:#0A0A0B;font-weight:600;box-shadow:0 1px 0 rgba(255,255,255,.7) inset,0 3px 10px rgba(0,0,0,.3)}
+  .seg-refresh{flex:0 0 44px;font-size:15px;color:var(--muted)}
+  .seg-refresh:active{color:var(--text)}
+
+  /* 카테고리 칩 줄 */
+  .radar-cats{display:flex;gap:6px;overflow-x:auto;padding-bottom:12px;scrollbar-width:none}
+  .radar-cats::-webkit-scrollbar{display:none}
+  .radar-cats .chip{flex:0 0 auto;font-size:12.5px;padding:8px 15px}
+
+  /* 주제 카드 */
+  .radar-card{background:rgba(255,255,255,.026);border:1px solid rgba(255,255,255,.07);border-radius:14px;padding:15px;margin-bottom:11px}
+  .radar-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+  .radar-num{font-size:11.5px;color:var(--muted);font-weight:600;letter-spacing:.04em}
+  .radar-tag{font-size:10.5px;color:var(--text-2);background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);border-radius:999px;padding:4px 10px;white-space:nowrap}
+  .radar-title-row{display:flex;justify-content:space-between;align-items:baseline;gap:10px;margin-bottom:8px}
+  .radar-title{font-size:17px;font-weight:600;color:var(--text);letter-spacing:-.01em}
+  .radar-meta{font-size:11px;color:var(--muted);white-space:nowrap;flex:0 0 auto}
+  .radar-hook{font-size:14px;color:var(--text);line-height:1.55;margin-bottom:12px;font-weight:500}
+  .radar-src{display:flex;justify-content:space-between;align-items:center;font-size:11.5px;color:var(--muted);margin-bottom:12px}
+  .radar-src a{color:var(--text-2);text-decoration:none}
+  .radar-btns{display:flex;gap:8px}
+  .rbtn{flex:1;font-size:13.5px;font-weight:500;padding:12px 10px;border-radius:11px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);color:var(--text);cursor:pointer;transition:all .15s;display:flex;align-items:center;justify-content:center;gap:6px}
+  .rbtn:active{transform:scale(.98)}
+  .rbtn-primary{background:linear-gradient(180deg,#FFFFFF,#E9EAEC);color:#0A0A0B;border-color:transparent;font-weight:600;box-shadow:0 1px 0 rgba(255,255,255,.7) inset,0 4px 12px rgba(0,0,0,.3)}
+  .rbtn:disabled{opacity:.6}
+  .radar-foot{font-size:11px;color:var(--muted);line-height:1.6;padding:6px 2px 10px}
+  .radar-foot span{color:rgba(255,255,255,.28)}
+  .radar-empty{padding:22px;text-align:center;color:var(--muted);font-size:12.5px}
+
+  /* 로딩 */
+  .radar-loading{display:flex;align-items:center;gap:8px;font-size:12.5px;color:var(--text-2);padding:4px 2px 12px}
+  .spin-sm{width:13px;height:13px;border:2px solid rgba(255,255,255,.18);border-top-color:#fff;border-radius:50%;display:inline-block;animation:sp .75s linear infinite;flex:0 0 auto}
+  .skel{pointer-events:none}
+  .sk-line{height:12px;border-radius:6px;background:linear-gradient(90deg,rgba(255,255,255,.05),rgba(255,255,255,.10),rgba(255,255,255,.05));background-size:200% 100%;animation:shimmer 1.4s infinite}
+  @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+  /* ── 상품 카드 3개 그리드 (이미지 사양) ── */
+  .prod-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .prod-card{background:rgba(255,255,255,.026);border:1px solid rgba(255,255,255,.07);border-radius:12px;padding:8px;display:flex;flex-direction:column}
+  .prod-thumb{position:relative;width:100%;aspect-ratio:1;border-radius:9px;overflow:hidden;background:linear-gradient(180deg,#C9CACD,#8E8F93);margin-bottom:8px}
+  .prod-thumb img{width:100%;height:100%;object-fit:cover;display:block}
+  .prod-badge{position:absolute;left:6px;bottom:6px;font-size:9.5px;font-weight:600;color:#0A0A0B;background:rgba(255,255,255,.92);border-radius:5px;padding:2px 6px}
+  .prod-name{font-size:11.5px;color:var(--text);line-height:1.4;height:32px;overflow:hidden;margin-bottom:5px}
+  .prod-price{font-size:14px;font-weight:700;color:var(--text);margin-bottom:8px;letter-spacing:-.01em}
+  .pbtn{width:100%;font-size:11px;font-weight:500;padding:8px 4px;border-radius:8px;background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);color:var(--text);cursor:pointer;margin-bottom:5px;transition:all .15s;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .pbtn:active{transform:scale(.97)}
+  .pbtn:last-child{margin-bottom:0}
+  .pbtn-primary{background:linear-gradient(180deg,#FFFFFF,#E9EAEC);color:#0A0A0B;border-color:transparent;font-weight:600}
+  @media (max-width:380px){ .prod-name{font-size:11px} .pbtn{font-size:10.5px;padding:7px 3px} }
 </style>
 </head>
 <body>
@@ -592,6 +647,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="/app.js?v=1783912989"></script>
+<script src="/app.js?v=1783914278"></script>
 </body>
 </html>
