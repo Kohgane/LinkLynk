@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta name="build" content="0713-parity-1">
+<meta name="build" content="0713-parity-2">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -500,6 +500,21 @@
   .thumbs{display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-top:10px}
   .thumbs img{width:100%;aspect-ratio:1;object-fit:cover;border-radius:8px}
   .fdiv{height:1px;background:rgba(255,255,255,.06);margin:6px 0 18px}
+  /* ── 가로 넘침 차단 (긴 딥링크 URL이 레이아웃을 밀어내던 문제) ── */
+  html,body{max-width:100%;overflow-x:hidden}
+  #appView,.page,.hero,.step-card,.card{max-width:100%}
+  .step-card,.card,.hero,.sec-meta,.picked,.top-link,.post-item{min-width:0}
+  .th-bubble,.ig-caption,.x-card,.yt-desc,.top-link,.post-item,.res-body,.result,#result,#topicOut,
+  .lp-detail,.lp-dhook,.radar-hook,.picked-name{overflow-wrap:anywhere;word-break:break-word}
+  .th-bubble a,.post-item a,.top-link a,#result a{word-break:break-all}
+  pre,code{white-space:pre-wrap;word-break:break-all}
+  img{max-width:100%;height:auto}
+
+  /* 글 작성 버튼 줄 */
+  .write-row{display:flex;gap:10px;margin-top:16px}
+  .write-row .btn-go{flex:1}
+  .btn-polish{flex:0 0 auto;width:auto;padding:14px 16px;font-size:13px;border-radius:13px;cursor:pointer}
+
   /* ── 최종 스페이싱: PROMETHEUS 스샷 실측(갤럭시 412dp) ── */
   .page{padding:0 12px}
   #page-make{padding-bottom:170px}
@@ -622,6 +637,7 @@
           </div>
         </div>
         <div id="trendRadarTop"></div>
+        <div id="topicOut"></div>
       </div>
 
       <div class="step-card">
@@ -726,6 +742,10 @@
         <div class="chip" data-tone="pov" onclick="setTone(this)">🧠 POV상황극</div>
     </div>
     <div id="llmPicker" style="margin-top:12px"></div>
+    <div class="write-row">
+      <button class="btn-go" id="writeGo" onclick="writeWithSettings()"><span class="lbl">✍️ 글 작성하기</span></button>
+      <button class="btn-ghost btn-polish" id="polishGo" onclick="polishDraft(this)">✨ 품질 다듬기</button>
+    </div>
     </div>
     <div id="result"></div>
     <div class="sec">
@@ -873,6 +893,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="/app.js?v=1783920597"></script>
+<script src="/app.js?v=1783922091"></script>
 </body>
 </html>

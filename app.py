@@ -494,7 +494,7 @@ def claude_topics_api():
     # 선택된 제공자 우선, 없으면 무료 우선
     prov = d.get("provider")
     if prov not in keys:
-        prov = next((p for p in ("gemini", "groq", "openrouter", "anthropic") if p in keys), None)
+        prov = next((p for p in ("groq", "gemini", "openrouter", "anthropic") if p in keys), None)
     key = keys[prov]
     import time as _t
     from datetime import datetime, timezone, timedelta as _td
@@ -507,7 +507,7 @@ def claude_topics_api():
     # 등록된 AI들을 순서대로 시도 (하나 실패하면 다음 것)
     order = []
     if prov: order.append(prov)
-    for p in ("gemini", "groq", "openrouter", "anthropic"):
+    for p in ("groq", "gemini", "openrouter", "anthropic"):
         if p in keys and p not in order:
             order.append(p)
 

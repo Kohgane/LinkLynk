@@ -306,8 +306,11 @@ function polishDraft(btn){
 // 현재 고른 채널·말투·AI로 글 만들기
 function writeWithSettings(){
   const d = window.__lastResult;
-  if(!d || !d.deeplink){ toast('먼저 링크를 만들어주세요'); return; }
-  regenForChannel(d.deeplink, d.productName || '');
+  const typed = (document.getElementById('w_link')?.value || '').trim();
+  const deeplink = typed || (d && d.deeplink);
+  if(!deeplink){ toast('쿠팡파트너스 링크를 넣거나 먼저 링크를 만들어주세요'); return; }
+  const pname = (document.getElementById('pickedName')?.textContent || '').trim() || (d && d.productName) || '';
+  regenForChannel(deeplink, pname);
 }
 
 async function regenForChannel(deeplink, pname){
@@ -1274,7 +1277,7 @@ async function doTopics(){
     toast('설정에서 Claude API 키를 먼저 등록하세요'); go('settings'); return;
   }
   btn.classList.add('loading');
-  const result = document.getElementById('result');
+  const result = document.getElementById('topicOut') || document.getElementById('result');
   result.innerHTML = `<div class="card">
     <div class="radar-loading"><span class="spin-sm"></span><span>AI가 주제 기획 중… (시각·표본·앵글 분석)</span></div>
     ${[1,2,3].map(()=>`<div class="radar-card skel"><div class="sk-line" style="width:55%;height:18px"></div><div class="sk-line" style="width:85%;margin-top:12px"></div><div class="sk-line" style="width:70%;margin-top:8px"></div><div class="sk-line" style="width:40%;margin-top:12px;height:30px;border-radius:9px"></div></div>`).join('')}
@@ -1295,7 +1298,7 @@ function renderTopics(topics, now){
   window.__lastTopicsNow = now;
   window.__topicIdx = 0;
   const total = topics.reduce((a,t)=>a + ((t.keywords||[]).length||0), 0);
-  const result = document.getElementById('result');
+  const result = document.getElementById('topicOut') || document.getElementById('result');
   result.innerHTML = `
     <div class="card linkprod">
       <div class="lp-head">
@@ -1311,6 +1314,7 @@ function renderTopics(topics, now){
 
       <div class="lp-detail" id="lpDetail"></div>
     </div>`;
+  try{ result.scrollIntoView({behavior:'smooth', block:'center'}); }catch(e){}
   renderTopicDetail(0);
   result.scrollIntoView({behavior:'smooth', block:'start'});
 }
