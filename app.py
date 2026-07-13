@@ -386,6 +386,21 @@ def save_anthropic_key_api():
     return jsonify({"ok": True, "provider": p, "message": f"{names[p]} 연결됐어요"})
 
 
+@app.route("/api/trend-radar")
+@login_required
+def trend_radar():
+    """지금 뜨는 주제 레이더 (Google Trends + 계절 신호). 무료·키 불필요."""
+    from core import fetch_trend_radar
+    force = request.args.get("refresh") == "1"
+    items = fetch_trend_radar(force=force)
+    cat = request.args.get("cat")
+    if cat and cat not in ("추천", "전체"):
+        items = [i for i in items if i.get("cat") == cat]
+    elif cat == "추천":
+        items = [i for i in items if i.get("kind") == "season" or i.get("related")]
+    return jsonify({"ok": True, "items": items[:12]})
+
+
 @app.route("/api/llm-list")
 @login_required
 def llm_list():
@@ -798,9 +813,10 @@ def generate():
             product_name = info["name"]
 
     draft = None
-    ok_d, _, _ = store.check_and_bump(user["id"], "draft", user["plan"])
-    if ok_d:
-        draft = _gen_draft(user["id"], product_name, deeplink, tone, channel, info, d.get("provider"))
+    if not d.get("skip_draft"):
+        ok_d, _, _ = store.check_and_bump(user["id"], "draft", user["plan"])
+        if ok_d:
+            draft = _gen_draft(user["id"], product_name, deeplink, tone, channel, info, d.get("provider"))
 
     store.save_link(user["id"], url, deeplink, product_name, channel)
 
@@ -840,9 +856,10 @@ def generate_manual():
             except Exception:
                 info = None   # 실패해도 계속 진행
     draft = None
-    ok_d, _, _ = store.check_and_bump(user["id"], "draft", user["plan"])
-    if ok_d:
-        draft = _gen_draft(user["id"], product_name, deeplink, tone, channel, info, d.get("provider"))
+    if not d.get("skip_draft"):
+        ok_d, _, _ = store.check_and_bump(user["id"], "draft", user["plan"])
+        if ok_d:
+            draft = _gen_draft(user["id"], product_name, deeplink, tone, channel, info, d.get("provider"))
     store.save_link(user["id"], "", deeplink, product_name, channel)
     naver_html = build_naver_html(product_name, deeplink, draft, info) if draft else None
     return jsonify({"ok": True, "deeplink": deeplink, "disclosure": COUPANG_DISCLOSURE,

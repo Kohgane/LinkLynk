@@ -1267,3 +1267,86 @@ def _humanize_pass(api_key, product_name, tone_desc, posts, tells):
         return out if len(out) >= 4 else None
     except Exception:
         return None
+
+
+# ── 지금 뜨는 주제 레이더 (Google Trends + 계절 신호, 무료·키 불필요) ──
+_TRENDS_CACHE = {"at": 0, "items": []}
+
+# 생활·육아·건강·날씨·쇼핑과 관련된 신호만 통과 (연예·정치·스포츠·주식 제외)
+_TREND_ALLOW = [
+    "더위","폭염","열대야","장마","비","태풍","습도","미세먼지","황사","한파","추위","꽃가루",
+    "감기","독감","코로나","알레르기","비염","두통","수면","불면","다이어트","운동","스트레칭",
+    "육아","아기","유아","기저귀","분유","이유식","어린이집","등원","방학","개학",
+    "청소","빨래","세탁","곰팡이","냄새","벌레","모기","바퀴","진드기",
+    "에어컨","선풍기","제습기","가습기","보일러","난방","전기요금",
+    "초복","중복","말복","삼계탕","보양식","캠핑","물놀이","휴가","여행",
+    "이사","정리","수납","인테리어","자취",
+]
+_TREND_BLOCK = ["주가","증시","코스피","선거","의원","연예","배우","가수","드라마","아이돌",
+                "야구","축구","골프","경기","사망","사고","화재","재판","검찰","부고"]
+
+_SEASON_TOPICS = {
+    7: [("열대야", "날씨", "열대야에 에어컨을 켜도 자꾸 잠에서 깨는 이유", ["냉감 이불", "쿨매트", "서큘레이터"]),
+        ("장마 습도", "생활", "장마철 빨래를 바로 널어도 냄새가 나는 이유", ["제습기", "빨래건조대", "탈취제"]),
+        ("여름 세균", "건강", "여름철 행주를 매일 삶아도 냄새가 남는 이유", ["행주", "식기건조대", "살균기"]),
+        ("모기", "생활", "밤에 모기 한 마리 때문에 잠 못 자는 집", ["모기퇴치기", "방충망", "모기향"]),
+        ("초복 보양", "건강", "복날 지나고 더 지치는 사람들의 공통점", ["홍삼", "비타민", "단백질"])],
+    8: [("늦더위", "날씨", "8월 늦더위가 더 지치는 이유", ["넥쿨러", "쿨토시", "선풍기"]),
+        ("개학 준비", "육아", "개학 전 아이 생활 리듬 되돌리기", ["학용품", "책상", "수면등"])],
+}
+
+def _season_topics():
+    import datetime
+    m = (datetime.datetime.utcnow() + datetime.timedelta(hours=9)).month
+    out = []
+    for name, cat, hook, kws in _SEASON_TOPICS.get(m, []):
+        out.append({"title": name, "cat": cat, "hook": hook, "keywords": kws,
+                    "source": "계절 신호", "kind": "season"})
+    return out
+
+
+def fetch_trend_radar(force=False):
+    """Google Trends 실시간 급상승 + 계절 신호 → 생활·육아·건강 관련만."""
+    now = time.time()
+    if not force and _TRENDS_CACHE["items"] and now - _TRENDS_CACHE["at"] < 1800:
+        return _TRENDS_CACHE["items"]
+    items = []
+    try:
+        ua = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/120.0 Safari/537.36"
+        req = urllib.request.Request("https://trends.google.com/trending/rss?geo=KR",
+                                     headers={"User-Agent": ua})
+        body = urllib.request.urlopen(req, timeout=15, context=_ctx).read().decode("utf-8", "ignore")
+        blocks = re.findall(r"<item>(.*?)</item>", body, re.S)
+        for b in blocks:
+            t = re.search(r"<title>(.*?)</title>", b, re.S)
+            if not t: continue
+            title = re.sub(r"<!\[CDATA\[|\]\]>", "", t.group(1)).strip()
+            if any(x in title for x in _TREND_BLOCK):
+                continue
+            hit = next((w for w in _TREND_ALLOW if w in title), None)
+            traffic = re.search(r"<ht:approx_traffic>(.*?)</ht:approx_traffic>", b)
+            link = re.search(r"<link>(.*?)</link>", b)
+            cat = "생활"
+            if hit and any(w in title for w in ["더위","폭염","열대야","장마","비","태풍","습도","한파","추위"]):
+                cat = "날씨"
+            elif hit and any(w in title for w in ["육아","아기","유아","어린이집","이유식","기저귀"]):
+                cat = "육아"
+            elif hit and any(w in title for w in ["감기","독감","다이어트","운동","수면","불면","비염"]):
+                cat = "건강"
+            items.append({
+                "title": title, "cat": cat,
+                "hook": f"{title}, 지금 검색이 몰리는 이유",
+                "keywords": [], "source": "Google Trends",
+                "traffic": (traffic.group(1) if traffic else ""),
+                "url": (link.group(1).strip() if link else ""),
+                "kind": "trend", "related": bool(hit),
+            })
+    except Exception:
+        pass
+    # 관련 신호 우선, 그다음 계절 신호
+    related = [i for i in items if i.get("related")]
+    others = [i for i in items if not i.get("related")]
+    merged = _season_topics() + related + others[:5]
+    _TRENDS_CACHE["items"] = merged
+    _TRENDS_CACHE["at"] = now
+    return merged

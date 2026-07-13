@@ -259,7 +259,7 @@ function setMode(el){
   const topicBox = document.getElementById('topicBox');
   [pasteBox,searchBox,topicBox].forEach(b=>b&&b.classList.add('hidden'));
   if(mode==='search'){ if(searchBox) searchBox.classList.remove('hidden'); return; }
-  if(mode==='topic'){ if(topicBox) topicBox.classList.remove('hidden'); return; }
+  if(mode==='topic'){ if(topicBox){ topicBox.classList.remove('hidden'); loadRadar(); } return; }
   if(pasteBox) pasteBox.classList.remove('hidden');
   const ta = document.getElementById('url');
   if(mode==='manual'){
@@ -281,6 +281,13 @@ function setCh(el){
   }
 }
 // 같은 링크로 현재 채널 형식의 글을 다시 생성 (딥링크 있으니 검색 안 함)
+// 현재 고른 채널·말투·AI로 글 만들기
+function writeWithSettings(){
+  const d = window.__lastResult;
+  if(!d || !d.deeplink){ toast('먼저 링크를 만들어주세요'); return; }
+  regenForChannel(d.deeplink, d.productName || '');
+}
+
 async function regenForChannel(deeplink, pname){
   const result = document.getElementById('result');
   if(result) result.innerHTML = '<div class="card"><div style="text-align:center;padding:22px;color:var(--muted)">✍️ 글 쓰는 중…<br><span style="font-size:12px">다른 화면 가도 계속 진행돼요</span></div></div>';
@@ -350,8 +357,8 @@ async function generate(){
     // 수동 모드(직접 붙여넣기)만 manual, 나머지는 auto (단축링크는 서버가 자동으로 펼쳐서 변환)
     const endpoint = mode === 'manual' ? '/api/generate-manual' : '/api/generate';
     const body = mode === 'manual'
-      ? {deeplink:url, channel, tone:(window.curTone||'friendly'), productName:pname}
-      : {url, channel, tone:(window.curTone||'friendly'), productName:pname};
+      ? {deeplink:url, channel, tone:(window.curTone||'friendly'), productName:pname, skip_draft:true}
+      : {url, channel, tone:(window.curTone||'friendly'), productName:pname, skip_draft:true};
     const r = await fetch(endpoint, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
     const d = await r.json();
     if(!d.ok){
@@ -455,7 +462,17 @@ function renderResult(d){
   const draft = d.blogDraft;
   window.__lastResult = d;
   let draftUI = '';
-  if(draft){
+  if(!draft){
+    // 링크만 생성됨 → 말투·형식 고르고 글 만들기
+    draftUI = `<div class="card">
+      <div class="card-lbl">✍️ 글 만들기</div>
+      <div style="font-size:13px;color:var(--text-2);line-height:1.6;margin:6px 0 12px">
+        위에서 <b>채널</b>과 <b>말투</b>를 고른 뒤 아래를 누르세요. 고른 대로 글이 만들어져요.
+      </div>
+      <button class="btn btn-mint" onclick="writeWithSettings()"><span class="lbl">✍️ 이 설정으로 글 만들기</span></button>
+    </div>`;
+  }
+  else if(draft){
     if(d.channel === 'threads'){ draftUI = renderThreads(draft, d); }
     else if(d.channel === 'blog'){ draftUI = renderBlogDraft(draft, d); }
     else if(d.channel === 'insta'){ draftUI = renderInsta(draft, d); }
@@ -1081,6 +1098,67 @@ function renderClaude(me){
 }
 
 // 주제 먼저 생성 (Claude AI)
+// ── 지금 뜨는 주제 레이더 (LIVE SIGNAL) ──
+let radarCat = '추천';
+async function loadRadar(refresh){
+  const box = document.getElementById('trendRadar');
+  if(!box) return;
+  if(!box.dataset.init){
+    box.dataset.init = '1';
+    box.innerHTML = `<div style="padding:14px 14px 4px">
+      <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px">
+        <span style="width:7px;height:7px;border-radius:50%;background:#fff;box-shadow:0 0 8px rgba(255,255,255,.8);animation:pulse 1.6s infinite"></span>
+        <span style="font-size:10px;font-weight:700;letter-spacing:.16em;color:var(--muted)">LIVE SIGNAL</span>
+      </div>
+      <div style="font-size:17px;font-weight:600;color:var(--text);margin-bottom:4px">지금 뜨는 주제 레이더</div>
+      <div style="font-size:12px;color:var(--text-2);margin-bottom:12px">생활·육아·건강과 직접 관련 있는 급상승 신호만 추천합니다.</div>
+      <div style="display:flex;gap:6px;overflow-x:auto;padding-bottom:8px;scrollbar-width:none" id="radarCats">
+        ${['추천','전체','생활','육아','건강','날씨'].map(c=>`<button class="chip ${c===radarCat?'on':''}" onclick="setRadarCat('${c}',this)">${c}</button>`).join('')}
+        <button class="chip" onclick="loadRadar(true)" title="새로고침">↻</button>
+      </div>
+      <div id="radarList"></div>
+    </div>`;
+  }
+  const list = document.getElementById('radarList');
+  list.innerHTML = '<div style="padding:18px;text-align:center;color:var(--muted);font-size:12.5px">신호 수집 중…</div>';
+  try{
+    const d = await (await fetch(`/api/trend-radar?cat=${encodeURIComponent(radarCat)}${refresh?'&refresh=1':''}`)).json();
+    const items = d.items || [];
+    if(!items.length){ list.innerHTML = '<div style="padding:18px;text-align:center;color:var(--muted);font-size:12.5px">관련 신호가 없어요</div>'; return; }
+    list.innerHTML = items.map((it,i)=>`
+      <div class="radar-card">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+          <span style="font-size:11px;color:var(--muted);font-weight:700">${String(i+1).padStart(2,'0')}</span>
+          <div style="display:flex;gap:6px">
+            <span class="radar-tag">${esc(it.cat)}</span>
+            ${it.kind==='season'?'<span class="radar-tag">계절 추천</span>':(it.traffic?`<span class="radar-tag">${esc(it.traffic)}</span>`:'')}
+          </div>
+        </div>
+        <div style="font-size:16px;font-weight:600;color:var(--text);margin-bottom:6px">${esc(it.title)}</div>
+        <div style="font-size:13.5px;color:var(--text-2);line-height:1.55;margin-bottom:10px">${esc(it.hook||'')}</div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+          <span style="font-size:11px;color:var(--muted)">${esc(it.source||'')}</span>
+          ${it.url?`<a href="${it.url}" target="_blank" style="font-size:11px;color:var(--text-2);text-decoration:none">원본 보기 ↗</a>`:''}
+        </div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-sm mint" style="flex:1" onclick="refineTopic('${esc(it.title).replace(/'/g,'')}')">주제로 다듬기</button>
+        </div>
+      </div>`).join('');
+  }catch(e){ list.innerHTML = '<div style="padding:18px;text-align:center;color:var(--muted);font-size:12.5px">신호를 못 가져왔어요</div>'; }
+}
+function setRadarCat(c, el){
+  radarCat = c;
+  el.parentNode.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));
+  el.classList.add('on');
+  loadRadar();
+}
+// 레이더 주제 → AI가 주제 기획
+function refineTopic(title){
+  const el = document.getElementById('topicKw');
+  if(el) el.value = title;
+  doTopics();
+}
+
 async function doTopics(){
   const topic = (document.getElementById('topicKw').value||'').trim();
   const btn = document.getElementById('topicGo');
@@ -1328,15 +1406,38 @@ function fillDefaultSchedule(){
 }
 
 
+// 작업 완료 알림 (브라우저 알림 + 진동 + 화면 안 배너)
+async function notifyDone(kind){
+  try{
+    if(navigator.vibrate) navigator.vibrate([40, 60, 40]);
+    if('Notification' in window){
+      if(Notification.permission === 'granted'){
+        new Notification('LinkLynk', { body: `${kind} 완료됐어요`, icon: '/icon-192.png', tag: 'll-job' });
+      }
+    }
+  }catch(e){}
+  toast(`✅ ${kind} 완료됐어요`);
+}
+// 알림 권한 요청 (첫 작업 시 1회)
+function askNotifyPermission(){
+  try{
+    if('Notification' in window && Notification.permission === 'default'){
+      Notification.requestPermission();
+    }
+  }catch(e){}
+}
+
 // ── 백그라운드 작업: 화면을 나가도 계속 진행되고, 돌아오면 결과 표시 ──
 window.__jobs = window.__jobs || {};   // {id: {status, result, kind}}
 function startJob(id, kind, promise, onDone){
+  askNotifyPermission();
   window.__jobs[id] = {status:'running', kind, startedAt:Date.now()};
   showJobBanner();
   promise.then(res=>{
     window.__jobs[id] = {status:'done', kind, result:res, at:Date.now()};
     if(onDone) onDone(res);
     showJobBanner();
+    notifyDone(kind);
   }).catch(err=>{
     window.__jobs[id] = {status:'error', kind, error:String(err).slice(0,80), at:Date.now()};
     showJobBanner();
