@@ -51,7 +51,7 @@ def _auto_image(product_name, info=None):
     return None
 
 
-def _gen_draft(uid, product_name, deeplink, tone, channel, info, provider=None, extra=""):
+def _gen_draft(uid, product_name, deeplink, tone, channel, info, provider=None, extra="", quality=False):
     """초안 생성. AI 키 있으면 AI가 직접 작성(사람다움), 없으면 템플릿."""
     if channel == "threads":
         try:
@@ -71,7 +71,7 @@ def _gen_draft(uid, product_name, deeplink, tone, channel, info, provider=None, 
         if akey:
             from core import claude_write_thread
             price = (info or {}).get("price")
-            r = claude_write_thread(akey, product_name, deeplink, tone, price, extra=extra)
+            r = claude_write_thread(akey, product_name, deeplink, tone, price, extra=extra, fast=(not quality))
             if r.get("ok"):
                 return r["content"]
     return make_blog_draft(product_name, deeplink, tone, channel, info)
@@ -855,7 +855,7 @@ def generate():
     if not d.get("skip_draft"):
         ok_d, _, _ = store.check_and_bump(user["id"], "draft", user["plan"])
         if ok_d:
-            draft = _gen_draft(user["id"], product_name, deeplink, tone, channel, info, d.get("provider"), d.get("extra", ""))
+            draft = _gen_draft(user["id"], product_name, deeplink, tone, channel, info, d.get("provider"), d.get("extra", ""), d.get("quality", False))
 
     store.save_link(user["id"], url, deeplink, product_name, channel)
 
@@ -898,7 +898,7 @@ def generate_manual():
     if not d.get("skip_draft"):
         ok_d, _, _ = store.check_and_bump(user["id"], "draft", user["plan"])
         if ok_d:
-            draft = _gen_draft(user["id"], product_name, deeplink, tone, channel, info, d.get("provider"), d.get("extra", ""))
+            draft = _gen_draft(user["id"], product_name, deeplink, tone, channel, info, d.get("provider"), d.get("extra", ""), d.get("quality", False))
     store.save_link(user["id"], "", deeplink, product_name, channel)
     naver_html = build_naver_html(product_name, deeplink, draft, info) if draft else None
     return jsonify({"ok": True, "deeplink": deeplink, "disclosure": COUPANG_DISCLOSURE,

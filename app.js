@@ -282,6 +282,27 @@ function setCh(el){
   }
 }
 // 같은 링크로 현재 채널 형식의 글을 다시 생성 (딥링크 있으니 검색 안 함)
+// 품질 다듬기 (3패스: 휴머나이즈 + 폴리시)
+function polishDraft(btn){
+  const d = window.__lastResult;
+  if(!d || !d.deeplink){ toast('먼저 글을 만들어주세요'); return; }
+  const result = document.getElementById('result');
+  if(result) result.innerHTML = '<div class="card"><div class="radar-loading"><span class="spin-sm"></span><span>✨ 사람다움 다듬는 중… (2~3패스)</span></div></div>';
+  const jobId = 'pol-' + Date.now();
+  const p = fetch('/api/generate-manual',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({deeplink:d.deeplink, channel:'threads', tone:(window.curTone||'friendly'),
+        productName:d.productName||'', provider:(window.__llmPick||null),
+        extra:(document.getElementById('w_extra')?.value||''), quality:true})})
+    .then(r=>r.json()).then(res=>{ if(!res.ok) throw new Error('실패'); return {draft: res}; });
+  startJob(jobId, '품질 다듬기', p, (res)=>{
+    const page = document.getElementById('page-make');
+    if(page && !page.classList.contains('hidden')){
+      window.__jobs[jobId].seen = true;
+      renderResult(res.draft);
+    }
+  });
+}
+
 // 현재 고른 채널·말투·AI로 글 만들기
 function writeWithSettings(){
   const d = window.__lastResult;
@@ -290,10 +311,13 @@ function writeWithSettings(){
 }
 
 async function regenForChannel(deeplink, pname){
+  // 이전 생성 요청 취소 (툴/말투 바꿀 때 대기 안 쌓이게)
+  if(window.__genAbort){ try{ window.__genAbort.abort(); }catch(e){} }
+  window.__genAbort = new AbortController();
   const result = document.getElementById('result');
-  if(result) result.innerHTML = '<div class="card"><div style="text-align:center;padding:22px;color:var(--muted)">✍️ 글 쓰는 중…<br><span style="font-size:12px">다른 화면 가도 계속 진행돼요</span></div></div>';
+  if(result) result.innerHTML = '<div class="card"><div class="radar-loading"><span class="spin-sm"></span><span>✍️ 글 쓰는 중… (다른 화면 가도 계속돼요)</span></div></div>';
   const jobId = 'gen-' + Date.now();
-  const p = fetch('/api/generate-manual',{method:'POST',headers:{'Content-Type':'application/json'},
+  const p = fetch('/api/generate-manual',{method:'POST',signal:window.__genAbort.signal,headers:{'Content-Type':'application/json'},
       body:JSON.stringify({deeplink, channel, tone:(window.curTone||'friendly'), productName:pname, provider:(window.__llmPick||null), extra:(document.getElementById('w_extra')?.value||'')})})
     .then(r=>r.json())
     .then(d=>{ if(!d.ok) throw new Error('생성 실패'); return {draft: d}; });
