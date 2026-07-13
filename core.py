@@ -858,8 +858,17 @@ def claude_generate_topics(api_key, user_topic="", now_str="", n=8):
         user_msg += f"지금 시각·계절에 맞는 주제 {n}개를 제안해주세요. 표본이 넓은 걸로."
 
     # ★max_tokens를 1400으로 줄였더니 JSON이 중간에 잘려 parse_error가 났다(2026-07-13).
-    #  주제 3개 + 키워드까지 한글로 담으면 1400토큰을 넘는다. 넉넉히 준다.
-    r = llm_chat(api_key, sys_prompt, user_msg, max_tokens=6000)
+    #  반대로 약한 모델(LLM7 등)에 8개를 시키면 출력이 잘려서 또 깨진다.
+    #  → 모델 체급에 맞게 부담을 조절한다. 최후 보루는 '적게, 확실히'.
+    _prov = detect_llm_provider(api_key)
+    if _prov in SLOW_FREE:
+        n = min(n, 4)
+        _budget = 3000
+    else:
+        _budget = 6000
+    user_msg = re.sub(r"\d+개의 세부 주제", f"{n}개의 세부 주제", user_msg)
+    user_msg = re.sub(r"주제 \d+개를 제안", f"주제 {n}개를 제안", user_msg)
+    r = llm_chat(api_key, sys_prompt, user_msg, max_tokens=_budget)
     if not r.get("ok"):
         return r
     raw = r.get("text") or ""
@@ -1060,7 +1069,8 @@ def _llm_openai_compat(name, url, api_key, models, sys_prompt, user_msg,
         except Exception as e:
             last = {"ok": False, "error": str(e)[:120]}
             continue
-    return last
+    return last or {"ok": False, "error": "no_response",
+                    "detail": f"{name}: 모델이 응답하지 않았어요"}
 
 
 def _llm_cerebras(api_key, sys_prompt, user_msg, max_tokens=3000):
@@ -1100,10 +1110,15 @@ def _llm_zai(api_key, sys_prompt, user_msg, max_tokens=3000):
 def _llm_llm7(api_key, sys_prompt, user_msg, max_tokens=3000):
     """LLM7.io — ★키 없이 익명으로 쓰는 무료 AI. 회원가입도 필요 없다.
     (2026-07-13 실측: minimax-m2.7 익명 호출 1.5초, 한국어 정상. 익명 30 RPM)"""
-    return _llm_openai_compat(
-        "llm7", "https://api.llm7.io/v1/chat/completions", None,
-        ["minimax-m2.7"],
-        sys_prompt, user_msg, max_tokens, timeout=40, json_mode=False)
+    # 최후 보루다. 느린 건 참아도 실패하면 안 된다 → 타임아웃 넉넉히, 1회 재시도.
+    for _try in range(2):
+        r = _llm_openai_compat(
+            "llm7", "https://api.llm7.io/v1/chat/completions", None,
+            ["minimax-m2.7"],
+            sys_prompt, user_msg, min(max_tokens, 4000), timeout=75, json_mode=False)
+        if r.get("ok"):
+            return r
+    return r
 
 
 def _llm_groq(api_key, sys_prompt, user_msg, max_tokens=3000):
