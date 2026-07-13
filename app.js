@@ -305,12 +305,20 @@ function polishDraft(btn){
 
 // 현재 고른 채널·말투·AI로 글 만들기
 function writeWithSettings(){
+  if(window.__writing) return;                  // 연타 방지
   const d = window.__lastResult;
   const typed = (document.getElementById('w_link')?.value || '').trim();
   const deeplink = typed || (d && d.deeplink);
   if(!deeplink){ toast('쿠팡파트너스 링크를 넣거나 먼저 링크를 만들어주세요'); return; }
   const pname = (document.getElementById('pickedName')?.textContent || '').trim() || (d && d.productName) || '';
+  window.__writing = true;
+  const b = document.getElementById('writeGo');
+  if(b){ b.classList.add('loading'); b.disabled = true; }
   regenForChannel(deeplink, pname);
+  window.__pgLock = Date.now() + 1200;
+  const r = document.getElementById('result');
+  if(r) r.scrollIntoView({behavior:'smooth', block:'start'});
+  setTimeout(()=>{ window.__writing = false; if(b){ b.classList.remove('loading'); b.disabled = false; } }, 1500);
 }
 
 async function regenForChannel(deeplink, pname){
@@ -425,8 +433,8 @@ async function doSearch(){
           <div class="card">
             <div style="font-size:10px;font-weight:700;letter-spacing:.16em;color:var(--muted);margin-bottom:4px">PRODUCT SEARCH</div>
             <div style="font-size:17px;font-weight:600;color:var(--text);margin-bottom:12px">"${esc(kw)}" 검색 결과${d.cached?' (저장됨)':''}</div>
-            <div class="prod-grid">
-              ${prods.map((p,i)=>`
+            <div class="prod-grid" id="prodGrid">
+              ${prods.slice(0,6).map((p,i)=>`
                 <div class="prod-card">
                   <div class="prod-thumb">
                     ${p.image?`<img src="/img-proxy?u=${encodeURIComponent(p.image)}" loading="lazy" alt="">`:''}
@@ -440,6 +448,9 @@ async function doSearch(){
                   <button class="pbtn pbtn-primary" onclick="pickProduct(${i})">이 상품으로 글쓰기</button>
                 </div>`).join('')}
             </div>
+            ${prods.length>6?`<div class="more-row" id="moreRow">
+              <button class="btn-more" onclick="showMoreProducts()">상품 ${prods.length-6}개 더보기</button>
+            </div>`:''}
           </div>
           <div id="imgResults"></div>
         </div>`;
@@ -1314,8 +1325,8 @@ function renderTopics(topics, now){
 
       <div class="lp-detail" id="lpDetail"></div>
     </div>`;
-  try{ result.scrollIntoView({behavior:'smooth', block:'center'}); }catch(e){}
   renderTopicDetail(0);
+  window.__pgLock = Date.now() + 900;
   result.scrollIntoView({behavior:'smooth', block:'start'});
 }
 function pickTopicTab(i, el){
@@ -2003,20 +2014,52 @@ function toast(m){
 boot();
 
 
+function prodCardHTML(p, i){
+  return `<div class="prod-card">
+    <div class="prod-thumb">
+      ${p.image?`<img src="/img-proxy?u=${encodeURIComponent(p.image)}" loading="lazy" alt="">`:''}
+      ${p.isRocket?'<span class="prod-badge">로켓</span>':''}
+    </div>
+    <div class="prod-name">${esc(p.name||'')}</div>
+    <div class="prod-price">${p.price?Number(p.price).toLocaleString()+'원':''}</div>
+    <button class="pbtn" onclick="window.open('${p.deeplink}','_blank')">상품 보기</button>
+    <button class="pbtn" onclick="showResearch(${i},this)">특징 확인</button>
+    <button class="pbtn" onclick="copyText('${p.deeplink}', this)">파트너스 링크 복사</button>
+    <button class="pbtn pbtn-primary" onclick="pickProduct(${i})">이 상품으로 글쓰기</button>
+  </div>`;
+}
+function showMoreProducts(){
+  const prods = window.__searchProducts || [];
+  const grid = document.getElementById('prodGrid');
+  const row = document.getElementById('moreRow');
+  if(!grid) return;
+  const shown = grid.querySelectorAll('.prod-card').length;
+  const next = prods.slice(shown, shown + 6);
+  grid.insertAdjacentHTML('beforeend', next.map((p,k)=>prodCardHTML(p, shown+k)).join(''));
+  const left = prods.length - (shown + next.length);
+  if(row){
+    if(left > 0) row.querySelector('.btn-more').textContent = `상품 ${left}개 더보기`;
+    else row.remove();
+  }
+}
+
 // 하단 페이저: 섹션으로 점프
+window.__pgLock = 0;
 function jumpSec(n, el){
   document.querySelectorAll('.pg').forEach(p=>p.classList.remove('on'));
   if(el) el.classList.add('on');
-  const cards = document.querySelectorAll('#page-make .step-card');
-  const target = cards[n-1];
-  if(target) target.scrollIntoView({behavior:'smooth', block:'start'});
+  const target = document.querySelector(`#page-make [data-sec="${n}"]`);
+  if(!target) return;
+  window.__pgLock = Date.now() + 900;          // 스크롤 중 스파이가 끼어들지 못하게
+  target.scrollIntoView({behavior:'smooth', block:'start'});
 }
-// 스크롤에 따라 페이저 활성 갱신
+// 스크롤에 따라 페이저 활성 갱신 (앵커 3개 기준)
 window.addEventListener('scroll', ()=>{
-  const cards = [...document.querySelectorAll('#page-make .step-card')];
-  if(!cards.length) return;
+  if(Date.now() < window.__pgLock) return;
+  const secs = [...document.querySelectorAll('#page-make [data-sec]')];
+  if(!secs.length) return;
   let idx = 0;
-  cards.forEach((c,i)=>{ if(c.getBoundingClientRect().top < window.innerHeight*0.4) idx = i; });
+  secs.forEach((c,i)=>{ if(c.getBoundingClientRect().top < window.innerHeight*0.4) idx = i; });
   document.querySelectorAll('.pg').forEach((p,i)=>p.classList.toggle('on', i===idx));
 }, {passive:true});
 

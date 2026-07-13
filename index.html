@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta name="build" content="0713-parity-3">
+<meta name="build" content="0713-parity-4">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -536,6 +536,12 @@
   .pbtn{white-space:normal}
   .radar-cats{margin:0 !important}
 
+  /* 검색결과 더보기 */
+  .more-row{display:flex;justify-content:center;margin-top:14px}
+  .btn-more{background:var(--surface-2);border:1px solid var(--line);color:var(--text);
+    border-radius:999px;padding:10px 22px;font-size:13px;font-weight:600;cursor:pointer;white-space:nowrap}
+  .btn-more:active{background:var(--surface-3)}
+
   /* ── 최종 스페이싱: PROMETHEUS 스샷 실측(갤럭시 412dp) ── */
   .page{padding:0 12px}
   #page-make{padding-bottom:170px}
@@ -565,9 +571,9 @@
   /* 상품 카드 */
   .prod-grid{gap:11px !important}
   .prod-card{padding:11px !important;border-radius:15px !important}
-  .prod-name{font-size:11px !important;height:32px !important;margin-bottom:7px !important}
-  .prod-price{font-size:14px !important;margin-bottom:11px !important}
-  .pbtn{padding:11px 4px !important;font-size:10.5px !important;margin-bottom:7px !important;border-radius:10px !important}
+  .prod-name{font-size:12px !important;line-height:1.35 !important;height:auto !important;min-height:32px !important;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;margin-bottom:8px !important}
+  .prod-price{font-size:14.5px !important;margin-bottom:10px !important}
+  .pbtn{padding:10px 4px !important;font-size:11px !important;margin-bottom:6px !important;border-radius:10px !important}
 
   /* 연결 상품 */
   .lp-title{font-size:17px !important;margin-bottom:8px !important}
@@ -649,7 +655,7 @@
   <!-- 만들기 -->
   <div class="page on" id="page-make">
     <div class="hero">
-      <div class="step-card" id="ideaCard">
+      <div class="step-card" id="ideaCard" data-sec="1">
         <div class="sec-head">
           <div class="sec-num">1</div>
           <div class="sec-meta">
@@ -661,7 +667,7 @@
         <div id="topicOut"></div>
       </div>
 
-      <div class="step-card">
+      <div class="step-card" data-sec="2">
       <div class="sec-head"><div class="sec-num">2</div><div class="sec-meta"><div class="sec-kicker">PRODUCT SEARCH</div><div class="sec-title">연결할 상품 찾기</div></div></div>
       <div class="modeToggle" style="display:flex;gap:4px;margin-bottom:0;background:var(--surface-1);border:1px solid var(--line);border-radius:14px;padding:4px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch">
         <button class="mode on" data-mode="auto" onclick="setMode(this)">간편링크 자동생성</button>
@@ -696,7 +702,7 @@
       </div>
       </div>
     </div>
-    <div class="step-card" style="margin:0 20px 14px">
+    <div class="step-card" data-sec="3">
     <div class="sec-head"><div class="sec-num">3</div><div class="sec-meta"><div class="sec-kicker">WRITE &amp; EXPORT</div><div class="sec-title">글 작성하고 내보내기</div></div></div>
 
     <div id="pickedProd" class="picked hidden">
@@ -914,6 +920,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="/app.js?v=1783923284"></script>
+<script src="/app.js?v=1783923976"></script>
 </body>
 </html>

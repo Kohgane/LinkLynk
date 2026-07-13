@@ -540,9 +540,15 @@ def search_product_api():
     # 1) 캐시 먼저 (API 호출 0회)
     cached = store.get_search_cache(keyword)
     if cached and cached.get("deeplink"):
+        plist_cached = []
+        try:
+            plist_cached = json.loads(cached.get("products") or "[]")
+        except Exception:
+            plist_cached = []
         return jsonify({"ok": True, "cached": True,
                         "product_name": cached["product_name"], "deeplink": cached["deeplink"],
-                        "image": cached.get("image"), "price": cached.get("price")})
+                        "image": cached.get("image"), "price": cached.get("price"),
+                        "products": plist_cached})
 
     user = store.get_user(session["uid"])
     partners, own_key = _partners_for(user)
@@ -556,10 +562,10 @@ def search_product_api():
         return jsonify({"ok": False, "rate_limited": True,
                         "error": "검색을 너무 많이 했어요. 1시간 후 다시 시도하거나, 링크를 직접 붙여넣어 주세요."}), 429
 
-    # 3) 실제 검색 (본인 키, 1회) — 상품 3개
+    # 3) 실제 검색 (본인 키, 1회) — 상품 최대 20개
     try:
         store.log_search(session["uid"])
-        plist = partners.search_products(keyword, limit=3)
+        plist = partners.search_products(keyword, limit=20)
     except Exception:
         plist = []
     if not plist:
@@ -601,7 +607,7 @@ def search_product_api():
         pass
 
     # 5) 캐시 저장 (다음엔 API 안 씀)
-    store.set_search_cache(keyword, info["name"], deeplink, info.get("image"), info.get("price"))
+    store.set_search_cache(keyword, info["name"], deeplink, info.get("image"), info.get("price"), products)
     store.save_link(session["uid"], "", deeplink, info["name"], "search")
 
     return jsonify({"ok": True, "cached": False,

@@ -42,6 +42,8 @@ def init_db():
     except Exception: pass
     try: _q("ALTER TABLE linklynk_users ADD COLUMN IF NOT EXISTS groq_key_enc TEXT")
     except Exception: pass
+    try: _q("ALTER TABLE linklynk_search_cache ADD COLUMN IF NOT EXISTS products TEXT")
+    except Exception: pass
     _q("""CREATE TABLE IF NOT EXISTS linklynk_usage(
         user_id BIGINT, month TEXT, link_count INTEGER DEFAULT 0, draft_count INTEGER DEFAULT 0,
         PRIMARY KEY(user_id, month));""")
@@ -209,13 +211,16 @@ def get_search_cache(keyword):
         return None
     return dict(row)
 
-def set_search_cache(keyword, product_name, deeplink, image, price):
+def set_search_cache(keyword, product_name, deeplink, image, price, products=None):
     kw = keyword.strip().lower()
-    _q("""INSERT INTO linklynk_search_cache(keyword,product_name,deeplink,image,price,cached_at)
-          VALUES(%s,%s,%s,%s,%s,%s)
+    import json as _json
+    pj = _json.dumps(products, ensure_ascii=False) if products else None
+    _q("""INSERT INTO linklynk_search_cache(keyword,product_name,deeplink,image,price,cached_at,products)
+          VALUES(%s,%s,%s,%s,%s,%s,%s)
           ON CONFLICT(keyword) DO UPDATE SET product_name=EXCLUDED.product_name,
-          deeplink=EXCLUDED.deeplink, image=EXCLUDED.image, price=EXCLUDED.price, cached_at=EXCLUDED.cached_at""",
-       (kw, product_name, deeplink, image, price or 0, int(time.time())))
+          deeplink=EXCLUDED.deeplink, image=EXCLUDED.image, price=EXCLUDED.price,
+          cached_at=EXCLUDED.cached_at, products=EXCLUDED.products""",
+       (kw, product_name, deeplink, image, price or 0, int(time.time()), pj))
     return {"ok": True}
 
 def count_recent_searches(uid, within_seconds=3600):

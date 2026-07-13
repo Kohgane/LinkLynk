@@ -73,7 +73,7 @@ class CoupangPartners:
                 "image": p.get("productImage"), "url": p.get("productUrl"),
                 "productId": p.get("productId")}
 
-    def search_products(self, keyword, limit=3):
+    def search_products(self, keyword, limit=20):
         """파트너스 상품검색 — 여러 개 반환 (이미지처럼 3개 카드용)."""
         import urllib.parse
         q = f"keyword={urllib.parse.quote(keyword)}&limit={limit}"
