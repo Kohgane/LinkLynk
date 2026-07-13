@@ -73,10 +73,12 @@ class CoupangPartners:
                 "image": p.get("productImage"), "url": p.get("productUrl"),
                 "productId": p.get("productId")}
 
-    def search_products(self, keyword, limit=12):
-        """파트너스 상품검색. 실패 사유는 self.last_error에 남긴다(예전엔 통째로 삼켰음)."""
+    def search_products(self, keyword, limit=10):
+        """파트너스 상품검색. 실패 사유는 self.last_error에 남긴다(예전엔 통째로 삼켰음).
+        ★쿠팡 제한: limit 최대 10. 11 이상이면 rCode 400 'limit is out of range' (2026-07-13 실측)."""
         import urllib.parse
         self.last_error = None
+        limit = max(1, min(int(limit or 10), 10))
         q = f"keyword={urllib.parse.quote(keyword)}&limit={limit}"
         path = "/v2/providers/affiliate_open_api/apis/openapi/products/search"
         dt = time.strftime('%y%m%dT%H%M%SZ', time.gmtime())

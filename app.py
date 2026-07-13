@@ -574,7 +574,7 @@ def search_product_api():
     _t0 = _time.time()
     try:
         store.log_search(session["uid"])
-        plist = partners.search_products(keyword, limit=12)
+        plist = partners.search_products(keyword, limit=10)   # 쿠팡 최대 10
     except Exception:
         plist = []
     _t_search = int((_time.time() - _t0) * 1000)
