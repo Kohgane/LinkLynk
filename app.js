@@ -127,7 +127,7 @@ function showApp(me){
   document.getElementById('appView').classList.remove('hidden');
   // 아바타
   const initial = (me.handle || me.email || '?')[0].toUpperCase();
-  document.getElementById('avatar').textContent = initial;
+  const av=document.getElementById('avatar'); if(av) av.textContent = initial;
   // 프로필 주소
   const base = location.origin;
   document.getElementById('profileUrl').textContent = me.handle ? `${base}/u/${me.handle}` : '프로필 주소 미설정';
@@ -136,6 +136,7 @@ function showApp(me){
   renderKeyStatus(me);
   if(me.has_sns) loadSnsAccounts();
   renderLlmPicker();
+  loadRadar();
   // 북마클릿으로 가져온 쿠팡 이미지가 있으면 표시
   if(window.__bmkImages && window.__bmkImages.images){
     setTimeout(()=>showBmkImages(window.__bmkImages), 400);
@@ -1117,11 +1118,11 @@ function renderClaude(me){
 let radarCat = '추천';
 let radarRange = '24시간';
 async function loadRadar(refresh){
-  const box = document.getElementById('trendRadar');
+  const box = document.getElementById('trendRadarTop') || document.getElementById('trendRadar');
   if(!box) return;
   if(!box.dataset.init){
     box.dataset.init = '1';
-    box.innerHTML = `<div style="padding:16px 16px 6px">
+    box.innerHTML = `<div style="padding:0">
       <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px">
         <span class="live-dot"></span>
         <span style="font-size:10px;font-weight:700;letter-spacing:.16em;color:var(--muted)">LIVE SIGNAL</span>
@@ -1903,3 +1904,21 @@ function toast(m){
 }
 
 boot();
+
+
+// 하단 페이저: 섹션으로 점프
+function jumpSec(n, el){
+  document.querySelectorAll('.pg').forEach(p=>p.classList.remove('on'));
+  if(el) el.classList.add('on');
+  const cards = document.querySelectorAll('#page-make .step-card');
+  const target = cards[n-1];
+  if(target) target.scrollIntoView({behavior:'smooth', block:'start'});
+}
+// 스크롤에 따라 페이저 활성 갱신
+window.addEventListener('scroll', ()=>{
+  const cards = [...document.querySelectorAll('#page-make .step-card')];
+  if(!cards.length) return;
+  let idx = 0;
+  cards.forEach((c,i)=>{ if(c.getBoundingClientRect().top < window.innerHeight*0.4) idx = i; });
+  document.querySelectorAll('.pg').forEach((p,i)=>p.classList.toggle('on', i===idx));
+}, {passive:true});

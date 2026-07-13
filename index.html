@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta name="build" content="0713-0344">
+<meta name="build" content="0713-0353">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -200,7 +200,7 @@
   .stepper .dot.on{background:var(--mint);color:var(--mint-ink);border-color:transparent}
   .stepper .bar{flex:1;height:1px;background:var(--line)}
   /* 스텝 카드: 각 섹션 분리 */
-  .step-card{background:var(--surface-1);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px}
+  .step-card{background:var(--surface-1);border:1px solid var(--line);border-radius:var(--radius);padding:16px;margin-bottom:14px;scroll-margin-top:80px}
   .step-card .sec-head{margin:0 0 12px}
   .hint{font-size:12px;color:var(--text-2);margin-top:10px;padding:10px;background:var(--surface-1);border-radius:8px;line-height:1.5}
   .nia-wrap{padding-right:24px;min-height:200px}
@@ -333,7 +333,7 @@
   .seg-refresh:active{color:var(--text)}
 
   /* 카테고리 칩 줄 */
-  .radar-cats{display:flex;gap:6px;overflow-x:auto;padding-bottom:12px;scrollbar-width:none}
+  .radar-cats{display:flex;gap:6px;overflow-x:auto;padding:0 0 12px;scrollbar-width:none;margin:0 -2px}
   .radar-cats::-webkit-scrollbar{display:none}
   .radar-cats .chip{flex:0 0 auto;font-size:12.5px;padding:8px 15px}
 
@@ -376,6 +376,25 @@
   .pbtn:last-child{margin-bottom:0}
   .pbtn-primary{background:linear-gradient(180deg,#FFFFFF,#E9EAEC);color:#0A0A0B;border-color:transparent;font-weight:600}
   @media (max-width:380px){ .prod-name{font-size:11px} .pbtn{font-size:10.5px;padding:7px 3px} }
+  /* ── 앱바 (이미지: 원형배지 + 이름 + 기어) ── */
+  .appbar{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;position:sticky;top:0;z-index:50;
+    background:rgba(13,13,14,.86);backdrop-filter:blur(18px) saturate(140%);border-bottom:1px solid rgba(255,255,255,.06)}
+  .brand{display:flex;align-items:center;gap:12px}
+  .brand-badge{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;font-size:19px;font-weight:700;
+    background:linear-gradient(180deg,#FFFFFF,#DEDFE2);color:#0A0A0B;box-shadow:0 1px 0 rgba(255,255,255,.8) inset,0 6px 18px rgba(0,0,0,.4);cursor:pointer}
+  .brand-name{font-size:19px;font-weight:600;letter-spacing:.02em;color:var(--text)}
+  .gear-btn{width:46px;height:46px;border-radius:14px;display:grid;place-items:center;font-size:19px;cursor:pointer;
+    background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.10);color:var(--text-2);transition:all .16s}
+  .gear-btn:active{transform:scale(.96);background:rgba(255,255,255,.09)}
+
+  /* ── 하단 플로팅 페이저 (1 2 3) ── */
+  .pager{position:fixed;left:50%;transform:translateX(-50%);bottom:78px;z-index:60;display:flex;gap:2px;
+    background:rgba(30,31,34,.92);backdrop-filter:blur(16px);border:1px solid rgba(255,255,255,.09);
+    border-radius:999px;padding:6px;box-shadow:0 10px 30px rgba(0,0,0,.5)}
+  .pg{width:56px;height:34px;border-radius:999px;border:none;background:transparent;color:var(--muted);
+    font-size:14px;font-weight:600;cursor:pointer;position:relative;transition:color .16s}
+  .pg.on{color:var(--text)}
+  .pg.on::after{content:'';position:absolute;left:50%;bottom:2px;transform:translateX(-50%);width:4px;height:4px;border-radius:50%;background:#fff}
 </style>
 </head>
 <body>
@@ -411,28 +430,30 @@
 
 <!-- 메인 앱 -->
 <div id="appView" class="hidden">
-  <div class="top">
-    <div class="logo">Link<span>Lynk</span></div>
-    <div class="av" id="avatar" onclick="go('settings')" title="설정">⚙</div>
+  <div class="top appbar">
+    <div class="brand">
+      <div class="brand-badge" id="avatar">L</div>
+      <div class="brand-name">LINKLYNK</div>
+    </div>
+    <button class="gear-btn" onclick="go('settings')" title="설정">⚙</button>
   </div>
 
   <!-- 만들기 -->
   <div class="page on" id="page-make">
     <div class="hero">
-      <div class="stepper">
-        <div class="dot on">1</div><div class="bar"></div>
-        <div class="dot">2</div><div class="bar"></div>
-        <div class="dot">3</div>
-      </div>
       <div class="sec-head">
-        <div class="sec-num">◆</div>
+        <div class="sec-num">1</div>
         <div class="sec-meta">
-          <div class="sec-kicker">Create</div>
-          <div class="sec-title">주제 → 상품 → 글, 한 번에</div>
+          <div class="sec-kicker">IDEA CHAT</div>
+          <div class="sec-title">오늘 쓸 주제 찾기</div>
         </div>
       </div>
+      <div class="step-card" id="ideaCard">
+        <div id="trendRadarTop"></div>
+      </div>
+
       <div class="step-card">
-      <div class="sec-head"><div class="sec-num">1</div><div class="sec-meta"><div class="sec-kicker">Input</div><div class="sec-title">어떻게 시작할까요?</div></div></div>
+      <div class="sec-head"><div class="sec-num">2</div><div class="sec-meta"><div class="sec-kicker">PRODUCT SEARCH</div><div class="sec-title">연결할 상품 찾기</div></div></div>
       <div class="modeToggle" style="display:flex;gap:4px;margin-bottom:0;background:var(--surface-1);border:1px solid var(--line);border-radius:14px;padding:4px;overflow-x:auto;scrollbar-width:none;-webkit-overflow-scrolling:touch">
         <button class="mode on" data-mode="auto" onclick="setMode(this)">간편링크 자동생성</button>
         <button class="mode" data-mode="manual" onclick="setMode(this)">링크 직접 붙여넣기</button>
@@ -441,7 +462,6 @@
       </div>
       </div>
       <div class="step-card">
-      <div class="sec-head"><div class="sec-num">2</div><div class="sec-meta"><div class="sec-kicker">Product</div><div class="sec-title">상품·주제 정하기</div></div></div>
       <div class="pastebox" id="pasteBox">
         <textarea id="url" placeholder="쿠팡 상품 링크 붙여넣기&#10;(앱 공유링크 그대로 OK)"></textarea>
         <input id="pname" placeholder="상품 이름 (선택 — 나중에 찾기 쉬워요)" style="border:none;background:none;box-shadow:none;padding:4px 12px 8px;font-size:13.5px;color:var(--text-2)">
@@ -468,7 +488,7 @@
       </div>
     </div>
     <div class="step-card" style="margin:0 20px 14px">
-    <div class="sec-head"><div class="sec-num">3</div><div class="sec-meta"><div class="sec-kicker">Write</div><div class="sec-title">채널 · 말투 고르기</div></div></div>
+    <div class="sec-head"><div class="sec-num">3</div><div class="sec-meta"><div class="sec-kicker">WRITE &amp; EXPORT</div><div class="sec-title">글 작성하고 내보내기</div></div></div>
     <div class="chips" style="padding:0 0 4px">
       <div class="chip on" data-ch="blog" onclick="setCh(this)">블로그</div>
       <div class="chip" data-ch="insta" onclick="setCh(this)">인스타</div>
@@ -638,6 +658,11 @@
     </div>
   </div>
 
+  <div class="pager" id="pager">
+    <button class="pg on" onclick="jumpSec(1,this)">1</button>
+    <button class="pg" onclick="jumpSec(2,this)">2</button>
+    <button class="pg" onclick="jumpSec(3,this)">3</button>
+  </div>
   <div class="tabbar">
     <button class="tab on" data-p="make" onclick="go('make')"><span class="tab-ic">⚡</span>만들기</button>
     <button class="tab" data-p="profile" onclick="go('profile')"><span class="tab-ic">🔗</span>내 링크</button>
@@ -647,6 +672,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="/app.js?v=1783914278"></script>
+<script src="/app.js?v=1783914797"></script>
 </body>
 </html>
