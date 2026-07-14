@@ -453,8 +453,33 @@ def llm_list():
     # 빠른 순 → 느린 순. 키 없이 쓰는 무료 AI는 항상 제공한다.
     order = ["llm7", "cerebras", "groq", "gemini", "github", "nvidia", "zai", "openrouter", "anthropic"]
     have = set(keys) | {"llm7"}
-    return jsonify({"ok": True,
-                    "providers": [{"id": p, "name": names[p]} for p in order if p in have]})
+    usable = [p for p in order if p in have]
+
+    vis = store.get_llm_visible(session["uid"])          # None = 전부 보임
+    shown = [p for p in usable if (vis is None or p in vis)] or usable[:1]
+
+    return jsonify({
+        "ok": True,
+        "providers": [{"id": p, "name": names[p]} for p in shown],
+        # 설정 화면용: 쓸 수 있는 전부 + 지금 켜져 있는 것
+        "all": [{"id": p, "name": names[p], "on": (vis is None or p in vis)} for p in usable],
+    })
+
+
+@app.route("/api/llm-visible", methods=["POST"])
+@login_required
+def llm_visible_api():
+    """어떤 AI 도구를 목록에 보이게 할지 사용자가 직접 정한다."""
+    d = request.get_json(force=True, silent=True) or {}
+    ids = d.get("ids")
+    if not isinstance(ids, list) or not ids:
+        return jsonify({"ok": False, "error": "최소 한 개는 켜두세요."}), 400
+    allowed = {"llm7", "cerebras", "groq", "gemini", "github", "nvidia", "zai", "openrouter", "anthropic"}
+    ids = [i for i in ids if i in allowed]
+    if not ids:
+        return jsonify({"ok": False, "error": "최소 한 개는 켜두세요."}), 400
+    store.set_llm_visible(session["uid"], ids)
+    return jsonify({"ok": True, "count": len(ids)})
 
 
 @app.route("/api/compare-write", methods=["POST"])

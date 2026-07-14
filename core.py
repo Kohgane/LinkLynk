@@ -836,6 +836,100 @@ def zernio_publish(api_key, platforms, content, media_urls=None, account_ids=Non
 
 
 # ── Claude API: 주제 먼저 생성 (개인 API 키 사용) ──
+# ── 쿠팡 검색 키워드 규칙 ────────────────────────────────
+# 키워드는 "주제"가 아니다. 쿠팡 검색창에 그대로 쳤을 때 상품이 나오는 말이어야 한다.
+KEYWORD_RULES = '''키워드 규칙 (가장 자주 틀리는 부분이다. 정확히 지켜라):
+
+키워드 = 쿠팡 검색창에 그대로 붙여넣었을 때 "상품이 쭉 나오는" 말.
+주제·현상·감정·행동이 아니라 ★사람이 돈 주고 사는 물건★의 이름이다.
+
+[통과] 냉감 매트 / 제습기 / 실내 건조대 / 세탁조 클리너 / 차량용 햇빛가리개
+       무선 선풍기 / 방수팩 / 펫 쿨매트 / 코세척기 / 온수매트
+[탈락] 열대야 극복 (현상)      → 냉감 매트
+[탈락] 숙면 방법 (행동)        → 냉감 이불
+[탈락] 여름철 관리 (추상)      → 제습기
+[탈락] 빨래 냄새 (증상)        → 세탁조 클리너
+[탈락] 시원함 (감정)           → 서큘레이터
+[탈락] 다이슨 에어랩 (브랜드)  → 고데기   ※특정 브랜드명 금지, 일반 상품군으로
+[탈락] 아이 건강 (범주)        → 유아 비타민
+
+체크:
+- 2~4어절, 12자 이내.
+- "~하는 법", "~방법", "~이유", "~관리", "~극복", "~팁", "~추천" 이 붙으면 전부 탈락.
+- 명사로 끝나야 한다. 동사·형용사로 끝나면 탈락.
+- 주제 제목을 그대로 베끼지 마라. 그 주제를 해결해줄 ★물건★을 써라.
+- 한 주제당 서로 다른 물건 3~4개. (같은 물건의 변형 나열 금지)
+'''
+
+_KW_BAD_TAIL = ("방법", "하는 법", "이유", "관리", "극복", "예방", "대처", "팁", "추천",
+                "습관", "생활", "노하우", "가이드", "총정리", "비교", "후기", "체험")
+_KW_ABSTRACT = ("건강", "행복", "시원함", "쾌적", "청결", "위생", "안전", "편안",
+                "스트레스", "피로", "고민", "문제", "효과", "증상")
+
+
+def keyword_gate(kw, topic_title=""):
+    """이 키워드를 쿠팡 검색창에 치면 상품이 나오는가? 아니면 사유를 돌려준다."""
+    k = (kw or "").strip()
+    if not k:
+        return "빈 키워드"
+    if len(k) > 12:
+        return f"'{k}' — 너무 길다(12자 초과). 물건 이름만 남겨라"
+    if len(k.split()) > 4:
+        return f"'{k}' — 어절이 너무 많다. 물건 이름만 남겨라"
+    for t in _KW_BAD_TAIL:
+        if t in k:
+            return f"'{k}' — '{t}'는 행동·개념이다. 그걸 해결해줄 물건 이름으로 바꿔라"
+    if k in _KW_ABSTRACT:
+        return f"'{k}' — 추상어다. 살 수 있는 물건이 아니다"
+    if topic_title and k.replace(" ", "") == topic_title.replace(" ", ""):
+        return f"'{k}' — 주제 제목을 그대로 썼다. 그 주제를 해결할 물건을 써라"
+    if re.search(r"(하다|되다|한다|된다|는다|었다|았다)$", k):
+        return f"'{k}' — 서술형으로 끝난다. 명사(물건)로 끝내라"
+    return None
+
+
+def _fix_keywords(api_key, topics, max_tokens=1500):
+    """탈락한 키워드만 콕 집어 다시 뽑는다. 주제 본문은 건드리지 않는다."""
+    bad = []
+    for t in topics:
+        title = t.get("title", "")
+        for k in (t.get("keywords") or []):
+            why = keyword_gate(k, title)
+            if why:
+                bad.append({"topic": title, "keyword": k, "why": why})
+    if not bad:
+        return topics
+    sys_p = (
+        "너는 쿠팡 검색 키워드 전문가다. 아래 '탈락한 키워드'를 규칙에 맞는 것으로 교체하라.\n"
+        "주제 제목은 절대 바꾸지 마라. 키워드만 바꾼다.\n\n" + KEYWORD_RULES +
+        '\n출력은 JSON만: {"fixed":[{"topic":"주제제목","old":"탈락키워드","new":"대체키워드"}]}'
+    )
+    user_p = "탈락 목록:\n" + "\n".join(
+        f"- 주제 [{b['topic']}] 의 '{b['keyword']}' → {b['why']}" for b in bad[:12])
+    r = llm_chat(api_key, sys_p, user_p, max_tokens=max_tokens)
+    if not r.get("ok"):
+        return topics
+    try:
+        fixes = _parse_json_out(r["text"]).get("fixed", [])
+    except Exception:
+        return topics
+    fmap = {(f.get("topic", ""), f.get("old", "")): f.get("new", "")
+            for f in fixes if isinstance(f, dict)}
+    for t in topics:
+        title = t.get("title", "")
+        out = []
+        for k in (t.get("keywords") or []):
+            if keyword_gate(k, title):
+                nk = fmap.get((title, k), "")
+                if nk and not keyword_gate(nk, title):
+                    out.append(nk)          # 고쳐졌으면 채택
+                # 못 고쳤으면 버린다 (나쁜 키워드를 남기느니 없는 게 낫다)
+            else:
+                out.append(k)
+        t["keywords"] = out[:4]
+    return topics
+
+
 def claude_generate_topics(api_key, user_topic="", now_str="", n=8):
     """주제 생성 (무료 Gemini/OpenRouter 또는 Claude). 상품이 아니라 '주제'가 먼저."""
     if not api_key:
@@ -845,8 +939,8 @@ def claude_generate_topics(api_key, user_topic="", now_str="", n=8):
         "상품이 아니라 '주제'가 먼저입니다. 사람들이 공감할 상황·고민을 주제로 잡고, "
         "거기서 자연스럽게 필요한 상품으로 연결합니다. "
         "각 주제마다: 현재 시각/계절 맥락, 타겟 표본(누구), 반전 앵글, 훅 문장, "
-        "그리고 그 주제에 맞는 쿠팡 검색 키워드를 주제마다 3~4개씩 제시하세요. "
-        "키워드는 실제 쿠팡에서 검색될 법한 상품명이어야 합니다(추상어 금지). "
+        "그리고 그 주제에 맞는 쿠팡 검색 키워드를 주제마다 3~4개씩 제시하세요.\n\n"
+        + KEYWORD_RULES + "\n"
         "죄책감 반전('내 탓이 아니라 구조 탓'), 상황 공감, 의외의 사실 같은 훅을 활용하세요. "
         "반드시 JSON만 출력. 형식: "
         '{"topics":[{"title":"...","time_context":"...","sample":"...","angle":"...","hook":"...","keywords":["...","..."]}]}'
@@ -890,6 +984,13 @@ def claude_generate_topics(api_key, user_topic="", now_str="", n=8):
     if not topics:
         return {"ok": False, "error": "empty_topics",
                 "detail": f"파싱은 됐는데 주제가 비었어요. 응답머리: {raw[:80]}"}
+
+    # ★키워드는 기계가 검사한다. 탈락한 것만 다시 뽑고, 못 고치면 버린다.
+    topics = _fix_keywords(api_key, topics)
+    topics = [t for t in topics if (t.get("keywords") or [])]
+    if not topics:
+        return {"ok": False, "error": "no_keywords",
+                "detail": "쓸만한 쿠팡 검색 키워드를 못 뽑았어요. 다시 시도해 주세요."}
     return {"ok": True, "topics": topics}
 
 

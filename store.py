@@ -42,6 +42,8 @@ def init_db():
     except Exception: pass
     try: _q("ALTER TABLE linklynk_users ADD COLUMN IF NOT EXISTS groq_key_enc TEXT")
     except Exception: pass
+    try: _q("ALTER TABLE linklynk_users ADD COLUMN IF NOT EXISTS llm_visible TEXT")
+    except Exception: pass
     for _c in ("cerebras_key_enc", "nvidia_key_enc", "github_key_enc", "zai_key_enc"):
         try: _q(f"ALTER TABLE linklynk_users ADD COLUMN IF NOT EXISTS {_c} TEXT")
         except Exception: pass
@@ -358,3 +360,18 @@ def get_llm_keys(uid):
             out.pop("anthropic", None)
             out[real] = legacy
     return out
+
+
+# ── 사용자가 "보이게" 선택한 AI 도구 목록 ──────────────────
+def get_llm_visible(uid):
+    r = _q("SELECT llm_visible FROM linklynk_users WHERE id=%s", (uid,), one=True)
+    v = (r or {}).get("llm_visible") if r else None
+    if not v:
+        return None                      # None = 아직 설정 안 함 = 전부 보임
+    return [x for x in v.split(",") if x]
+
+
+def set_llm_visible(uid, ids):
+    val = ",".join(x for x in (ids or []) if x)
+    _q("UPDATE linklynk_users SET llm_visible=%s WHERE id=%s", (val or None, uid))
+    return {"ok": True}

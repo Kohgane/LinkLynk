@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta name="build" content="0713-503fix2">
+<meta name="build" content="0713-aipick">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -897,6 +897,15 @@
         <div class="card-lbl">🧠 AI 연결 (여러 개 넣고 비교 가능)</div>
         <div id="claudeStatus" style="font-size:13px;color:var(--muted);margin-bottom:14px">연결 안 됨</div>
 
+        <div style="margin-bottom:18px">
+          <div style="font-size:12px;color:var(--text-2);margin-bottom:10px;line-height:1.6">
+            <b style="color:var(--text)">🎛 목록에 보일 AI 고르기</b><br>
+            체크한 것만 글쓰기 화면의 AI 목록에 나타납니다. 안 쓰는 건 꺼두세요.
+          </div>
+          <div id="llmVisBox" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+          <button class="btn-more" style="margin-top:10px" onclick="saveLlmVisible()">선택 저장</button>
+        </div>
+
         <div style="background:var(--surface-2);border:1px solid var(--line);border-radius:12px;
                     padding:12px 14px;margin-bottom:16px;font-size:12px;color:var(--text-2);line-height:1.6">
           ✨ <b style="color:var(--text)">키를 하나도 안 넣어도</b> 글을 쓸 수 있어요.
@@ -989,6 +998,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="/app.js?v=1783941927"></script>
+<script src="/app.js?v=1784005287"></script>
 </body>
 </html>

@@ -212,7 +212,7 @@ function go(page){
   if(railEl) railEl.style.display = (page==='profile') ? 'block' : 'none';
   if(page==='profile') loadProfile();
   if(page==='stats'){ refreshMe(); loadStats(); loadPosts('all'); }
-  else if(page==='settings'){ refreshMe(); loadSnsAccounts(); }
+  else if(page==='settings'){ refreshMe(); loadSnsAccounts(); renderLlmVisible(); }
 }
 async function refreshMe(){
   try{ const me = await (await fetch('/api/me')).json(); if(me.ok){ window.__me=me; renderUsage(me); renderKeyStatus(me); renderHandle(me); renderSns(me); renderClaude(me);} }catch(e){}
@@ -1698,6 +1698,34 @@ async function renderLlmPicker(){
     </div>
     <div style="font-size:11px;color:var(--muted);margin-top:6px">💰 = 유료(호출 시 과금). 선택한 도구로만 글을 씁니다.</div>`;
 }
+// ── 목록에 보일 AI 고르기 (설정) ──────────────────────────
+async function renderLlmVisible(){
+  const box = document.getElementById('llmVisBox');
+  if(!box) return;
+  try{
+    const r = await fetch('/api/llm-list').then(x=>x.json());
+    const all = r.all || [];
+    box.innerHTML = all.map(p=>`
+      <button class="chip ${p.on?'on':''}" data-vid="${p.id}" onclick="this.classList.toggle('on')">
+        ${esc(p.name)}
+      </button>`).join('') || '<div style="font-size:12px;color:var(--muted)">사용 가능한 AI가 없어요</div>';
+  }catch(e){}
+}
+
+async function saveLlmVisible(){
+  const ids = [...document.querySelectorAll('#llmVisBox .chip.on')].map(b=>b.dataset.vid);
+  if(!ids.length){ toast('최소 한 개는 켜두세요'); return; }
+  try{
+    const r = await fetch('/api/llm-visible',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({ids})}).then(x=>x.json());
+    if(r.ok){
+      toast(`AI ${r.count}개만 보이게 저장했어요`);
+      window.__llmPick = null;
+      renderLlmPicker();
+    } else toast(r.error || '저장 실패');
+  }catch(e){ toast('저장 실패'); }
+}
+
 function pickLlm(id, el){
   if(id==='anthropic' && !confirm('Claude는 유료예요. 호출할 때마다 크레딧이 차감됩니다.\n그래도 사용할까요?')) return;
   window.__llmPick = id;
