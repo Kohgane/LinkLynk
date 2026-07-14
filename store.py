@@ -429,3 +429,14 @@ def jobs_recent(uid, since_sec=1800):
 
 def jobs_cleanup(older_than_sec=86400):
     _q("DELETE FROM linklynk_jobs WHERE updated_at < %s", (int(time.time()) - older_than_sec,))
+
+
+def delete_llm_key(uid, provider):
+    col = _KEY_COL.get(provider)
+    if not col:
+        return {"ok": False, "error": "unknown_provider"}
+    _q(f"UPDATE linklynk_users SET {col}=NULL WHERE id=%s", (uid,))
+    if provider == "anthropic":
+        try: _q("UPDATE linklynk_users SET claude_key_enc=NULL WHERE id=%s", (uid,))
+        except Exception: pass
+    return {"ok": True}

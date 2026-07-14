@@ -523,6 +523,63 @@ def job_start_api():
     return jsonify({"ok": True, "job_id": jid})
 
 
+LLM_NAMES = {
+    "llm7":       "무료 AI (키 없이)",
+    "cerebras":   "Cerebras",
+    "groq":       "Groq",
+    "gemini":     "Google Gemini",
+    "github":     "GitHub Models",
+    "nvidia":     "NVIDIA NIM",
+    "zai":        "Z.AI (GLM)",
+    "openrouter": "OpenRouter",
+    "anthropic":  "Claude",
+}
+LLM_ORDER = ["cerebras", "groq", "gemini", "github", "nvidia", "zai", "openrouter", "anthropic"]
+LLM_HINT = {
+    "cerebras":   ("csk-…",  "cloud.cerebras.ai",                    "가장 빠름 · 초당 ~2,600토큰"),
+    "groq":       ("gsk_…",  "console.groq.com/keys",                "빠름 · Llama 3.3 70B"),
+    "gemini":     ("AIza…",  "aistudio.google.com/apikey",           "무료 · 카드 불필요"),
+    "github":     ("ghp_…",  "github.com/settings/tokens",           "깃허브 계정만 있으면 무료"),
+    "nvidia":     ("nvapi-…","build.nvidia.com",                     "일일 한도 없음"),
+    "zai":        ("xxx.yyy","open.bigmodel.cn/usercenter/apikeys",  "GLM Flash 영구 무료"),
+    "openrouter": ("sk-or-…","openrouter.ai/keys",                   "무료 모델은 큐 대기 (느림)"),
+    "anthropic":  ("sk-ant-…","console.anthropic.com",               "유료 · 품질 최고"),
+}
+
+
+def _mask(k):
+    k = k or ""
+    if len(k) <= 10:
+        return "•" * len(k)
+    return k[:6] + "•" * 6 + k[-4:]
+
+
+@app.route("/api/llm-keys", methods=["GET"])
+@login_required
+def llm_keys_api():
+    """어떤 AI에 키가 들어가 있는지, 안 들어간 건 뭔지 한눈에."""
+    keys = store.get_llm_keys(session["uid"])
+    connected, available = [], []
+    for p in LLM_ORDER:
+        ph, url, note = LLM_HINT[p]
+        row = {"id": p, "name": LLM_NAMES[p], "placeholder": ph, "url": url, "note": note}
+        if p in keys:
+            row["masked"] = _mask(keys[p])
+            connected.append(row)
+        else:
+            available.append(row)
+    return jsonify({"ok": True, "connected": connected, "available": available})
+
+
+@app.route("/api/llm-key/<provider>", methods=["DELETE"])
+@login_required
+def llm_key_delete_api(provider):
+    if provider not in LLM_ORDER:
+        return jsonify({"ok": False, "error": "unknown_provider"}), 400
+    store.delete_llm_key(session["uid"], provider)
+    return jsonify({"ok": True, "message": f"{LLM_NAMES[provider]} 연결을 끊었어요"})
+
+
 @app.route("/api/llm-visible", methods=["POST"])
 @login_required
 def llm_visible_api():

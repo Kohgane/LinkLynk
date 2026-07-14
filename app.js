@@ -212,7 +212,7 @@ function go(page){
   if(railEl) railEl.style.display = (page==='profile') ? 'block' : 'none';
   if(page==='profile') loadProfile();
   if(page==='stats'){ refreshMe(); loadStats(); loadPosts('all'); }
-  else if(page==='settings'){ refreshMe(); loadSnsAccounts(); renderLlmVisible(); }
+  else if(page==='settings'){ refreshMe(); loadSnsAccounts(); renderLlmVisible(); renderLlmKeys(); }
 }
 async function refreshMe(){
   try{ const me = await (await fetch('/api/me')).json(); if(me.ok){ window.__me=me; renderUsage(me); renderKeyStatus(me); renderHandle(me); renderSns(me); renderClaude(me);} }catch(e){}
@@ -1195,7 +1195,7 @@ async function saveClaudeKey(){
   try{
     const r = await fetch('/api/anthropic-key',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({key})});
     const d = await r.json();
-    if(d.ok){ msg.innerHTML='<div class="msg msg-ok">'+(d.message||'연결됐어요!')+' 🧠</div>'; if(window.__me){ window.__me.has_claude=true; window.__me.llm_provider=d.provider; } renderClaude(window.__me||{has_claude:true}); }
+    if(d.ok){ msg.innerHTML='<div class="msg msg-ok">'+(d.message||'연결됐어요!')+' 🧠</div>'; if(window.__me){ window.__me.has_claude=true; window.__me.llm_provider=d.provider; } renderClaude(window.__me||{has_claude:true}); renderLlmKeys(); renderLlmVisible(); renderLlmPicker(); }
     else msg.innerHTML=`<div class="msg msg-err">${d.error||'연결 실패'}</div>`;
   }catch(e){ msg.innerHTML='<div class="msg msg-err">네트워크 오류</div>'; }
   btn.classList.remove('loading');
@@ -1203,7 +1203,8 @@ async function saveClaudeKey(){
 function renderClaude(me){
   const el = document.getElementById('claudeStatus');
   if(!el) return;
-  const names = {gemini:'Gemini (무료)', openrouter:'OpenRouter (무료)', groq:'Groq (무료)', anthropic:'Claude'};
+  const names = {llm7:'무료 AI (키 없이)', cerebras:'Cerebras', groq:'Groq', gemini:'Gemini',
+                 github:'GitHub Models', nvidia:'NVIDIA', zai:'Z.AI', openrouter:'OpenRouter', anthropic:'Claude'};
   const provs = (me.llm_providers||[]).map(p=>names[p]||p);
   el.innerHTML = provs.length ? '<span style="color:var(--mint)">✓ 연결됨: '+provs.join(' · ')+'</span>' : '연결 안 됨';
   // 북마클릿 코드 설정 (쿠팡 상세이미지 긁어서 우리 앱으로 — URL 파라미터 전달)
@@ -1781,6 +1782,58 @@ async function renderLlmPicker(){
     </div>
     <div style="font-size:11px;color:var(--muted);margin-top:6px">💰 = 유료(호출 시 과금). 선택한 도구로만 글을 씁니다.</div>`;
 }
+// ── 연결된 AI / 아직 안 넣은 AI ─────────────────────────────
+async function renderLlmKeys(){
+  const cBox = document.getElementById('llmConnected');
+  const aBox = document.getElementById('llmAvailable');
+  if(!cBox || !aBox) return;
+  let d;
+  try{ d = await fetch('/api/llm-keys').then(x=>x.json()); }
+  catch(e){ cBox.innerHTML = '<div style="font-size:12px;color:var(--muted)">불러오지 못했어요</div>'; return; }
+  if(!d.ok) return;
+
+  cBox.innerHTML = (d.connected||[]).length ? `
+    <div class="ai-sec">🔑 연결된 AI · ${d.connected.length}개</div>
+    ${d.connected.map(p=>`
+      <div class="ai-row">
+        <div>
+          <div class="nm">${esc(p.name)}</div>
+          <div class="mk">${esc(p.masked||'')}</div>
+        </div>
+        <div class="sp"></div>
+        <button onclick="replaceLlmKey('${p.id}','${esc(p.name)}','${esc(p.placeholder)}')">교체</button>
+        <button class="del" onclick="deleteLlmKey('${p.id}','${esc(p.name)}')">끊기</button>
+      </div>`).join('')}` : '';
+
+  aBox.innerHTML = (d.available||[]).length ? `
+    <div class="ai-sec">➕ 아직 안 넣은 AI</div>
+    ${d.available.map(p=>`
+      <div class="field"><label>${esc(p.name)} — ${esc(p.note)}</label>
+        <input id="k_${p.id}" placeholder="${esc(p.placeholder)}" autocomplete="off"></div>
+      <div style="font-size:11px;color:var(--muted);margin:-6px 0 12px;line-height:1.5">
+        <a href="https://${esc(p.url)}" target="_blank" rel="noopener" style="color:var(--text-2)">${esc(p.url)}</a>
+      </div>`).join('')}` : '<div style="font-size:12px;color:var(--muted);padding:8px 0">모든 AI가 연결됐어요 👍</div>';
+}
+
+function replaceLlmKey(id, name, ph){
+  const cur = prompt(`${name} 키를 새로 붙여넣으세요 (${ph})`);
+  if(!cur || !cur.trim()) return;
+  const tmp = document.createElement('input');
+  tmp.id = 'k_' + id; tmp.value = cur.trim(); tmp.style.display = 'none';
+  document.body.appendChild(tmp);
+  saveClaude(document.getElementById('saveKeyBtn') || {classList:{add(){},remove(){}}});
+  setTimeout(()=>{ tmp.remove(); renderLlmKeys(); }, 1500);
+}
+
+async function deleteLlmKey(id, name){
+  if(!confirm(`${name} 연결을 끊을까요?`)) return;
+  try{
+    const r = await fetch('/api/llm-key/'+id, {method:'DELETE'}).then(x=>x.json());
+    if(r.ok){ toast(r.message || '연결을 끊었어요'); renderLlmKeys(); renderLlmVisible(); renderLlmPicker(); refreshMe(); }
+    else toast(r.error || '실패');
+  }catch(e){ toast('네트워크 오류'); }
+}
+
 // ── 목록에 보일 AI 고르기 (설정) ──────────────────────────
 async function renderLlmVisible(){
   const box = document.getElementById('llmVisBox');
