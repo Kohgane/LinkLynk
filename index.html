@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta name="build" content="0713-speed2">
+<meta name="build" content="0714-bgjobs">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -139,7 +139,12 @@
   .disc{margin-top:9px;background:var(--warn-bg);border:1px solid var(--warn-line);border-radius:10px;padding:10px 12px;font-size:11.5px;line-height:1.5;color:var(--warn-tx)}
   .card-actions{display:flex;gap:8px;margin-top:12px}
   .card-actions .btn{flex:1;padding:12px;font-size:14px}
-  .toast{position:fixed;bottom:100px;left:50%;transform:translateX(-50%);background:var(--mint);color:#fff;padding:11px 18px;border-radius:24px;font-size:13px;font-weight:600;box-shadow:var(--shadow);z-index:50;animation:rise .25s ease}
+  /* ★토스트가 하단 페이저·탭바를 덮던 문제. 페이저(z-index 60) 위가 아니라 '위쪽'에 띄운다. */
+  .toast{position:fixed;bottom:190px;left:50%;transform:translateX(-50%);
+    background:var(--surface-3);color:var(--text);border:1px solid var(--line);
+    padding:11px 18px;border-radius:24px;font-size:13px;font-weight:600;
+    box-shadow:var(--shadow);z-index:45;animation:rise .25s ease;
+    max-width:calc(100% - 32px);text-align:center;line-height:1.45;pointer-events:none}
 
   /* 리스트/프로필 */
   .sec{padding:18px 20px 8px}
@@ -1012,6 +1017,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="/app.js?v=1784043900"></script>
+<script src="/app.js?v=1784044911"></script>
 </body>
 </html>

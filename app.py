@@ -7,6 +7,7 @@ LinkLynk — 백엔드 API 서버 (멀티테넌트)
 - 링크 히스토리 + 링크인바이오 프로필
 """
 import os
+import threading
 from functools import wraps
 from flask import Flask, request, jsonify, send_from_directory, session, make_response
 
@@ -464,6 +465,62 @@ def llm_list():
         # 설정 화면용: 쓸 수 있는 전부 + 지금 켜져 있는 것
         "all": [{"id": p, "name": names[p], "on": (vis is None or p in vis)} for p in usable],
     })
+
+
+@app.route("/api/job/<job_id>", methods=["GET"])
+@login_required
+def job_status_api(job_id):
+    j = store.job_get(job_id, session["uid"])
+    if not j:
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    return jsonify({"ok": True, "status": j["status"], "kind": j["kind"],
+                    "result": j.get("result"), "error": j.get("error")})
+
+
+@app.route("/api/jobs", methods=["GET"])
+@login_required
+def jobs_list_api():
+    """앱을 다시 열었을 때: 돌고 있던 작업과 끝난 결과를 되찾아온다."""
+    return jsonify({"ok": True, "jobs": store.jobs_recent(session["uid"])})
+
+
+def _run_view_job(job_id, uid, view_fn, payload):
+    """★서버 스레드에서 라우트를 그대로 실행한다.
+    브라우저를 닫든 앱을 나가든 서버는 계속 돌린다. 돌아오면 결과가 기다린다."""
+    def work():
+        try:
+            with app.test_request_context(json=payload, method="POST"):
+                session["uid"] = uid
+                rv = view_fn()
+                if isinstance(rv, tuple):
+                    rv = rv[0]
+                data = rv.get_json()
+            if data and data.get("ok"):
+                store.job_finish(job_id, result=data)
+            else:
+                store.job_finish(job_id, error=(data or {}).get("error") or "실패")
+        except Exception as e:
+            store.job_finish(job_id, error=e)
+    threading.Thread(target=work, daemon=True).start()
+    return job_id
+
+
+@app.route("/api/job/start", methods=["POST"])
+@login_required
+def job_start_api():
+    """무거운 작업은 전부 여기로. 즉시 job_id만 돌려주고 서버가 뒤에서 돌린다."""
+    import uuid as _uuid
+    d = request.get_json(force=True, silent=True) or {}
+    kind = d.get("kind")
+    payload = d.get("params") or {}
+    VIEWS = {"topics": claude_topics_api, "write": generate_manual}
+    fn = VIEWS.get(kind)
+    if not fn:
+        return jsonify({"ok": False, "error": "unknown_kind"}), 400
+    jid = f"{kind}-{_uuid.uuid4().hex[:12]}"
+    store.job_create(jid, session["uid"], kind, payload)
+    _run_view_job(jid, session["uid"], fn, payload)
+    return jsonify({"ok": True, "job_id": jid})
 
 
 @app.route("/api/llm-visible", methods=["POST"])

@@ -285,11 +285,15 @@ function polishDraft(btn){
   const result = document.getElementById('result');
   if(result) result.innerHTML = '<div class="card"><div class="radar-loading"><span class="spin-sm"></span><span>✨ 사람다움 다듬는 중… (2~3패스)</span></div></div>';
   const jobId = 'pol-' + Date.now();
-  const p = fetch('/api/generate-manual',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({deeplink:d.deeplink, channel:'threads', tone:(window.curTone||'friendly'),
-        productName:d.productName||'', provider:(window.__llmPick||null),
-        extra:(document.getElementById('w_extra')?.value||''), quality:true})})
-    .then(r=>r.json()).then(res=>{ if(!res.ok) throw new Error('실패'); return {draft: res}; });
+  const p = (async ()=>{
+    const jid = await serverJob('write', {deeplink:d.deeplink, channel:'threads',
+      tone:(window.curTone||'friendly'), productName:d.productName||'',
+      provider:(window.__llmPick||null),
+      extra:(document.getElementById('w_extra')?.value||''), quality:true});
+    const res = await pollJob(jid, {interval:2000});
+    if(!res || !res.ok) throw new Error('실패');
+    return {draft: res};
+  })();
   startJob(jobId, '품질 다듬기', p, (res)=>{
     const page = document.getElementById('page-make');
     if(page && !page.classList.contains('hidden')){
@@ -327,10 +331,17 @@ async function regenForChannel(deeplink, pname){
   const result = document.getElementById('result');
   if(result) result.innerHTML = '<div class="card"><div class="radar-loading"><span class="spin-sm"></span><span>✍️ 글 쓰는 중… (다른 화면 가도 계속돼요)</span></div></div>';
   const jobId = 'gen-' + Date.now();
-  const p = fetch('/api/generate-manual',{method:'POST',signal:window.__genAbort.signal,headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({deeplink, channel, tone:(window.curTone||'friendly'), productName:pname, provider:(window.__llmPick||null), extra:(document.getElementById('w_extra')?.value||'')})})
-    .then(r=>r.json())
-    .then(d=>{ if(!d.ok) throw new Error('생성 실패'); return {draft: d}; });
+  // ★서버 작업으로 돌린다. 앱을 나가도 서버가 계속 쓴다.
+  const p = (async ()=>{
+    const jid = await serverJob('write', {deeplink, channel, tone:(window.curTone||'friendly'),
+      productName:pname, provider:(window.__llmPick||null),
+      extra:(document.getElementById('w_extra')?.value||'')});
+    try{ localStorage.setItem('lk_job_write', jid); }catch(e){}
+    const d = await pollJob(jid, {interval:2000});
+    try{ localStorage.removeItem('lk_job_write'); }catch(e){}
+    if(!d || !d.ok) throw new Error('생성 실패');
+    return {draft: d};
+  })();
   startJob(jobId, '글 작성', p, (res)=>{
     const page = document.getElementById('page-make');
     if(page && !page.classList.contains('hidden')){
@@ -1307,9 +1318,12 @@ async function doTopics(){
     ${[1,2,3].map(()=>`<div class="radar-card skel"><div class="sk-line" style="width:55%;height:18px"></div><div class="sk-line" style="width:85%;margin-top:12px"></div><div class="sk-line" style="width:70%;margin-top:8px"></div><div class="sk-line" style="width:40%;margin-top:12px;height:30px;border-radius:9px"></div></div>`).join('')}
   </div>`;
   try{
-    const r = await fetch('/api/claude-topics',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({topic, provider:(window.__llmPick||null)})});
-    const d = await r.json();
-    if(d.ok && d.topics && d.topics.length){
+    // ★서버가 돌린다. 화면을 나가도, 앱을 닫아도 계속된다.
+    const jobId = await serverJob('topics', {topic, provider:(window.__llmPick||null)});
+    try{ localStorage.setItem('lk_job_topics', jobId); }catch(e){}
+    const d = await pollJob(jobId, {interval:1500});
+    try{ localStorage.removeItem('lk_job_topics'); }catch(e){}
+    if(d && d.ok && d.topics && d.topics.length){
       renderTopics(d.topics, d.now);
     }
     else if(d.need_key){ toast('설정에서 Claude API 키 먼저'); go('settings'); result.innerHTML=''; }
@@ -1628,6 +1642,75 @@ function askNotifyPermission(){
 
 // ── 백그라운드 작업: 화면을 나가도 계속 진행되고, 돌아오면 결과 표시 ──
 window.__jobs = window.__jobs || {};   // {id: {status, result, kind}}
+// ── 서버 작업: 앱을 나가도 서버가 계속 돌린다 ──────────────
+async function serverJob(kind, params){
+  const r = await fetch('/api/job/start', {
+    method:'POST', headers:{'Content-Type':'application/json'},
+    body: JSON.stringify({kind, params})
+  }).then(x=>x.json());
+  if(!r.ok || !r.job_id) throw new Error(r.error || '작업 시작 실패');
+  return r.job_id;
+}
+
+// 서버 작업이 끝날 때까지 물어본다. 화면을 나갔다 와도 job_id만 있으면 이어진다.
+async function pollJob(jobId, {interval=2000, timeout=300000}={}){
+  const t0 = Date.now();
+  while(Date.now() - t0 < timeout){
+    await new Promise(r=>setTimeout(r, interval));
+    let d;
+    try{ d = await fetch('/api/job/'+jobId).then(x=>x.json()); }
+    catch(e){ continue; }                      // 네트워크가 잠깐 끊겨도 포기하지 않는다
+    if(!d.ok) continue;
+    if(d.status === 'done')  return d.result;
+    if(d.status === 'error') throw new Error(d.error || '작업 실패');
+  }
+  throw new Error('시간이 너무 오래 걸려요');
+}
+
+// kind별로 서버 작업을 걸고, 진행 배너/알림은 기존 startJob이 그대로 관리
+function runServerJob(kind, label, params, onDone){
+  const localId = kind + '-' + Date.now();
+  const p = (async ()=>{
+    const jobId = await serverJob(kind, params);
+    // 새로고침·앱 재시작 후에도 이어받을 수 있게 남긴다
+    try{ localStorage.setItem('lk_job_' + localId, jobId); }catch(e){}
+    const res = await pollJob(jobId);
+    try{ localStorage.removeItem('lk_job_' + localId); }catch(e){}
+    return res;
+  })();
+  return startJob(localId, label, p, onDone);
+}
+
+// 앱을 다시 열었을 때: 서버에서 돌던/끝난 작업을 되찾아온다
+async function resumeJobs(){
+  try{
+    const d = await fetch('/api/jobs').then(x=>x.json());
+    if(!d.ok || !d.jobs) return;
+    const running = d.jobs.filter(j=>j.status==='running');
+    const done = d.jobs.filter(j=>j.status==='done');
+    if(running.length){
+      toast(`⏳ ${running.length}건이 서버에서 계속 돌고 있어요`);
+      running.forEach(j=>{
+        const label = j.kind==='topics' ? '주제 기획' : '글 작성';
+        startJob('rz-'+j.id, label, pollJob(j.id), (res)=>applyJobResult(j.kind, res));
+      });
+    } else if(done.length){
+      const j = done[0];
+      if(Date.now()/1000 - (j.updated_at||0) < 600 && j.result){
+        toast('✅ 나간 사이에 끝난 결과가 있어요');
+        applyJobResult(j.kind, j.result);
+      }
+    }
+  }catch(e){}
+}
+
+function applyJobResult(kind, res){
+  if(!res) return;
+  if(kind === 'topics' && res.topics){ renderTopics(res.topics, res.now); }
+  else if(kind === 'write' && res.draft !== undefined){ renderResult(res); }
+  else if(kind === 'write' && res.ok){ renderResult(res); }
+}
+
 function startJob(id, kind, promise, onDone){
   askNotifyPermission();
   window.__jobs[id] = {status:'running', kind, startedAt:Date.now()};
@@ -2185,3 +2268,8 @@ function removeImage(i){
   window.__attachedImages.splice(i,1);
   renderThumbs();
 }
+
+
+// 앱을 열 때마다 서버에 돌던 작업을 이어받는다
+document.addEventListener('DOMContentLoaded', ()=>{ setTimeout(resumeJobs, 1200); });
+window.addEventListener('focus', ()=>{ if(!window.__resumedAt || Date.now()-window.__resumedAt > 30000){ window.__resumedAt = Date.now(); resumeJobs(); } });

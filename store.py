@@ -42,6 +42,10 @@ def init_db():
     except Exception: pass
     try: _q("ALTER TABLE linklynk_users ADD COLUMN IF NOT EXISTS groq_key_enc TEXT")
     except Exception: pass
+    _q("""CREATE TABLE IF NOT EXISTS linklynk_jobs(
+        id TEXT PRIMARY KEY, user_id BIGINT, kind TEXT, status TEXT,
+        params TEXT, result TEXT, error TEXT,
+        created_at BIGINT, updated_at BIGINT)""")
     try: _q("ALTER TABLE linklynk_users ADD COLUMN IF NOT EXISTS llm_visible TEXT")
     except Exception: pass
     for _c in ("cerebras_key_enc", "nvidia_key_enc", "github_key_enc", "zai_key_enc"):
@@ -364,7 +368,7 @@ def get_llm_keys(uid):
 
 # ── 사용자가 "보이게" 선택한 AI 도구 목록 ──────────────────
 def get_llm_visible(uid):
-    r = _q("SELECT llm_visible FROM linklynk_users WHERE id=%s", (uid,), one=True)
+    r = _q("SELECT llm_visible FROM linklynk_users WHERE id=%s", (uid,), fetch="one")
     v = (r or {}).get("llm_visible") if r else None
     if not v:
         return None                      # None = 아직 설정 안 함 = 전부 보임
@@ -375,3 +379,53 @@ def set_llm_visible(uid, ids):
     val = ",".join(x for x in (ids or []) if x)
     _q("UPDATE linklynk_users SET llm_visible=%s WHERE id=%s", (val or None, uid))
     return {"ok": True}
+
+
+# ── 서버 작업 큐 ────────────────────────────────────────────
+# ★브라우저를 닫든 앱을 나가든 서버가 계속 돌린다. 돌아오면 결과가 기다리고 있다.
+def job_create(job_id, uid, kind, params):
+    import json as _j
+    now = int(time.time())
+    _q("""INSERT INTO linklynk_jobs(id,user_id,kind,status,params,created_at,updated_at)
+          VALUES(%s,%s,%s,'running',%s,%s,%s)""",
+       (job_id, uid, kind, _j.dumps(params, ensure_ascii=False), now, now))
+    return {"ok": True, "job_id": job_id}
+
+
+def job_finish(job_id, result=None, error=None):
+    import json as _j
+    _q("""UPDATE linklynk_jobs SET status=%s, result=%s, error=%s, updated_at=%s WHERE id=%s""",
+       ("done" if error is None else "error",
+        _j.dumps(result, ensure_ascii=False) if result is not None else None,
+        (str(error)[:400] if error else None), int(time.time()), job_id))
+
+
+def job_get(job_id, uid):
+    import json as _j
+    r = _q("SELECT * FROM linklynk_jobs WHERE id=%s AND user_id=%s", (job_id, uid), fetch="one")
+    if not r:
+        return None
+    d = dict(r)
+    if d.get("result"):
+        try: d["result"] = _j.loads(d["result"])
+        except Exception: pass
+    return d
+
+
+def jobs_recent(uid, since_sec=1800):
+    import json as _j
+    rows = _q("""SELECT id,kind,status,error,created_at,updated_at,result FROM linklynk_jobs
+                 WHERE user_id=%s AND updated_at >= %s ORDER BY created_at DESC LIMIT 10""",
+              (uid, int(time.time()) - since_sec), fetch="all") or []
+    out = []
+    for r in rows:
+        d = dict(r)
+        if d.get("result"):
+            try: d["result"] = _j.loads(d["result"])
+            except Exception: d["result"] = None
+        out.append(d)
+    return out
+
+
+def jobs_cleanup(older_than_sec=86400):
+    _q("DELETE FROM linklynk_jobs WHERE updated_at < %s", (int(time.time()) - older_than_sec,))
