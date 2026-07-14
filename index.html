@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta name="build" content="0713-aipick">
+<meta name="build" content="0713-product-brief">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -559,6 +559,20 @@
   /* 설정을 바꿨을 때 '다시 쓰기'를 유도하는 표시 */
   .btn-go.dirty{box-shadow:0 0 0 2px var(--text) inset, 0 6px 20px rgba(0,0,0,.4)}
 
+  /* AI 선택 체크박스 */
+  #llmVisBox{display:flex;flex-direction:column;gap:8px}
+  .ai-check{display:flex;align-items:center;gap:10px;padding:11px 13px;border-radius:12px;
+    background:var(--surface-2);border:1px solid var(--line);cursor:pointer;user-select:none}
+  .ai-check.on{border-color:var(--text);background:var(--surface-3)}
+  .ai-check input{position:absolute;opacity:0;width:0;height:0}
+  .ai-check .box{flex:0 0 auto;width:20px;height:20px;border-radius:6px;
+    border:1.5px solid var(--muted);position:relative;transition:.12s}
+  .ai-check.on .box{background:var(--text);border-color:var(--text)}
+  .ai-check.on .box::after{content:'';position:absolute;left:6px;top:2px;width:5px;height:10px;
+    border:solid var(--bg);border-width:0 2px 2px 0;transform:rotate(45deg)}
+  .ai-check .lbl{font-size:13px;color:var(--text-2);font-weight:600}
+  .ai-check.on .lbl{color:var(--text)}
+
   /* 검색결과 더보기 */
   .more-row{display:flex;justify-content:center;margin-top:14px}
   .btn-more{background:var(--surface-2);border:1px solid var(--line);color:var(--text);
@@ -998,6 +1012,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="/app.js?v=1784005287"></script>
+<script src="/app.js?v=1784007178"></script>
 </body>
 </html>

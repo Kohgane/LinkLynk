@@ -1016,6 +1016,102 @@ TONE_GUIDE = {
     "pov": "POV 상황극 — 특정 순간에 독자를 놓기",
 }
 
+# ══════════════════════════════════════════════════════════════
+#  상품 이해 계층
+#  쿠팡 상품명은 마케팅 수식어 범벅이다.
+#  "○○ 초강력 원샷 세탁세제 대용량 3L" 를 그대로 던지면
+#  모델이 '원샷'을 술 마시는 원샷으로 읽고 엉뚱한 글을 쓴다. (2026-07-13 실제 사고)
+#  → 이름을 씻고, 이 물건이 "무엇인지"를 먼저 확정한 뒤 글을 쓰게 한다.
+# ══════════════════════════════════════════════════════════════
+
+# 상품명에 붙는 마케팅 수식어 = 뜻이 아니라 장식. 문자 그대로 읽으면 안 된다.
+_PROMO_WORDS = [
+    "초강력", "강력", "원샷", "한방", "끝판왕", "역대급", "프리미엄", "명품", "고급",
+    "정품", "국내생산", "국산", "무료배송", "당일발송", "로켓배송", "무료", "특가", "할인",
+    "대용량", "초대용량", "가정용", "업소용", "다용도", "만능", "신상", "신형", "최신",
+    "인기", "베스트", "히트", "추천", "필수", "가성비", "혜자", "리뉴얼", "업그레이드",
+    "실속", "알뜰", "묶음", "세트", "기획", "증정", "사은품", "선물용", "휴대용",
+]
+_UNIT_PAT = r"\d+\s*(개입|개|매|장|팩|박스|세트|ml|mL|L|리터|g|kg|호|인용|단|겹|구|롤|캔|병|포|정)"
+
+
+def clean_product_name(name):
+    """마케팅 노이즈를 벗겨 '이게 무슨 물건인지'만 남긴다."""
+    n = str(name or "")
+    n = re.sub(r"[\[\(\{][^\]\)\}]*[\]\)\}]", " ", n)      # [로켓배송] (1+1) 제거
+    n = re.sub(r"\d+\s*[+＋]\s*\d+", " ", n)                    # 1+1
+    n = re.sub(_UNIT_PAT, " ", n)                                  # 3L, 20개입
+    for w in _PROMO_WORDS:
+        n = n.replace(w, " ")
+    n = re.sub(r"[^가-힣A-Za-z0-9 ]", " ", n)
+    n = re.sub(r"\s+", " ", n).strip()
+    return n or str(name or "")
+
+
+_BRIEF_CACHE = {}
+
+
+def product_brief(api_key, raw_name, price=None):
+    """이 물건이 무엇인지 먼저 확정한다. 글은 그 다음이다.
+    반환: {category, what, when, who, problem, forbid}"""
+    key = (raw_name or "")[:80]
+    if key in _BRIEF_CACHE:
+        return _BRIEF_CACHE[key]
+
+    cleaned = clean_product_name(raw_name)
+    sys_p = (
+        "너는 쿠팡 상품명을 읽고 '이게 무슨 물건인지'를 정확히 판별하는 분석가다.\n"
+        "★가장 중요: 상품명에 들어있는 마케팅 수식어를 문자 그대로 해석하지 마라.\n"
+        "  - '원샷 세탁세제'의 '원샷'은 술이 아니라 '한 번에'라는 뜻의 광고 수식어다.\n"
+        "  - '끝판왕', '한방', '역대급', '초강력'도 마찬가지로 뜻이 없는 장식이다.\n"
+        "  - 수식어를 빼고 남는 ★명사★가 이 물건의 정체다.\n"
+        "판별 결과를 JSON으로만 출력한다.\n"
+        '{"category":"물건의 종류(예: 세탁세제)",'
+        '"what":"이 물건이 실제로 하는 일 한 문장",'
+        '"when":"언제 쓰나(구체적 상황)",'
+        '"who":"누가 사나",'
+        '"problem":"이 물건이 해결하는 불편 한 문장",'
+        '"forbid":["이 상품과 무관해서 글에 절대 나오면 안 되는 소재 3개"]}'
+    )
+    user_p = f"원본 상품명: {raw_name}\n수식어 제거 후: {cleaned}\n" + (f"가격: {int(price):,}원" if price else "")
+    r = llm_chat(api_key, sys_p, user_p, max_tokens=800)
+    brief = {"category": cleaned, "what": "", "when": "", "who": "", "problem": "", "forbid": []}
+    if r.get("ok"):
+        try:
+            d = _parse_json_out(r["text"])
+            if isinstance(d, dict) and d.get("category"):
+                brief.update({k: d.get(k, brief[k]) for k in brief})
+                if not isinstance(brief["forbid"], list):
+                    brief["forbid"] = []
+        except Exception:
+            pass
+    _BRIEF_CACHE[key] = brief
+    return brief
+
+
+def product_mismatch(posts, brief):
+    """글이 이 상품과 무관한 소리를 하고 있는지 기계로 검사."""
+    joined = " ".join(str(p) for p in posts)
+    fails = []
+    cat = (brief.get("category") or "").strip()
+    # '세탁세제'라고 썼는데 글엔 '세제'만 있어도 통과시켜야 한다 → 부분일치(n-gram)로 본다
+    core_words = []
+    for w in re.split(r"\s+", cat):
+        if len(w) >= 2:
+            core_words.append(w)
+            for n in (3, 2):
+                core_words += [w[i:i+n] for i in range(len(w) - n + 1)]
+    core_words = [w for w in dict.fromkeys(core_words) if len(w) >= 2]
+    if core_words and not any(w in joined for w in core_words):
+        fails.append(f"이 글에 '{cat}'가 무슨 물건인지 드러나는 대목이 없다. "
+                     f"'{brief.get('problem') or cat}' 상황이 글에 보여야 한다.")
+    for bad in (brief.get("forbid") or [])[:3]:
+        b = str(bad).strip()
+        if b and len(b) >= 2 and b in joined:
+            fails.append(f"'{b}'는 이 상품과 무관한 소재다. 전부 빼라.")
+    return fails
+
+
 def claude_write_thread(api_key, product_name, deeplink, tone="friendly", price=None, extra="", fast=False):
     """쓰레드 6분할 작성. ★사람다움 최우선: few-shot + 휴머나이즈 규칙 + AI티 검출 재작성."""
     if not api_key:
@@ -1024,6 +1120,21 @@ def claude_write_thread(api_key, product_name, deeplink, tone="friendly", price=
     price_line = f"가격: {int(price):,}원\n" if price else ""
     prov = detect_llm_provider(api_key)
     is_top = prov in TOP_TIER
+
+    # ★글을 쓰기 전에 "이게 무슨 물건인지"부터 확정한다.
+    brief = product_brief(api_key, product_name, price)
+    brief_block = (
+        "\n■ 이 상품이 무엇인지 (반드시 이 이해 위에서 써라):\n"
+        f"- 종류: {brief.get('category')}\n"
+        f"- 하는 일: {brief.get('what')}\n"
+        f"- 쓰는 상황: {brief.get('when')}\n"
+        f"- 사는 사람: {brief.get('who')}\n"
+        f"- 해결하는 불편: {brief.get('problem')}\n"
+        + (f"- 이 글에 나오면 안 되는 소재: {', '.join(brief.get('forbid') or [])}\n" if brief.get('forbid') else "")
+        + "★상품명 속 '초강력·원샷·끝판왕·한방·역대급' 같은 말은 광고 수식어다. "
+          "뜻이 없다. 문자 그대로 해석해서 글감으로 쓰면 그 글은 실패다.\n"
+          "  (실제 사고: '원샷 세탁세제'를 보고 술 마시는 원샷 이야기를 썼다. 절대 이러지 마라.)\n"
+    )
 
     base = (
         "너는 쿠팡 파트너스 쓰레드(Threads) 글을 쓰는 한국인이다. 마케터가 아니라 그냥 사람이다.\n"
@@ -1036,6 +1147,7 @@ def claude_write_thread(api_key, product_name, deeplink, tone="friendly", price=
     # ★Claude는 지시 없이도 한다. 무료 모델에는 사고 과정을 문자로 깔아준다.
     sys_prompt = (
         base
+        + brief_block + "\n"
         + ("" if is_top else SCAFFOLD + "\n")
         + HUMANIZE_RULES + "\n" + FEWSHOT + "\n" + QUALITY_RULES +
         '\n출력은 JSON만: {"posts":["본글","답글1","답글2","답글3","답글4","답글5"]}'
@@ -1070,7 +1182,7 @@ def claude_write_thread(api_key, product_name, deeplink, tone="friendly", price=
     posts = repair_structure(posts, deeplink, product_name)   # ★먼저 구조를 못 박는다
 
     for _ in range(budget):
-        fails = quality_gate(posts, product_name)
+        fails = quality_gate(posts, product_name) + product_mismatch(posts, brief)
         if not fails:
             break
         fixed = _fix_pass(api_key, product_name, tone_desc, posts, fails)
@@ -1086,9 +1198,9 @@ def claude_write_thread(api_key, product_name, deeplink, tone="friendly", price=
 
     posts = repair_structure(posts, deeplink, product_name)   # 재작성 뒤 구조 재확정
     posts = [scrub_ai_artifacts(str(p)) for p in posts]
-    remaining = quality_gate(posts, product_name)
+    remaining = quality_gate(posts, product_name) + product_mismatch(posts, brief)
     return {"ok": True, "content": "\n===THREAD===\n".join(posts),
-            "provider": prov, "quality_fails": remaining}
+            "provider": prov, "brief": brief, "quality_fails": remaining}
 
 
 def _polish_pass(api_key, product_name, tone_desc, posts):
@@ -1592,7 +1704,7 @@ HUMANIZE_RULES = '''사람이 쓴 글처럼(가장 중요):
 - 과장·감탄사·이모지 최소(0~1개). 느낌표 남발 금지.
 - 브랜드명을 반복하지 마라. 대명사나 '이거'로 받아라.
 - 문장을 병렬로 예쁘게 맞추지 마라(AI 티의 대표).
-- 사전 같은 설명 금지. 겪은 것만 써라.
+- 사전 같은 설명 금지. 겪은 것만 써라.\n- 상품명에 붙은 광고 수식어(초강력·원샷·끝판왕·프리미엄·대용량)를 소재로 삼지 마라. 뜻이 없는 말이다.
 금지어(절대 쓰지 마라): 강추, 필수템, 인생템, 갓성비, 적극 추천, 후회 없는 선택,
 정말 좋아요, 대만족, 여러분, 다양한, 뛰어난, 최고의, 완벽한, 결론적으로, 종합적으로,
 도움이 되셨길, 참고하시기 바랍니다.
@@ -1607,6 +1719,9 @@ def repair_structure(posts, deeplink, product_name=""):
     작은 모델은 '6개를 써라'를 자주 어긴다(5개·7개). 목소리는 모델이,
     개수·링크 위치·고지문구·해시태그는 기계가 책임진다."""
     posts = [str(p).strip() for p in (posts or []) if str(p).strip()]
+    # 모델이 프롬프트의 {링크} 플레이스홀더를 그대로 뱉는 경우가 있다 → 제거
+    posts = [re.sub(r"\{\s*(링크|link|url|deeplink)\s*\}", "", p).strip() for p in posts]
+    posts = [p for p in posts if p]
     if not posts:
         return posts
 
@@ -1654,8 +1769,10 @@ def repair_structure(posts, deeplink, product_name=""):
         hashtags = " ".join(re.findall(r"#\S+", tags)[:3])
         tail = re.sub(r"#\S+", "", tags)
         tail = re.sub(r"https?://\S+", "", tail).strip()
-    if not tail:
-        tail = rest[-1] if rest else "그냥 그렇다고."
+    if not tail or tail == lead:
+        # 답글4와 답글5가 같은 말이면 안 된다
+        cands = [x for x in rest if x and x != lead and x != tail]
+        tail = cands[-1] if cands else (rest[-1] if rest else "그냥 그렇다고.")
     if not hashtags:
         base = re.sub(r"[^가-힣A-Za-z ]", " ", product_name or "").split()
         hashtags = " ".join("#" + w for w in base[:3]) or "#추천"

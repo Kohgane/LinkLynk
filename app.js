@@ -1706,14 +1706,17 @@ async function renderLlmVisible(){
     const r = await fetch('/api/llm-list').then(x=>x.json());
     const all = r.all || [];
     box.innerHTML = all.map(p=>`
-      <button class="chip ${p.on?'on':''}" data-vid="${p.id}" onclick="this.classList.toggle('on')">
-        ${esc(p.name)}
-      </button>`).join('') || '<div style="font-size:12px;color:var(--muted)">사용 가능한 AI가 없어요</div>';
+      <label class="ai-check ${p.on?'on':''}" data-vid="${p.id}">
+        <input type="checkbox" ${p.on?'checked':''}
+               onchange="this.closest('.ai-check').classList.toggle('on', this.checked)">
+        <span class="box"></span><span class="lbl">${esc(p.name)}</span>
+      </label>`).join('') || '<div style="font-size:12px;color:var(--muted)">사용 가능한 AI가 없어요</div>';
   }catch(e){}
 }
 
 async function saveLlmVisible(){
-  const ids = [...document.querySelectorAll('#llmVisBox .chip.on')].map(b=>b.dataset.vid);
+  const ids = [...document.querySelectorAll('#llmVisBox .ai-check')]
+                .filter(el=>el.querySelector('input').checked).map(el=>el.dataset.vid);
   if(!ids.length){ toast('최소 한 개는 켜두세요'); return; }
   try{
     const r = await fetch('/api/llm-visible',{method:'POST',headers:{'Content-Type':'application/json'},
