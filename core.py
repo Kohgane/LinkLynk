@@ -888,6 +888,40 @@ def keyword_gate(kw, topic_title=""):
     return None
 
 
+# ── 상황→실제 쿠팡 상품 사전 (LLM 없이 키워드를 채우는 원천) ──
+_TOPIC_PRODUCTS = {
+    "더위|열대야|폭염|에어컨|냉방|시원": ["냉감 매트", "쿨패드", "서큘레이터", "무선 선풍기", "넥밴드 선풍기", "제빙기", "쿨토시"],
+    "장마|습도|습기|눅눅|곰팡이|제습": ["제습기", "제습제", "실내 건조대", "곰팡이 제거제", "제습 봉", "빨래 건조기"],
+    "빨래|세탁|냄새|쉰내|섬유": ["세탁조 클리너", "세탁세제", "섬유유연제", "빨래 건조대", "탈취제", "실내 건조대"],
+    "잠|숙면|불면|잠자리|수면|베개|매트리스": ["냉감 이불", "경추 베개", "쿨매트", "메모리폼 토퍼", "수면 안대", "바디필로우"],
+    "모기|벌레|해충|방충": ["모기 퇴치기", "방충망", "모기향", "해충 트랩", "전기 모기채", "포충기"],
+    "세균|위생|살균|소독|청결": ["살균기", "손소독제", "행주", "식기 건조대", "도마 살균", "청소 티슈"],
+    "차|자동차|운전|주차|차량": ["차량용 햇빛가리개", "차량용 선풍기", "블랙박스", "차량 방향제", "핸드폰 거치대", "썬팅 필름"],
+    "반려|강아지|고양이|펫|댕댕|냥": ["펫 쿨매트", "펫 급수기", "쿨 밴드", "탈취 스프레이", "빗", "자동 급식기"],
+    "아기|육아|유아|신생아|기저귀": ["기저귀", "물티슈", "젖병 소독기", "베이비 모니터", "아기 쿨매트", "수유등"],
+    "피부|햇빛|자외선|건조|보습": ["선크림", "수분 크림", "미스트", "핸드크림", "보습 마스크팩", "바디로션"],
+    "운동|다이어트|홈트|헬스": ["요가 매트", "폼롤러", "아령", "저항 밴드", "단백질 쉐이크", "스마트 워치"],
+    "청소|정리|수납|먼지": ["무선 청소기", "정리 수납함", "밀대 걸레", "먼지 떨이", "수납 정리대", "청소포"],
+    "주방|설거지|요리|식기": ["주방세제", "수세미", "실리콘 장갑", "식기 건조대", "밀폐용기", "도마"],
+    "캠핑|차박|아웃도어|등산": ["폴딩 체어", "캠핑 랜턴", "타프", "아이스박스", "휴대용 버너", "매트"],
+    "커피|카페|음료|텀블러": ["텀블러", "보온병", "핸드드립 세트", "커피 원두", "휴대용 믹서", "제빙기"],
+}
+_FALLBACK_PRODUCTS = ["보조배터리", "USB 선풍기", "수납함", "물티슈", "멀티탭", "차량용 거치대"]
+
+
+def _suggest_keyword(title, seen):
+    """제목에 맞는 실제 쿠팡 상품 하나를 즉석에서 고른다. (LLM 안 부름)"""
+    for pat, prods in _TOPIC_PRODUCTS.items():
+        if any(w in title for w in pat.split("|")):
+            for p in prods:
+                if p not in seen and not keyword_gate(p, title):
+                    return p
+    for p in _FALLBACK_PRODUCTS:
+        if p not in seen:
+            return p
+    return None
+
+
 def _fix_keywords(api_key, topics, max_tokens=1500):
     """탈락한 키워드만 콕 집어 다시 뽑는다. 주제 본문은 건드리지 않는다."""
     bad = []
@@ -934,16 +968,17 @@ def claude_generate_topics(api_key, user_topic="", now_str="", n=8):
     """주제 생성 (무료 Gemini/OpenRouter 또는 Claude). 상품이 아니라 '주제'가 먼저."""
     if not api_key:
         return {"ok": False, "error": "no_key"}
+    # ★가볍게. 키워드는 서버 규칙이 채운다 → 모델은 주제·훅·상품씨앗 1개만.
+    #  출력 토큰이 확 줄어 = 생성이 훨씬 빠르다.
     sys_prompt = (
         "당신은 쿠팡 파트너스 쓰레드 마케팅 전략가입니다. "
         "상품이 아니라 '주제'가 먼저입니다. 사람들이 공감할 상황·고민을 주제로 잡고, "
-        "거기서 자연스럽게 필요한 상품으로 연결합니다. "
-        "각 주제마다: 현재 시각/계절 맥락, 타겟 표본(누구), 반전 앵글, 훅 문장, "
-        "그리고 그 주제에 맞는 쿠팡 검색 키워드를 주제마다 3~4개씩 제시하세요.\n\n"
-        + KEYWORD_RULES + "\n"
-        "죄책감 반전('내 탓이 아니라 구조 탓'), 상황 공감, 의외의 사실 같은 훅을 활용하세요. "
+        "죄책감 반전('내 탓이 아니라 구조 탓')·상황 공감·의외의 사실 같은 훅을 씁니다.\n"
+        "각 주제마다: 제목(title), 훅 한 문장(hook), 그 상황을 해결할 대표 상품군 1개(seed).\n"
+        "seed는 쿠팡에서 파는 '물건 이름'이어야 합니다 (예: 제습기, 냉감 매트, 세탁조 클리너). "
+        "'방법'·'관리'·'극복' 같은 개념어 금지.\n"
         "반드시 JSON만 출력. 형식: "
-        '{"topics":[{"title":"...","time_context":"...","sample":"...","angle":"...","hook":"...","keywords":["...","..."]}]}'
+        '{"topics":[{"title":"...","hook":"...","seed":"물건이름"}]}'
     )
     user_msg = f"현재: {now_str}\n"
     if user_topic.strip():
@@ -956,10 +991,10 @@ def claude_generate_topics(api_key, user_topic="", now_str="", n=8):
     #  → 모델 체급에 맞게 부담을 조절한다. 최후 보루는 '적게, 확실히'.
     _prov = detect_llm_provider(api_key)
     if _prov in SLOW_FREE:
-        n = min(n, 4)
-        _budget = 3000
+        n = min(n, 5)
+        _budget = 1400
     else:
-        _budget = 6000
+        _budget = 2200
     user_msg = re.sub(r"\d+개의 세부 주제", f"{n}개의 세부 주제", user_msg)
     user_msg = re.sub(r"주제 \d+개를 제안", f"주제 {n}개를 제안", user_msg)
     r = llm_chat(api_key, sys_prompt, user_msg, max_tokens=_budget)
@@ -984,9 +1019,36 @@ def claude_generate_topics(api_key, user_topic="", now_str="", n=8):
     if not topics:
         return {"ok": False, "error": "empty_topics",
                 "detail": f"파싱은 됐는데 주제가 비었어요. 응답머리: {raw[:80]}"}
+    # seed(대표 상품 1개)를 keywords 리스트로 승격 → 아래 규칙 확장이 3~4개로 채운다
+    for t in topics:
+        t["title"] = scrub_garbled(t.get("title", ""))
+        if t.get("hook"): t["hook"] = scrub_garbled(t["hook"])
+        if not t.get("keywords"):
+            sd = scrub_garbled((t.get("seed") or "").strip())
+            # seed가 깨졌거나 게이트 탈락이면 제목 기반 규칙 추천으로 대체
+            if not sd or len(sd) < 2 or keyword_gate(sd, t.get("title","")):
+                sd = _suggest_keyword(t.get("title",""), set())
+            t["keywords"] = [sd] if sd else []
 
-    # ★키워드는 기계가 검사한다. 탈락한 것만 다시 뽑고, 못 고치면 버린다.
-    topics = _fix_keywords(api_key, topics)
+    # ★키워드는 규칙으로 즉시 정리한다 (LLM 재호출 없음 = 속도).
+    #  탈락한 키워드는 카테고리 상품사전에서 대체어를 즉석 매칭. 못 채우면 그냥 버린다.
+    for t in topics:
+        title = t.get("title", "")
+        good, seen = [], set()
+        for k in (t.get("keywords") or []):
+            k = scrub_garbled((k or "").strip())
+            if len(k) < 2 or not k or keyword_gate(k, title):
+                repl = _suggest_keyword(title, seen)
+                if repl:
+                    good.append(repl); seen.add(repl)
+            elif k not in seen:
+                good.append(k); seen.add(k)
+        # 3개 미만이면 카테고리 상품으로 채운다
+        while len(good) < 3:
+            repl = _suggest_keyword(title, seen)
+            if not repl: break
+            good.append(repl); seen.add(repl)
+        t["keywords"] = good[:4]
     topics = [t for t in topics if (t.get("keywords") or [])]
     if not topics:
         return {"ok": False, "error": "no_keywords",
@@ -2002,17 +2064,16 @@ def detect_ai_tells(text):
 
 
 def scrub_garbled(t):
-    """★무료 모델(minimax 등)이 한글 사이에 섞는 깨진 유니코드 제거.
-    'aku°C', '데enska' 같은 이물질이 그대로 나가던 문제."""
+    """★무료 모델이 한글 사이에 섞는 깨진 문자/외국어 제거.
+    'aku°C', '데enska', '물놀이equipment', '탈수기付き' 류."""
     if not t:
         return t
-    # 라틴 확장/특수기호 먼저 제거
-    t = re.sub(r"[\u00C0-\u024F\u1E00-\u1EFF]", "", t)
+    t = re.sub(r"[\u00C0-\u024F\u1E00-\u1EFF]", "", t)          # 라틴 확장
     t = re.sub(r"[°±×÷¤¦§¨©ª«¬®¯²³´µ¶¸¹º»¼½¾¿]", "", t)
-    # 한글에 '붙어있는' 영문 토막 제거: 데enska처럼 -> 데처럼, 폰뒤가kuC 뜨 -> 폰뒤가 뜨
-    #  (한글 뒤 영문 1자 이상, 또는 영문 뒤 한글) — 자연스러운 영어 단어(공백으로 분리)는 살린다
-    t = re.sub(r"(?<=[가-힣])[a-zA-Z]+", "", t)     # 한글+영문 → 영문 제거
-    t = re.sub(r"[a-zA-Z]+(?=[가-힣])", "", t)      # 영문+한글 → 영문 제거
+    t = re.sub(r"[\u3040-\u30FF]", "", t)                        # 일본어 히라가나·가타카나(付き, き)
+    t = re.sub(r"(?<=[가-힣])[a-zA-Z]+", "", t)                   # 한글+영문 → 제거
+    t = re.sub(r"[a-zA-Z]+(?=[가-힣])", "", t)                    # 영문+한글 → 제거
+    t = re.sub(r"[가-힣]*[\u4E00-\u9FFF]+[가-힣]*", lambda m: re.sub(r"[\u4E00-\u9FFF]", "", m.group()), t)  # 한글 사이 한자
     t = re.sub(r"[ \t]{2,}", " ", t)
     return t.strip()
 

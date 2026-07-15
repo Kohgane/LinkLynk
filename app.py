@@ -683,10 +683,40 @@ def claude_topics_api():
     order = order[:4] + (["llm7"] if "llm7" in keys and "llm7" not in order[:4] else [])
 
     import time as _time
+    import concurrent.futures as _cf
     from core import claude_generate_topics
-    last_err = {}
+
+    # ★속도: 빠른 무료 모델들을 병렬로 던지고 '가장 먼저 성공한' 것을 쓴다.
+    #  (직렬로 llm7 하나만 55초 기다리던 것 → 병렬이면 제일 빠른 놈 속도로 끝난다)
+    FAST = [p for p in ("cerebras", "groq", "gemini", "github") if p in keys]
+    parallel = FAST[:3] if FAST else []
     timings = {}
-    for p in order:
+    last_err = {"error": "no_provider"}
+
+    if parallel:
+        _t = _time.time()
+        with _cf.ThreadPoolExecutor(max_workers=len(parallel)) as ex:
+            futs = {ex.submit(claude_generate_topics, keys[p], user_topic, now_str, 8): p
+                    for p in parallel}
+            done_ok = None
+            for f in _cf.as_completed(futs, timeout=40):
+                p = futs[f]
+                try:
+                    r = f.result()
+                except Exception as e:
+                    last_err = {"error": str(e)[:80]}; continue
+                timings[p] = int((_time.time() - _t) * 1000)
+                if r.get("ok") and r.get("topics"):
+                    done_ok = (p, r); break
+                last_err = r
+            if done_ok:
+                p, r = done_ok
+                return jsonify({"ok": True, "topics": r["topics"], "now": now_str,
+                                "provider": p, "ms": timings, "parallel": parallel})
+
+    # 병렬이 다 실패했거나 빠른 모델이 없으면: 순차 폴백 (llm7 포함)
+    seq = [p for p in order if p not in parallel]
+    for p in seq:
         _t = _time.time()
         r = claude_generate_topics(keys[p], user_topic, now_str, n=8)
         timings[p] = int((_time.time() - _t) * 1000)
