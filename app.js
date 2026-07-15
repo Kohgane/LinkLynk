@@ -1341,6 +1341,7 @@ async function refineTopic(title, btn){
         window.__refinedTopics[idx].loading = false;
         window.__refinedTopics[idx].error = (d && d.error) || '기획 실패';
       }
+      window.__rtActive = window.__refinedTopics.findIndex(t=>t.title===title);
       renderRefinedTopics();
     }
     delete window.__refineJobs[title];
@@ -1360,60 +1361,87 @@ function removeRefined(title){
 }
 
 // 누적된 주제 카드들을 순차적으로 렌더 (연결 상품 키워드를 바로 밑에 작은 버튼으로)
+// ★가로로 드래그되는 주제 탭 + 탭을 누르면 그 주제의 연결 상품이 아래에 뜬다(기존 방식).
+window.__rtActive = window.__rtActive || 0;
+
 function renderRefinedTopics(){
   const result = document.getElementById('topicOut') || document.getElementById('result');
   if(!result) return;
   const list = window.__refinedTopics || [];
   if(!list.length){ result.innerHTML=''; return; }
+  if(window.__rtActive >= list.length) window.__rtActive = list.length - 1;
+
   result.innerHTML = `
     <div class="card linkprod">
       <div class="lp-head">
         <div style="font-size:9.5px;font-weight:700;letter-spacing:.18em;color:var(--muted)">AI → COUPANG</div>
         <span class="lp-count">${list.length}개 주제</span>
       </div>
-      <div class="lp-title">다듬은 주제</div>
-      <div class="lp-sub">주제 밑의 상품 키워드를 누르면 쿠팡에서 실제 상품을 검색합니다. 여러 개 눌러도 순서대로 다 남아요.</div>
-      <div id="rtList">
-        ${list.map((t,i)=>refinedCardHtml(t,i)).join('')}
+      <div class="lp-title">답변에서 뽑은 연결 상품</div>
+      <div class="lp-sub">주제를 좌우로 드래그해서 넘기고, 상품 키워드를 누르면 쿠팡에서 실제 상품을 검색합니다.</div>
+
+      <div class="rt-tabs" id="rtTabs">
+        ${list.map((t,i)=>`<button class="rt-tab ${i===window.__rtActive?'on':''}" data-rti="${i}" onclick="pickRefinedTab(${i})">
+          <span class="rt-tnum">${i+1}</span>${esc((t.title||'').slice(0,16))}${(t.title||'').length>16?'…':''}
+        </button>`).join('')}
       </div>
+      <div class="lp-detail" id="rtDetail"></div>
     </div>`;
-  // 키워드 버튼 바인딩
-  list.forEach((t)=>{
-    (t.keywords||[]).forEach(k=>{
-      const btns = result.querySelectorAll(`[data-rtkw="${cssId(t.title)}::${esc(k)}"]`);
-      btns.forEach(b=>b.addEventListener('click', ()=>{
-        result.querySelectorAll(`[data-rttitle="${cssId(t.title)}"] .lp-kw`).forEach(x=>x.classList.remove('on'));
-        b.classList.add('on');
-        searchFromTopic(k);
-      }));
-    });
-  });
+
+  enableDragScroll(document.getElementById('rtTabs'));
+  renderRefinedDetail(window.__rtActive);
   window.__pgLock = Date.now() + 900;
 }
 
-function refinedCardHtml(t, i){
-  const id = cssId(t.title);
+function pickRefinedTab(i){
+  window.__rtActive = i;
+  document.querySelectorAll('#rtTabs .rt-tab').forEach(b=>b.classList.toggle('on', +b.dataset.rti===i));
+  renderRefinedDetail(i);
+}
+
+function renderRefinedDetail(i){
+  const t = (window.__refinedTopics||[])[i];
+  const box = document.getElementById('rtDetail');
+  if(!t || !box) return;
   if(t.loading){
-    return `<div class="rt-card" id="rt-${id}">
-      <div class="rt-num">${i+1}</div>
-      <div class="rt-title">${esc(t.title)}</div>
-      <div class="radar-loading" style="margin-top:8px"><span class="spin-sm"></span><span>연결 상품 뽑는 중…</span></div>
-    </div>`;
+    box.innerHTML = `<div class="radar-loading"><span class="spin-sm"></span><span>연결 상품 뽑는 중…</span></div>`;
+    return;
   }
   const kws = t.keywords || [];
-  return `<div class="rt-card" id="rt-${id}" data-rttitle="${id}">
-    <div class="rt-row">
-      <div class="rt-num">${i+1}</div>
-      <div class="rt-title">${esc(t.title)}</div>
-      <button class="rt-x" onclick="removeRefined('${esc(t.title).replace(/'/g,'')}')">✕</button>
+  box.innerHTML = `
+    <div class="lp-dtitle">${esc(t.title||'')}</div>
+    ${t.hook?`<div class="lp-dhook">${esc(t.hook)}</div>`:''}
+    <div style="text-align:right;margin:-4px 0 6px">
+      <button class="rt-del-link" onclick="removeRefined('${esc(t.title).replace(/'/g,'')}')">이 주제 삭제</button>
     </div>
-    ${t.hook?`<div class="rt-hook">${esc(t.hook)}</div>`:''}
-    ${t.error?`<div class="rt-err">${esc(t.error)} · 다시 눌러보세요</div>`:
-      `<div class="rt-kws">
-        ${kws.length?kws.map(k=>`<button class="lp-kw" data-rtkw="${id}::${esc(k)}">${esc(k)} <span>검색</span></button>`).join(''):
+    ${t.error?`<div class="rt-err">${esc(t.error)} · 주제를 다시 눌러보세요</div>`:
+      `<div class="lp-kws">
+        ${kws.length?kws.map(k=>`<button class="lp-kw" data-kw="${esc(k)}">${esc(k)} <span>검색</span></button>`).join(''):
           '<span class="rt-nokw">연결 상품을 못 뽑았어요</span>'}
-      </div>`}
-  </div>`;
+      </div>`}`;
+  box.querySelectorAll('.lp-kw').forEach(b=>{
+    b.addEventListener('click', ()=>{
+      box.querySelectorAll('.lp-kw').forEach(x=>x.classList.remove('on'));
+      b.classList.add('on');
+      searchFromTopic(b.dataset.kw);
+    });
+  });
+}
+
+// 가로 드래그 스크롤 (마우스·터치 모두)
+function enableDragScroll(el){
+  if(!el || el.__drag) return;
+  el.__drag = true;
+  let down=false, sx=0, sl=0;
+  const start=(x)=>{ down=true; sx=x; sl=el.scrollLeft; el.classList.add('dragging'); };
+  const move=(x)=>{ if(!down) return; el.scrollLeft = sl - (x - sx); };
+  const end=()=>{ down=false; el.classList.remove('dragging'); };
+  el.addEventListener('mousedown', e=>start(e.pageX));
+  el.addEventListener('mousemove', e=>{ if(down){ e.preventDefault(); move(e.pageX); } });
+  el.addEventListener('mouseup', end); el.addEventListener('mouseleave', end);
+  el.addEventListener('touchstart', e=>start(e.touches[0].pageX), {passive:true});
+  el.addEventListener('touchmove', e=>move(e.touches[0].pageX), {passive:true});
+  el.addEventListener('touchend', end);
 }
 
 async function doTopics(){
@@ -2104,8 +2132,12 @@ async function publishToSns(platform, btn){
     const res = await r.json();
     if(res.ok){
       const isSched = !!window.__scheduleAt;
-      toast(isSched ? '예약됐어요! ⏰ 그 시각에 본글+답글 자동 게시' : '게시됐어요! 🚀');
+      const acc = (window.__pickedAccount||{})[platform];
+      toast(isSched ? '예약됐어요! ⏰ 다른 계정·시간으로 또 예약할 수 있어요' : '게시됐어요! 🚀');
+      // ★버튼을 잠깐 완료 표시 후 원래대로 되살린다.
+      //  (안 그러면 계정 바꿔서 다시 예약하려는데 버튼이 disabled로 막혀 안 눌린다)
       btn.textContent = isSched ? '예약 완료 ✓' : '게시 완료 ✓';
+      setTimeout(()=>{ btn.textContent=o; btn.disabled=false; }, 1500);
       if(res.post_url && !isSched){
         setTimeout(()=>{ if(confirm('게시됐어요! 지금 확인하러 갈까요?')) window.open(res.post_url,'_blank'); }, 300);
       }
