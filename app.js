@@ -1301,8 +1301,19 @@ function setRadarCat(c, el){
 // 레이더 주제 → AI가 주제 기획 (로딩 표시 확실히)
 // ★레이더에서 '주제로 다듬기'를 누르면 그 주제를 카드로 아래에 쌓는다.
 //  여러 개 눌러도 누른 순서대로 전부 남는다(덮어쓰지 않음). 한 번 누른 건 계속 수행된다.
-window.__refinedTopics = window.__refinedTopics || [];   // 누적된 주제 카드
-window.__refineJobs = window.__refineJobs || {};         // title -> 상태
+// 다듬은 주제를 localStorage에 저장 → 앱 나갔다 와도 유지
+function saveRefined(){
+  try{ localStorage.setItem('lk_refined', JSON.stringify((window.__refinedTopics||[]).filter(t=>!t.loading))); }catch(e){}
+}
+function loadRefined(){
+  try{
+    const raw = localStorage.getItem('lk_refined');
+    if(raw){ window.__refinedTopics = JSON.parse(raw)||[]; }
+  }catch(e){ window.__refinedTopics = []; }
+  return window.__refinedTopics;
+}
+window.__refinedTopics = window.__refinedTopics || loadRefined() || [];
+window.__refineJobs = window.__refineJobs || {};
 
 async function refineTopic(title, btn){
   title = (title||'').trim();
@@ -1342,6 +1353,7 @@ async function refineTopic(title, btn){
         window.__refinedTopics[idx].error = (d && d.error) || '기획 실패';
       }
       window.__rtActive = window.__refinedTopics.findIndex(t=>t.title===title);
+      saveRefined();
       renderRefinedTopics();
     }
     delete window.__refineJobs[title];
@@ -1357,6 +1369,7 @@ function cssId(s){ return (s||'').replace(/[^a-zA-Z0-9가-힣]/g,'').slice(0,24)
 
 function removeRefined(title){
   window.__refinedTopics = window.__refinedTopics.filter(t=>t.title!==title);
+  saveRefined();
   renderRefinedTopics();
 }
 
@@ -1395,7 +1408,11 @@ function renderRefinedTopics(){
 
 function pickRefinedTab(i){
   window.__rtActive = i;
-  document.querySelectorAll('#rtTabs .rt-tab').forEach(b=>b.classList.toggle('on', +b.dataset.rti===i));
+  document.querySelectorAll('#rtTabs .rt-tab').forEach(b=>{
+    const on = +b.dataset.rti===i;
+    b.classList.toggle('on', on);
+    if(on) b.scrollIntoView({behavior:'smooth', block:'nearest', inline:'center'});
+  });
   renderRefinedDetail(i);
 }
 
@@ -1480,10 +1497,11 @@ function renderTopics(topics, now){
     <div class="card linkprod">
       <div class="lp-head">
         <div style="font-size:9.5px;font-weight:700;letter-spacing:.18em;color:var(--muted)">AI → COUPANG</div>
-        <span class="lp-count">${total}개</span>
+        <button class="lp-count lp-count-btn" onclick="toggleAllKws(this)">${total}개 전체보기</button>
       </div>
       <div class="lp-title">답변에서 뽑은 연결 상품</div>
       <div class="lp-sub">주제를 고른 다음 상품 키워드를 누르면 쿠팡에서 실제 상품명을 검색합니다.</div>
+      <div class="lp-allkws" id="lpAllKws" style="display:none"></div>
 
       <div class="lp-tabs" id="lpTabs">
         ${topics.map((t,i)=>`<button class="lp-tab ${i===0?'on':''}" data-ti="${i}" style="${i>=5?'display:none':''}" onclick="pickTopicTab(${i},this)">${i+1}. ${esc((t.title||'').slice(0,22))}${(t.title||'').length>22?'…':''}</button>`).join('')}
@@ -1498,6 +1516,29 @@ function renderTopics(topics, now){
   window.__pgLock = Date.now() + 900;
   result.scrollIntoView({behavior:'smooth', block:'start'});
 }
+// ★'N개 전체보기' — 모든 주제의 상품 키워드를 한 번에 펼친다
+function toggleAllKws(btn){
+  const box = document.getElementById('lpAllKws');
+  if(!box) return;
+  const topics = window.__lastTopics || [];
+  if(box.style.display === 'none'){
+    const chips = [];
+    topics.forEach((t,ti)=>{
+      (t.keywords||[]).forEach(k=>{
+        chips.push(`<button class="lp-kw" data-kw="${esc(k)}" title="${esc(t.title||'')}">${esc(k)} <span>검색</span></button>`);
+      });
+    });
+    box.innerHTML = chips.length ? `<div class="lp-kws" style="margin-top:10px">${chips.join('')}</div>` : '<div class="rt-nokw">상품이 없어요</div>';
+    box.querySelectorAll('.lp-kw').forEach(b=>b.addEventListener('click', ()=>searchFromTopic(b.dataset.kw)));
+    box.style.display = '';
+    if(btn) btn.textContent = '접기';
+  } else {
+    box.style.display = 'none';
+    const total = topics.reduce((a,t)=>a+((t.keywords||[]).length||0),0);
+    if(btn) btn.textContent = total + '개 전체보기';
+  }
+}
+
 function showMoreTopics(){
   document.querySelectorAll('#lpTabs .lp-tab').forEach(b=>b.style.display='');
   const m = document.getElementById('tabsMore');
@@ -2468,5 +2509,5 @@ function removeImage(i){
 
 
 // 앱을 열 때마다 서버에 돌던 작업을 이어받는다
-document.addEventListener('DOMContentLoaded', ()=>{ setTimeout(resumeJobs, 1200); });
+document.addEventListener('DOMContentLoaded', ()=>{ setTimeout(resumeJobs, 1200); setTimeout(()=>{ loadRefined(); if((window.__refinedTopics||[]).length && (document.getElementById('topicOut')||document.getElementById('result'))){ renderRefinedTopics(); } }, 800); });
 window.addEventListener('focus', ()=>{ if(!window.__resumedAt || Date.now()-window.__resumedAt > 30000){ window.__resumedAt = Date.now(); resumeJobs(); } });

@@ -909,6 +909,14 @@ _TOPIC_PRODUCTS = {
 _FALLBACK_PRODUCTS = ["보조배터리", "USB 선풍기", "수납함", "물티슈", "멀티탭", "차량용 거치대"]
 
 
+def _rule_products_for(title):
+    """제목이 매칭되는 카테고리의 상품 리스트 전체를 돌려준다(규칙 우선용)."""
+    for pat, prods in _TOPIC_PRODUCTS.items():
+        if any(w in title for w in pat.split("|")):
+            return prods
+    return []
+
+
 def _suggest_keyword(title, seen):
     """제목에 맞는 실제 쿠팡 상품 하나를 즉석에서 고른다. (LLM 안 부름)"""
     for pat, prods in _TOPIC_PRODUCTS.items():
@@ -1031,19 +1039,29 @@ def claude_generate_topics(api_key, user_topic="", now_str="", n=8):
             t["keywords"] = [sd] if sd else []
 
     # ★키워드는 규칙으로 즉시 정리한다 (LLM 재호출 없음 = 속도).
-    #  탈락한 키워드는 카테고리 상품사전에서 대체어를 즉석 매칭. 못 채우면 그냥 버린다.
+    #  ★규칙이 주제를 알아보면(예: 열대야→냉감매트) 규칙 상품을 '앞세운다'.
+    #   모델 seed(예: 열대야→백열전구 같은 엉뚱한 연상)보다 규칙을 신뢰한다.
     for t in topics:
         title = t.get("title", "")
         good, seen = [], set()
+
+        # 1) 규칙이 이 주제를 아는지 먼저 본다 → 알면 규칙 상품을 맨 앞에
+        rule_prods = _rule_products_for(title)
+        for rp in rule_prods:
+            if rp not in seen and not keyword_gate(rp, title):
+                good.append(rp); seen.add(rp)
+            if len(good) >= 2:      # 규칙 상품 최대 2개 선점
+                break
+
+        # 2) 모델 seed/키워드 중 게이트 통과한 것만 뒤에 붙인다
         for k in (t.get("keywords") or []):
             k = scrub_garbled((k or "").strip())
-            if len(k) < 2 or not k or keyword_gate(k, title):
-                repl = _suggest_keyword(title, seen)
-                if repl:
-                    good.append(repl); seen.add(repl)
-            elif k not in seen:
+            if len(k) < 2 or keyword_gate(k, title):
+                continue
+            if k not in seen:
                 good.append(k); seen.add(k)
-        # 3개 미만이면 카테고리 상품으로 채운다
+
+        # 3) 3개 미만이면 규칙 상품으로 더 채운다
         while len(good) < 3:
             repl = _suggest_keyword(title, seen)
             if not repl: break

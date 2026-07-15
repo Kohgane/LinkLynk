@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta name="build" content="0714-dragtabs">
+<meta name="build" content="0714-fixes5">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -481,9 +481,13 @@
   .lp-dhook{font-size:12px;color:var(--text-2);line-height:1.6;margin-bottom:10px}
   .lp-dmeta{font-size:10.5px;color:var(--muted);margin-bottom:12px;line-height:1.6}
   .lp-kws{display:flex;gap:8px;flex-wrap:wrap}
+  .lp-count-btn{border:none;cursor:pointer;font-family:inherit;transition:background .15s}
+  .lp-count-btn:active{opacity:.7}
+  .lp-allkws{border-top:1px solid var(--line);margin-top:10px;padding-top:6px}
   /* 가로 드래그 주제 탭 */
   .rt-tabs{display:flex;gap:8px;overflow-x:auto;padding:4px 2px 10px;margin:6px -2px 0;
-    scrollbar-width:none;-webkit-overflow-scrolling:touch;cursor:grab;scroll-snap-type:x proximity}
+    scrollbar-width:none;-webkit-overflow-scrolling:touch;cursor:grab;scroll-snap-type:x proximity;
+    scroll-behavior:smooth}
   .rt-tabs::-webkit-scrollbar{display:none}
   .rt-tabs.dragging{cursor:grabbing;scroll-behavior:auto}
   .rt-tab{flex:none;scroll-snap-align:start;display:inline-flex;align-items:center;gap:6px;
@@ -1003,6 +1007,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="/app.js?v=1784104866"></script>
+<script src="/app.js?v=1784128914"></script>
 </body>
 </html>
