@@ -1299,11 +1299,121 @@ function setRadarCat(c, el){
   loadRadar();
 }
 // 레이더 주제 → AI가 주제 기획 (로딩 표시 확실히)
-function refineTopic(title, btn){
+// ★레이더에서 '주제로 다듬기'를 누르면 그 주제를 카드로 아래에 쌓는다.
+//  여러 개 눌러도 누른 순서대로 전부 남는다(덮어쓰지 않음). 한 번 누른 건 계속 수행된다.
+window.__refinedTopics = window.__refinedTopics || [];   // 누적된 주제 카드
+window.__refineJobs = window.__refineJobs || {};         // title -> 상태
+
+async function refineTopic(title, btn){
+  title = (title||'').trim();
+  if(!title) return;
+  // 이미 쌓여있으면 그 카드로 스크롤만
+  const exist = window.__refinedTopics.find(t=>t.title===title);
+  if(exist){
+    const card = document.getElementById('rt-'+cssId(title));
+    if(card) card.scrollIntoView({behavior:'smooth', block:'center'});
+    return;
+  }
   if(btn){ btn.disabled = true; btn.innerHTML = '<span class="spin-sm"></span> 다듬는 중…'; }
-  const el = document.getElementById('topicKw');
-  if(el) el.value = title;
-  doTopics().finally(()=>{ if(btn){ btn.disabled=false; btn.textContent='주제로 다듬기'; } });
+
+  // 자리부터 만들어 둔다 (로딩 카드) — 누른 즉시 반응
+  const stub = {title, hook:'', keywords:[], loading:true};
+  window.__refinedTopics.push(stub);
+  renderRefinedTopics();
+
+  try{
+    // 서버 작업으로 이 주제 하나를 기획 (앱 나가도 계속)
+    const jobId = await serverJob('topics', {topic:title, provider:(window.__llmPick||null)});
+    window.__refineJobs[title] = jobId;
+    const d = await pollJob(jobId, {interval:1500});
+    // 결과에서 이 주제(첫 번째)를 꺼내 카드에 채운다
+    const got = (d && d.ok && d.topics && d.topics[0]) ? d.topics[0] : null;
+    const idx = window.__refinedTopics.findIndex(t=>t.title===title);
+    if(idx>=0){
+      if(got){
+        window.__refinedTopics[idx] = {
+          title: title,                             // 누른 제목 유지
+          hook: got.hook || got.angle || '',
+          keywords: got.keywords || [],
+          loading: false
+        };
+      } else {
+        window.__refinedTopics[idx].loading = false;
+        window.__refinedTopics[idx].error = (d && d.error) || '기획 실패';
+      }
+      renderRefinedTopics();
+    }
+    delete window.__refineJobs[title];
+  }catch(e){
+    const idx = window.__refinedTopics.findIndex(t=>t.title===title);
+    if(idx>=0){ window.__refinedTopics[idx].loading=false; window.__refinedTopics[idx].error='기획 실패'; renderRefinedTopics(); }
+  }finally{
+    if(btn){ btn.disabled=false; btn.textContent='주제로 다듬기'; }
+  }
+}
+
+function cssId(s){ return (s||'').replace(/[^a-zA-Z0-9가-힣]/g,'').slice(0,24); }
+
+function removeRefined(title){
+  window.__refinedTopics = window.__refinedTopics.filter(t=>t.title!==title);
+  renderRefinedTopics();
+}
+
+// 누적된 주제 카드들을 순차적으로 렌더 (연결 상품 키워드를 바로 밑에 작은 버튼으로)
+function renderRefinedTopics(){
+  const result = document.getElementById('topicOut') || document.getElementById('result');
+  if(!result) return;
+  const list = window.__refinedTopics || [];
+  if(!list.length){ result.innerHTML=''; return; }
+  result.innerHTML = `
+    <div class="card linkprod">
+      <div class="lp-head">
+        <div style="font-size:9.5px;font-weight:700;letter-spacing:.18em;color:var(--muted)">AI → COUPANG</div>
+        <span class="lp-count">${list.length}개 주제</span>
+      </div>
+      <div class="lp-title">다듬은 주제</div>
+      <div class="lp-sub">주제 밑의 상품 키워드를 누르면 쿠팡에서 실제 상품을 검색합니다. 여러 개 눌러도 순서대로 다 남아요.</div>
+      <div id="rtList">
+        ${list.map((t,i)=>refinedCardHtml(t,i)).join('')}
+      </div>
+    </div>`;
+  // 키워드 버튼 바인딩
+  list.forEach((t)=>{
+    (t.keywords||[]).forEach(k=>{
+      const btns = result.querySelectorAll(`[data-rtkw="${cssId(t.title)}::${esc(k)}"]`);
+      btns.forEach(b=>b.addEventListener('click', ()=>{
+        result.querySelectorAll(`[data-rttitle="${cssId(t.title)}"] .lp-kw`).forEach(x=>x.classList.remove('on'));
+        b.classList.add('on');
+        searchFromTopic(k);
+      }));
+    });
+  });
+  window.__pgLock = Date.now() + 900;
+}
+
+function refinedCardHtml(t, i){
+  const id = cssId(t.title);
+  if(t.loading){
+    return `<div class="rt-card" id="rt-${id}">
+      <div class="rt-num">${i+1}</div>
+      <div class="rt-title">${esc(t.title)}</div>
+      <div class="radar-loading" style="margin-top:8px"><span class="spin-sm"></span><span>연결 상품 뽑는 중…</span></div>
+    </div>`;
+  }
+  const kws = t.keywords || [];
+  return `<div class="rt-card" id="rt-${id}" data-rttitle="${id}">
+    <div class="rt-row">
+      <div class="rt-num">${i+1}</div>
+      <div class="rt-title">${esc(t.title)}</div>
+      <button class="rt-x" onclick="removeRefined('${esc(t.title).replace(/'/g,'')}')">✕</button>
+    </div>
+    ${t.hook?`<div class="rt-hook">${esc(t.hook)}</div>`:''}
+    ${t.error?`<div class="rt-err">${esc(t.error)} · 다시 눌러보세요</div>`:
+      `<div class="rt-kws">
+        ${kws.length?kws.map(k=>`<button class="lp-kw" data-rtkw="${id}::${esc(k)}">${esc(k)} <span>검색</span></button>`).join(''):
+          '<span class="rt-nokw">연결 상품을 못 뽑았어요</span>'}
+      </div>`}
+  </div>`;
 }
 
 async function doTopics(){

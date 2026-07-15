@@ -1496,14 +1496,21 @@ def _llm_zai(api_key, sys_prompt, user_msg, max_tokens=3000):
 def _llm_llm7(api_key, sys_prompt, user_msg, max_tokens=3000):
     """LLM7.io — ★키 없이 익명으로 쓰는 무료 AI. 회원가입도 필요 없다.
     (2026-07-13 실측: minimax-m2.7 익명 호출 1.5초, 한국어 정상. 익명 30 RPM)"""
-    # 최후 보루다. 느린 건 참아도 실패하면 안 된다 → 타임아웃 넉넉히, 1회 재시도.
-    for _try in range(2):
+    # 최후 보루다. 익명이라 rate limit이 빡세다(429/403) → 백오프하며 3회 재시도.
+    import time as _t
+    r = {}
+    for _try in range(3):
         r = _llm_openai_compat(
             "llm7", "https://api.llm7.io/v1/chat/completions", None,
-            ["minimax-m2.7"],
+            ["codestral-latest", "minimax-m2.7", "deepseek-v4-flash"],  # 익명 열린 것 우선
             sys_prompt, user_msg, min(max_tokens, 4000), timeout=75, json_mode=False)
         if r.get("ok"):
             return r
+        err = str(r.get("error", ""))
+        if "429" in err or "403" in err:
+            _t.sleep(1.5 * (_try + 1))    # 1.5s, 3s 백오프
+            continue
+        break
     return r
 
 

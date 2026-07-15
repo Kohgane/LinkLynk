@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta name="build" content="0714-quality4">
+<meta name="build" content="0714-radaracc">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -481,6 +481,17 @@
   .lp-dhook{font-size:12px;color:var(--text-2);line-height:1.6;margin-bottom:10px}
   .lp-dmeta{font-size:10.5px;color:var(--muted);margin-bottom:12px;line-height:1.6}
   .lp-kws{display:flex;gap:8px;flex-wrap:wrap}
+  /* 누적된 주제 카드 */
+  .rt-card{background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:14px 15px;margin-bottom:10px}
+  .rt-row{display:flex;align-items:center;gap:10px}
+  .rt-num{width:24px;height:24px;flex:none;border-radius:8px;background:var(--surface-3);color:var(--text-2);
+    font-size:12px;font-weight:800;display:flex;align-items:center;justify-content:center}
+  .rt-title{flex:1;font-size:15px;font-weight:700;color:var(--text);line-height:1.35;letter-spacing:-.01em}
+  .rt-x{flex:none;background:transparent;border:none;color:var(--muted);font-size:13px;cursor:pointer;padding:4px 6px}
+  .rt-hook{font-size:12.5px;color:var(--text-2);margin:8px 0 2px;line-height:1.5}
+  .rt-kws{display:flex;flex-wrap:wrap;gap:7px;margin-top:11px}
+  .rt-err{font-size:12px;color:var(--warn-tx);margin-top:9px}
+  .rt-nokw{font-size:12px;color:var(--muted)}
   .lp-kw{font-size:12px;font-weight:500;padding:9px 14px;border-radius:999px;cursor:pointer;
     background:rgba(255,255,255,.05);border:1px solid rgba(255,255,255,.09);color:var(--text)}
   .lp-kw span{font-size:9.5px;color:var(--muted);margin-left:4px}
@@ -978,6 +989,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="/app.js?v=1784100264"></script>
+<script src="/app.js?v=1784103744"></script>
 </body>
 </html>
