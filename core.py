@@ -1938,6 +1938,11 @@ def quality_gate(posts, product_name):
     if tells:
         fails.append(f"금지어가 들어있다: {', '.join(tells[:6])}. 전부 다른 표현으로 바꿔라.")
 
+    # 6.5) ★깨진 문자 — äku°C, 데enska 류 (무료 모델이 한글 사이에 섞는다)
+    if has_garbled(joined):
+        fails.append("한글 사이에 깨진 문자(äku°C, 데enska 같은 것)가 섞여 있다. "
+                     "그 부분을 자연스러운 한국어로 다시 써라. 이상한 알파벳·기호를 넣지 마라.")
+
     # 7) 스펙 나열
     if re.search(r"(스펙|사양|용량|무게|사이즈|재질)\s*[:은는]", joined):
         fails.append("스펙을 나열했다. 스펙 대신 '그래서 무엇이 달라졌는지'로 바꿔라.")
@@ -1984,9 +1989,35 @@ def detect_ai_tells(text):
     return found
 
 
+def scrub_garbled(t):
+    """★무료 모델(minimax 등)이 한글 사이에 섞는 깨진 유니코드 제거.
+    'aku°C', '데enska' 같은 이물질이 그대로 나가던 문제."""
+    if not t:
+        return t
+    # 라틴 확장/특수기호 먼저 제거
+    t = re.sub(r"[\u00C0-\u024F\u1E00-\u1EFF]", "", t)
+    t = re.sub(r"[°±×÷¤¦§¨©ª«¬®¯²³´µ¶¸¹º»¼½¾¿]", "", t)
+    # 한글에 '붙어있는' 영문 토막 제거: 데enska처럼 -> 데처럼, 폰뒤가kuC 뜨 -> 폰뒤가 뜨
+    #  (한글 뒤 영문 1자 이상, 또는 영문 뒤 한글) — 자연스러운 영어 단어(공백으로 분리)는 살린다
+    t = re.sub(r"(?<=[가-힣])[a-zA-Z]+", "", t)     # 한글+영문 → 영문 제거
+    t = re.sub(r"[a-zA-Z]+(?=[가-힣])", "", t)      # 영문+한글 → 영문 제거
+    t = re.sub(r"[ \t]{2,}", " ", t)
+    return t.strip()
+
+
+def has_garbled(t):
+    if not t:
+        return False
+    if re.search(r"[\u00C0-\u024F\u1E00-\u1EFF°±×÷]", t):
+        return True
+    if re.search(r"[가-힣][a-zA-Z]", t) or re.search(r"[a-zA-Z][가-힣]", t):
+        return True
+    return False
+
+
 def scrub_ai_artifacts(text):
-    """기계적 정리: AI 특유 문장부호·공백 정리."""
-    t = text or ""
+    """기계적 정리: 깨진 문자 + AI 특유 문장부호·공백."""
+    t = scrub_garbled(text or "")
     for pat, rep in AI_PATTERNS:
         t = re.sub(pat, rep, t)
     return t.strip()

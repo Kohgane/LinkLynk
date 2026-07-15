@@ -610,14 +610,16 @@ def compare_write():
     keys["llm7"] = "__free__"          # 키 없이 쓰는 무료 AI (항상 사용 가능)
     if not keys:
         return jsonify({"ok": False, "need_key": True, "error": "설정에서 AI 키를 먼저 등록하세요"}), 403
-    targets = [p for p in providers if p in keys]
+    # ★키가 실제로 있는 것만 남긴다. (없는 걸 부르면 403이 뜬다 = 스샷의 실패 원인)
+    targets = [p for p in providers if (p in keys or p == "llm7")]
     if not targets:
-        targets = [p for p in ("gemini", "groq", "openrouter") if p in keys]   # 유료(Claude) 자동 사용 안 함
+        targets = [p for p in ("cerebras", "groq", "gemini", "llm7") if (p in keys or p == "llm7")]
+    if not targets:
+        targets = ["llm7"]
 
     from core import claude_write_thread
     import concurrent.futures as _cf
-    names = {"gemini": "Gemini (무료)", "openrouter": "OpenRouter (무료)",
-             "groq": "Groq (무료)", "anthropic": "Claude"}
+    names = LLM_NAMES
 
     def _one(p):
         # 비교는 속도가 생명 → fast=True (1패스, 검수/폴리시 생략)
@@ -629,7 +631,7 @@ def compare_write():
     results = []
     with _cf.ThreadPoolExecutor(max_workers=4) as ex:
         futs = {ex.submit(_one, p): p for p in targets[:4]}
-        for f in _cf.as_completed(futs, timeout=75):
+        for f in _cf.as_completed(futs, timeout=110):
             try:
                 results.append(f.result())
             except Exception as e:

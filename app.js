@@ -1903,9 +1903,9 @@ function openCompare(){
           <span class="cmp-name">${esc(p.name)}${p.id==='anthropic'?' <span style="color:var(--warn-tx)">💰 유료</span>':''}</span>
         </label>`).join('')}
     </div>
-    <div style="display:flex;gap:8px;margin-top:16px">
-      <button class="btn btn-mint" style="flex:1" onclick="runCompare()"><span class="lbl">⚖️ 비교하기</span></button>
-      <button class="btn btn-ghost" onclick="document.getElementById('cmpModal').remove()">취소</button>
+    <div style="display:flex;flex-direction:column;gap:9px;margin-top:16px">
+      <button class="btn btn-mint" style="width:100%;writing-mode:horizontal-tb" onclick="runCompare()"><span class="lbl">⚖️ 선택한 AI로 비교하기</span></button>
+      <button class="btn btn-ghost" style="width:100%;writing-mode:horizontal-tb" onclick="document.getElementById('cmpModal').remove()">취소</button>
     </div>
   </div>`;
   document.body.appendChild(box);
