@@ -1203,7 +1203,7 @@ async function saveClaudeKey(){
 function renderClaude(me){
   const el = document.getElementById('claudeStatus');
   if(!el) return;
-  const names = {llm7:'무료 AI (키 없이)', cerebras:'Cerebras', groq:'Groq', gemini:'Gemini',
+  const names = {llm7:'무료 AI (키 없이·품질 낮음)', cerebras:'Cerebras', groq:'Groq', gemini:'Gemini',
                  github:'GitHub Models', nvidia:'NVIDIA', zai:'Z.AI', openrouter:'OpenRouter', anthropic:'Claude'};
   const provs = (me.llm_providers||[]).map(p=>names[p]||p);
   el.innerHTML = provs.length ? '<span style="color:var(--mint)">✓ 연결됨: '+provs.join(' · ')+'</span>' : '연결 안 됨';
@@ -1771,8 +1771,10 @@ async function renderLlmPicker(){
   window.__llmList = list;
   // 기본 선택: 무료 우선 (Claude 자동 선택 안 함 = 돈 안 나감)
   if(!window.__llmPick || !list.some(p=>p.id===window.__llmPick)){
-    const free = list.find(p=>p.id==='groq') || list.find(p=>p.id==='gemini') || list.find(p=>p.id==='openrouter');
-    window.__llmPick = (free || list[0]).id;
+    // 품질·속도 순. 키 없는 llm7은 '되기는 하지만 품질이 약한' 최후의 보루 → 기본 선택 안 함.
+    const PREF = ['cerebras','groq','gemini','github','nvidia','zai','openrouter','anthropic','llm7'];
+    const best = PREF.find(id => list.some(p=>p.id===id));
+    window.__llmPick = best || list[0].id;
   }
   const PAID = {anthropic:true};
   box.innerHTML = `<div style="font-size:11px;color:var(--muted);font-weight:700;letter-spacing:.1em;margin-bottom:6px">AI · 글 쓰는 도구</div>

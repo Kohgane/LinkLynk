@@ -1237,7 +1237,9 @@ def claude_write_thread(api_key, product_name, deeplink, tone="friendly", price=
     elif prov in FAST_FREE:
         budget = 1 if fast else 3        # ★기본은 1회만. 깊은 다듬기는 '품질 다듬기' 버튼에서.
     else:
-        budget = 1 if fast else 2        # 느린 무료 모델(OpenRouter/LLM7/NVIDIA)
+        # 느린·약한 무료 모델(OpenRouter/LLM7/NVIDIA)은 초안이 부실하다.
+        # fast여도 게이트 통과할 때까지 2회, 일반 모드는 3회까지 고친다.
+        budget = 2 if fast else 3
 
     posts = repair_structure(posts, deeplink, product_name)   # ★먼저 구조를 못 박는다
 
@@ -1946,6 +1948,16 @@ def quality_gate(posts, product_name):
     # 7) 스펙 나열
     if re.search(r"(스펙|사양|용량|무게|사이즈|재질)\s*[:은는]", joined):
         fails.append("스펙을 나열했다. 스펙 대신 '그래서 무엇이 달라졌는지'로 바꿔라.")
+
+    # 7.7) 답글 중복 (약한 모델이 같은 문장을 답3·답5에 반복)
+    bodies = [re.sub(r"https?://\S+|#\S+|\s", "", str(x)) for x in posts]
+    seen = {}
+    for i, bd in enumerate(bodies):
+        if len(bd) > 8:
+            if bd in seen:
+                fails.append(f"답글 내용이 반복된다({seen[bd]+1}번째와 {i+1}번째가 같다). 서로 다른 얘기를 써라.")
+                break
+            seen[bd] = i
 
     # 8) 링크 클리셰
     for cliche in ("궁금할까봐 남겨둠", "궁금하실까봐", "필요하신 분들"):
