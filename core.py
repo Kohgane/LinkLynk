@@ -1331,7 +1331,10 @@ def claude_write_thread(api_key, product_name, deeplink, tone="friendly", price=
         "구조: 본글 1개 + 답글 5개. 본글에는 링크 절대 넣지 마라.\n"
         "답글1~3: 공감 → 원인/발견 → 변화(링크 없음). 답글4: 링크+고지문구. 답글5: 마무리+링크+해시태그 3개.\n"
         "답글4에 '(광고) 쿠팡파트너스 활동으로 수수료를 받습니다' 포함.\n"
-        "각 글 2~3줄, 400자 이내.\n\n"
+        "각 글 2~3줄, 400자 이내.\n"
+        "★★반드시 순수한 한국어로만 써라. 러시아어·중국어·일본어·라틴 특수문자를 "
+        "한글 사이에 절대 섞지 마라(예: '창문이 уже 말라'❌). "
+        "영어는 제품 고유명(KF94, SPF50)만 허용. 그 외 외국 문자가 하나라도 섞이면 완전 실패다.\n\n"
     )
     # ★Claude는 지시 없이도 한다. 무료 모델에는 사고 과정을 문자로 깔아준다.
     sys_prompt = (
@@ -2256,10 +2259,10 @@ def quality_gate(posts, product_name):
     if tells:
         fails.append(f"금지어가 들어있다: {', '.join(tells[:6])}. 전부 다른 표현으로 바꿔라.")
 
-    # 6.5) ★깨진 문자 — äku°C, 데enska 류 (무료 모델이 한글 사이에 섞는다)
+    # 6.5) ★깨진 문자 — äku°C, 데enska, уже(러시아어) 류. 최우선 검출.
     if has_garbled(joined):
-        fails.append("한글 사이에 깨진 문자(äku°C, 데enska 같은 것)가 섞여 있다. "
-                     "그 부분을 자연스러운 한국어로 다시 써라. 이상한 알파벳·기호를 넣지 마라.")
+        fails.insert(0, "한글 사이에 외국 문자(러시아어 уже, 라틴 äku, 한자, 일본어 등)가 섞였다. "
+                        "그 부분을 전부 자연스러운 한국어로 다시 써라. KF94·SPF 같은 제품명 외 외국문자 금지.")
 
     # 6.8) ★숫자 모순 — "세 개 샀다"더니 "다섯 개 버렸다" 류
     #  같은 대상을 세는 수가 글 안에서 어긋나면 잡는다.
@@ -2384,25 +2387,34 @@ def detect_ai_tells(text):
 
 def scrub_garbled(t):
     """★무료 모델이 한글 사이에 섞는 깨진 문자/외국어 제거.
-    'aku°C', '데enska', '물놀이equipment', '탈수기付き' 류."""
+    'aku°C', '데enska', '물놀이equipment', '탈수기付き', '창문이 уже' 류."""
     if not t:
         return t
     t = re.sub(r"[\u00C0-\u024F\u1E00-\u1EFF]", "", t)          # 라틴 확장
     t = re.sub(r"[°±×÷¤¦§¨©ª«¬®¯²³´µ¶¸¹º»¼½¾¿]", "", t)
-    t = re.sub(r"[\u3040-\u30FF]", "", t)                        # 일본어 히라가나·가타카나(付き, き)
+    t = re.sub(r"[\u3040-\u30FF]", "", t)                        # 일본어 가나
+    t = re.sub(r"[\u0400-\u04FF]", "", t)                        # ★키릴(러시아어 уже 등)
+    t = re.sub(r"[\u0370-\u03FF]", "", t)                        # 그리스
+    t = re.sub(r"[\u0600-\u06FF\u0590-\u05FF]", "", t)          # 아랍·히브리
+    t = re.sub(r"[\u0E00-\u0E7F]", "", t)                        # 태국
     t = re.sub(r"(?<=[가-힣])[a-zA-Z]+", "", t)                   # 한글+영문 → 제거
     t = re.sub(r"[a-zA-Z]+(?=[가-힣])", "", t)                    # 영문+한글 → 제거
     t = re.sub(r"[가-힣]*[\u4E00-\u9FFF]+[가-힣]*", lambda m: re.sub(r"[\u4E00-\u9FFF]", "", m.group()), t)  # 한글 사이 한자
-    t = re.sub(r"[ \t]{2,}", " ", t)
+    t = re.sub(r"\s{2,}", " ", t)
     return t.strip()
 
 
 def has_garbled(t):
     if not t:
         return False
-    if re.search(r"[\u00C0-\u024F\u1E00-\u1EFF°±×÷]", t):
+    # 한글 텍스트에 섞이면 안 되는 외국문자 (키릴·그리스·아랍·히브리·태국·가나·한자)
+    if re.search(r"[\u00C0-\u024F\u1E00-\u1EFF\u0400-\u04FF\u0370-\u03FF"
+                 r"\u0600-\u06FF\u0590-\u05FF\u0E00-\u0E7F\u3040-\u30FF°±×÷]", t):
         return True
     if re.search(r"[가-힣][a-zA-Z]", t) or re.search(r"[a-zA-Z][가-힣]", t):
+        return True
+    # 한글 문장 안에 낀 한자
+    if re.search(r"[가-힣][\u4E00-\u9FFF]|[\u4E00-\u9FFF][가-힣]", t):
         return True
     return False
 
