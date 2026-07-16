@@ -1258,6 +1258,7 @@ async function loadRadar(refresh){
     const d = await (await fetch(`/api/trend-radar?cat=${encodeURIComponent(radarCat)}&range=${encodeURIComponent(radarRange)}${refresh?'&refresh=1':''}`)).json();
     const items = d.items || [];
     if(!items.length){ list.innerHTML = '<div class="radar-empty">관련 신호가 없어요</div>'; return; }
+    list.__bound = false;
     list.innerHTML = items.map((it,i)=>`
       <div class="radar-card">
         <div class="radar-top">
@@ -1277,10 +1278,20 @@ async function loadRadar(refresh){
           ${it.url?`<a href="${it.url}" target="_blank">원본 보기 ↗</a>`:'<span></span>'}
         </div>
         <div class="radar-btns">
-          <button class="rbtn rbtn-primary" onclick="refineTopic('${esc(it.title).replace(/'/g,'')}',this)">주제로 다듬기</button>
+          <button class="rbtn rbtn-primary" data-refine="${encodeURIComponent(it.title)}">주제로 다듬기</button>
           <button class="rbtn" onclick="window.open('https://search.naver.com/search.naver?query=${encodeURIComponent(it.title)}','_blank')">네이버 확인</button>
         </div>
       </div>`).join('');
+    // ★이벤트 위임: title에 특수문자가 있어도 버튼이 항상 눌린다
+    if(!list.__delegated){
+      list.__delegated = true;
+      list.addEventListener('click', (e)=>{
+        const b = e.target.closest('[data-refine]');
+        if(!b) return;
+        const title = decodeURIComponent(b.dataset.refine||'');
+        refineTopic(title, b);
+      });
+    }
     const upd = new Date();
     list.insertAdjacentHTML('beforeend',
       `<div class="radar-foot">Google Trends Korea · 실시간에 가까운 검색 신호<br><span>${upd.getHours()<12?'오전':'오후'} ${String(upd.getHours()%12||12).padStart(2,'0')}:${String(upd.getMinutes()).padStart(2,'0')} 갱신</span></div>`);
@@ -1318,12 +1329,16 @@ window.__refineJobs = window.__refineJobs || {};
 async function refineTopic(title, btn){
   title = (title||'').trim();
   if(!title) return;
-  // 이미 쌓여있으면 그 카드로 스크롤만
   const exist = window.__refinedTopics.find(t=>t.title===title);
-  if(exist){
-    const card = document.getElementById('rt-'+cssId(title));
-    if(card) card.scrollIntoView({behavior:'smooth', block:'center'});
+  if(exist && !exist.loading && !exist.error){
+    // 이미 완성돼 있으면 그 탭으로 이동만
+    const idx = window.__refinedTopics.findIndex(t=>t.title===title);
+    if(idx>=0){ pickRefinedTab(idx); const c=document.getElementById('rtDetail'); if(c) c.scrollIntoView({behavior:'smooth',block:'center'}); }
     return;
+  }
+  if(exist && (exist.loading || exist.error)){
+    // 멈췄거나 실패한 건 지우고 다시 시도 (버튼이 '안 눌리는' 것처럼 보이던 케이스)
+    window.__refinedTopics = window.__refinedTopics.filter(t=>t.title!==title);
   }
   if(btn){ btn.disabled = true; btn.innerHTML = '<span class="spin-sm"></span> 다듬는 중…'; }
 
@@ -1361,7 +1376,7 @@ async function refineTopic(title, btn){
     const idx = window.__refinedTopics.findIndex(t=>t.title===title);
     if(idx>=0){ window.__refinedTopics[idx].loading=false; window.__refinedTopics[idx].error='기획 실패'; renderRefinedTopics(); }
   }finally{
-    if(btn){ btn.disabled=false; btn.textContent='주제로 다듬기'; }
+    if(btn){ btn.disabled=false; btn.innerHTML='주제로 다듬기'; }
   }
 }
 
