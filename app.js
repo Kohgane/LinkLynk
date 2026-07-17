@@ -620,6 +620,7 @@ async function genFromSearch(deeplink, pname){
 function CH_LABEL(ch){ return ({blog:'네이버 블로그',insta:'인스타',threads:'쓰레드',x:'X',youtube:'유튜브'})[ch] || '블로그'; }
 
 function renderResult(d){
+  setTimeout(loadPostSafety, 300);
   const link = d.deeplink;
   const draft = d.blogDraft;
   window.__lastResult = d;
@@ -700,6 +701,7 @@ function renderThreads(draft, d){
         <button class="btn btn-mint" style="width:100%" onclick="scheduleThread(this)"><span class="lbl">⏰ 이 시각에 예약</span></button>
       </div>
     </div>
+    <div id="postSafety" class="post-safety"></div>
     <div class="card-actions">
       <button class="btn btn-mint" onclick="publishToSns('threads',this)">🚀 지금 바로 게시</button>
       <button class="btn btn-ghost" onclick="draftToThreads(this)">🧵 쓰레드 앱에서 쓰기</button>
@@ -2250,6 +2252,20 @@ function useCompareResult(i){
   toast(r.name + ' 글로 정했어요');
 }
 
+// ★게시 안전 상태 (Meta 스팸 제재 예방)
+async function loadPostSafety(){
+  const box = document.getElementById('postSafety');
+  if(!box) return;
+  try{
+    const d = await fetch('/api/post-safety').then(x=>x.json());
+    if(!d.ok) { box.innerHTML=''; return; }
+    const icon = d.level==='safe'?'🟢':d.level==='caution'?'🟡':'🔴';
+    box.className = 'post-safety ps-'+d.level;
+    box.innerHTML = `${icon} <b>${esc(d.message)}</b>
+      <span class="ps-meta">최근 1시간 ${d.recent_1h}건 · 24시간 ${d.recent_24h}건${d.minutes_since_last!=null?` · 직전 ${d.minutes_since_last}분 전`:''}</span>`;
+  }catch(e){ box.innerHTML=''; }
+}
+
 async function publishToSns(platform, btn){
   const d = window.__lastResult;
   if(!d){ toast('⚠️ 초안 데이터가 없어요 (다시 만들어주세요)'); return; }
@@ -2267,7 +2283,7 @@ async function publishToSns(platform, btn){
     const picked = (window.__pickedAccount||{})[platform];
     if(picked) accIds[platform] = picked;
     const r = await fetch('/api/publish',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({platforms:[platform], content, media, channel:d.channel, productName:d.productName||'', deeplink:d.deeplink||'', account_ids:accIds, scheduled_for:(window.__scheduleAt||null)})});
+      body:JSON.stringify({platforms:[platform], content, media, channel:d.channel, productName:d.productName||'', deeplink:d.deeplink||'', account_ids:accIds, scheduled_for:(window.__scheduleAt||null), force:(window.__forcePublish||false)})});
     if(r.status===401){ toast('⚠️ 로그인이 풀렸어요. 새로고침 해주세요'); btn.textContent=o; btn.disabled=false; return; }
     const res = await r.json();
     if(res.ok){
@@ -2277,12 +2293,29 @@ async function publishToSns(platform, btn){
       // ★버튼을 잠깐 완료 표시 후 원래대로 되살린다.
       //  (안 그러면 계정 바꿔서 다시 예약하려는데 버튼이 disabled로 막혀 안 눌린다)
       btn.textContent = isSched ? '예약 완료 ✓' : '게시 완료 ✓';
+      setTimeout(loadPostSafety, 500);
       setTimeout(()=>{ btn.textContent=o; btn.disabled=false; }, 1500);
       if(res.post_url && !isSched){
         setTimeout(()=>{ if(confirm('게시됐어요! 지금 확인하러 갈까요?')) window.open(res.post_url,'_blank'); }, 300);
       }
     }
     else if(res.need_connect){ toast('설정에서 SNS 연결 먼저'); go('settings'); btn.textContent=o; btn.disabled=false; }
+    else if(res.rate_warning){
+      // ★Meta 스팸 제재 예방 가드
+      btn.textContent=o; btn.disabled=false;
+      const go2sched = confirm('⚠️ ' + res.error + '\n\n지금 그냥 게시하지 말고, 예약으로 시간을 분산할까요?\n(확인=예약 안내 / 취소=그래도 지금 게시)');
+      if(go2sched){
+        toast('상단의 예약 프리셋(내일 9시·20시 등)으로 시간을 벌려서 올리세요');
+        document.querySelector('.sched-presets')?.scrollIntoView({behavior:'smooth',block:'center'});
+      } else {
+        // 강제 게시
+        if(confirm('스팸으로 잡힐 위험을 감수하고 지금 게시할까요?')){
+          window.__forcePublish = true;
+          publishToSns(platform, btn);
+          window.__forcePublish = false;
+        }
+      }
+    }
     else {
       toast('게시 실패: '+(res.error || r.status) + (res.detail ? ' / '+String(res.detail).slice(0,80) : ''));
       if(res.detail) console.log('게시 실패 상세:', res.detail);

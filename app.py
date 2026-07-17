@@ -914,6 +914,30 @@ def get_post_api(post_id):
                     "status": p["status"], "deeplink": p.get("deeplink")}})
 
 
+@app.route("/api/post-safety", methods=["GET"])
+@login_required
+def post_safety_api():
+    """게시 안전 상태 — 지금 게시해도 되는지, 대기 권장 시간은 얼마인지."""
+    import time as _t
+    now = int(_t.time())
+    recent_1h = store.count_recent_published(session["uid"], hours=1)
+    recent_24h = store.count_recent_published(session["uid"], hours=24)
+    last_at = store.last_published_at(session["uid"])
+    gap = (now - last_at) if last_at else None
+
+    level = "safe"; msg = "지금 게시해도 안전해요."
+    if recent_1h >= 5 or (gap is not None and gap < 300):
+        level = "danger"; msg = "지금 게시하면 스팸으로 잡힐 수 있어요. 예약으로 분산하세요."
+    elif recent_1h >= 3 or recent_24h >= 20 or (gap is not None and gap < 600):
+        level = "caution"; msg = "게시 빈도가 조금 높아요. 간격을 두는 게 안전해요."
+
+    return jsonify({"ok": True, "level": level, "message": msg,
+                    "recent_1h": recent_1h, "recent_24h": recent_24h,
+                    "minutes_since_last": (gap // 60) if gap is not None else None,
+                    "guidelines": {
+                        "per_hour_max": 5, "per_day_max": 20, "min_gap_minutes": 10}})
+
+
 @app.route("/api/publish", methods=["POST"])
 @login_required
 def publish_sns():
@@ -936,6 +960,26 @@ def publish_sns():
 
     if not platforms or not content:
         return jsonify({"ok": False, "error": "게시할 플랫폼과 내용이 필요해요"}), 400
+
+    # ★Meta 스팸 제재 예방 가드 (즉시 게시일 때만; 예약은 시간이 분산되므로 통과)
+    if not d.get("scheduled_for") and not d.get("force"):
+        recent_1h = store.count_recent_published(session["uid"], hours=1)
+        last_at = store.last_published_at(session["uid"])
+        import time as _t
+        now = int(_t.time())
+        # 규칙: 시간당 5건 초과 경고, 직전 게시 후 10분 미만이면 경고
+        if recent_1h >= 5:
+            return jsonify({"ok": False, "rate_warning": True,
+                "error": f"지난 1시간에 이미 {recent_1h}건 게시했어요. Meta는 '짧은 시간 다량 게시'를 "
+                         "스팸으로 봐요. 예약 게시로 시간을 분산하는 걸 권해요.",
+                "suggest_schedule": True}), 429
+        if last_at and (now - last_at) < 600:
+            wait = 600 - (now - last_at)
+            return jsonify({"ok": False, "rate_warning": True,
+                "error": f"직전 게시가 {(now-last_at)//60}분 전이에요. Meta 스팸 필터를 피하려면 "
+                         f"게시 간격을 10분 이상 두는 게 안전해요. {wait//60}분 뒤에 다시 시도하거나 예약하세요.",
+                "suggest_schedule": True}), 429
+
     key = store.get_zernio_key(session["uid"])
     if not key:
         return jsonify({"ok": False, "need_connect": True,

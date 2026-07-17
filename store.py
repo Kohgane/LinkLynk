@@ -440,3 +440,20 @@ def delete_llm_key(uid, provider):
         try: _q("UPDATE linklynk_users SET claude_key_enc=NULL WHERE id=%s", (uid,))
         except Exception: pass
     return {"ok": True}
+
+
+def count_recent_published(uid, hours=1, account_id=None):
+    """최근 N시간 내 게시(published)된 글 수. Meta 스팸 제재 예방용."""
+    since = int(time.time()) - hours * 3600
+    # published_at은 정수 epoch로 저장됨
+    r = _q("""SELECT COUNT(*) AS c FROM linklynk_posts
+              WHERE user_id=%s AND status='published' AND published_at >= %s""",
+           (uid, since), fetch="one")
+    return (r or {}).get("c", 0) if r else 0
+
+
+def last_published_at(uid):
+    r = _q("""SELECT published_at FROM linklynk_posts
+              WHERE user_id=%s AND status='published' AND published_at IS NOT NULL
+              ORDER BY published_at DESC LIMIT 1""", (uid,), fetch="one")
+    return (r or {}).get("published_at") if r else None
