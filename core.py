@@ -1351,15 +1351,30 @@ def claude_write_thread(api_key, product_name, deeplink, tone="friendly", price=
         f"{('추가 요청: '+extra) if extra else ''}\n\n"
         "예시들의 결(담백함·구체성·사람다움)을 그대로 따라 이 상품 글을 써라."
     )
-    r = llm_chat(api_key, sys_prompt, user_msg, max_tokens=3000)
-    if not r.get("ok"):
-        return r
-    try:
-        posts = _parse_json_out(r["text"]).get("posts", [])
-    except Exception as e:
-        return {"ok": False, "error": "parse_error", "detail": str(e)[:100]}
+    # ★초안 생성. 약한 모델이 프롬프트 예시를 그대로 뱉으면(플레이스홀더) 다시 시킨다.
+    posts = []
+    for _attempt in range(3):
+        r = llm_chat(api_key, sys_prompt, user_msg
+                     + ("\n\n※주의: '본글','답글1' 같은 자리표시자를 그대로 쓰지 말고 실제 글을 써라."
+                        if _attempt else ""),
+                     max_tokens=3000)
+        if not r.get("ok"):
+            if _attempt == 0:
+                return r
+            break
+        try:
+            cand = _parse_json_out(r["text"]).get("posts", [])
+        except Exception:
+            cand = []
+        # 플레이스홀더 검사
+        chk = quality_gate(cand, product_name)
+        if chk == ["__PLACEHOLDER__"] or len(cand) < 4:
+            continue     # 다시 시도
+        posts = cand
+        break
     if len(posts) < 4:
-        return {"ok": False, "error": "bad_format"}
+        return {"ok": False, "error": "bad_format",
+                "detail": "모델이 실제 글 대신 예시를 반복했어요. 다른 AI로 시도해 주세요."}
 
     # ── 품질 루프 ────────────────────────────────────────────
     # Claude(유료)는 초안이 이미 좋다 → 패스를 아낀다.
@@ -1377,7 +1392,11 @@ def claude_write_thread(api_key, product_name, deeplink, tone="friendly", price=
     posts = repair_structure(posts, deeplink, product_name)   # ★먼저 구조를 못 박는다
 
     for _ in range(budget):
-        fails = quality_gate(posts, product_name) + product_mismatch(posts, brief)
+        fails = quality_gate(posts, product_name)
+        if fails == ["__PLACEHOLDER__"]:
+            # 재작성이 또 플레이스홀더면 그만 (구조 복구가 뒤에서 채운다)
+            break
+        fails = fails + product_mismatch(posts, brief)
         if not fails:
             break
         fixed = _fix_pass(api_key, product_name, tone_desc, posts, fails)
@@ -2226,6 +2245,16 @@ def quality_gate(posts, product_name):
     fails = []
     if not posts:
         return ["글이 비었다."]
+
+    # 0) ★모델이 프롬프트 예시(플레이스홀더)를 그대로 뱉은 경우 — NVIDIA 등 약한 모델이 자주.
+    #  정확히 자리표시자 단어와 일치하는 것만 센다(짧은 실제 답글 '밑에','끝'은 오판 금지).
+    PLACEHOLDER = {"본글", "답글1", "답글2", "답글3", "답글4", "답글5",
+                   "ans글4", "ans답글5", "ans 글4", "ans 답글5"}
+    stripped = [re.sub(r"[\s]", "", str(x)) for x in posts]
+    ph_hits = sum(1 for x in stripped if x in PLACEHOLDER)
+    # 본글이 JSON 통째로거나, 자리표시자가 2개 이상이면 플레이스홀더
+    if ph_hits >= 2 or (posts and "{" in str(posts[0]) and "posts" in str(posts[0])):
+        return ["__PLACEHOLDER__"]
     # 개수·링크위치·고지문구는 repair_structure()가 코드로 보장한다 → 모델에게 시키지 않는다.
     body = str(posts[0])
     joined = "\n".join(str(p) for p in posts)

@@ -450,6 +450,7 @@ async function doSearch(){
                   <div class="prod-price">${p.price?Number(p.price).toLocaleString()+'원':''}</div>
                   <button class="pbtn" onclick="window.open('${p.deeplink}','_blank')">상품 보기</button>
                   <button class="pbtn" onclick="showResearch(${i},this)">특징 확인</button>
+                  <button class="pbtn" onclick="captureProductImages(${i},this)">🖼 이미지 뽑기</button>
                   <button class="pbtn" onclick="copyText('${p.deeplink}', this)">파트너스 링크 복사</button>
                   <button class="pbtn pbtn-primary" onclick="pickProduct(${i})">이 상품으로 글쓰기</button>
                 </div>`).join('')}
@@ -501,6 +502,66 @@ function pickImage(idx, el){
 async function doSearchImagesOnly(){}
 
 // 특징 확인 → 검색 리서치 블록 (이미지: NAVER SEARCH RESEARCH)
+// ★상품 이미지 뽑기: 대표 이미지 다운로드 + 상세 이미지(북마클릿) 안내
+async function captureProductImages(i, btn){
+  const p = (window.__searchProducts||[])[i];
+  if(!p){ toast('상품 정보가 없어요'); return; }
+  const box = document.getElementById('imgResults');
+  if(box){
+    box.innerHTML = `<div class="card">
+      <div style="font-size:9.5px;font-weight:700;letter-spacing:.18em;color:var(--muted);margin-bottom:8px">PRODUCT IMAGES</div>
+      <div class="rs-name">${esc(p.name||'')}</div>
+      <div class="cap-sec">
+        <div class="cap-h">① 대표 이미지</div>
+        ${p.image?`<div class="cap-thumb"><img src="/img-proxy?u=${encodeURIComponent(p.image)}" alt=""></div>
+          <button class="btn-more" onclick="downloadImg('${encodeURIComponent(p.image)}','${esc((p.name||'product').slice(0,20)).replace(/[^가-힣a-zA-Z0-9]/g,'_')}_대표')">이 이미지 저장</button>`
+          :'<div class="rt-nokw">대표 이미지가 없어요</div>'}
+      </div>
+      <div class="cap-sec">
+        <div class="cap-h">② 상세설명 이미지 (상품 페이지에서 캡처)</div>
+        <div class="cap-sub">쿠팡 상세페이지의 이미지들은 로그인·보안 때문에 서버가 직접 못 가져와요.
+          아래 버튼으로 상품 페이지를 열고, 페이지에서 <b>북마클릿</b>을 누르면 상세 이미지가 여기로 들어옵니다.</div>
+        <button class="btn-more" onclick="window.open('${p.deeplink}','_blank')">상품 상세페이지 열기 ↗</button>
+        <button class="btn-more" onclick="showBookmarkletGuide()">📌 이미지 캡처 도구 설치</button>
+      </div>
+      ${(window.__bmkImages && window.__bmkImages.images && window.__bmkImages.images.length)?
+        `<div class="cap-sec"><div class="cap-h">③ 가져온 상세 이미지 ${window.__bmkImages.images.length}개</div>
+          <div class="bmk-grid">${window.__bmkImages.images.map((im,n)=>`<img src="/img-proxy?u=${encodeURIComponent(im)}" loading="lazy" onclick="downloadImg('${encodeURIComponent(im)}','${esc((p.name||'p').slice(0,16))}_상세${n+1}')" style="cursor:pointer" title="눌러서 저장">`).join('')}</div>
+          <div class="cap-sub">이미지를 누르면 저장됩니다.</div></div>`:''}
+    </div>`;
+    box.scrollIntoView({behavior:'smooth', block:'nearest'});
+  }
+}
+
+// 이미지 저장 (프록시 경유로 받아서 blob 다운로드)
+async function downloadImg(encodedUrl, filename){
+  try{
+    toast('이미지 받는 중…');
+    const res = await fetch('/img-proxy?u=' + encodedUrl);
+    const blob = await res.blob();
+    const a = document.createElement('a');
+    a.href = URL.createObjectURL(blob);
+    a.download = (filename||'image') + '.jpg';
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
+    toast('저장됐어요 📥');
+  }catch(e){ toast('저장 실패 — 이미지를 길게 눌러 저장해보세요'); }
+}
+
+function showBookmarkletGuide(){
+  const code = `(function(){var imgs=[];document.querySelectorAll('img').forEach(function(i){var s=i.src||i.getAttribute('data-src')||'';if(s&&(s.indexOf('coupangcdn')>-1||s.indexOf('coupang')>-1)&&i.naturalWidth>200){imgs.push(s.split('?')[0])}});imgs=[...new Set(imgs)].slice(0,20);var t=((document.querySelector('h1')||{}).innerText||document.title).slice(0,80);if(!imgs.length){alert('상세 이미지를 못 찾았어요. 페이지를 끝까지 스크롤한 뒤 다시 눌러주세요.');return}var payload=encodeURIComponent(JSON.stringify({images:imgs,productName:t}));window.open(origin+'/?bmk='+payload,'_blank')})();`;
+  const box = document.getElementById('imgResults');
+  if(box){
+    box.insertAdjacentHTML('afterbegin', `<div class="card" style="border:1px solid var(--mint)">
+      <div class="cap-h">📌 이미지 캡처 도구 (한 번만 설치)</div>
+      <div class="cap-sub">아래 코드를 복사해 브라우저 <b>북마크</b>로 저장하세요.
+        쿠팡 상품 페이지에서 그 북마크를 누르면 상세 이미지가 앱으로 들어옵니다.</div>
+      <textarea readonly onclick="this.select()" style="width:100%;height:70px;font-size:10px;background:var(--surface-2);color:var(--text-2);border:1px solid var(--line);border-radius:8px;padding:8px;margin-top:8px">javascript:${code}</textarea>
+      <button class="btn-more" onclick="copyText('javascript:${code.replace(/'/g,"\\'")}', this)">코드 복사</button>
+    </div>`);
+  }
+}
+
 async function showResearch(i, btn){
   const p = (window.__searchProducts||[])[i];
   if(!p) return;
@@ -1314,14 +1375,34 @@ function setRadarCat(c, el){
 //  여러 개 눌러도 누른 순서대로 전부 남는다(덮어쓰지 않음). 한 번 누른 건 계속 수행된다.
 // 다듬은 주제를 localStorage에 저장 → 앱 나갔다 와도 유지
 function saveRefined(){
-  try{ localStorage.setItem('lk_refined', JSON.stringify((window.__refinedTopics||[]).filter(t=>!t.loading))); }catch(e){}
+  try{
+    const payload = { ts: Date.now(),
+      topics: (window.__refinedTopics||[]).filter(t=>!t.loading) };
+    localStorage.setItem('lk_refined', JSON.stringify(payload));
+  }catch(e){}
 }
 function loadRefined(){
   try{
     const raw = localStorage.getItem('lk_refined');
-    if(raw){ window.__refinedTopics = JSON.parse(raw)||[]; }
+    if(raw){
+      const d = JSON.parse(raw);
+      // 예전 형식(배열) 호환 + 24시간 지나면 자동 리셋
+      if(Array.isArray(d)){ window.__refinedTopics = d; }
+      else if(d && d.topics){
+        const age = Date.now() - (d.ts||0);
+        window.__refinedTopics = (age > 24*3600*1000) ? [] : d.topics;   // 하루 지나면 초기화
+        if(age > 24*3600*1000){ try{ localStorage.removeItem('lk_refined'); }catch(e){} }
+      } else { window.__refinedTopics = []; }
+    }
   }catch(e){ window.__refinedTopics = []; }
   return window.__refinedTopics;
+}
+function clearRefined(){
+  window.__refinedTopics = [];
+  window.__rtActive = 0;
+  try{ localStorage.removeItem('lk_refined'); }catch(e){}
+  renderRefinedTopics();
+  toast('다듬은 주제를 모두 지웠어요');
 }
 window.__refinedTopics = window.__refinedTopics || loadRefined() || [];
 window.__refineJobs = window.__refineJobs || {};
@@ -1403,7 +1484,10 @@ function renderRefinedTopics(){
     <div class="card linkprod">
       <div class="lp-head">
         <div style="font-size:9.5px;font-weight:700;letter-spacing:.18em;color:var(--muted)">AI → COUPANG</div>
-        <span class="lp-count">${list.length}개 주제</span>
+        <div style="display:flex;gap:8px;align-items:center">
+          <span class="lp-count">${list.length}개 주제</span>
+          <button class="rt-clear" onclick="clearRefined()">전체 지우기</button>
+        </div>
       </div>
       <div class="lp-title">답변에서 뽑은 연결 상품</div>
       <div class="lp-sub">주제를 좌우로 드래그해서 넘기고, 상품 키워드를 누르면 쿠팡에서 실제 상품을 검색합니다.</div>
