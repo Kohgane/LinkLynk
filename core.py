@@ -1340,6 +1340,7 @@ def claude_write_thread(api_key, product_name, deeplink, tone="friendly", price=
     sys_prompt = (
         base
         + brief_block + "\n"
+        + hook_block() + "\n"                        # ★첫 줄 훅 과학 (조회수의 핵심)
         + diversity_block() + "\n"                   # ★매번 다른 골격·화자·훅 (틀 복제 차단·모든 모델)
         + ("" if is_top else SCAFFOLD + "\n" + quirk_block(prov) + "\n")
         + HUMANIZE_RULES + "\n" + FEWSHOT + "\n" + QUALITY_RULES +
@@ -1413,6 +1414,7 @@ def claude_write_thread(api_key, product_name, deeplink, tone="friendly", price=
     posts = repair_structure(posts, deeplink, product_name)   # 재작성 뒤 구조 재확정
     posts = [scrub_ai_artifacts(str(p)) for p in posts]
     posts = _strip_leading_product(posts, product_name)       # 본글 첫 문장 제품명 규칙 제거
+    posts = _strip_weak_opener(posts)                         # 약한 오프너 도입부 규칙 제거
     remaining = quality_gate(posts, product_name) + product_mismatch(posts, brief)
     return {"ok": True, "content": "\n===THREAD===\n".join(posts),
             "provider": prov, "brief": brief, "quality_fails": remaining}
@@ -1918,6 +1920,62 @@ _DETAIL_AXES = [
     "이전 제품과의 대비(그거 쓸 때는 이랬는데)",
 ]
 
+# ── 첫 줄(본글 오프너) 과학 ──────────────────────────────
+# Threads 조회수는 첫 1~2줄에서 결정된다. "스크롤을 멈추게 하는" 오프너 유형 15종.
+# 각 유형은 '왜 멈추는가'의 심리 기제가 다르다.
+_OPENER_TYPES = [
+    ("자기지목", "읽는 사람이 '어 내 얘긴데' 하게. 특정 상황을 콕 집어서. 예: '자기 전에 폰 충전기 못 찾아서 더듬는 사람'"),
+    ("반전선언", "당연한 통념을 첫 줄에서 뒤집어. 예: '비싼 게 답이 아니었다'"),
+    ("숫자충격", "예상 밖 수치를 대뜸. 예: '한 달에 이걸로 만원 넘게 버리고 있었다'"),
+    ("미완성문장", "말하다 만 것처럼 끊어서 다음이 궁금하게. 예: '이거 알기 전까지는 진짜…'"),
+    ("금기고백", "남들 잘 안 하는 솔직한 인정. 예: '사실 3년 동안 잘못 쓰고 있었음'"),
+    ("질문직격", "읽는 사람에게 바로 묻기. 예: '다들 이거 어떻게 참고 살았어요?'"),
+    ("장면던지기", "설명 없이 한 장면부터. 예: '새벽 2시. 또 깼다.'"),
+    ("손실경고", "지금 손해 보는 중임을 알려. 예: '이거 모르면 계속 돈 나감'"),
+    ("비교충격", "남과 나의 격차. 예: '옆자리 사람은 왜 안 더워 보이지 했는데'"),
+    ("시간대비", "긴 고생이 짧게 해결. 예: '3년 고생한 게 3일 만에'"),
+    ("역설훅", "모순처럼 들리는 진실. 예: '더 싼데 더 오래 씀'"),
+    ("공범호출", "'나만 그런 거 아니지?' 예: '이거 나만 불편한 거 아니죠?'"),
+    ("전후분절", "before를 한 줄로 강렬하게. 예: '작년 여름을 어떻게 버텼나 싶다'"),
+    ("의외원인", "진짜 원인이 딴 데. 예: '더위 탓인 줄 알았는데 아니었다'"),
+    ("사소한위화감", "작은데 계속 거슬리던 것. 예: '별거 아닌데 매일 신경 쓰이던 게 있었다'"),
+]
+
+# 첫 줄이 '약한 오프너'인지 검사 (조회수 죽이는 시작들)
+_WEAK_OPENERS = [
+    "안녕", "오늘은", "여러분", "요즘", "최근", "이번에", "제가", "저는",
+    "소개할", "추천할", "리뷰", "후기를", "구매한", "써보니",
+]
+
+
+def _opener_is_weak(first_line):
+    """첫 줄이 스크롤을 못 멈추는 약한 시작인가?"""
+    fl = (first_line or "").strip()
+    if len(fl) < 6:
+        return True   # 너무 짧아 맥락 없음
+    if len(fl) > 45:
+        return True   # 첫 줄이 너무 길면 안 읽힘
+    for w in _WEAK_OPENERS:
+        if fl.startswith(w):
+            return True
+    # 제품 소개형 시작
+    if any(x in fl[:12] for x in ["소개", "추천", "리뷰", "후기"]):
+        return True
+    return False
+
+
+def hook_block():
+    ot = _random.choice(_OPENER_TYPES)
+    return (
+        "■ 첫 줄(본글 오프너) — 이게 조회수를 결정한다. 사활을 걸어라:\n"
+        f"  · 이번 오프너 유형: [{ot[0]}] {ot[1]}\n"
+        "  · 첫 줄은 6~40자. 너무 길면 안 읽히고 너무 짧으면 맥락이 없다.\n"
+        "  · 첫 줄에 절대 넣지 마라: 인사('안녕'), '오늘은/요즘/제가', 제품 소개('추천할게요').\n"
+        "  · 첫 줄만 읽고도 '다음이 궁금'하거나 '내 얘기네' 싶어야 한다.\n"
+        "  · 둘째 줄에서 첫 줄의 긴장을 이어받아라. 바로 설명으로 풀지 마라.\n"
+    )
+
+
 def diversity_block():
     """매 호출마다 골격·화자·훅·디테일축을 랜덤 지정 → 같은 틀 복제 차단."""
     sk = _random.choice(_SKELETONS)
@@ -2266,6 +2324,11 @@ def quality_gate(posts, product_name):
             fails.append(f"본글 첫 문장에 제품명('{tok}')이 들어있다. 제품명을 빼고 '내가 겪은 장면'으로 시작하라.")
             break
 
+    # 1.5) ★첫 줄 훅 검사 — 조회수를 죽이는 약한 오프너
+    if _opener_is_weak(head):
+        fails.append("첫 줄이 약하다(스크롤을 못 멈춘다). '안녕/오늘은/제가/추천' 같은 시작이거나 "
+                     "너무 길다. 첫 줄을 6~40자로, '내 얘긴데?' 또는 '이게 뭐지?' 싶게 다시 써라.")
+
     # 2) 구체적 숫자·시간 (★한글 수사도 숫자다. "새벽 두 시", "사흘째"를 놓치면 안 된다)
     KOR_NUM = r"(한|두|세|네|다섯|여섯|일곱|여덟|아홉|열|스무|서너|대여섯)\s?(시|번|개|달|주|명|살|번째|시간|분)"
     KOR_DAY = r"(하루|이틀|사흘|나흘|닷새|열흘|보름|한달|일주일|이주일|반년)"
@@ -2352,6 +2415,21 @@ def quality_gate(posts, product_name):
             fails.append(f"링크 클리셰('{cliche}')를 썼다. 다른 방식으로 링크를 던져라.")
             break
     return fails
+
+
+def _strip_weak_opener(posts):
+    """모델이 끝내 약한 오프너('써보니까','제가')로 시작하면 그 도입부만 규칙으로 제거."""
+    if not posts:
+        return posts
+    lines = str(posts[0]).split("\n")
+    lines[0] = re.sub(r"^[\s.,·…!?]+", "", lines[0])   # 앞 기호 잔재 제거
+    head = lines[0].strip()
+    # '써보니까/사서/제가 ... ,' 같은 군더더기 도입부를 잘라 뒷문장을 첫 줄로
+    m = re.match(r"^(써보니까|사서 쓰다가|제가|저는|이번에|요즘|최근에)\s*[^,.。]*[,，]\s*(.+)", head)
+    if m and len(m.group(2)) >= 6:
+        lines[0] = m.group(2).strip()
+        posts = ["\n".join(lines)] + list(posts[1:])
+    return posts
 
 
 def _strip_leading_product(posts, product_name):
