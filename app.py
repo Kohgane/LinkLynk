@@ -79,9 +79,23 @@ def _gen_draft(uid, product_name, deeplink, tone, channel, info, provider=None, 
         if akey:
             from core import claude_write_thread
             price = (info or {}).get("price")
-            r = claude_write_thread(akey, product_name, deeplink, tone, price, extra=extra, fast=(not quality))
-            if r.get("ok"):
-                return r["content"]
+            # 선택 모델로 시도. 플레이스홀더/실패면 다른 무료 모델로 자동 폴백.
+            tried = []
+            chain = [akey]
+            # 폴백 체인: 선택 모델 → 다른 보유 모델(빠른 순) → llm7(키 없이)
+            for fp in ("cerebras", "groq", "gemini", "github", "openrouter"):
+                if fp in keys and keys[fp] not in chain:
+                    chain.append(keys[fp])
+            chain.append("__free__")   # 최후: 키 없이 되는 무료 AI
+            for k in chain:
+                r = claude_write_thread(k, product_name, deeplink, tone, price, extra=extra, fast=(not quality))
+                tried.append(r.get("provider") or "?")
+                if r.get("ok") and r.get("content"):
+                    # ★플레이스홀더가 최종 결과에 남아있으면 폴백 계속
+                    body = r["content"].split("\n===THREAD===\n")[0].strip()
+                    if body in ("본문 텍스트", "본글") or "{" in body[:3] or len(body) < 6:
+                        continue
+                    return r["content"]
     return make_blog_draft(product_name, deeplink, tone, channel, info)
 
 

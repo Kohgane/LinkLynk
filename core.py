@@ -2219,7 +2219,9 @@ HUMANIZE_RULES = '''사람이 쓴 글처럼(가장 중요):
 - 브랜드명을 반복하지 마라. 대명사나 '이거'로 받아라.
 - 문장을 병렬로 예쁘게 맞추지 마라(AI 티의 대표).
 - 사전 같은 설명 금지. 겪은 것만 써라.
-- 상품명에 붙은 광고 수식어(초강력·원샷·끝판왕·프리미엄·대용량)를 소재로 삼지 마라.
+- 상품명에 붙은 광고 수식어(초강력·원샷·끝판꽝·프리미엄·대용량)를 소재로 삼지 마라.
+- ★모르는 사실을 지어내지 마라. 특히 인증(KC·FDA·특허)·성분·수치·효능은 확실하지 않으면 아예 쓰지 마라.
+  글에 없어도 되는 정보다. '이런 게 있대서' 같은 추측성 인증 언급 금지. 겪은 것·느낀 것만 써라.
 - ★마무리 답글(5번)에 '오늘도 좋은 하루 되세요' 같은 상투적 인사 금지. 여운만 남겨라.
 금지어(절대 쓰지 마라): 강추, 필수템, 인생템, 갓성비, 적극 추천, 후회 없는 선택,
 정말 좋아요, 대만족, 여러분, 다양한, 뛰어난, 최고의, 완벽한, 결론적으로, 종합적으로,
@@ -2368,6 +2370,14 @@ def quality_gate(posts, product_name):
     if buy and trash and int(buy.group(1)) < int(trash.group(1)):
         fails.append(f"숫자가 안 맞는다. {buy.group(1)}개 샀다면서 {trash.group(1)}개를 버렸다고 한다. 앞뒤 숫자를 맞춰라.")
 
+    # 6.9) ★지어낸 인증·효능 — 모기팔찌인데 'KC인증' 물고늘어지는 류
+    FABRICATED = ["KC인증", "KC 인증", "FDA", "특허", "인증받", "인증을 받",
+                  "임상", "식약처", "성분 함량", "99.9%", "99.99%", "효능이 입증"]
+    fab_hits = [w for w in FABRICATED if w in joined]
+    if fab_hits:
+        fails.append(f"'{fab_hits[0]}' 같은 인증·효능을 언급했다. 확인 안 된 사실을 지어내면 안 된다"
+                     "(허위광고 위험). 그 부분을 빼고 '실제로 써보니 어땠는지'로만 써라.")
+
     # 7) 스펙 나열
     if re.search(r"(스펙|사양|용량|무게|사이즈|재질)\s*[:은는]", joined):
         fails.append("스펙을 나열했다. 스펙 대신 '그래서 무엇이 달라졌는지'로 바꿔라.")
@@ -2441,12 +2451,17 @@ def _strip_leading_product(posts, product_name):
     head = lines[0]
     toks = [t for t in re.split(r"[\s,/·]+", clean_product_name(product_name)) if len(t) >= 2]
     changed = False
+    # ★첫 어절이 정확히 제품명일 때만 제거. 조사가 붙어 단어 중간을 자르지 않게.
+    #  '모기에게 물린' 에서 '모기'만 지우면 '에게 물린'이 되어버리므로,
+    #  제품명+조사가 '완결된 첫 토막'일 때만 잘라낸다.
     for tok in toks:
-        if tok in head:
-            # 제품명으로 시작하면 그 어절만 제거하고 자연스럽게
-            head = re.sub(r"^[^.!?]*?" + re.escape(tok) + r"[은는이가,\s]*", "", head).strip()
+        # 제품명 뒤에 조사/공백이 오고 그 다음 실제 문장이 이어질 때만
+        m = re.match(r"^" + re.escape(tok) + r"(은|는|이|가|을|를|도|만|의|와|과|,)?\s+(.+)", head)
+        if m and len(m.group(2)) >= 8:
+            head = m.group(2).strip()
             changed = True
-    if changed and head:
+            break
+    if changed and head and len(head) >= 6:
         lines[0] = head
         posts = [("\n".join(lines))] + list(posts[1:])
     return posts
