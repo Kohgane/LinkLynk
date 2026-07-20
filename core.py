@@ -2735,38 +2735,106 @@ def _naver_post(path, payload, cid, csec, timeout=8):
         return {"ok": False, "error": type(e).__name__, "detail": str(e)[:120]}
 
 
-def naver_shopping_rising(cid, csec, days=14, top=3):
-    """분야별 인기 검색어 중 '최근 급등한' 것만 뽑는다.
-    앞 절반 기간 대비 뒷 절반 기간의 비율이 높은 키워드 = 지금 뜨는 것."""
+# 쇼핑 카테고리별 조사 대상 키워드 풀 (우리가 실제로 다루는 상품군)
+_NAVER_KW_POOL = {
+    "50000008": ("생활·건강", ["제습기", "가습기", "세탁세제", "섬유유연제", "살균기",
+                              "모기퇴치기", "방충망", "탈취제", "청소기", "밀대걸레",
+                              "세탁조클리너", "제습제", "공기청정기", "손소독제", "물티슈"]),
+    "50000004": ("가구·인테리어", ["냉감매트", "쿨매트", "토퍼", "경추베개", "이불",
+                                 "암막커튼", "수납장", "행거", "매트리스", "바디필로우"]),
+    "50000003": ("디지털·가전", ["선풍기", "서큘레이터", "무선청소기", "보조배터리",
+                                "이어폰", "충전기", "블루투스스피커", "에어프라이어",
+                                "가습기", "노트북거치대"]),
+    "50000002": ("화장품·미용", ["선크림", "수분크림", "마스크팩", "클렌징폼", "토너",
+                               "바디로션", "핸드크림", "쿠션", "립밤", "헤어에센스"]),
+    "50000005": ("출산·육아", ["기저귀", "물티슈", "분유", "젖병소독기", "아기침대",
+                             "유모차", "카시트", "이유식", "아기욕조", "베이비로션"]),
+    "50000007": ("스포츠·레저", ["요가매트", "폼롤러", "아령", "텐트", "캠핑의자",
+                               "아이스박스", "등산화", "자전거", "수영복", "랜턴"]),
+    "50000006": ("식품", ["단백질보충제", "닭가슴살", "즉석밥", "커피원두", "견과류",
+                        "비타민", "홍삼", "생수", "라면", "냉동만두"]),
+    "50000001": ("패션잡화", ["운동화", "샌들", "백팩", "크로스백", "지갑",
+                            "선글라스", "모자", "양말", "슬리퍼", "우산"]),
+}
+
+
+def _seed_keywords():
+    """급등 여부를 물어볼 후보 키워드 풀.
+    ★네이버 공개 API에는 '분야 인기검색어 뽑기'가 없다(데이터랩 웹에만 있음).
+    그래서 우리가 쿠팡에서 실제 파는 상품군을 후보로 넣고 '어느 게 지금 뜨는지'를 묻는다.
+    어차피 어필리에이트로 팔 물건만 알면 되므로 이 방식이 더 정확하다."""
+    seen, out = set(), []
+    for prods in _TOPIC_PRODUCTS.values():
+        for pd in prods:
+            if pd not in seen:
+                seen.add(pd); out.append(pd)
+    return out
+
+
+def naver_shopping_rising(cid, csec, days=21, max_batches=8):
+    """후보 상품 키워드들의 검색 추이를 재서 '지금 급등한 것'만 골라낸다.
+    검색어트렌드 API는 한 번에 5개 그룹까지 → 배치로 나눠 호출."""
     if not cid or not csec:
         return {"ok": False, "error": "no_key"}
-    end = _dt.date.today()
+
+    now = time.time()
+    if _NAVER_CACHE["items"] and now - _NAVER_CACHE["at"] < 3600:
+        return {"ok": True, "items": _NAVER_CACHE["items"], "cached": True}
+
+    end = _dt.date.today() - _dt.timedelta(days=1)     # 어제까지(당일은 집계 전)
     start = end - _dt.timedelta(days=days)
-    out = []
-    for code, name in _NAVER_SHOP_CATS:
-        r = _naver_post("/v1/datalab/shopping/category/keywords", {
+    pool = _seed_keywords()
+    out, errs = [], []
+
+    for i in range(0, min(len(pool), max_batches * 5), 5):
+        batch = pool[i:i + 5]
+        if not batch:
+            break
+        r = _naver_post("/v1/datalab/search", {
             "startDate": start.isoformat(),
             "endDate": end.isoformat(),
-            "timeUnit": "date",
-            "category": code,
-            "keyword": [],           # 비우면 분야 전체 인기검색어
+            "timeUnit": "week",
+            "keywordGroups": [{"groupName": k, "param": [k]} for k in batch],
         }, cid, csec)
-        # 키워드를 비우면 400이 나는 계정이 있어 fallback: 분야 트렌드만
         if not r.get("ok"):
+            errs.append(r.get("detail") or r.get("error"))
+            if len(errs) >= 2:      # 연속 실패면 조기 중단(키 문제)
+                break
             continue
         for res in (r["data"].get("results") or []):
-            title = res.get("title") or name
             pts = res.get("data") or []
             if len(pts) < 4:
                 continue
             half = len(pts) // 2
             a = sum(float(x.get("ratio", 0)) for x in pts[:half]) / max(half, 1)
             b = sum(float(x.get("ratio", 0)) for x in pts[half:]) / max(len(pts) - half, 1)
+            if b < 1:               # 검색량 자체가 미미하면 제외
+                continue
             growth = (b / a) if a > 0 else 1.0
-            out.append({"keyword": title, "cat": name, "growth": round(growth, 2),
-                        "recent": round(b, 1)})
-    out.sort(key=lambda x: x["growth"], reverse=True)
-    return {"ok": True, "items": out[: top * len(_NAVER_SHOP_CATS)]}
+            out.append({
+                "keyword": res.get("title"),
+                "cat": _cat_for_keyword(res.get("title")),
+                "growth": round(growth, 2),
+                "recent": round(b, 1),
+            })
+
+    if not out:
+        return {"ok": False, "error": "no_data",
+                "detail": (errs[0] if errs else "검색량이 잡히는 키워드가 없었어요")}
+
+    out.sort(key=lambda x: (x["growth"], x["recent"]), reverse=True)
+    _NAVER_CACHE["items"] = out[:20]
+    _NAVER_CACHE["at"] = now
+    return {"ok": True, "items": out[:20]}
+
+
+def _cat_for_keyword(kw):
+    """키워드가 속한 생활 카테고리 이름 (표시용)."""
+    for pat, prods in _TOPIC_PRODUCTS.items():
+        if kw in prods:
+            first = pat.split("|")[0]
+            return first
+    return "생활"
 
 
 def naver_keyword_trend(cid, csec, keywords, days=30):

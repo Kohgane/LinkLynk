@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta name="build" content="0718-naver">
+<meta name="build" content="0718-naverfix">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -1002,10 +1002,11 @@
         <!-- ★연결된 AI / 아직 안 넣은 AI 를 분리해서 보여준다 -->
         <div id="llmConnected"></div>
         <div id="llmAvailable"></div>
-        <div id="naverBox" style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line)"></div>
-
         <div id="claudeMsg"></div>
-        <button class="btn btn-mint" id="claudeBtn" onclick="saveAllLlmKeys()"><span class="lbl">연결하기</span></button>
+        <button class="btn btn-mint" id="claudeBtn" onclick="saveAllLlmKeys()"><span class="lbl">AI 키 연결하기</span></button>
+      </div>
+      <div class="card">
+        <div id="naverBox"></div>
       </div>
       <div class="card">
         <div class="card-lbl">📸 쿠팡 상세 이미지 가져오기</div>
@@ -1035,6 +1036,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="/app.js?v=1784553564"></script>
+<script src="/app.js?v=1784555600"></script>
 </body>
 </html>

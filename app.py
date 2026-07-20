@@ -456,10 +456,18 @@ def naver_keys_api():
     from core import naver_keyword_trend
     t = naver_keyword_trend(cid, csec, ["선풍기"], days=14)
     if not t.get("ok"):
-        return jsonify({"ok": False,
-                        "error": "네이버가 이 키를 거부했어요. 개발자센터에서 '데이터랩' API가 "
-                                 "선택돼 있는지 확인해주세요.",
-                        "detail": str(t.get("detail"))[:150]}), 400
+        raw = str(t.get("detail") or t.get("error") or "")
+        # 네이버가 준 실제 사유를 사람 말로 번역
+        if "024" in raw or "Authentication failed" in raw or "401" in raw:
+            msg = "Client ID 또는 Secret이 틀렸어요. 개발자센터에서 다시 복사해주세요(앞뒤 공백 주의)."
+        elif "028" in raw or "no_permission" in raw or "403" in raw:
+            msg = ("이 앱에 '데이터랩' 권한이 없어요. 개발자센터 > 내 애플리케이션 > API 설정에서 "
+                   "'데이터랩(검색어트렌드)'을 추가하고 저장한 뒤 다시 시도해주세요.")
+        elif "012" in raw or "Not Exist" in raw:
+            msg = "등록되지 않은 애플리케이션이에요. Client ID를 확인해주세요."
+        else:
+            msg = "네이버 연결에 실패했어요."
+        return jsonify({"ok": False, "error": msg, "detail": raw[:300]}), 400
     store.save_naver_keys(uid, cid, csec)
     return jsonify({"ok": True, "message": "네이버 데이터랩 연결됐어요 ✅"})
 
@@ -473,8 +481,12 @@ def shopping_rising_api():
         return jsonify({"ok": False, "need_naver": True,
                         "error": "네이버 데이터랩을 연결하면 '실제로 사는 사람들'의 급등 키워드를 봐요"}), 200
     from core import naver_shopping_rising
+    force = request.args.get("refresh") == "1"
+    if force:
+        from core import _NAVER_CACHE
+        _NAVER_CACHE["items"] = []; _NAVER_CACHE["at"] = 0
     r = naver_shopping_rising(k["client_id"], k["client_secret"],
-                              days=int(request.args.get("days", 14)))
+                              days=int(request.args.get("days", 21)))
     return jsonify(r)
 
 

@@ -1313,6 +1313,10 @@ async function loadShoppingRising(){
       </div>`;
       return;
     }
+    if(!d.ok && d.detail){
+      list.innerHTML = `<div class="radar-empty">신호를 못 받았어요<div style="font-size:10.5px;opacity:.7;margin-top:6px">${esc(String(d.detail).slice(0,160))}</div></div>`;
+      return;
+    }
     const items = d.items || [];
     if(!items.length){ list.innerHTML = '<div class="radar-empty">급등 신호가 없어요</div>'; return; }
     list.innerHTML = items.map((it,i)=>{
@@ -2194,7 +2198,15 @@ async function saveNaver(btn){
     const r = await fetch('/api/naver-keys',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify({client_id:cid.trim(), client_secret:sec.trim()})}).then(x=>x.json());
     if(r.ok){ toast(r.message||'연결됐어요'); renderNaver(); }
-    else { toast(r.error||'실패'); btn.textContent=o; btn.disabled=false; }
+    else {
+      const box = document.getElementById('naverBox');
+      if(box){
+        let em = box.querySelector('.nv-err');
+        if(!em){ em = document.createElement('div'); em.className='msg msg-err nv-err'; box.appendChild(em); }
+        em.innerHTML = esc(r.error||'실패') + (r.detail?`<div style="font-size:10px;opacity:.7;margin-top:6px;word-break:break-all">${esc(String(r.detail).slice(0,200))}</div>`:'');
+      }
+      toast(r.error||'실패'); btn.textContent=o; btn.disabled=false;
+    }
   }catch(e){ toast('네트워크 오류'); btn.textContent=o; btn.disabled=false; }
 }
 
