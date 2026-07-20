@@ -3,7 +3,8 @@ LinkLynk — 코어 모듈
 쿠팡 파트너스 딥링크 생성 + 고지문구 삽입 + 블로그 초안 생성
 서버(app.py)에서 import해서 사용.
 """
-import hmac, hashlib, time, urllib.request, json, ssl, re, random, threading
+import hmac, hashlib, time, urllib.request, urllib.error, json, ssl, re, random, threading
+import datetime as _dt
 
 # ── 살아있는 모델 기억 (죽은 모델 타임아웃 반복 방지) ──
 _GOOD_MODEL = {}   # provider -> (model, ts)
@@ -2687,6 +2688,117 @@ def _season_topics():
         out.append({"title": name, "cat": cat, "hook": hook, "keywords": kws,
                     "source": "계절 신호", "kind": "season"})
     return out
+
+
+# ══════════════════════════════════════════════════════════
+#  네이버 데이터랩 — 쇼핑인사이트 (무료·구매의도 축)
+#  구글 트렌드는 '화제성'이지만 구매로 안 이어진다.
+#  네이버 쇼핑인사이트는 '실제로 살 사람이 검색한 것'이다.
+# ══════════════════════════════════════════════════════════
+# 쇼핑인사이트 분야 코드 (네이버 쇼핑 카테고리 1depth)
+_NAVER_SHOP_CATS = [
+    ("50000000", "패션의류"),
+    ("50000001", "패션잡화"),
+    ("50000002", "화장품·미용"),
+    ("50000003", "디지털·가전"),
+    ("50000004", "가구·인테리어"),
+    ("50000005", "출산·육아"),
+    ("50000006", "식품"),
+    ("50000007", "스포츠·레저"),
+    ("50000008", "생활·건강"),
+]
+
+_NAVER_CACHE = {"at": 0, "items": []}
+
+
+def _naver_post(path, payload, cid, csec, timeout=8):
+    """네이버 오픈API 호출 (데이터랩)."""
+    body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
+    req = urllib.request.Request(
+        "https://openapi.naver.com" + path, data=body, method="POST",
+        headers={
+            "X-Naver-Client-Id": cid,
+            "X-Naver-Client-Secret": csec,
+            "Content-Type": "application/json",
+        })
+    try:
+        raw = urllib.request.urlopen(req, timeout=timeout, context=_ctx).read()
+        return {"ok": True, "data": json.loads(raw.decode("utf-8", "ignore"))}
+    except urllib.error.HTTPError as e:
+        detail = ""
+        try:
+            detail = e.read().decode("utf-8", "ignore")[:200]
+        except Exception:
+            pass
+        return {"ok": False, "error": f"http_{e.code}", "detail": detail}
+    except Exception as e:
+        return {"ok": False, "error": type(e).__name__, "detail": str(e)[:120]}
+
+
+def naver_shopping_rising(cid, csec, days=14, top=3):
+    """분야별 인기 검색어 중 '최근 급등한' 것만 뽑는다.
+    앞 절반 기간 대비 뒷 절반 기간의 비율이 높은 키워드 = 지금 뜨는 것."""
+    if not cid or not csec:
+        return {"ok": False, "error": "no_key"}
+    end = _dt.date.today()
+    start = end - _dt.timedelta(days=days)
+    out = []
+    for code, name in _NAVER_SHOP_CATS:
+        r = _naver_post("/v1/datalab/shopping/category/keywords", {
+            "startDate": start.isoformat(),
+            "endDate": end.isoformat(),
+            "timeUnit": "date",
+            "category": code,
+            "keyword": [],           # 비우면 분야 전체 인기검색어
+        }, cid, csec)
+        # 키워드를 비우면 400이 나는 계정이 있어 fallback: 분야 트렌드만
+        if not r.get("ok"):
+            continue
+        for res in (r["data"].get("results") or []):
+            title = res.get("title") or name
+            pts = res.get("data") or []
+            if len(pts) < 4:
+                continue
+            half = len(pts) // 2
+            a = sum(float(x.get("ratio", 0)) for x in pts[:half]) / max(half, 1)
+            b = sum(float(x.get("ratio", 0)) for x in pts[half:]) / max(len(pts) - half, 1)
+            growth = (b / a) if a > 0 else 1.0
+            out.append({"keyword": title, "cat": name, "growth": round(growth, 2),
+                        "recent": round(b, 1)})
+    out.sort(key=lambda x: x["growth"], reverse=True)
+    return {"ok": True, "items": out[: top * len(_NAVER_SHOP_CATS)]}
+
+
+def naver_keyword_trend(cid, csec, keywords, days=30):
+    """특정 키워드들의 쇼핑 검색 추이 — 상품 고를 때 '이게 지금 팔리나' 확인용."""
+    if not cid or not csec or not keywords:
+        return {"ok": False, "error": "no_key_or_kw"}
+    end = _dt.date.today()
+    start = end - _dt.timedelta(days=days)
+    groups = [{"groupName": k, "param": [k]} for k in keywords[:5]]
+    r = _naver_post("/v1/datalab/search", {
+        "startDate": start.isoformat(), "endDate": end.isoformat(),
+        "timeUnit": "week", "keywordGroups": groups,
+    }, cid, csec)
+    if not r.get("ok"):
+        return r
+    out = []
+    for res in (r["data"].get("results") or []):
+        pts = res.get("data") or []
+        if not pts:
+            continue
+        half = max(len(pts) // 2, 1)
+        a = sum(float(x.get("ratio", 0)) for x in pts[:half]) / half
+        b = sum(float(x.get("ratio", 0)) for x in pts[half:]) / max(len(pts) - half, 1)
+        out.append({
+            "keyword": res.get("title"),
+            "growth": round((b / a) if a > 0 else 1.0, 2),
+            "level": round(b, 1),
+            "verdict": ("급등" if (a > 0 and b / a >= 1.3) else
+                        "상승" if (a > 0 and b / a >= 1.05) else
+                        "하락" if (a > 0 and b / a < 0.85) else "보합"),
+        })
+    return {"ok": True, "items": out}
 
 
 def fetch_trend_radar(force=False):

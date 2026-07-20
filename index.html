@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-<meta name="build" content="0716-nvidia-kc">
+<meta name="build" content="0718-naver">
 <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
 <meta http-equiv="Pragma" content="no-cache">
 <meta http-equiv="Expires" content="0">
@@ -498,6 +498,19 @@
   .rt-tnum{width:18px;height:18px;flex:none;border-radius:6px;background:var(--surface-3);
     color:var(--text-2);font-size:10.5px;font-weight:800;display:flex;align-items:center;justify-content:center}
   .rt-tab.on .rt-tnum{background:rgba(255,255,255,.22);color:var(--bg)}
+  .axis-hint{font-size:11.5px;color:var(--muted);line-height:1.55;margin:-2px 0 10px}
+  .radar-tag.rt-hot{background:rgba(180,80,60,.22);color:#e2a08c}
+  .radar-tag.rt-up{background:rgba(80,140,100,.2);color:#8fc7a3}
+  .radar-tag.rt-flat{color:var(--muted)}
+  .naver-cta{background:var(--surface-2);border:1px solid var(--line);border-radius:14px;padding:18px 16px;text-align:left}
+  .naver-cta .nc-t{font-size:15px;font-weight:700;color:var(--text);margin-bottom:8px}
+  .naver-cta .nc-s{font-size:12px;color:var(--text-2);line-height:1.65;margin-bottom:12px}
+  .kw-verdict{display:inline-flex;align-items:center;gap:4px;font-size:10.5px;padding:3px 7px;
+    border-radius:6px;margin-left:6px;font-weight:700}
+  .kv-급등{background:rgba(180,80,60,.22);color:#e2a08c}
+  .kv-상승{background:rgba(80,140,100,.2);color:#8fc7a3}
+  .kv-보합{background:var(--surface-3);color:var(--muted)}
+  .kv-하락{background:rgba(90,90,90,.2);color:var(--muted)}
   .post-safety{font-size:12px;line-height:1.5;padding:10px 12px;border-radius:10px;margin-bottom:10px;
     background:var(--surface-2);border:1px solid var(--line);color:var(--text-2)}
   .post-safety .ps-meta{display:block;font-size:10.5px;color:var(--muted);margin-top:3px}
@@ -989,6 +1002,7 @@
         <!-- ★연결된 AI / 아직 안 넣은 AI 를 분리해서 보여준다 -->
         <div id="llmConnected"></div>
         <div id="llmAvailable"></div>
+        <div id="naverBox" style="margin-top:18px;padding-top:16px;border-top:1px solid var(--line)"></div>
 
         <div id="claudeMsg"></div>
         <button class="btn btn-mint" id="claudeBtn" onclick="saveAllLlmKeys()"><span class="lbl">연결하기</span></button>
@@ -1021,6 +1035,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="/app.js?v=1784349980"></script>
+<script src="/app.js?v=1784553564"></script>
 </body>
 </html>

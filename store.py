@@ -48,7 +48,8 @@ def init_db():
         created_at BIGINT, updated_at BIGINT)""")
     try: _q("ALTER TABLE linklynk_users ADD COLUMN IF NOT EXISTS llm_visible TEXT")
     except Exception: pass
-    for _c in ("cerebras_key_enc", "nvidia_key_enc", "github_key_enc", "zai_key_enc"):
+    for _c in ("cerebras_key_enc", "nvidia_key_enc", "github_key_enc", "zai_key_enc",
+               "naver_id_enc", "naver_secret_enc"):
         try: _q(f"ALTER TABLE linklynk_users ADD COLUMN IF NOT EXISTS {_c} TEXT")
         except Exception: pass
     try: _q("ALTER TABLE linklynk_search_cache ADD COLUMN IF NOT EXISTS products TEXT")
@@ -457,3 +458,32 @@ def last_published_at(uid):
               WHERE user_id=%s AND status='published' AND published_at IS NOT NULL
               ORDER BY published_at DESC LIMIT 1""", (uid,), fetch="one")
     return (r or {}).get("published_at") if r else None
+
+
+# ── 네이버 데이터랩(쇼핑인사이트) 자격증명 ──────────────────
+def save_naver_keys(uid, client_id, client_secret):
+    """네이버 개발자센터 애플리케이션 자격증명. 무료 API."""
+    eid = _fernet.encrypt((client_id or "").encode()).decode()
+    esec = _fernet.encrypt((client_secret or "").encode()).decode()
+    _q("UPDATE linklynk_users SET naver_id_enc=%s, naver_secret_enc=%s WHERE id=%s",
+       (eid, esec, uid))
+    return {"ok": True}
+
+
+def get_naver_keys(uid):
+    r = _q("SELECT naver_id_enc, naver_secret_enc FROM linklynk_users WHERE id=%s",
+           (uid,), fetch="one")
+    if not r or not r.get("naver_id_enc"):
+        return None
+    try:
+        return {
+            "client_id": _fernet.decrypt(r["naver_id_enc"].encode()).decode(),
+            "client_secret": _fernet.decrypt(r["naver_secret_enc"].encode()).decode(),
+        }
+    except Exception:
+        return None
+
+
+def delete_naver_keys(uid):
+    _q("UPDATE linklynk_users SET naver_id_enc=NULL, naver_secret_enc=NULL WHERE id=%s", (uid,))
+    return {"ok": True}

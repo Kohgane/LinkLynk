@@ -432,6 +432,67 @@ def research_api():
     return jsonify({"ok": True, "items": items})
 
 
+@app.route("/api/naver-keys", methods=["GET", "POST", "DELETE"])
+@login_required
+def naver_keys_api():
+    """네이버 데이터랩 자격증명 (무료). 쇼핑인사이트=구매의도 축."""
+    uid = session["uid"]
+    if request.method == "GET":
+        k = store.get_naver_keys(uid)
+        if not k:
+            return jsonify({"ok": True, "connected": False})
+        cid = k["client_id"]
+        return jsonify({"ok": True, "connected": True,
+                        "masked": (cid[:4] + "•" * 6 + cid[-3:]) if len(cid) > 8 else "•" * len(cid)})
+    if request.method == "DELETE":
+        store.delete_naver_keys(uid)
+        return jsonify({"ok": True, "message": "네이버 연결을 끊었어요"})
+    d = request.get_json(force=True, silent=True) or {}
+    cid = (d.get("client_id") or "").strip()
+    csec = (d.get("client_secret") or "").strip()
+    if not cid or not csec:
+        return jsonify({"ok": False, "error": "Client ID와 Secret 둘 다 필요해요"}), 400
+    # 실제로 되는 키인지 검증
+    from core import naver_keyword_trend
+    t = naver_keyword_trend(cid, csec, ["선풍기"], days=14)
+    if not t.get("ok"):
+        return jsonify({"ok": False,
+                        "error": "네이버가 이 키를 거부했어요. 개발자센터에서 '데이터랩' API가 "
+                                 "선택돼 있는지 확인해주세요.",
+                        "detail": str(t.get("detail"))[:150]}), 400
+    store.save_naver_keys(uid, cid, csec)
+    return jsonify({"ok": True, "message": "네이버 데이터랩 연결됐어요 ✅"})
+
+
+@app.route("/api/shopping-rising")
+@login_required
+def shopping_rising_api():
+    """★구매의도 축 — 네이버 쇼핑에서 지금 급등한 검색어."""
+    k = store.get_naver_keys(session["uid"])
+    if not k:
+        return jsonify({"ok": False, "need_naver": True,
+                        "error": "네이버 데이터랩을 연결하면 '실제로 사는 사람들'의 급등 키워드를 봐요"}), 200
+    from core import naver_shopping_rising
+    r = naver_shopping_rising(k["client_id"], k["client_secret"],
+                              days=int(request.args.get("days", 14)))
+    return jsonify(r)
+
+
+@app.route("/api/keyword-verdict", methods=["POST"])
+@login_required
+def keyword_verdict_api():
+    """이 키워드가 지금 뜨는지 지는지 — 상품 고르기 전 확인."""
+    k = store.get_naver_keys(session["uid"])
+    if not k:
+        return jsonify({"ok": False, "need_naver": True}), 200
+    d = request.get_json(force=True, silent=True) or {}
+    kws = [x for x in (d.get("keywords") or []) if x][:5]
+    if not kws:
+        return jsonify({"ok": False, "error": "키워드가 필요해요"}), 400
+    from core import naver_keyword_trend
+    return jsonify(naver_keyword_trend(k["client_id"], k["client_secret"], kws))
+
+
 @app.route("/api/trend-radar")
 @login_required
 def trend_radar():

@@ -212,7 +212,7 @@ function go(page){
   if(railEl) railEl.style.display = (page==='profile') ? 'block' : 'none';
   if(page==='profile') loadProfile();
   if(page==='stats'){ refreshMe(); loadStats(); loadPosts('all'); }
-  else if(page==='settings'){ refreshMe(); loadSnsAccounts(); renderLlmVisible(); renderLlmKeys(); }
+  else if(page==='settings'){ refreshMe(); loadSnsAccounts(); renderLlmVisible(); renderLlmKeys(); renderNaver(); }
 }
 async function refreshMe(){
   try{ const me = await (await fetch('/api/me')).json(); if(me.ok){ window.__me=me; renderUsage(me); renderKeyStatus(me); renderHandle(me); renderSns(me); renderClaude(me);} }catch(e){}
@@ -1282,6 +1282,68 @@ function renderClaude(me){
 // 주제 먼저 생성 (Claude AI)
 // ── 지금 뜨는 주제 레이더 (LIVE SIGNAL) ──
 let radarCat = '추천';
+let radarAxis = 'buzz';   // buzz=화제성(구글트렌드) / buy=구매의도(네이버 쇼핑인사이트)
+
+function setRadarAxis(a){
+  radarAxis = a;
+  document.querySelectorAll('#radarAxis .seg-btn').forEach((b,i)=>b.classList.toggle('on', (i===0)===(a==='buzz')));
+  const rr = document.getElementById('radarRange');
+  const rc = document.getElementById('radarCats');
+  if(rr) rr.style.display = (a==='buzz') ? '' : 'none';
+  if(rc) rc.style.display = (a==='buzz') ? '' : 'none';
+  if(a==='buy') loadShoppingRising(); else loadRadar();
+}
+
+// ★구매의도 축 — 네이버 쇼핑인사이트 급등 검색어
+async function loadShoppingRising(){
+  const list = document.getElementById('radarList');
+  const hint = document.getElementById('axisHint');
+  if(hint) hint.innerHTML = '네이버 쇼핑에서 <b>실제로 살 사람들</b>이 검색한 것 중 최근 급등한 키워드예요.';
+  if(!list) return;
+  list.innerHTML = `<div class="radar-loading"><span class="spin-sm"></span><span>쇼핑 신호 수집 중…</span></div>`;
+  try{
+    const d = await fetch('/api/shopping-rising?days=14').then(x=>x.json());
+    if(d.need_naver){
+      list.innerHTML = `<div class="naver-cta">
+        <div class="nc-t">🛒 네이버 데이터랩을 연결하세요</div>
+        <div class="nc-s">구글 트렌드는 <b>화제성</b>이라 구매로 잘 안 이어져요.
+          네이버 쇼핑인사이트는 <b>실제로 사는 사람</b>이 검색한 데이터라 상품 연결이 훨씬 정확합니다.
+          <b>완전 무료</b>예요.</div>
+        <button class="btn-more" onclick="go('settings');setTimeout(()=>document.getElementById('naverBox')?.scrollIntoView({behavior:'smooth'}),400)">설정에서 연결하기 →</button>
+      </div>`;
+      return;
+    }
+    const items = d.items || [];
+    if(!items.length){ list.innerHTML = '<div class="radar-empty">급등 신호가 없어요</div>'; return; }
+    list.innerHTML = items.map((it,i)=>{
+      const up = it.growth >= 1.3 ? 'hot' : it.growth >= 1.05 ? 'up' : 'flat';
+      const lbl = up==='hot' ? '🔥 급등' : up==='up' ? '↑ 상승' : '→ 보합';
+      return `<div class="radar-card">
+        <div class="radar-top">
+          <span class="radar-num">${String(i+1).padStart(2,'0')}</span>
+          <div style="display:flex;gap:6px">
+            <span class="radar-tag">${esc(it.cat)}</span>
+            <span class="radar-tag rt-${up}">${lbl} ${it.growth}x</span>
+          </div>
+        </div>
+        <div class="radar-title-row"><div class="radar-title">${esc(it.keyword)}</div></div>
+        <div class="radar-sub">네이버 쇼핑 검색 ${it.growth>=1?'증가':'감소'} · 최근 지수 ${it.recent}</div>
+        <div class="radar-actions">
+          <button class="rbtn rbtn-primary" data-refine="${encodeURIComponent(it.keyword)}">주제로 다듬기</button>
+          <button class="rbtn" onclick="searchFromTopic('${esc(it.keyword).replace(/'/g,'')}')">상품 찾기</button>
+        </div>
+      </div>`;
+    }).join('');
+    // 이벤트 위임은 radarList에 이미 걸려있음
+    if(!list.__delegated){
+      list.__delegated = true;
+      list.addEventListener('click',(e)=>{
+        const b=e.target.closest('[data-refine]'); if(!b) return;
+        refineTopic(decodeURIComponent(b.dataset.refine||''), b);
+      });
+    }
+  }catch(e){ list.innerHTML = '<div class="radar-empty">불러오지 못했어요</div>'; }
+}
 let radarRange = '24시간';
 async function loadRadar(refresh){
   const box = document.getElementById('trendRadarTop') || document.getElementById('trendRadar');
@@ -1296,6 +1358,12 @@ async function loadRadar(refresh){
       <div style="font-size:19px;font-weight:600;color:var(--text);margin-bottom:6px;letter-spacing:-.01em">지금 뜨는 주제 레이더</div>
       <div style="font-size:12.5px;color:var(--text-2);margin-bottom:14px;line-height:1.5">생활·소비와 직접 이어지는 급상승 신호만 추천합니다. (연예·정치·스포츠 제외)</div>
 
+      <div class="seg" id="radarAxis" style="margin-bottom:8px">
+        <button class="seg-btn ${radarAxis==='buzz'?'on':''}" onclick="setRadarAxis('buzz')">🔥 화제성</button>
+        <button class="seg-btn ${radarAxis==='buy'?'on':''}" onclick="setRadarAxis('buy')">🛒 구매의도</button>
+      </div>
+      <div class="axis-hint" id="axisHint"></div>
+
       <div class="seg" id="radarRange">
         ${['4시간','24시간','7일'].map(r=>`<button class="seg-btn ${r===radarRange?'on':''}" onclick="setRadarRange('${r}',this)">${r}</button>`).join('')}
         <button class="seg-btn seg-refresh" onclick="loadRadar(true)" title="새로고침">↻</button>
@@ -1307,6 +1375,8 @@ async function loadRadar(refresh){
       <div id="radarList"></div>
     </div>`;
   }
+  const hint0 = document.getElementById('axisHint');
+  if(hint0) hint0.innerHTML = '지금 <b>화제</b>인 것. 조회수를 만드는 축이에요. (구매로 이어지려면 🛒 구매의도도 같이 보세요)';
   const list = document.getElementById('radarList');
   // ★로딩 상태를 확실히 (스켈레톤)
   list.innerHTML = `<div class="radar-loading">
@@ -1544,6 +1614,29 @@ function renderRefinedDetail(i){
       searchFromTopic(b.dataset.kw);
     });
   });
+  attachKeywordVerdict(box, kws);   // ★네이버로 '지금 뜨는지' 판정
+}
+
+// ★키워드가 지금 뜨는지 지는지 — 네이버 쇼핑 검색추이로 판정
+async function attachKeywordVerdict(box, kws){
+  if(!box || !kws || !kws.length) return;
+  try{
+    const d = await fetch('/api/keyword-verdict',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({keywords:kws})}).then(x=>x.json());
+    if(!d.ok || !d.items) return;   // 네이버 미연결이면 조용히 넘어감
+    const map = {};
+    d.items.forEach(i=>{ map[i.keyword] = i; });
+    box.querySelectorAll('.lp-kw').forEach(b=>{
+      const v = map[b.dataset.kw];
+      if(!v) return;
+      if(b.querySelector('.kw-verdict')) return;
+      const sp = document.createElement('span');
+      sp.className = 'kw-verdict kv-' + v.verdict;
+      sp.textContent = v.verdict + ' ' + v.growth + 'x';
+      b.appendChild(sp);
+    });
+  }catch(e){}
 }
 
 // 가로 드래그 스크롤 (마우스·터치 모두)
@@ -2064,6 +2157,53 @@ async function renderLlmPicker(){
     </div>
     <div style="font-size:11px;color:var(--muted);margin-top:6px">💰 = 유료(호출 시 과금). 선택한 도구로만 글을 씁니다.</div>`;
 }
+// ── 네이버 데이터랩 (무료·구매의도 데이터) ──────────────────
+async function renderNaver(){
+  const box = document.getElementById('naverBox');
+  if(!box) return;
+  let d;
+  try{ d = await fetch('/api/naver-keys').then(x=>x.json()); }catch(e){ return; }
+  if(d.connected){
+    box.innerHTML = `<div class="ai-sec">🛒 네이버 데이터랩 · 연결됨</div>
+      <div class="ai-row">
+        <div><div class="nm">네이버 쇼핑인사이트</div><div class="mk">${esc(d.masked||'')}</div></div>
+        <div class="sp"></div>
+        <button class="del" onclick="disconnectNaver()">끊기</button>
+      </div>
+      <div style="font-size:11px;color:var(--muted);margin-top:6px;line-height:1.5">
+        레이더의 <b>🛒 구매의도</b> 탭과 키워드 판정에 쓰입니다.</div>`;
+  } else {
+    box.innerHTML = `<div class="ai-sec">🛒 네이버 데이터랩 (무료)</div>
+      <div style="font-size:11.5px;color:var(--muted);line-height:1.6;margin-bottom:10px">
+        구글 트렌드는 <b>화제성</b>이라 구매로 잘 안 이어져요.
+        네이버 쇼핑인사이트는 <b>실제로 사는 사람</b>의 검색 데이터라 상품 연결이 정확합니다.
+        <a href="https://developers.naver.com/apps/#/register" target="_blank" rel="noopener" style="color:var(--text-2)">개발자센터에서 앱 등록</a>
+        → <b>데이터랩(검색어트렌드·쇼핑인사이트)</b> 선택 → 아래 입력.</div>
+      <div class="field"><label>Client ID</label><input id="nv_id" placeholder="XXXXXXXXXXXX" autocomplete="off"></div>
+      <div class="field"><label>Client Secret</label><input id="nv_sec" placeholder="XXXXXXXXXX" autocomplete="off"></div>
+      <button class="btn-more" onclick="saveNaver(this)">연결하기</button>`;
+  }
+}
+
+async function saveNaver(btn){
+  const cid = (document.getElementById('nv_id')||{}).value||'';
+  const sec = (document.getElementById('nv_sec')||{}).value||'';
+  if(!cid.trim() || !sec.trim()){ toast('Client ID와 Secret 둘 다 넣어주세요'); return; }
+  const o = btn.textContent; btn.textContent='확인 중…'; btn.disabled=true;
+  try{
+    const r = await fetch('/api/naver-keys',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({client_id:cid.trim(), client_secret:sec.trim()})}).then(x=>x.json());
+    if(r.ok){ toast(r.message||'연결됐어요'); renderNaver(); }
+    else { toast(r.error||'실패'); btn.textContent=o; btn.disabled=false; }
+  }catch(e){ toast('네트워크 오류'); btn.textContent=o; btn.disabled=false; }
+}
+
+async function disconnectNaver(){
+  if(!confirm('네이버 데이터랩 연결을 끊을까요?')) return;
+  await fetch('/api/naver-keys',{method:'DELETE'});
+  toast('연결을 끊었어요'); renderNaver();
+}
+
 // ── 연결된 AI / 아직 안 넣은 AI ─────────────────────────────
 async function renderLlmKeys(){
   const cBox = document.getElementById('llmConnected');
