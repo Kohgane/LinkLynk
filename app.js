@@ -503,49 +503,70 @@ async function doSearchImagesOnly(){}
 
 // 특징 확인 → 검색 리서치 블록 (이미지: NAVER SEARCH RESEARCH)
 // ★상품 이미지 뽑기: 대표 이미지 다운로드 + 상세 이미지(북마클릿) 안내
+// ★상품 이미지 뽑기 — 여러 상품을 누적해서 담는다(덮어쓰지 않음)
+window.__capturedProducts = window.__capturedProducts || [];
+
 async function captureProductImages(i, btn){
   const p = (window.__searchProducts||[])[i];
   if(!p){ toast('상품 정보가 없어요'); return; }
-  const box = document.getElementById('imgResults');
-  if(box){
-    box.innerHTML = `<div class="card">
-      <div style="font-size:9.5px;font-weight:700;letter-spacing:.18em;color:var(--muted);margin-bottom:8px">PRODUCT IMAGES</div>
-      <div class="rs-name">${esc(p.name||'')}</div>
-      <div class="cap-sec">
-        <div class="cap-h">① 대표 이미지</div>
-        ${p.image?`<div class="cap-thumb"><img src="/img-proxy?u=${encodeURIComponent(p.image)}" alt=""></div>
-          <button class="btn-more" onclick="downloadImg('${encodeURIComponent(p.image)}','${esc((p.name||'product').slice(0,20)).replace(/[^가-힣a-zA-Z0-9]/g,'_')}_대표')">이 이미지 저장</button>`
-          :'<div class="rt-nokw">대표 이미지가 없어요</div>'}
-      </div>
-      <div class="cap-sec">
-        <div class="cap-h">② 상세설명 이미지 (상품 페이지에서 캡처)</div>
-        <div class="cap-sub">쿠팡 상세페이지의 이미지들은 로그인·보안 때문에 서버가 직접 못 가져와요.
-          아래 버튼으로 상품 페이지를 열고, 페이지에서 <b>북마클릿</b>을 누르면 상세 이미지가 여기로 들어옵니다.</div>
-        <button class="btn-more" onclick="window.open('${p.deeplink}','_blank')">상품 상세페이지 열기 ↗</button>
-        <button class="btn-more" onclick="showBookmarkletGuide()">📌 이미지 캡처 도구 설치</button>
-      </div>
-      ${(window.__bmkImages && window.__bmkImages.images && window.__bmkImages.images.length)?
-        `<div class="cap-sec"><div class="cap-h">③ 가져온 상세 이미지 ${window.__bmkImages.images.length}개</div>
-          <div class="bmk-grid">${window.__bmkImages.images.map((im,n)=>`<img src="/img-proxy?u=${encodeURIComponent(im)}" loading="lazy" onclick="downloadImg('${encodeURIComponent(im)}','${esc((p.name||'p').slice(0,16))}_상세${n+1}')" style="cursor:pointer" title="눌러서 저장">`).join('')}</div>
-          <div class="cap-sub">이미지를 누르면 저장됩니다.</div></div>`:''}
-    </div>`;
-    box.scrollIntoView({behavior:'smooth', block:'nearest'});
+  const key = (p.name||'') + '|' + (p.image||'');
+  if(window.__capturedProducts.some(c=>c.key===key)){
+    document.getElementById('cap-'+cssId(p.name||''))?.scrollIntoView({behavior:'smooth',block:'center'});
+    toast('이미 담겨 있어요');
+    return;
   }
+  window.__capturedProducts.push({key, name:p.name||'', image:p.image||'', deeplink:p.deeplink||p.url||''});
+  renderCaptured();
+  document.getElementById('cap-'+cssId(p.name||''))?.scrollIntoView({behavior:'smooth',block:'center'});
 }
 
-// 이미지 저장 (프록시 경유로 받아서 blob 다운로드)
-async function downloadImg(encodedUrl, filename){
-  try{
-    toast('이미지 받는 중…');
-    const res = await fetch('/img-proxy?u=' + encodedUrl);
-    const blob = await res.blob();
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = (filename||'image') + '.jpg';
-    document.body.appendChild(a); a.click();
-    setTimeout(()=>{ URL.revokeObjectURL(a.href); a.remove(); }, 1000);
-    toast('저장됐어요 📥');
-  }catch(e){ toast('저장 실패 — 이미지를 길게 눌러 저장해보세요'); }
+function removeCaptured(key){
+  window.__capturedProducts = window.__capturedProducts.filter(c=>c.key!==key);
+  renderCaptured();
+}
+function clearCaptured(){
+  window.__capturedProducts = [];
+  renderCaptured();
+  toast('담긴 이미지를 모두 지웠어요');
+}
+
+function renderCaptured(){
+  const box = document.getElementById('imgResults');
+  if(!box) return;
+  const list = window.__capturedProducts || [];
+  if(!list.length){ box.innerHTML=''; return; }
+  const bmk = (window.__bmkImages && window.__bmkImages.images) || [];
+  box.innerHTML = `<div class="card">
+    <div class="lp-head">
+      <div style="font-size:9.5px;font-weight:700;letter-spacing:.18em;color:var(--muted)">PRODUCT IMAGES</div>
+      <div style="display:flex;gap:8px;align-items:center">
+        <span class="lp-count">${list.length}개 담김</span>
+        <button class="rt-clear" onclick="clearCaptured()">전체 지우기</button>
+      </div>
+    </div>
+    ${list.map((c,n)=>`
+      <div class="cap-card" id="cap-${cssId(c.name)}">
+        <div class="rt-row">
+          <div class="rt-num">${n+1}</div>
+          <div class="rt-title" style="font-size:13px">${esc(c.name.slice(0,42))}${c.name.length>42?'…':''}</div>
+          <button class="rt-x" onclick="removeCaptured('${esc(c.key).replace(/'/g,"\\'")}')">✕</button>
+        </div>
+        <div class="cap-body">
+          ${c.image?`<div class="cap-thumb"><img src="/img-proxy?u=${encodeURIComponent(c.image)}" alt=""></div>`:''}
+          <div style="flex:1">
+            <button class="btn-more" style="margin:0 0 6px" onclick="downloadImg('${encodeURIComponent(c.image)}','${esc(c.name.slice(0,18)).replace(/[^가-힣a-zA-Z0-9]/g,'_')}_대표')">대표 이미지 저장</button>
+            <button class="btn-more" style="margin:0" onclick="window.open('${c.deeplink}','_blank')">상세페이지 열기 ↗</button>
+          </div>
+        </div>
+      </div>`).join('')}
+    <div class="cap-sec">
+      <div class="cap-h">상세설명 이미지</div>
+      <div class="cap-sub">쿠팡 상세는 서버가 못 긁어요. 상품 페이지에서 <b>북마클릿</b>을 누르면 여기로 들어옵니다.</div>
+      <button class="btn-more" onclick="showBookmarkletGuide()">📌 캡처 도구 설치/보기</button>
+      ${bmk.length?`<div class="bmk-grid" style="margin-top:10px">${bmk.map((im,k)=>`<img src="/img-proxy?u=${encodeURIComponent(im)}" loading="lazy" onclick="downloadImg('${encodeURIComponent(im)}','상세${k+1}')" style="cursor:pointer" title="눌러서 저장">`).join('')}</div>
+        <div class="cap-sub" style="margin-top:6px">이미지를 누르면 저장됩니다.</div>`:''}
+    </div>
+  </div>`;
 }
 
 function showBookmarkletGuide(){

@@ -810,6 +810,15 @@ def claude_topics_api():
         if r.get("ok") and r.get("topics"):
             return jsonify({"ok": True, "topics": r["topics"], "now": now_str,
                             "provider": p, "ms": timings})
+        # ★한도(429)·일시거부(403)면 잠깐 쉬고 '적게' 다시 한 번. 실패로 끝내지 않는다.
+        e = str(r.get("error", ""))
+        if "429" in e or "403" in e or "timeout" in e.lower():
+            _time.sleep(2)
+            r2 = claude_generate_topics(keys[p], user_topic, now_str, n=4)
+            if r2.get("ok") and r2.get("topics"):
+                return jsonify({"ok": True, "topics": r2["topics"], "now": now_str,
+                                "provider": p, "ms": timings, "retried": True})
+            r = r2 or r
         last_err = r
     r = last_err
     # 에러 메시지
