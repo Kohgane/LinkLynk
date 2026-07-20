@@ -2793,8 +2793,8 @@ def naver_shopping_rising(cid, csec, days=21, max_batches=8):
         r = _naver_post("/v1/datalab/search", {
             "startDate": start.isoformat(),
             "endDate": end.isoformat(),
-            "timeUnit": "week",
-            "keywordGroups": [{"groupName": k, "param": [k]} for k in batch],
+            "timeUnit": "date",
+            "keywordGroups": [{"groupName": k, "keywords": [k]} for k in batch],
         }, cid, csec)
         if not r.get("ok"):
             errs.append(r.get("detail") or r.get("error"))
@@ -2803,7 +2803,7 @@ def naver_shopping_rising(cid, csec, days=21, max_batches=8):
             continue
         for res in (r["data"].get("results") or []):
             pts = res.get("data") or []
-            if len(pts) < 4:
+            if len(pts) < 6:
                 continue
             half = len(pts) // 2
             a = sum(float(x.get("ratio", 0)) for x in pts[:half]) / max(half, 1)
@@ -2841,12 +2841,12 @@ def naver_keyword_trend(cid, csec, keywords, days=30):
     """특정 키워드들의 쇼핑 검색 추이 — 상품 고를 때 '이게 지금 팔리나' 확인용."""
     if not cid or not csec or not keywords:
         return {"ok": False, "error": "no_key_or_kw"}
-    end = _dt.date.today()
+    end = _dt.date.today() - _dt.timedelta(days=1)
     start = end - _dt.timedelta(days=days)
-    groups = [{"groupName": k, "param": [k]} for k in keywords[:5]]
+    groups = [{"groupName": k, "keywords": [k]} for k in keywords[:5]]
     r = _naver_post("/v1/datalab/search", {
         "startDate": start.isoformat(), "endDate": end.isoformat(),
-        "timeUnit": "week", "keywordGroups": groups,
+        "timeUnit": "date", "keywordGroups": groups,
     }, cid, csec)
     if not r.get("ok"):
         return r
