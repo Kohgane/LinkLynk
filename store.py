@@ -544,6 +544,9 @@ def boim_recent_by_ip(ip, hours=24):
 
 
 def boim_kit_init():
+    _q("""CREATE TABLE IF NOT EXISTS linklynk_boim_orders (
+        order_id TEXT PRIMARY KEY, payment_key TEXT, plan TEXT,
+        amount INTEGER, status TEXT, scan_id TEXT, created_at BIGINT)""")
     _q("""CREATE TABLE IF NOT EXISTS linklynk_boim_kits (
         order_id TEXT PRIMARY KEY,
         status TEXT DEFAULT 'running',
