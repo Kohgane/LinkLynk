@@ -73,7 +73,9 @@ def _find_mentions(text, store_name, aliases):
              "같은", "니치", "향수", "편집샵", "선물", "정도", "경우", "이후", "또한",
              "가장", "특히", "먼저", "추천드", "구입", "이용", "주문", "배송",
              "구매할", "특징", "장점", "단점", "종류", "관련", "위주", "기준",
-             "백화점", "면세점", "공식몰", "공식홈", "매장", "오프라인"}
+             "백화점", "면세점", "공식몰", "공식홈", "매장", "오프라인",
+             "https", "http", "www", "com", "co.kr", "공식", "있는", "맞는",
+             "평가", "리뷰", "후기", "가능", "무료", "할인", "특가", "세일"}
 
     def _looks_like_name(w):
         # 조사·서술어 꼬리가 붙은 일반 단어 걸러내기
@@ -83,7 +85,8 @@ def _find_mentions(text, store_name, aliases):
         if any(w.endswith(t) for t in BAD_TAIL):
             return False
         if re.fullmatch(r"[A-Za-z][A-Za-z0-9&.\-]{1,15}", w):
-            return True                    # 영문 브랜드는 신뢰
+            # URL 조각(도메인 파편)은 제외
+            return w.lower() not in ("https", "http", "www", "com", "net", "org", "kr")
         # 한글 이름: 2~8자, 받침 있는 서술형 아닌 것
         return 2 <= len(w) <= 8
 
