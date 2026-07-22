@@ -2542,7 +2542,7 @@ def scrub_garbled(t):
     t = re.sub(r"[\u0600-\u06FF\u0590-\u05FF]", "", t)          # 아랍·히브리
     t = re.sub(r"[\u0E00-\u0E7F]", "", t)                        # 태국
     t = re.sub(r"(?<=[가-힣])[a-zA-Z]+", "", t)                   # 한글+영문 → 제거
-    t = re.sub(r"[a-zA-Z]+(?=[가-힣])", "", t)                    # 영문+한글 → 제거
+    t = re.sub(r"(?<![0-9A-Za-z])[a-zA-Z]+(?=[가-힣])", "", t)    # 영문+한글 → 제거 (단, 50ml·10kg처럼 숫자 뒤 단위는 보존)
     t = re.sub(r"[가-힣]*[\u4E00-\u9FFF]+[가-힣]*", lambda m: re.sub(r"[\u4E00-\u9FFF]", "", m.group()), t)  # 한글 사이 한자
     t = re.sub(r"\s{2,}", " ", t)
     return t.strip()

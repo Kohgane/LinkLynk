@@ -541,3 +541,49 @@ def boim_recent_by_ip(ip, hours=24):
     r = _q("SELECT COUNT(*) AS c FROM linklynk_boim_scans WHERE ip=%s AND created_at>=%s",
            (ip, since), fetch="one")
     return (r or {}).get("c", 0)
+
+
+def boim_kit_init():
+    _q("""CREATE TABLE IF NOT EXISTS linklynk_boim_kits (
+        order_id TEXT PRIMARY KEY,
+        status TEXT DEFAULT 'running',
+        request TEXT, result TEXT, error TEXT,
+        created_at BIGINT)""")
+
+
+def boim_order_get(order_id):
+    return _q("SELECT * FROM linklynk_boim_orders WHERE order_id=%s",
+              (order_id,), fetch="one")
+
+
+def boim_kit_start(order_id, request_data):
+    _q("""INSERT INTO linklynk_boim_kits (order_id, status, request, created_at)
+          VALUES (%s,'running',%s,%s)
+          ON CONFLICT (order_id) DO UPDATE SET status='running', request=EXCLUDED.request,
+          result=NULL, error=NULL""",
+       (order_id, json.dumps(request_data, ensure_ascii=False), int(time.time())))
+
+
+def boim_kit_finish(order_id, result=None, error=None):
+    if result is not None:
+        _q("UPDATE linklynk_boim_kits SET status='done', result=%s WHERE order_id=%s",
+           (json.dumps(result, ensure_ascii=False), order_id))
+    else:
+        _q("UPDATE linklynk_boim_kits SET status='error', error=%s WHERE order_id=%s",
+           (str(error)[:300], order_id))
+
+
+def boim_kit_get(order_id):
+    r = _q("SELECT * FROM linklynk_boim_kits WHERE order_id=%s", (order_id,), fetch="one")
+    if not r:
+        return None
+    out = {"order_id": r["order_id"], "status": r["status"]}
+    for k in ("request", "result"):
+        if r.get(k):
+            try:
+                out[k] = json.loads(r[k])
+            except Exception:
+                pass
+    if r.get("error"):
+        out["error"] = r["error"]
+    return out

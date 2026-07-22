@@ -159,3 +159,81 @@ def run_scan(api_key, store_name, keywords, aliases=None, progress_cb=None):
         "competitors": [{"name": k, "count": v} for k, v in top_comps],
         "results": results,
     }
+
+
+# ══════════ 부스트 실행 키트 — FAQ·텍스트 설명 생성 ══════════
+from core import _parse_json_out
+
+_KIT_SYS = (
+    "너는 한국 이커머스 셀러의 상세페이지를 돕는 카피 에디터다.\n"
+    "★절대 규칙: 사실을 지어내지 마라. 배송일·원산지·인증·수치처럼 가게마다 다른 정보는 "
+    "반드시 [대괄호]로 비워둬라. 예: '결제 후 [1~2일] 내 출고됩니다.'\n"
+    "구매자가 실제로 묻는 것(정품·배송·반품·사용법·선물포장·차이점)에 미리 답하는 FAQ를 쓴다.\n"
+    "말투는 정중하되 딱딱하지 않게. 과장 광고 문구(최고·완벽·강추) 금지.\n"
+    "출력은 JSON만."
+)
+
+
+def build_kit_product(api_key, store_name, product_name, keywords):
+    """상품 1개의 FAQ 10문답 + 텍스트 설명 블록."""
+    user = (
+        f"스토어: {store_name}\n상품: {product_name}\n업종: {', '.join(keywords)}\n\n"
+        "1) 이 상품 구매자가 결제 전에 실제로 궁금해할 질문 10개와 답변.\n"
+        "   - 정품/출처, 배송, 반품/교환, 사용법·보관, 선물 관련, 비슷한 상품과의 차이 등을 섞어라.\n"
+        "   - 가게마다 다른 사실은 [대괄호]로 비워둬라.\n"
+        "2) 검색과 AI가 읽을 수 있는 텍스트 상품 설명 400~600자.\n"
+        "   - 이미지 없이 글만으로 상품이 그려지게. 상품명·용도·특징·어울리는 사람.\n"
+        '출력 JSON: {"faq":[{"q":"...","a":"..."}x10], "desc":"..."}'
+    )
+    r = llm_chat(api_key, _KIT_SYS, user, max_tokens=2600)
+    if not r.get("ok"):
+        return None
+    try:
+        d = _parse_json_out(r["text"])
+        faq = [x for x in (d.get("faq") or []) if x.get("q") and x.get("a")][:10]
+        desc = scrub_garbled(str(d.get("desc") or ""))[:1200]
+        if len(faq) < 5 or len(desc) < 100:
+            return None
+        return {"faq": [{"q": scrub_garbled(x["q"])[:120],
+                         "a": scrub_garbled(x["a"])[:400]} for x in faq],
+                "desc": desc}
+    except Exception:
+        return None
+
+
+def build_brand_intro(api_key, store_name, keywords):
+    """프로필·공지·상세 공통으로 쓸 브랜드 소개 표준 문안."""
+    user = (
+        f"스토어: {store_name}\n업종: {', '.join(keywords)}\n\n"
+        "이 스토어의 표준 소개문을 만들어라.\n"
+        "- 3~4문장, 250자 이내. 프로필·공지·상세 하단 어디든 똑같이 붙일 문안.\n"
+        "- 스토어 이름을 정확히 한 번 포함(표기 통일용).\n"
+        "- 가게마다 다른 사실([운영 연차], [주력 산지] 등)은 대괄호로 비워둬라.\n"
+        '출력 JSON: {"intro":"..."}'
+    )
+    r = llm_chat(api_key, _KIT_SYS, user, max_tokens=600)
+    if not r.get("ok"):
+        return None
+    try:
+        t = scrub_garbled(str(_parse_json_out(r["text"]).get("intro") or ""))[:400]
+        return t if len(t) > 50 else None
+    except Exception:
+        return None
+
+
+def run_kit(api_key, store_name, keywords, products):
+    """실행 키트 전체 생성. 상품 최대 3개."""
+    out = {"ok": True, "store": store_name, "products": []}
+    for pn in products[:3]:
+        item = None
+        for _ in range(2):                      # 약한 모델 대비 재시도
+            item = build_kit_product(api_key, store_name, pn, keywords)
+            if item:
+                break
+        out["products"].append({"name": pn, **(item or {"faq": [], "desc": ""})})
+        time.sleep(0.3)
+    out["brand_intro"] = build_brand_intro(api_key, store_name, keywords) or ""
+    made = sum(1 for p in out["products"] if p.get("faq"))
+    if made == 0:
+        return {"ok": False, "error": "생성에 실패했어요. 잠시 후 다시 시도해주세요."}
+    return out

@@ -41,6 +41,7 @@ FALLBACK_SECRET = os.environ.get("COUPANG_PT_SECRET", "")
 store.init_db()
 try:
     store.boim_init()
+    store.boim_kit_init()
 except Exception:
     pass
 
@@ -558,6 +559,63 @@ def boim_pay_confirm():
     except Exception:
         pass
     return jsonify({"ok": True, "plan": plan})
+
+
+@app.route("/boim/kit/<order_id>")
+def boim_kit_page(order_id):
+    return app.send_static_file("boim.html")
+
+
+@app.route("/api/boim/order/<order_id>")
+def boim_order_api(order_id):
+    """주문 확인 — 키트 접근 권한."""
+    o = store.boim_order_get(order_id)
+    if not o or o.get("status") != "paid":
+        return jsonify({"ok": False, "error": "결제 내역을 찾을 수 없어요"}), 404
+    kit = store.boim_kit_get(order_id)
+    return jsonify({"ok": True, "plan": o.get("plan"),
+                    "kit_status": (kit or {}).get("status"),
+                    "kit_request": (kit or {}).get("request")})
+
+
+@app.route("/api/boim/kit/<order_id>", methods=["POST"])
+def boim_kit_start_api(order_id):
+    o = store.boim_order_get(order_id)
+    if not o or o.get("status") != "paid":
+        return jsonify({"ok": False, "error": "결제 내역을 찾을 수 없어요"}), 404
+    if o.get("plan") != "boost":
+        return jsonify({"ok": False, "error": "실행 키트는 부스트 플랜 전용이에요"}), 403
+    d = request.get_json(force=True, silent=True) or {}
+    store_name = (d.get("store") or "").strip()[:40]
+    kws = [k.strip()[:20] for k in (d.get("keywords") or []) if k.strip()][:3]
+    products = [x.strip()[:60] for x in (d.get("products") or []) if x.strip()][:3]
+    if not store_name or not products:
+        return jsonify({"ok": False, "error": "스토어 이름과 상품 1개 이상이 필요해요"}), 400
+    store.boim_kit_start(order_id, {"store": store_name, "keywords": kws,
+                                    "products": products})
+
+    def _run():
+        try:
+            import boim as _boim
+            key = os.environ.get("BOIM_LLM_KEY", "").strip() or "__free__"
+            r = _boim.run_kit(key, store_name, kws or ["쇼핑"], products)
+            if r.get("ok"):
+                store.boim_kit_finish(order_id, result=r)
+            else:
+                store.boim_kit_finish(order_id, error=r.get("error"))
+        except Exception as e:
+            store.boim_kit_finish(order_id, error=str(e))
+
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/boim/kit/<order_id>/result")
+def boim_kit_result_api(order_id):
+    kit = store.boim_kit_get(order_id)
+    if not kit:
+        return jsonify({"ok": False, "error": "아직 생성 요청이 없어요"}), 404
+    return jsonify({"ok": True, **kit})
 
 
 @app.route("/api/boim/waitlist", methods=["POST"])
