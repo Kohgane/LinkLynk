@@ -618,6 +618,101 @@ def boim_kit_result_api(order_id):
     return jsonify({"ok": True, **kit})
 
 
+@app.route("/api/boim/teaser", methods=["POST"])
+def boim_teaser_api():
+    """★무료 맛보기 — 진단당 1회. FAQ 3문답 공개 + 7개 잠금."""
+    d = request.get_json(force=True, silent=True) or {}
+    scan_id = (d.get("scan_id") or "").strip()[:20]
+    product = (d.get("product") or "").strip()[:60]
+    if not scan_id or not product:
+        return jsonify({"ok": False, "error": "상품 이름을 넣어주세요"}), 400
+    scan = store.boim_get(scan_id)
+    if not scan or scan.get("status") != "done":
+        return jsonify({"ok": False, "error": "진단을 먼저 완료해주세요"}), 404
+    tid = "teaser_" + scan_id
+    exist = store.boim_kit_get(tid)
+    if exist and exist.get("status") == "done":
+        return jsonify({"ok": True, "teaser": exist.get("result"), "cached": True})
+    if exist and exist.get("status") == "running":
+        return jsonify({"ok": True, "running": True})
+    store.boim_kit_start(tid, {"product": product})
+
+    def _run():
+        try:
+            import boim as _boim
+            key = os.environ.get("BOIM_LLM_KEY", "").strip() or "__free__"
+            t = _boim.build_teaser(key, scan.get("store") or "", product,
+                                   scan.get("keywords") or [])
+            if t:
+                store.boim_kit_finish(tid, result=t)
+            else:
+                store.boim_kit_finish(tid, error="생성 실패")
+        except Exception as e:
+            store.boim_kit_finish(tid, error=str(e))
+
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"ok": True, "running": True})
+
+
+@app.route("/api/boim/teaser/<scan_id>")
+def boim_teaser_get(scan_id):
+    k = store.boim_kit_get("teaser_" + scan_id)
+    if not k:
+        return jsonify({"ok": False}), 404
+    return jsonify({"ok": True, "status": k.get("status"),
+                    "teaser": k.get("result"), "error": k.get("error")})
+
+
+@app.route("/api/boim/history")
+def boim_history_api():
+    st = (request.args.get("store") or "").strip()[:40]
+    if not st:
+        return jsonify({"ok": False}), 400
+    return jsonify({"ok": True, "items": store.boim_history(st)})
+
+
+@app.route("/api/boim/cron/weekly", methods=["POST", "GET"])
+def boim_cron_weekly():
+    """주간 재측정 — 유효 이용권(30일) 스토어 재스캔. Bluehost 크론이 호출.
+    보안: BOIM_CRON_KEY 환경변수와 일치해야 실행."""
+    ck = os.environ.get("BOIM_CRON_KEY", "").strip()
+    if not ck or request.args.get("key") != ck:
+        return jsonify({"ok": False}), 403
+    orders = store.boim_paid_orders_active(30)
+    started = []
+    for o in orders:
+        ref = (o.get("scan_id") or "").strip()
+        # scan_id 앞 8자만 저장돼 있으므로 원본 스캔을 prefix로 찾는다
+        row = store._q("""SELECT * FROM linklynk_boim_scans
+                          WHERE id LIKE %s AND status='done'
+                          ORDER BY created_at ASC LIMIT 1""",
+                       (ref + "%",), fetch="one")
+        if not row:
+            continue
+        try:
+            kws = json.loads(row.get("keywords") or "[]")
+        except Exception:
+            kws = []
+        if not kws:
+            continue
+        import uuid as _u
+        new_id = _u.uuid4().hex[:12]
+        store.boim_create(new_id, row["store"], kws, "cron")
+
+        def _run(nid=new_id, st=row["store"], kk=kws):
+            try:
+                import boim as _boim
+                key = os.environ.get("BOIM_LLM_KEY", "").strip() or "__free__"
+                r = _boim.run_scan(key, st, kk)
+                store.boim_finish(nid, result=r)
+            except Exception as e:
+                store.boim_finish(nid, error=str(e))
+
+        threading.Thread(target=_run, daemon=True).start()
+        started.append({"store": row["store"], "scan_id": new_id})
+    return jsonify({"ok": True, "started": started})
+
+
 @app.route("/api/boim/waitlist", methods=["POST"])
 def boim_waitlist():
     d = request.get_json(force=True, silent=True) or {}

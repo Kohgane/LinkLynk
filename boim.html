@@ -116,6 +116,17 @@ input:focus{border-color:var(--text-2)}
 .kit-txt b{color:var(--text)}
 .kit-note{font-size:11px;color:var(--warn-tx);margin-top:8px;line-height:1.6}
 .kit-prod-t{font-size:16px;font-weight:800;margin:24px 4px 4px;letter-spacing:-.02em}
+.lock-row{display:flex;align-items:center;gap:9px;padding:10px 0;border-bottom:1px solid var(--line-soft);opacity:.55}
+.lock-row:last-child{border-bottom:none}
+.lock-ic{flex:none;font-size:12px}
+.lock-q{font-size:12.5px;color:var(--muted)}
+.hist{display:flex;gap:8px;align-items:flex-end;margin-top:4px;flex-wrap:wrap}
+.hist .hb{display:flex;flex-direction:column;align-items:center;gap:4px}
+.hist .bar{width:26px;background:var(--surface-3);border:1px solid var(--line);border-radius:6px 6px 0 0;
+  display:flex;align-items:flex-end;justify-content:center}
+.hist .bar i{display:block;width:100%;background:var(--text-2);border-radius:5px 5px 0 0;font-style:normal}
+.hist .hv{font-size:10.5px;font-weight:800;color:var(--text)}
+.hist .hd{font-size:9.5px;color:var(--muted)}
 </style>
 </head>
 <body>
@@ -217,6 +228,7 @@ function render(d){
       <div class="qtext">"${esc(x.query)}"</div>
     </div>`).join('');
   const comps=(r.competitors||[]).map(c=>`<span class="comp"><b>${esc(c.name)}</b><span class="n">${c.count}회</span></span>`).join('');
+  window.__scanId = d.id; window.__store = r.store;
   v.innerHTML=`
     <h1 style="font-size:21px">"${esc(r.store)}"<br>AI 노출 진단 결과</h1>
     <div class="card">
@@ -231,6 +243,15 @@ function render(d){
     ${comps?`<div class="sec-t">AI가 대신 언급한 이름들</div>
       <div class="card">${comps}
       <div class="hint" style="margin-top:4px">AI 답변에 2회 이상 등장한 브랜드·스토어 후보</div></div>`:''}
+    <div class="sec-t">무료 맛보기 — 내 상품 FAQ</div>
+    <div class="card" id="teaserBox">
+      <div class="s" style="font-size:12.5px;color:var(--text-2);line-height:1.7;margin-bottom:10px">
+        대표 상품 하나를 넣으면 <b style="color:var(--text)">FAQ 3문답을 무료로</b> 만들어드립니다.
+        AI와 손님이 같이 읽는 그 문답입니다.</div>
+      <input id="tzProduct" placeholder="예: 오르토 파리지 메가마레 50ml" maxlength="60">
+      <button class="btn" id="tzGo" onclick="startTeaser('${esc(d.id||'')}')" style="margin-top:12px">무료로 만들어보기</button>
+    </div>
+    <div id="histWrap"></div>
     <div class="cta">
       <div class="t">이 점수는 바뀝니다 — 그리고 측정됩니다</div>
       <div class="s">AI가 인용하는 가게의 조건은 <b>사람이 믿고 사는 가게의 조건</b>과 같습니다:
@@ -249,6 +270,68 @@ function render(d){
         부스트: 적용 후 30일 내 점수가 오르지 않으면 <b style="color:var(--text-2)">전액 환불</b></div>
     </div>
     <button class="share" onclick="shareReport()">리포트 링크 복사</button>`;
+  loadHistory(r.store);
+  loadExistingTeaser(d.id);
+}
+
+// ══ 무료 맛보기 ══
+async function startTeaser(scanId){
+  const pn=(document.getElementById('tzProduct').value||'').trim();
+  if(!pn){ toast('상품 이름을 넣어주세요'); return; }
+  const b=document.getElementById('tzGo'); b.disabled=true; b.textContent='만드는 중… (30초쯤)';
+  const r=await fetch('/api/boim/teaser',{method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({scan_id:scanId,product:pn})}).then(x=>x.json()).catch(()=>({ok:false}));
+  if(!r.ok){ toast(r.error||'실패'); b.disabled=false; b.textContent='무료로 만들어보기'; return; }
+  if(r.teaser){ renderTeaser(r.teaser); return; }
+  pollTeaser(scanId);
+}
+async function pollTeaser(scanId){
+  const d=await fetch('/api/boim/teaser/'+scanId).then(x=>x.json()).catch(()=>null);
+  if(d && d.status==='done' && d.teaser){ renderTeaser(d.teaser); return; }
+  if(d && d.status==='error'){
+    const b=document.getElementById('tzGo');
+    if(b){ b.disabled=false; b.textContent='무료로 만들어보기'; }
+    toast('생성 실패 — 다시 시도해주세요'); return;
+  }
+  setTimeout(()=>pollTeaser(scanId), 2500);
+}
+async function loadExistingTeaser(scanId){
+  const d=await fetch('/api/boim/teaser/'+scanId).then(x=>x.json()).catch(()=>null);
+  if(d && d.status==='done' && d.teaser) renderTeaser(d.teaser);
+  else if(d && d.status==='running') pollTeaser(scanId);
+}
+function renderTeaser(t){
+  const box=document.getElementById('teaserBox');
+  if(!box) return;
+  const freeRows=(t.free||[]).map(f=>'<div class="qrow"><div class="qmark hit">✓</div>'
+    +'<div class="qtext"><b style="color:var(--text)">Q. '+esc(f.q)+'</b><br>A. '+esc(f.a)+'</div></div>').join('');
+  const lockRows=(t.locked||[]).map(f=>'<div class="lock-row"><div class="lock-ic">🔒</div>'
+    +'<div class="lock-q">Q. '+esc(f.q)+'</div></div>').join('');
+  box.innerHTML='<div class="kb-h" style="display:flex;justify-content:space-between;margin-bottom:6px">'
+    +'<div class="kb-t" style="font-size:13.5px;font-weight:800">'+esc(t.product)+' — 무료 3문답</div></div>'
+    +freeRows
+    +(lockRows?'<div style="margin-top:14px;padding-top:10px;border-top:1px dashed var(--line)">'
+      +'<div style="font-size:11px;color:var(--muted);margin-bottom:6px">잠긴 문답 '+(t.locked||[]).length+'개 — 부스트에서 전부 열립니다</div>'
+      +lockRows+'</div>':'')
+    +'<button class="btn" onclick="document.querySelector(\'.cta\').scrollIntoView({behavior:\'smooth\'})" style="margin-top:14px">나머지 문답 + 텍스트 설명 전체 받기</button>';
+}
+
+// ══ 점수 히스토리 ══
+async function loadHistory(storeName){
+  const w=document.getElementById('histWrap');
+  if(!w) return;
+  const d=await fetch('/api/boim/history?store='+encodeURIComponent(storeName)).then(x=>x.json()).catch(()=>null);
+  const items=(d&&d.items)||[];
+  if(items.length<2) return;   // 1개면 추이가 아님
+  const bars=items.map(h=>{
+    const hpx=Math.max(6, Math.round((h.score||0)*0.7));
+    const dt=new Date((h.at||0)*1000);
+    return '<div class="hb"><div class="hv">'+(h.score??'?')+'</div>'
+      +'<div class="bar" style="height:74px"><i style="height:'+hpx+'px"></i></div>'
+      +'<div class="hd">'+(dt.getMonth()+1)+'/'+dt.getDate()+'</div></div>';
+  }).join('');
+  w.innerHTML='<div class="sec-t">점수 추이</div><div class="card"><div class="hist">'+bars+'</div>'
+    +'<div class="hint" style="margin-top:10px">워치·부스트 이용 중엔 매주 자동 재측정됩니다</div></div>';
 }
 
 let _plan='watch';

@@ -590,3 +590,27 @@ def boim_kit_get(order_id):
     if r.get("error"):
         out["error"] = r["error"]
     return out
+
+
+def boim_history(store_name, limit=12):
+    """같은 스토어의 진단 점수 추이 (재측정 그래프용)."""
+    rows = _q("""SELECT id, result, created_at FROM linklynk_boim_scans
+                 WHERE store=%s AND status='done' ORDER BY created_at ASC LIMIT %s""",
+              (store_name, limit), fetch="all") or []
+    out = []
+    for r in rows:
+        try:
+            res = json.loads(r["result"] or "{}")
+            out.append({"id": r["id"], "score": res.get("score"),
+                        "grade": res.get("grade"), "at": r["created_at"]})
+        except Exception:
+            pass
+    return out
+
+
+def boim_paid_orders_active(days=30):
+    """이용권 유효한(30일 내) 결제 주문 — 주간 재측정 대상."""
+    since = int(time.time()) - days * 86400
+    return _q("""SELECT o.order_id, o.plan, o.scan_id FROM linklynk_boim_orders o
+                 WHERE o.status='paid' AND o.created_at >= %s""",
+              (since,), fetch="all") or []

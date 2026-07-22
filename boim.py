@@ -237,3 +237,17 @@ def run_kit(api_key, store_name, keywords, products):
     if made == 0:
         return {"ok": False, "error": "생성에 실패했어요. 잠시 후 다시 시도해주세요."}
     return out
+
+
+def build_teaser(api_key, store_name, product_name, keywords):
+    """무료 맛보기 — FAQ 3문답만. 나머지는 잠금 표시용 질문 제목만."""
+    full = build_kit_product(api_key, store_name, product_name, keywords)
+    if not full or not full.get("faq"):
+        return None
+    faq = full["faq"]
+    return {
+        "product": product_name,
+        "free": faq[:3],                                    # 전문 공개
+        "locked": [{"q": x["q"]} for x in faq[3:10]],       # 질문만 보이고 답은 잠금
+        "desc_preview": (full.get("desc") or "")[:120],
+    }
