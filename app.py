@@ -478,6 +478,88 @@ def boim_scan_start():
     return jsonify({"ok": True, "scan_id": scan_id})
 
 
+@app.route("/boim/pay/success")
+@app.route("/boim/pay/fail")
+def boim_pay_pages():
+    return app.send_static_file("boim.html")
+
+
+@app.route("/boim-manifest.json")
+def boim_manifest():
+    return send_from_directory(".", "boim-manifest.json", mimetype="application/manifest+json")
+
+
+@app.route("/boim-icon-<size>.png")
+def boim_icon(size):
+    return send_from_directory(".", f"boim-icon-{size}.png", mimetype="image/png")
+
+
+@app.route("/api/boim/pay/config")
+def boim_pay_config():
+    """토스 클라이언트 키 — Render 환경변수 TOSS_CLIENT_KEY."""
+    ck = os.environ.get("TOSS_CLIENT_KEY", "").strip()
+    if not ck:
+        return jsonify({"ok": False,
+                        "error": "결제 설정이 아직 안 됐어요 (TOSS_CLIENT_KEY 미설정)"}), 200
+    return jsonify({"ok": True, "client_key": ck})
+
+
+@app.route("/api/boim/pay/confirm", methods=["POST"])
+def boim_pay_confirm():
+    """토스 결제 승인 — 시크릿 키로 서버에서 확정. 금액 검증 필수."""
+    import base64
+    import urllib.request as _ur
+    sk = os.environ.get("TOSS_SECRET_KEY", "").strip()
+    if not sk:
+        return jsonify({"ok": False, "error": "TOSS_SECRET_KEY 미설정"}), 500
+    d = request.get_json(force=True, silent=True) or {}
+    payment_key = (d.get("paymentKey") or "").strip()
+    order_id = (d.get("orderId") or "").strip()
+    amount = int(d.get("amount") or 0)
+    if not payment_key or not order_id or amount <= 0:
+        return jsonify({"ok": False, "error": "결제 정보가 불완전해요"}), 400
+    # ★금액 위조 방지: 우리 가격표와 대조
+    plan = "boost" if order_id.startswith("boim_boost") else            "watch" if order_id.startswith("boim_watch") else None
+    PRICES = {"watch": 9900, "boost": 29900}
+    if not plan or PRICES[plan] != amount:
+        return jsonify({"ok": False, "error": "금액이 상품 가격과 달라요"}), 400
+    # 토스 승인 API
+    auth = base64.b64encode((sk + ":").encode()).decode()
+    body = json.dumps({"paymentKey": payment_key, "orderId": order_id,
+                       "amount": amount}).encode()
+    req = _ur.Request("https://api.tosspayments.com/v1/payments/confirm",
+                      data=body, method="POST",
+                      headers={"Authorization": "Basic " + auth,
+                               "Content-Type": "application/json"})
+    try:
+        raw = _ur.urlopen(req, timeout=15).read().decode()
+        pr = json.loads(raw)
+    except Exception as e:
+        detail = ""
+        try:
+            detail = e.read().decode()[:300]      # HTTPError body
+        except Exception:
+            detail = str(e)[:200]
+        return jsonify({"ok": False, "error": "토스 승인 실패", "detail": detail}), 400
+    if pr.get("status") != "DONE":
+        return jsonify({"ok": False, "error": f"승인 상태: {pr.get('status')}"}), 400
+    # 주문 저장
+    try:
+        store._q("""CREATE TABLE IF NOT EXISTS linklynk_boim_orders (
+            order_id TEXT PRIMARY KEY, payment_key TEXT, plan TEXT,
+            amount INTEGER, status TEXT, scan_id TEXT, created_at BIGINT)""")
+        scan_ref = order_id.split("_")[2] if order_id.count("_") >= 3 else ""
+        store._q("""INSERT INTO linklynk_boim_orders
+                    (order_id, payment_key, plan, amount, status, scan_id, created_at)
+                    VALUES (%s,%s,%s,%s,'paid',%s,%s)
+                    ON CONFLICT (order_id) DO NOTHING""",
+                 (order_id, payment_key, plan, amount, scan_ref,
+                  int(__import__("time").time())))
+    except Exception:
+        pass
+    return jsonify({"ok": True, "plan": plan})
+
+
 @app.route("/api/boim/waitlist", methods=["POST"])
 def boim_waitlist():
     d = request.get_json(force=True, silent=True) or {}
