@@ -1,5 +1,5 @@
 """LinkLynk 저장소 (Supabase/PostgreSQL). 연결: DATABASE_URL 환경변수."""
-import os, time, secrets, hashlib
+import os, time, secrets, hashlib, json
 from cryptography.fernet import Fernet
 import psycopg2, psycopg2.extras
 
