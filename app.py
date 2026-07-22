@@ -39,6 +39,10 @@ FALLBACK_ACCESS = os.environ.get("COUPANG_PT_ACCESS", "")
 FALLBACK_SECRET = os.environ.get("COUPANG_PT_SECRET", "")
 
 store.init_db()
+try:
+    store.boim_init()
+except Exception:
+    pass
 
 
 def _auto_image(product_name, info=None):
@@ -430,6 +434,73 @@ def research_api():
     from core import naver_research
     items = naver_research(name, limit=6)
     return jsonify({"ok": True, "items": items})
+
+
+# ══════════ 보임(BOIM) — AI 검색 노출 진단 (공개) ══════════
+import uuid as _uuid
+
+@app.route("/boim")
+def boim_landing():
+    return app.send_static_file("boim.html")
+
+
+@app.route("/boim/r/<scan_id>")
+def boim_report_page(scan_id):
+    return app.send_static_file("boim.html")
+
+
+@app.route("/api/boim/scan", methods=["POST"])
+def boim_scan_start():
+    """공개 진단 시작 — 로그인 불필요. IP당 하루 3회."""
+    d = request.get_json(force=True, silent=True) or {}
+    store_name = (d.get("store") or "").strip()[:40]
+    kws = [k.strip()[:20] for k in (d.get("keywords") or []) if k and k.strip()][:3]
+    if not store_name or not kws:
+        return jsonify({"ok": False, "error": "스토어 이름과 업종 키워드(1개 이상)가 필요해요"}), 400
+    ip = (request.headers.get("X-Forwarded-For", request.remote_addr) or "?").split(",")[0].strip()
+    if store.boim_recent_by_ip(ip, 24) >= 3:
+        return jsonify({"ok": False,
+                        "error": "무료 진단은 하루 3회까지예요. 내일 다시 시도해주세요."}), 429
+
+    scan_id = _uuid.uuid4().hex[:12]
+    store.boim_create(scan_id, store_name, kws, ip)
+
+    def _run():
+        try:
+            import boim as _boim
+            r = _boim.run_scan("__free__", store_name, kws,
+                               aliases=[a.strip() for a in (d.get("aliases") or []) if a.strip()][:3])
+            store.boim_finish(scan_id, result=r)
+        except Exception as e:
+            store.boim_finish(scan_id, error=str(e))
+
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"ok": True, "scan_id": scan_id})
+
+
+@app.route("/api/boim/waitlist", methods=["POST"])
+def boim_waitlist():
+    d = request.get_json(force=True, silent=True) or {}
+    em = (d.get("email") or "").strip()[:120]
+    if "@" not in em:
+        return jsonify({"ok": False}), 400
+    try:
+        store._q("""CREATE TABLE IF NOT EXISTS linklynk_boim_waitlist
+                    (email TEXT PRIMARY KEY, created_at BIGINT)""")
+        store._q("""INSERT INTO linklynk_boim_waitlist (email, created_at)
+                    VALUES (%s,%s) ON CONFLICT (email) DO NOTHING""",
+                 (em, int(__import__("time").time())))
+    except Exception:
+        pass
+    return jsonify({"ok": True})
+
+
+@app.route("/api/boim/scan/<scan_id>")
+def boim_scan_get(scan_id):
+    r = store.boim_get(scan_id)
+    if not r:
+        return jsonify({"ok": False, "error": "없는 진단이에요"}), 404
+    return jsonify({"ok": True, **r})
 
 
 @app.route("/api/naver-keys", methods=["GET", "POST", "DELETE"])

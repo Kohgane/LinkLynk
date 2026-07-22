@@ -487,3 +487,57 @@ def get_naver_keys(uid):
 def delete_naver_keys(uid):
     _q("UPDATE linklynk_users SET naver_id_enc=NULL, naver_secret_enc=NULL WHERE id=%s", (uid,))
     return {"ok": True}
+
+
+# ═══ 보임(BOIM) — AI 검색 노출 진단 ═══
+def boim_init():
+    _q("""CREATE TABLE IF NOT EXISTS linklynk_boim_scans (
+        id TEXT PRIMARY KEY,
+        store TEXT, keywords TEXT,
+        status TEXT DEFAULT 'running',
+        result TEXT, error TEXT,
+        ip TEXT,
+        created_at BIGINT
+    )""")
+
+
+def boim_create(scan_id, store_name, keywords, ip):
+    _q("""INSERT INTO linklynk_boim_scans (id, store, keywords, status, ip, created_at)
+          VALUES (%s,%s,%s,'running',%s,%s)""",
+       (scan_id, store_name, json.dumps(keywords, ensure_ascii=False), ip, int(time.time())))
+
+
+def boim_finish(scan_id, result=None, error=None):
+    if result is not None:
+        _q("UPDATE linklynk_boim_scans SET status='done', result=%s WHERE id=%s",
+           (json.dumps(result, ensure_ascii=False), scan_id))
+    else:
+        _q("UPDATE linklynk_boim_scans SET status='error', error=%s WHERE id=%s",
+           (str(error)[:300], scan_id))
+
+
+def boim_get(scan_id):
+    r = _q("SELECT * FROM linklynk_boim_scans WHERE id=%s", (scan_id,), fetch="one")
+    if not r:
+        return None
+    out = {"id": r["id"], "store": r["store"], "status": r["status"],
+           "created_at": r["created_at"]}
+    try:
+        out["keywords"] = json.loads(r.get("keywords") or "[]")
+    except Exception:
+        out["keywords"] = []
+    if r.get("result"):
+        try:
+            out["result"] = json.loads(r["result"])
+        except Exception:
+            pass
+    if r.get("error"):
+        out["error"] = r["error"]
+    return out
+
+
+def boim_recent_by_ip(ip, hours=24):
+    since = int(time.time()) - hours * 3600
+    r = _q("SELECT COUNT(*) AS c FROM linklynk_boim_scans WHERE ip=%s AND created_at>=%s",
+           (ip, since), fetch="one")
+    return (r or {}).get("c", 0)
