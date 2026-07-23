@@ -713,6 +713,38 @@ def boim_cron_weekly():
     return jsonify({"ok": True, "started": started})
 
 
+# ══════════ 선물레이더 — 앱인토스 미니앱 (공개) ══════════
+_GIFT_IP = {}
+
+@app.route("/gift")
+def gift_page():
+    return app.send_static_file("gift.html")
+
+
+@app.route("/api/gift/reco", methods=["POST"])
+def gift_reco_api():
+    """선물 추천 — IP당 하루 10회."""
+    ip = (request.headers.get("X-Forwarded-For", request.remote_addr) or "?").split(",")[0].strip()
+    import time as _t
+    now = int(_t.time())
+    hist = [t for t in _GIFT_IP.get(ip, []) if now - t < 86400]
+    if len(hist) >= 10:
+        return jsonify({"ok": False, "error": "오늘 추천 횟수를 다 썼어요. 내일 다시 만나요!"}), 429
+    d = request.get_json(force=True, silent=True) or {}
+    who = (d.get("who") or "").strip()[:30]
+    budget = (d.get("budget") or "").strip()[:20]
+    taste = (d.get("taste") or "").strip()[:80]
+    if not who or not budget:
+        return jsonify({"ok": False, "error": "받는 사람과 예산을 알려주세요"}), 400
+    import gift as _gift
+    key = os.environ.get("BOIM_LLM_KEY", "").strip() or "__free__"
+    r = _gift.recommend(key, who, budget, taste)
+    if r.get("ok"):
+        hist.append(now)
+        _GIFT_IP[ip] = hist
+    return jsonify(r)
+
+
 @app.route("/api/boim/waitlist", methods=["POST"])
 def boim_waitlist():
     d = request.get_json(force=True, silent=True) or {}
