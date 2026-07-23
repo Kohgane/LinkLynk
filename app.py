@@ -676,6 +676,39 @@ def boim_history_api():
     return jsonify({"ok": True, "items": store.boim_history(st)})
 
 
+@app.route("/api/boim/llmdiag")
+def boim_llmdiag():
+    """서버 BOIM_LLM_KEY 검진 — 구글 모델 리스트 API로 키 유효성 직접 확인.
+    보안: 크론 키 필요. 키 값은 절대 노출하지 않고 형태 정보만."""
+    ck = os.environ.get("BOIM_CRON_KEY", "").strip()
+    if not ck or request.args.get("key") != ck:
+        return jsonify({"ok": False}), 403
+    import urllib.request as _ur
+    import re as _re
+    raw = os.environ.get("BOIM_LLM_KEY", "")
+    clean = _re.sub(r"[^\x21-\x7E]", "", raw)
+    info = {
+        "len_raw": len(raw), "len_clean": len(clean),
+        "prefix": clean[:6], "suffix_len4": clean[-4:] if len(clean) >= 4 else "",
+        "had_invisible": len(raw) != len(clean),
+    }
+    try:
+        u = f"https://generativelanguage.googleapis.com/v1beta/models?key={clean}&pageSize=3"
+        with _ur.urlopen(u, timeout=12) as r:
+            data = json.loads(r.read().decode())
+        info["google"] = "OK"
+        info["models"] = [m.get("name") for m in data.get("models", [])][:3]
+    except Exception as e:
+        body = ""
+        try:
+            body = e.read().decode()[:400]
+        except Exception:
+            body = str(e)[:200]
+        info["google"] = "FAIL"
+        info["error"] = body
+    return jsonify(info)
+
+
 @app.route("/api/boim/cron/weekly", methods=["POST", "GET"])
 def boim_cron_weekly():
     """주간 재측정 — 유효 이용권(30일) 스토어 재스캔. Bluehost 크론이 호출.
