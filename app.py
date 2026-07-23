@@ -599,6 +599,8 @@ def boim_kit_start_api(order_id):
             import boim as _boim
             key = os.environ.get("BOIM_LLM_KEY", "").strip() or "__free__"
             r = _boim.run_kit(key, store_name, kws or ["쇼핑"], products)
+            if not r.get("ok") and key != "__free__":
+                r = _boim.run_kit("__free__", store_name, kws or ["쇼핑"], products)
             if r.get("ok"):
                 store.boim_kit_finish(order_id, result=r)
             else:
@@ -643,6 +645,9 @@ def boim_teaser_api():
             key = os.environ.get("BOIM_LLM_KEY", "").strip() or "__free__"
             t = _boim.build_teaser(key, scan.get("store") or "", product,
                                    scan.get("keywords") or [])
+            if not t and key != "__free__":
+                t = _boim.build_teaser("__free__", scan.get("store") or "", product,
+                                       scan.get("keywords") or [])
             if t:
                 store.boim_kit_finish(tid, result=t)
             else:
@@ -739,6 +744,8 @@ def gift_reco_api():
     import gift as _gift
     key = os.environ.get("BOIM_LLM_KEY", "").strip() or "__free__"
     r = _gift.recommend(key, who, budget, taste)
+    if not r.get("ok") and key != "__free__":
+        r = _gift.recommend("__free__", who, budget, taste)   # 키 죽어도 서비스는 산다
     if r.get("ok"):
         hist.append(now)
         _GIFT_IP[ip] = hist

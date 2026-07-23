@@ -24,7 +24,8 @@ def recommend(api_key, who, budget, taste):
     )
     r = llm_chat(api_key, _SYS, user, max_tokens=900)
     if not r.get("ok"):
-        return {"ok": False, "error": "추천 생성 실패"}
+        return {"ok": False, "error": "추천 생성 실패",
+                "detail": str(r.get("error") or "")[:120] + " " + str(r.get("detail") or "")[:150]}
     try:
         picks = _parse_json_out(r["text"]).get("picks", [])[:3]
     except Exception:
