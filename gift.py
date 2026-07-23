@@ -35,8 +35,9 @@ def recommend(api_key, who, budget, taste):
     used_model = r.get("model") or "?"
 
     # 쿠팡 실상품 매핑 (서버 파트너스 키)
-    ck = os.environ.get("COUPANG_ACCESS", "")
-    cs = os.environ.get("COUPANG_SECRET", "")
+    # Render엔 COUPANG_ACCESS_KEY / COUPANG_SECRET_KEY 로 들어있음 — 양쪽 이름 모두 지원
+    ck = os.environ.get("COUPANG_ACCESS_KEY", "") or os.environ.get("COUPANG_ACCESS", "")
+    cs = os.environ.get("COUPANG_SECRET_KEY", "") or os.environ.get("COUPANG_SECRET", "")
     cp = CoupangPartners(ck, cs) if ck and cs else None
     out = []
     for p in picks:

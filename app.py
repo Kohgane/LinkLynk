@@ -750,8 +750,12 @@ def gift_reco_api():
     import gift as _gift
     key = os.environ.get("BOIM_LLM_KEY", "").strip() or "__free__"
     r = _gift.recommend(key, who, budget, taste)
+    key_err = None
     if not r.get("ok") and key != "__free__":
+        key_err = (r.get("detail") or r.get("error") or "")[:200]
         r = _gift.recommend("__free__", who, budget, taste)   # 키 죽어도 서비스는 산다
+    if key_err:
+        r["key_err"] = key_err
     if r.get("ok"):
         hist.append(now)
         _GIFT_IP[ip] = hist
