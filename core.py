@@ -1619,11 +1619,50 @@ def _llm_groq(api_key, sys_prompt, user_msg, max_tokens=3000):
     return last
 
 
+_GEMINI_MODELS_CACHE = {"at": 0, "models": []}
+
+
+def _gemini_available_models(api_key):
+    """키가 볼 수 있는 모델 목록을 동적으로 조회(1시간 캐시).
+    ★2026-07: 신규 키는 2.x 세대가 404 'no longer available to new users' —
+    하드코딩하면 구글이 세대 바꿀 때마다 죽는다. 목록에서 flash 계열 우선 정렬."""
+    now = time.time()
+    if now - _GEMINI_MODELS_CACHE["at"] < 3600 and _GEMINI_MODELS_CACHE["models"]:
+        return _GEMINI_MODELS_CACHE["models"]
+    names = []
+    try:
+        u = f"https://generativelanguage.googleapis.com/v1beta/models?key={api_key}&pageSize=100"
+        with urllib.request.urlopen(u, timeout=12, context=_ctx) as r:
+            data = json.loads(r.read().decode())
+        for m in data.get("models", []):
+            nm = (m.get("name") or "").replace("models/", "")
+            methods = m.get("supportedGenerationMethods") or []
+            if "generateContent" not in methods:
+                continue
+            if any(x in nm for x in ("embedding", "tts", "image", "audio", "veo", "aqa", "gemma")):
+                continue
+            names.append(nm)
+    except Exception:
+        pass
+
+    def _ver(nm):
+        m2 = re.search(r"gemini-([0-9]+(?:\.[0-9]+)?)", nm)
+        return float(m2.group(1)) if m2 else 0.0
+
+    # 최신 세대 우선, flash 우선(무료 쿼터), preview/pro는 뒤로
+    names.sort(key=lambda nm: (-_ver(nm), 0 if "flash" in nm else 1,
+                               1 if "preview" in nm else 0, len(nm)))
+    if names:
+        _GEMINI_MODELS_CACHE.update(at=now, models=names[:8])
+    return _GEMINI_MODELS_CACHE["models"]
+
+
 def _llm_gemini(api_key, sys_prompt, user_msg, max_tokens=1200):
     """Google Gemini — 무료 티어 (aistudio.google.com에서 키 발급)."""
     _PROV = "gemini"
-    models = _order("gemini", ["gemini-2.5-flash", "gemini-2.0-flash",
-                               "gemini-2.5-flash-lite", "gemini-flash-latest"])
+    dyn = _gemini_available_models(api_key)
+    static = ["gemini-3-flash", "gemini-3-flash-lite", "gemini-2.5-flash", "gemini-2.0-flash"]
+    models = _order("gemini", (dyn or static) + [m for m in static if m not in (dyn or [])])[:8]
     last = {}
     for m in models:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={api_key}"
