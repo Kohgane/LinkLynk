@@ -698,6 +698,34 @@ def boim_llmdiag():
             data = json.loads(r.read().decode())
         info["google"] = "OK"
         info["models"] = [m.get("name") for m in data.get("models", [])][:3]
+        # generateContent 페이로드 이등분 탐색 — 어느 필드가 400을 내는가
+        tests = {
+            "bare": {"contents": [{"parts": [{"text": "안녕"}]}]},
+            "sys": {"systemInstruction": {"parts": [{"text": "한 단어로 답해"}]},
+                    "contents": [{"parts": [{"text": "안녕"}]}]},
+            "cfg": {"contents": [{"parts": [{"text": "안녕"}]}],
+                    "generationConfig": {"temperature": 1.0, "maxOutputTokens": 1500}},
+            "think": {"contents": [{"parts": [{"text": "안녕"}]}],
+                      "generationConfig": {"maxOutputTokens": 1500,
+                                           "thinkingConfig": {"thinkingBudget": 0}}},
+        }
+        gen = {}
+        for name, pl in tests.items():
+            try:
+                gu = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={clean}"
+                gr = _ur.Request(gu, data=json.dumps(pl).encode(),
+                                 headers={"Content-Type": "application/json"}, method="POST")
+                with _ur.urlopen(gr, timeout=15) as rr:
+                    json.loads(rr.read().decode())
+                gen[name] = "OK"
+            except Exception as ee:
+                b = ""
+                try:
+                    b = ee.read().decode()[:150]
+                except Exception:
+                    b = str(ee)[:100]
+                gen[name] = b
+        info["generate"] = gen
     except Exception as e:
         body = ""
         try:
