@@ -726,8 +726,14 @@ def gift_page():
     return app.send_static_file("gift.html")
 
 
-@app.route("/api/gift/reco", methods=["POST"])
+@app.route("/api/gift/reco", methods=["POST", "OPTIONS"])
 def gift_reco_api():
+    if request.method == "OPTIONS":
+        resp = make_response("", 204)
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return resp
     """선물 추천 — IP당 하루 10회."""
     ip = (request.headers.get("X-Forwarded-For", request.remote_addr) or "?").split(",")[0].strip()
     import time as _t
@@ -749,7 +755,9 @@ def gift_reco_api():
     if r.get("ok"):
         hist.append(now)
         _GIFT_IP[ip] = hist
-    return jsonify(r)
+    resp = jsonify(r)
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
 
 
 @app.route("/api/boim/waitlist", methods=["POST"])
