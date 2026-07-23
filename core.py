@@ -1502,9 +1502,9 @@ def _llm_openai_compat(name, url, api_key, models, sys_prompt, user_msg,
             last = {"ok": False, "error": "empty"}
         except urllib.error.HTTPError as e:
             detail = ""
-            try: detail = e.read().decode()[:200]
+            try: detail = e.read().decode()[:500]
             except Exception: pass
-            last = {"ok": False, "error": f"http_{e.code}", "detail": detail}
+            last = {"ok": False, "error": f"http_{e.code}", "detail": f"[{m}] " + detail}
             if e.code == 400 and payload is payloads[0]:
                 # 옵션(thinkingConfig 등) 미지원 모델 — 미니멀 페이로드로 같은 모델 1회 재시도
                 try:

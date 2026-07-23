@@ -752,7 +752,7 @@ def gift_reco_api():
     r = _gift.recommend(key, who, budget, taste)
     key_err = None
     if not r.get("ok") and key != "__free__":
-        key_err = (r.get("detail") or r.get("error") or "")[:200]
+        key_err = (r.get("detail") or r.get("error") or "")[:500]
         r = _gift.recommend("__free__", who, budget, taste)   # 키 죽어도 서비스는 산다
     if key_err:
         r["key_err"] = key_err
