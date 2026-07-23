@@ -1776,7 +1776,14 @@ def _llm_anthropic(api_key, sys_prompt, user_msg, max_tokens=1200):
     return last
 
 
+def _clean_key(k):
+    """API 키 소독 — 복사 과정에서 섞인 제로폭 공백·비ASCII·개행 제거.
+    (.strip()은 U+200B, U+00A0 같은 문자를 못 지운다 — 2026-07-23 제미니 일반 400의 범인)"""
+    return re.sub(r"[^\x21-\x7E]", "", str(k or ""))
+
+
 def llm_chat(api_key, sys_prompt, user_msg, max_tokens=1200):
+    api_key = _clean_key(api_key) if api_key != "__free__" else api_key
     """어떤 키든 자동 라우팅 (Gemini 무료 / OpenRouter 무료 / Claude 유료)."""
     p = detect_llm_provider(api_key)
     if p == "gemini": return _llm_gemini(api_key, sys_prompt, user_msg, max_tokens)
