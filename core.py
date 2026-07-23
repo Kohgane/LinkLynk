@@ -1505,6 +1505,20 @@ def _llm_openai_compat(name, url, api_key, models, sys_prompt, user_msg,
             try: detail = e.read().decode()[:200]
             except Exception: pass
             last = {"ok": False, "error": f"http_{e.code}", "detail": detail}
+            if e.code == 400 and payload is payloads[0]:
+                # 옵션(thinkingConfig 등) 미지원 모델 — 미니멀 페이로드로 같은 모델 1회 재시도
+                try:
+                    req2 = urllib.request.Request(url, data=json.dumps(payloads[1]).encode(),
+                        headers={"Content-Type": "application/json"}, method="POST")
+                    with urllib.request.urlopen(req2, timeout=30, context=_ctx) as r2:
+                        data2 = json.loads(r2.read().decode())
+                    c2 = data2.get("candidates", [])
+                    if c2:
+                        t2 = "".join(pp.get("text", "") for pp in c2[0].get("content", {}).get("parts", []))
+                        _sticky_ok("gemini", m)
+                        return {"ok": True, "text": t2.strip(), "model": m}
+                except Exception:
+                    pass
             if e.code in (401, 403): return last
             if e.code in RETRYABLE: _sticky_drop(_PROV)   # 과부하 → 기억한 모델 폐기
             continue
@@ -1613,13 +1627,21 @@ def _llm_gemini(api_key, sys_prompt, user_msg, max_tokens=1200):
     last = {}
     for m in models:
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent?key={api_key}"
-        payload = {
-            "system_instruction": {"parts": [{"text": sys_prompt}]},
-            "contents": [{"parts": [{"text": user_msg}]}],
-            "generationConfig": {"temperature": 1.0, "maxOutputTokens": min(max(max_tokens, 1500), 6144),
-                                 "responseMimeType": "application/json",
-                                 "thinkingConfig": {"thinkingBudget": 0}},
-        }
+        _mot = min(max(max_tokens, 1500), 6144)
+        payloads = [
+            {   # 풀옵션 (2.5 계열)
+                "systemInstruction": {"parts": [{"text": sys_prompt}]},
+                "contents": [{"parts": [{"text": user_msg}]}],
+                "generationConfig": {"temperature": 1.0, "maxOutputTokens": _mot,
+                                     "thinkingConfig": {"thinkingBudget": 0}},
+            },
+            {   # 미니멀 (옵션 미지원 모델이 400 낼 때)
+                "systemInstruction": {"parts": [{"text": sys_prompt}]},
+                "contents": [{"parts": [{"text": user_msg}]}],
+                "generationConfig": {"temperature": 1.0, "maxOutputTokens": _mot},
+            },
+        ]
+        payload = payloads[0]
         try:
             req = urllib.request.Request(url, data=json.dumps(payload).encode(),
                 headers={"Content-Type": "application/json"}, method="POST")
