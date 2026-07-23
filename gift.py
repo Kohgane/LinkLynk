@@ -32,6 +32,7 @@ def recommend(api_key, who, budget, taste):
         return {"ok": False, "error": "추천 형식 오류"}
     if not picks:
         return {"ok": False, "error": "추천이 비었어요"}
+    used_model = r.get("model") or "?"
 
     # 쿠팡 실상품 매핑 (서버 파트너스 키)
     ck = os.environ.get("COUPANG_ACCESS", "")
@@ -57,4 +58,5 @@ def recommend(api_key, who, budget, taste):
                 pass
         out.append(item)
         time.sleep(0.2)
-    return {"ok": True, "picks": out}
+    return {"ok": True, "picks": out, "src": used_model,
+            "coupang": bool(cp), "coupang_err": (cp.last_error if cp else "no_keys")}
