@@ -34,6 +34,44 @@ _SYS = (
 )
 
 
+import urllib.request
+import urllib.parse
+
+
+_OWN_MALLS = ("나의 코스모스", "나의코스모스", "셰고가")   # 자사 스토어 — 커미션이 아니라 마진 전체
+
+
+def _naver_shop_search(kw, limit=8):
+    """네이버 쇼핑 검색 API (openapi.naver.com, IP 제한 없음).
+    NAVER_SEARCH_ID/SECRET 없으면 빈 목록 — 쿠팡 단독으로 동작."""
+    nid = os.environ.get("NAVER_SEARCH_ID", "").strip()
+    nsec = os.environ.get("NAVER_SEARCH_SECRET", "").strip()
+    if not nid or not nsec:
+        return []
+    try:
+        u = ("https://openapi.naver.com/v1/search/shop.json?query="
+             + urllib.parse.quote(kw) + f"&display={limit}&sort=sim")
+        req = urllib.request.Request(u, headers={
+            "X-Naver-Client-Id": nid, "X-Naver-Client-Secret": nsec})
+        with urllib.request.urlopen(req, timeout=8) as r:
+            data = json.loads(r.read().decode())
+        out = []
+        for it in data.get("items", []):
+            name = re.sub(r"</?b>", "", it.get("title") or "")[:60]
+            mall = (it.get("mallName") or "").strip()
+            out.append({
+                "name": name,
+                "price": int(it.get("lprice") or 0) or None,
+                "image": it.get("image"),
+                "link": it.get("link"),
+                "own": any(m in mall for m in _OWN_MALLS),
+                "mall": mall,
+            })
+        return out
+    except Exception:
+        return []
+
+
 _BUDGET_RANGES = {
     "1만원 이하": (3000, 12000),
     "1~3만원": (8000, 36000),
@@ -126,30 +164,47 @@ def recommend(api_key, who, budget, taste, exclude=None):
     def _price_ok(u):
         return _price_ok_range(u, _lo, _hi)
 
+    def _relevant(items, toks):
+        return [u for u in items if any(t in u["name"] for t in toks)] if toks else items
+
     def _fetch(kw):
-        """★관련성(콜라·화장지 차단) + ★가격대(예산 20~50만에 2,900원 보석함 차단) 이중 검증."""
+        """멀티소스: 자사 스토어(마진 전체) > 쿠팡 브랜드 진품 > 쿠팡 일반.
+        관련성(콜라·화장지 차단) + 가격대(예산 격 훼손 차단) 이중 검증은 전 소스 공통."""
         try:
             toks = _kw_tokens(kw)
-            uniq = _search_once(kw)
-            rel = [u for u in uniq if any(t in u["name"] for t in toks)] if toks else uniq
-            # 전멸이면 키워드를 앞 2단어로 줄여 한 번 더 (너무 구체적이었을 가능성)
-            if not rel and len(toks) > 2:
-                kw2 = " ".join(toks[:2])
-                uniq2 = _search_once(kw2)
-                rel = [u for u in uniq2 if any(t in u["name"] for t in toks[:2])]
-            # ★브랜드 우선: 키워드 첫 토큰(브랜드명)이 상품명에 있으면 진품 라인 —
-            # 유사품보다 우선하고, 가격 허용 폭도 넓게 (블랙윙 4.2만이 1~3만 예산에서
-            # 스테들러 일반연필에 밀리는 것 방지. 선물은 브랜드 정합 > 엄격한 예산)
             brand = toks[0] if toks else ""
-            brand_hits = [u for u in rel if brand and brand in u["name"]]
-            if brand_hits:
-                wide = [u for u in brand_hits
-                        if _price_ok_range(u, int(_lo * 0.7), int(_hi * 1.4))]
-                if wide:
-                    return wide[:3]
-            priced = [u for u in rel if _price_ok(u)]
-            # 가격 통과분이 있으면 그것만, 없으면 빈 목록 (격 안 맞는 물건은 안 보여준다)
-            return priced[:3]
+
+            cp_items = _search_once(kw) if cp else []
+            nv_items = _naver_shop_search(kw)
+            rel_cp = _relevant(cp_items, toks)
+            rel_nv = _relevant(nv_items, toks)
+            # 전멸이면 앞 2단어 축약 재검색 (쿠팡만 — 네이버는 1차로 충분)
+            if not rel_cp and cp and len(toks) > 2:
+                rel_cp = _relevant(_search_once(" ".join(toks[:2])), toks[:2])
+
+            wide_lo, wide_hi = int(_lo * 0.7), int(_hi * 1.4)
+            picked = []
+
+            # ① 자사 스토어 상품 (네이버 결과 중 own) — 최우선, 넓은 가격창
+            own = [u for u in rel_nv if u.get("own")
+                   and _price_ok_range(u, wide_lo, wide_hi)]
+            picked += own[:2]
+
+            # ② 쿠팡 브랜드 진품 — 넓은 가격창 (선물은 브랜드 정합 > 엄격한 예산)
+            if len(picked) < 3:
+                bh = [u for u in rel_cp if brand and brand in u["name"]
+                      and _price_ok_range(u, wide_lo, wide_hi)]
+                picked += [u for u in bh if u not in picked][:3 - len(picked)]
+
+            # ③ 쿠팡 일반 (정가격대만)
+            if len(picked) < 3:
+                gen = [u for u in rel_cp if _price_ok(u) and u not in picked]
+                picked += gen[:3 - len(picked)]
+
+            # 내부 필드 정리
+            for u in picked:
+                u.pop("mall", None)
+            return _dedupe_products(picked)[:3]
         except Exception:
             return []
 
