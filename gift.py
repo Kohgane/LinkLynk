@@ -115,13 +115,16 @@ def recommend(api_key, who, budget, taste, exclude=None):
 
     _lo, _hi = _budget_range(budget)
 
-    def _price_ok(u):
+    def _price_ok_range(u, lo, hi):
         pr = u.get("price")
         try:
             pr = int(pr)
         except Exception:
             return False
-        return _lo <= pr <= _hi
+        return lo <= pr <= hi
+
+    def _price_ok(u):
+        return _price_ok_range(u, _lo, _hi)
 
     def _fetch(kw):
         """★관련성(콜라·화장지 차단) + ★가격대(예산 20~50만에 2,900원 보석함 차단) 이중 검증."""
@@ -134,6 +137,16 @@ def recommend(api_key, who, budget, taste, exclude=None):
                 kw2 = " ".join(toks[:2])
                 uniq2 = _search_once(kw2)
                 rel = [u for u in uniq2 if any(t in u["name"] for t in toks[:2])]
+            # ★브랜드 우선: 키워드 첫 토큰(브랜드명)이 상품명에 있으면 진품 라인 —
+            # 유사품보다 우선하고, 가격 허용 폭도 넓게 (블랙윙 4.2만이 1~3만 예산에서
+            # 스테들러 일반연필에 밀리는 것 방지. 선물은 브랜드 정합 > 엄격한 예산)
+            brand = toks[0] if toks else ""
+            brand_hits = [u for u in rel if brand and brand in u["name"]]
+            if brand_hits:
+                wide = [u for u in brand_hits
+                        if _price_ok_range(u, int(_lo * 0.7), int(_hi * 1.4))]
+                if wide:
+                    return wide[:3]
             priced = [u for u in rel if _price_ok(u)]
             # 가격 통과분이 있으면 그것만, 없으면 빈 목록 (격 안 맞는 물건은 안 보여준다)
             return priced[:3]
