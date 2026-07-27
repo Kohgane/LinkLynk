@@ -239,6 +239,13 @@ def recommend(api_key, who, budget, taste, exclude=None):
                 gen = [u for u in rel_cp if _price_ok(u) and u not in picked]
                 picked += gen[:3 - len(picked)]
 
+            # ④ 자연 폴백: 브랜드 재고가 없으면 브랜드 빼고 같은 품목으로 재검색
+            # (케멕스가 없으면 좋은 드리퍼를 — 빈 칸 3개보다 자연스러운 대안이 낫다)
+            if not picked and cp and len(toks) > 1:
+                kw3 = " ".join(toks[1:])
+                alt = _relevant(_search_once(kw3), toks[1:])
+                picked += [u for u in alt if _price_ok(u)][:3]
+
             # 내부 필드 정리
             for u in picked:
                 u.pop("mall", None)
