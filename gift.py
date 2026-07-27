@@ -16,9 +16,24 @@ _SYS = (
 )
 
 
-def recommend(api_key, who, budget, taste):
+def _dedupe_products(items):
+    """같은 상품의 색상·옵션 변형 중복 제거 — 이름 앞 12자가 같으면 한 개만."""
+    seen, out = set(), []
+    for it in items:
+        key = (it.get("name") or "")[:12]
+        if key in seen:
+            continue
+        seen.add(key)
+        out.append(it)
+    return out
+
+
+def recommend(api_key, who, budget, taste, exclude=None):
+    ex = ""
+    if exclude:
+        ex = "\n★이전에 추천한 방향이니 겹치지 않게 완전히 다른 계열로: " + ", ".join(exclude[:6])
     user = (
-        f"받는 사람: {who}\n예산: {budget}\n취향 힌트: {taste or '없음'}\n\n"
+        f"받는 사람: {who}\n예산: {budget}\n취향 힌트: {taste or '없음'}{ex}\n\n"
         "선물 방향 3개. 서로 다른 계열로(예: 감각적 소품 / 실용 업그레이드 / 경험·취미).\n"
         'JSON: {"picks":[{"keyword":"쿠팡 검색어(2~4단어)","reason":"한 줄 이유","angle":"계열 이름"}x3]}'
     )
@@ -39,25 +54,34 @@ def recommend(api_key, who, budget, taste):
     ck = os.environ.get("COUPANG_ACCESS_KEY", "") or os.environ.get("COUPANG_ACCESS", "")
     cs = os.environ.get("COUPANG_SECRET_KEY", "") or os.environ.get("COUPANG_SECRET", "")
     cp = CoupangPartners(ck, cs) if ck and cs else None
+
+    def _fetch(kw):
+        """변형 중복을 걸러내기 위해 5개 받아 3개로 압축."""
+        try:
+            found = cp.search_products(kw, limit=5) or []
+            uniq = _dedupe_products([{
+                "name": f.get("name", "")[:60],
+                "price": f.get("price"),
+                "image": f.get("image"),
+                "link": f.get("url"),   # 파트너스 검색 결과 URL은 이미 수익 트래킹 링크
+            } for f in found])
+            return uniq[:3]
+        except Exception:
+            return []
+
+    kws = [scrub_garbled(str(p.get("keyword") or ""))[:40] for p in picks]
+    results = {}
+    if cp:
+        from concurrent.futures import ThreadPoolExecutor
+        with ThreadPoolExecutor(max_workers=3) as pool:
+            futs = {kw: pool.submit(_fetch, kw) for kw in kws if kw}
+            results = {kw: f.result() for kw, f in futs.items()}
+
     out = []
-    for p in picks:
-        kw = scrub_garbled(str(p.get("keyword") or ""))[:40]
-        item = {"keyword": kw,
-                "reason": scrub_garbled(str(p.get("reason") or ""))[:160],
-                "angle": scrub_garbled(str(p.get("angle") or ""))[:20],
-                "products": []}
-        if cp and kw:
-            try:
-                found = cp.search_products(kw, limit=3) or []
-                item["products"] = [{
-                    "name": f.get("name", "")[:60],
-                    "price": f.get("price"),
-                    "image": f.get("image"),
-                    "link": f.get("url"),   # 파트너스 검색 결과 URL은 이미 수익 트래킹 링크
-                } for f in found[:3]]
-            except Exception:
-                pass
-        out.append(item)
-        time.sleep(0.2)
+    for p, kw in zip(picks, kws):
+        out.append({"keyword": kw,
+                    "reason": scrub_garbled(str(p.get("reason") or ""))[:160],
+                    "angle": scrub_garbled(str(p.get("angle") or ""))[:20],
+                    "products": results.get(kw, [])})
     return {"ok": True, "picks": out, "src": used_model,
             "coupang": bool(cp), "coupang_err": (cp.last_error if cp else "no_keys")}

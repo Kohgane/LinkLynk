@@ -112,7 +112,8 @@ document.getElementById('gBudget').addEventListener('click',e=>{
   c.classList.add('on');
 });
 
-async function reco(){
+let __lastKeywords=[];
+async function reco(isRetry){
   const who=(document.getElementById('gWho').value||'').trim();
   const budget=(document.querySelector('#gBudget .chip.on')||{}).dataset?.v||'3~5만원';
   const taste=(document.getElementById('gTaste').value||'').trim();
@@ -125,10 +126,10 @@ async function reco(){
     document.getElementById('pLine').textContent=lines[li]; }, 2600);
   try{
     const r=await fetch('/api/gift/reco',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({who,budget,taste})}).then(x=>x.json());
+      body:JSON.stringify({who,budget,taste,exclude:isRetry?__lastKeywords:[]})}).then(x=>x.json());
     clearInterval(iv);
     if(!r.ok){ toast(r.error||'실패'); back(); return; }
-    render(r, who, budget);
+    __lastKeywords=(r.picks||[]).map(p=>p.keyword).filter(Boolean); render(r, who, budget);
   }catch(e){ clearInterval(iv); toast('네트워크 오류'); back(); }
 }
 function back(){
@@ -139,7 +140,7 @@ function render(r, who, budget){
   document.getElementById('vProg').style.display='none';
   const v=document.getElementById('vOut'); v.style.display='';
   v.innerHTML=`<div class="hero" style="padding-bottom:16px">
-      <h1 style="font-size:21px">${esc(who)}님께,<br><span class="b">${esc(budget)}</span>로 이런 건 어때요</h1>
+      <h1 style="font-size:21px">${esc(who)}님께,<br>예산 <span class="b">${esc(budget)}</span>, 이런 건 어때요</h1>
     </div>`
     +(r.picks||[]).map(p=>{
       const prods=(p.products||[]).map(x=>`
@@ -156,7 +157,7 @@ function render(r, who, budget){
       </div>`;
     }).join('')
     +`<button class="btn" onclick="back();document.getElementById('vOut').style.display='none'">다른 사람 선물도 찾기</button>
-      <button class="retry" onclick="reco()">같은 조건으로 다시 뽑기</button>`;
+      <button class="retry" onclick="reco(true)">같은 조건으로 다시 뽑기 (새 방향)</button>`;
   window.scrollTo({top:0,behavior:'smooth'});
 }
 </script>
