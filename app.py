@@ -804,6 +804,40 @@ def gift_config_api():
     return resp
 
 
+@app.route("/api/gift/own-products", methods=["POST"])
+def gift_own_products_upload():
+    """자사 상품 인덱스 벌크 업로드 — Bluehost 덤프 스크립트가 호출(크론키 보호).
+    body: {"store":"gocosmos","replace":true|false,"items":[{name,price,image,link}...]}"""
+    ck = os.environ.get("BOIM_CRON_KEY", "").strip()
+    if not ck or request.args.get("key") != ck:
+        return jsonify({"ok": False}), 403
+    d = request.get_json(force=True, silent=True) or {}
+    store_name = (d.get("store") or "").strip()[:20]
+    items = d.get("items") or []
+    if not store_name or not isinstance(items, list):
+        return jsonify({"ok": False, "error": "store/items 필요"}), 400
+    import time as _t
+    now = int(_t.time())
+    if d.get("replace"):
+        store._q("DELETE FROM linklynk_gift_own WHERE store=%s", (store_name,))
+    n = 0
+    for it in items[:3000]:
+        nm = (it.get("name") or "").strip()[:120]
+        lk = (it.get("link") or "").strip()[:400]
+        if not nm or not lk:
+            continue
+        try:
+            pr = int(it.get("price") or 0) or None
+        except Exception:
+            pr = None
+        store._q("INSERT INTO linklynk_gift_own(store,name,price,image,link,updated_at) "
+                 "VALUES(%s,%s,%s,%s,%s,%s)",
+                 (store_name, nm, pr, (it.get("image") or "")[:400], lk, now))
+        n += 1
+    total = store._q("SELECT COUNT(*) c FROM linklynk_gift_own", fetch="one")
+    return jsonify({"ok": True, "inserted": n, "total": total["c"]})
+
+
 @app.route("/api/gift/viral-credit", methods=["POST", "OPTIONS"])
 def gift_viral_credit():
     """공유 리워드 적립 — contactsViral sendViral 이벤트가 올 때마다 호출.

@@ -41,6 +41,37 @@ import urllib.parse
 _OWN_MALLS = ("나의 코스모스", "나의코스모스", "셰고가")   # 자사 스토어 — 커미션이 아니라 마진 전체
 
 
+_OWN_CACHE = {"at": 0, "rows": []}
+
+
+def _own_index_search(toks, lo, hi, limit=3):
+    """자사 상품 인덱스(Supabase) 토큰 매칭 — 10분 캐시. 마진 전체가 걸린 최우선 소스."""
+    if not toks:
+        return []
+    try:
+        import store as _store
+        now = time.time()
+        if now - _OWN_CACHE["at"] > 600:
+            rows = _store._q(
+                "SELECT store,name,price,image,link FROM linklynk_gift_own", fetch="all") or []
+            _OWN_CACHE.update(at=now, rows=rows)
+        out = []
+        for r in _OWN_CACHE["rows"]:
+            nm = r.get("name") or ""
+            if not any(t in nm for t in toks):
+                continue
+            pr = r.get("price")
+            if pr and not (lo <= pr <= hi):
+                continue
+            out.append({"name": nm[:60], "price": pr, "image": r.get("image"),
+                        "link": r.get("link"), "own": True})
+            if len(out) >= limit:
+                break
+        return out
+    except Exception:
+        return []
+
+
 def _naver_shop_search(kw, limit=8):
     """네이버 쇼핑 검색 API (openapi.naver.com, IP 제한 없음).
     NAVER_SEARCH_ID/SECRET 없으면 빈 목록 — 쿠팡 단독으로 동작."""
@@ -185,10 +216,15 @@ def recommend(api_key, who, budget, taste, exclude=None):
             wide_lo, wide_hi = int(_lo * 0.7), int(_hi * 1.4)
             picked = []
 
-            # ① 자사 스토어 상품 (네이버 결과 중 own) — 최우선, 넓은 가격창
-            own = [u for u in rel_nv if u.get("own")
-                   and _price_ok_range(u, wide_lo, wide_hi)]
-            picked += own[:2]
+            # ⓪ 자사 상품 인덱스(Supabase 전체 카탈로그) — 마진 전체, 절대 우선
+            picked += _own_index_search(toks, wide_lo, wide_hi, limit=2)
+
+            # ① 자사 스토어 상품 (네이버 검색 결과 중 own) — 인덱스 미포함분 보완
+            if len(picked) < 2:
+                own = [u for u in rel_nv if u.get("own")
+                       and _price_ok_range(u, wide_lo, wide_hi)
+                       and u["name"][:12] not in {x["name"][:12] for x in picked}]
+                picked += own[:2 - len(picked)]
 
             # ② 쿠팡 브랜드 진품 — 넓은 가격창 (선물은 브랜드 정합 > 엄격한 예산)
             if len(picked) < 3:
