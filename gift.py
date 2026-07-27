@@ -34,6 +34,26 @@ _SYS = (
 )
 
 
+_BUDGET_RANGES = {
+    "1만원 이하": (3000, 12000),
+    "1~3만원": (8000, 36000),
+    "3~5만원": (20000, 60000),
+    "5~10만원": (35000, 120000),
+    "10~20만원": (70000, 240000),
+    "20~50만원": (140000, 600000),
+    "50만원 이상": (350000, 99999999),
+}
+
+
+def _budget_range(budget):
+    """예산 문자열 -> (하한, 상한) KRW. 하한은 예산의 ~70% (너무 싼 건 선물 격 훼손),
+    상한은 ~120% (약간 초과는 허용)."""
+    for k, v in _BUDGET_RANGES.items():
+        if k in (budget or ""):
+            return v
+    return (0, 99999999)
+
+
 def _dedupe_products(items):
     """같은 상품의 색상·옵션 변형 중복 제거 — 이름 앞 12자가 같으면 한 개만."""
     seen, out = set(), []
@@ -52,7 +72,11 @@ def recommend(api_key, who, budget, taste, exclude=None):
         ex = "\n★이전에 추천한 방향이니 겹치지 않게 완전히 다른 계열로: " + ", ".join(exclude[:6])
     user = (
         f"받는 사람: {who}\n예산: {budget}\n취향 힌트: {taste or '없음'}{ex}\n\n"
-        "선물 방향 3개, 서로 완전히 다른 계열로. 예산 안에서 실구매 가능한 것.\n"
+        "선물 방향 3개, 서로 완전히 다른 계열로.\n"
+        "★keyword의 상품 실구매가가 반드시 예산 범위 안이어야 한다. 저 예산이면 그 값어치의 물건을 — "
+        "20만원대 예산에 만원짜리 소품 금지, 3만원대 예산에 30만원짜리 금지.\n"
+        "★쿠팡에서 실제 판매될 법한 키워드만 (에르메스·까르띠에급 하이엔드 명품 주얼리는 쿠팡에 없다 — "
+        "그 예산대라면 리델 잔 세트, 이딸라 풀세트, 빈티지 그릇, 니치 향수, 만년필, 오디오 같은 걸로).\n"
         "angle(계열 이름)도 세련되게 — '감각적 소품' 같은 밋밋한 말 대신 "
         "그 방향의 매력을 담은 짧은 이름(예: '백년 된 물건의 힘', '책상 위의 의식', '아날로그 한 조각').\n"
         'JSON: {"picks":[{"keyword":"브랜드명+상품유형(2~4단어)","reason":"한 줄 이유","angle":"계열 이름"}x3]}'
@@ -89,9 +113,18 @@ def recommend(api_key, who, budget, taste, exclude=None):
             "link": f.get("url"),   # 파트너스 검색 결과 URL은 이미 수익 트래킹 링크
         } for f in found])
 
+    _lo, _hi = _budget_range(budget)
+
+    def _price_ok(u):
+        pr = u.get("price")
+        try:
+            pr = int(pr)
+        except Exception:
+            return False
+        return _lo <= pr <= _hi
+
     def _fetch(kw):
-        """★관련성 검증 — 쿠팡은 결과 없으면 인기상품(콜라·화장지)을 뱉는다.
-        키워드 토큰이 상품명에 하나도 없으면 버린다. 그런 걸 보여주느니 안 보여주는 게 낫다."""
+        """★관련성(콜라·화장지 차단) + ★가격대(예산 20~50만에 2,900원 보석함 차단) 이중 검증."""
         try:
             toks = _kw_tokens(kw)
             uniq = _search_once(kw)
@@ -101,7 +134,9 @@ def recommend(api_key, who, budget, taste, exclude=None):
                 kw2 = " ".join(toks[:2])
                 uniq2 = _search_once(kw2)
                 rel = [u for u in uniq2 if any(t in u["name"] for t in toks[:2])]
-            return rel[:3]
+            priced = [u for u in rel if _price_ok(u)]
+            # 가격 통과분이 있으면 그것만, 없으면 빈 목록 (격 안 맞는 물건은 안 보여준다)
+            return priced[:3]
         except Exception:
             return []
 
