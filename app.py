@@ -772,10 +772,25 @@ def boim_cron_weekly():
 
 # ══════════ 선물레이더 — 앱인토스 미니앱 (공개) ══════════
 _GIFT_IP = {}
+_GIFT_BASE_LIMIT = 10      # 기본 무료
+_GIFT_BONUS_LIMIT = 5      # 리워드 광고 시청으로 추가 가능한 횟수
+
 
 @app.route("/gift")
 def gift_page():
     return app.send_static_file("gift.html")
+
+
+@app.route("/api/gift/config")
+def gift_config_api():
+    """미니앱 런타임 설정 — 광고 그룹 ID(콘솔 발급 후 Render 환경변수로).
+    재빌드 없이 광고 on/off 가능."""
+    resp = jsonify({"ok": True,
+                    "ad_group_id": os.environ.get("GIFT_AD_GROUP_ID", "").strip(),
+                    "daily_limit": _GIFT_BASE_LIMIT,
+                    "bonus_limit": _GIFT_BONUS_LIMIT})
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
 
 
 @app.route("/api/gift/reco", methods=["POST", "OPTIONS"])
@@ -786,13 +801,27 @@ def gift_reco_api():
         resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
         resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
         return resp
-    """선물 추천 — IP당 하루 10회."""
+    """선물 추천 — IP당 하루 10회 + 리워드 광고 보너스 5회."""
     ip = (request.headers.get("X-Forwarded-For", request.remote_addr) or "?").split(",")[0].strip()
     import time as _t
     now = int(_t.time())
-    hist = [t for t in _GIFT_IP.get(ip, []) if now - t < 86400]
-    if len(hist) >= 10:
-        return jsonify({"ok": False, "error": "오늘 추천 횟수를 다 썼어요. 내일 다시 만나요!"}), 429
+    d0 = request.get_json(force=True, silent=True) or {}
+    is_bonus = bool(d0.get("bonus"))
+    # 항목: {"t": ts, "b": 보너스여부} — 과거 int 형식도 허용
+    hist = []
+    for e in _GIFT_IP.get(ip, []):
+        if isinstance(e, dict) and now - e.get("t", 0) < 86400:
+            hist.append(e)
+        elif isinstance(e, int) and now - e < 86400:
+            hist.append({"t": e, "b": False})
+    base_used = sum(1 for e in hist if not e["b"])
+    bonus_used = sum(1 for e in hist if e["b"])
+    if base_used >= _GIFT_BASE_LIMIT:
+        if not (is_bonus and bonus_used < _GIFT_BONUS_LIMIT):
+            return jsonify({"ok": False,
+                            "error": "오늘 추천 횟수를 다 썼어요.",
+                            "limit_reached": True,
+                            "can_bonus": bonus_used < _GIFT_BONUS_LIMIT}), 429
     d = request.get_json(force=True, silent=True) or {}
     who = (d.get("who") or "").strip()[:30]
     budget = (d.get("budget") or "").strip()[:20]
@@ -810,7 +839,7 @@ def gift_reco_api():
     if key_err:
         r["key_err"] = key_err
     if r.get("ok"):
-        hist.append(now)
+        hist.append({"t": now, "b": is_bonus and base_used >= _GIFT_BASE_LIMIT})
         _GIFT_IP[ip] = hist
     resp = jsonify(r)
     resp.headers["Access-Control-Allow-Origin"] = "*"
