@@ -56,9 +56,10 @@ def _own_index_search(toks, lo, hi, limit=3):
                 "SELECT store,name,price,image,link FROM linklynk_gift_own", fetch="all") or []
             _OWN_CACHE.update(at=now, rows=rows)
         out = []
+        brand = toks[0]   # ★자연스러움 가드: 추천된 그 브랜드를 실제로 팔 때만 등장.
         for r in _OWN_CACHE["rows"]:
             nm = r.get("name") or ""
-            if not any(t in nm for t in toks):
+            if brand not in nm:      # 일반 토큰 매칭으로 끼어들기 금지 — 어색하면 안 나온다
                 continue
             pr = r.get("price")
             if pr and not (lo <= pr <= hi):
@@ -216,15 +217,16 @@ def recommend(api_key, who, budget, taste, exclude=None):
             wide_lo, wide_hi = int(_lo * 0.7), int(_hi * 1.4)
             picked = []
 
-            # ⓪ 자사 상품 인덱스(Supabase 전체 카탈로그) — 마진 전체, 절대 우선
-            picked += _own_index_search(toks, wide_lo, wide_hi, limit=2)
+            # ⓪ 자사 상품 — 단, ★브랜드가 정확히 일치할 때만 최대 1개 (자연스러움 > 수익.
+            # 어색한 끼워넣기는 '어떻게 알았지'를 '광고네'로 무너뜨린다)
+            picked += _own_index_search(toks, wide_lo, wide_hi, limit=1)
 
-            # ① 자사 스토어 상품 (네이버 검색 결과 중 own) — 인덱스 미포함분 보완
-            if len(picked) < 2:
-                own = [u for u in rel_nv if u.get("own")
-                       and _price_ok_range(u, wide_lo, wide_hi)
-                       and u["name"][:12] not in {x["name"][:12] for x in picked}]
-                picked += own[:2 - len(picked)]
+            # ① 네이버 검색 own — 같은 원칙: 브랜드 토큰 일치분만
+            if not picked:
+                brand = toks[0] if toks else ""
+                own = [u for u in rel_nv if u.get("own") and brand and brand in u["name"]
+                       and _price_ok_range(u, wide_lo, wide_hi)]
+                picked += own[:1]
 
             # ② 쿠팡 브랜드 진품 — 넓은 가격창 (선물은 브랜드 정합 > 엄격한 예산)
             if len(picked) < 3:
