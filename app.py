@@ -783,6 +783,11 @@ def gift_page():
     return app.send_static_file("gift.html")
 
 
+@app.route("/giftradar-og.png")
+def giftradar_og():
+    return send_from_directory(".", "giftradar-og.png", mimetype="image/png")
+
+
 @app.route("/api/gift/config")
 def gift_config_api():
     """미니앱 런타임 설정 — 광고 그룹 ID(콘솔 발급 후 Render 환경변수로).
