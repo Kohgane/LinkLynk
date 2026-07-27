@@ -2,6 +2,7 @@
 """선물레이더 — 앱인토스 미니앱용 선물 큐레이션 엔진.
 받는 사람+예산+취향 -> LLM이 '뻔하지 않은' 선물 방향 3개 -> 쿠팡 실상품+딥링크 매핑."""
 import os
+import re
 import json
 import time
 
@@ -55,21 +56,42 @@ def recommend(api_key, who, budget, taste, exclude=None):
     cs = os.environ.get("COUPANG_SECRET_KEY", "") or os.environ.get("COUPANG_SECRET", "")
     cp = CoupangPartners(ck, cs) if ck and cs else None
 
+    _KW_STOP = {"세트", "선물", "추천", "제품", "용품", "아이템", "고급", "감성", "프리미엄"}
+
+    def _kw_tokens(kw):
+        return [w for w in re.split(r"\s+", kw) if len(w) >= 2 and w not in _KW_STOP]
+
+    def _search_once(kw):
+        found = cp.search_products(kw, limit=8) or []
+        return _dedupe_products([{
+            "name": f.get("name", "")[:60],
+            "price": f.get("price"),
+            "image": f.get("image"),
+            "link": f.get("url"),   # 파트너스 검색 결과 URL은 이미 수익 트래킹 링크
+        } for f in found])
+
     def _fetch(kw):
-        """변형 중복을 걸러내기 위해 5개 받아 3개로 압축."""
+        """★관련성 검증 — 쿠팡은 결과 없으면 인기상품(콜라·화장지)을 뱉는다.
+        키워드 토큰이 상품명에 하나도 없으면 버린다. 그런 걸 보여주느니 안 보여주는 게 낫다."""
         try:
-            found = cp.search_products(kw, limit=5) or []
-            uniq = _dedupe_products([{
-                "name": f.get("name", "")[:60],
-                "price": f.get("price"),
-                "image": f.get("image"),
-                "link": f.get("url"),   # 파트너스 검색 결과 URL은 이미 수익 트래킹 링크
-            } for f in found])
-            return uniq[:3]
+            toks = _kw_tokens(kw)
+            uniq = _search_once(kw)
+            rel = [u for u in uniq if any(t in u["name"] for t in toks)] if toks else uniq
+            # 전멸이면 키워드를 앞 2단어로 줄여 한 번 더 (너무 구체적이었을 가능성)
+            if not rel and len(toks) > 2:
+                kw2 = " ".join(toks[:2])
+                uniq2 = _search_once(kw2)
+                rel = [u for u in uniq2 if any(t in u["name"] for t in toks[:2])]
+            return rel[:3]
         except Exception:
             return []
 
-    kws = [scrub_garbled(str(p.get("keyword") or ""))[:40] for p in picks]
+    def _clean_kw(k):
+        k = scrub_garbled(str(k or ""))
+        k = re.sub(r"[\"'\u201c\u201d\u2018\u2019]|쿠팡", "", k)
+        return re.sub(r"\s+", " ", k).strip()[:40]
+
+    kws = [_clean_kw(p.get("keyword")) for p in picks]
     results = {}
     if cp:
         from concurrent.futures import ThreadPoolExecutor

@@ -792,8 +792,11 @@ def giftradar_og():
 def gift_config_api():
     """미니앱 런타임 설정 — 광고 그룹 ID(콘솔 발급 후 Render 환경변수로).
     재빌드 없이 광고 on/off 가능."""
+    _ad = os.environ.get("GIFT_AD_GROUP_ID", "").strip()
+    if len(_ad) < 8:
+        _ad = ""            # 'ㅇㅇ' 같은 자리표시 방어 — 진짜 ID만 통과
     resp = jsonify({"ok": True,
-                    "ad_group_id": os.environ.get("GIFT_AD_GROUP_ID", "").strip(),
+                    "ad_group_id": _ad,
                     "viral_module_id": os.environ.get("GIFT_VIRAL_MODULE_ID", "").strip(),
                     "daily_limit": _GIFT_BASE_LIMIT,
                     "bonus_limit": _GIFT_BONUS_LIMIT})
