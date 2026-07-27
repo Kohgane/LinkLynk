@@ -772,8 +772,10 @@ def boim_cron_weekly():
 
 # ══════════ 선물레이더 — 앱인토스 미니앱 (공개) ══════════
 _GIFT_IP = {}
+_GIFT_CREDIT = {}          # 공유 리워드 크레딧 {ip: {"n": int, "t": ts}}
 _GIFT_BASE_LIMIT = 10      # 기본 무료
 _GIFT_BONUS_LIMIT = 5      # 리워드 광고 시청으로 추가 가능한 횟수
+_GIFT_VIRAL_DAILY_CAP = 10 # 하루 공유 적립 상한
 
 
 @app.route("/gift")
@@ -787,8 +789,40 @@ def gift_config_api():
     재빌드 없이 광고 on/off 가능."""
     resp = jsonify({"ok": True,
                     "ad_group_id": os.environ.get("GIFT_AD_GROUP_ID", "").strip(),
+                    "viral_module_id": os.environ.get("GIFT_VIRAL_MODULE_ID", "").strip(),
                     "daily_limit": _GIFT_BASE_LIMIT,
                     "bonus_limit": _GIFT_BONUS_LIMIT})
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
+
+@app.route("/api/gift/viral-credit", methods=["POST", "OPTIONS"])
+def gift_viral_credit():
+    """공유 리워드 적립 — contactsViral sendViral 이벤트가 올 때마다 호출.
+    하루 10회 상한. (토스가 지급한 rewardAmount 그대로 신뢰 — MVP)"""
+    if request.method == "OPTIONS":
+        resp = make_response("", 204)
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return resp
+    ip = (request.headers.get("X-Forwarded-For", request.remote_addr) or "?").split(",")[0].strip()
+    import time as _t
+    now = int(_t.time())
+    d = request.get_json(force=True, silent=True) or {}
+    amt = max(1, min(int(d.get("amount") or 1), 3))
+    c = _GIFT_CREDIT.get(ip) or {"n": 0, "t": now, "earned": 0}
+    if now - c.get("t", 0) > 86400:
+        c = {"n": 0, "t": now, "earned": 0}
+    if c.get("earned", 0) >= _GIFT_VIRAL_DAILY_CAP:
+        resp = jsonify({"ok": False, "error": "오늘 공유 적립 한도에 닿았어요", "credits": c["n"]})
+    else:
+        amt = min(amt, _GIFT_VIRAL_DAILY_CAP - c.get("earned", 0))
+        c["n"] = c.get("n", 0) + amt
+        c["earned"] = c.get("earned", 0) + amt
+        c["t"] = now
+        _GIFT_CREDIT[ip] = c
+        resp = jsonify({"ok": True, "credits": c["n"], "added": amt})
     resp.headers["Access-Control-Allow-Origin"] = "*"
     return resp
 
@@ -816,8 +850,14 @@ def gift_reco_api():
             hist.append({"t": e, "b": False})
     base_used = sum(1 for e in hist if not e["b"])
     bonus_used = sum(1 for e in hist if e["b"])
+    consumed_credit = False
     if base_used >= _GIFT_BASE_LIMIT:
-        if not (is_bonus and bonus_used < _GIFT_BONUS_LIMIT):
+        cred = _GIFT_CREDIT.get(ip) or {}
+        if now - cred.get("t", 0) <= 86400 and cred.get("n", 0) > 0:
+            cred["n"] -= 1                      # 공유 크레딧 자동 소모
+            _GIFT_CREDIT[ip] = cred
+            consumed_credit = True
+        elif not (is_bonus and bonus_used < _GIFT_BONUS_LIMIT):
             return jsonify({"ok": False,
                             "error": "오늘 추천 횟수를 다 썼어요.",
                             "limit_reached": True,
@@ -839,7 +879,9 @@ def gift_reco_api():
     if key_err:
         r["key_err"] = key_err
     if r.get("ok"):
-        hist.append({"t": now, "b": is_bonus and base_used >= _GIFT_BASE_LIMIT})
+        hist.append({"t": now,
+                     "b": (is_bonus and base_used >= _GIFT_BASE_LIMIT
+                           and not consumed_credit)})
         _GIFT_IP[ip] = hist
     resp = jsonify(r)
     resp.headers["Access-Control-Allow-Origin"] = "*"
