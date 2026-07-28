@@ -74,7 +74,7 @@ input:focus{border-color:var(--blue)}
       <div class="sub">뻔한 기프티콘 말고요. 받는 사람 얘기를 조금만 해주세요.</div>
     </div>
     <div class="card">
-      <label>누구에게 주나요?</label>
+      <label>누구에게 주나요? (선택)</label>
       <input id="gWho" placeholder="예: 향수 좋아하는 여자친구" maxlength="30">
       <label>예산은요?</label>
       <div class="chips" id="gBudget">
@@ -120,7 +120,7 @@ async function reco(isRetry){
   const who=(document.getElementById('gWho').value||'').trim();
   const budget=(document.querySelector('#gBudget .chip.on')||{}).dataset?.v||'3~5만원';
   const taste=(document.getElementById('gTaste').value||'').trim();
-  if(!who){ toast('받는 사람을 알려주세요'); return; }
+  
   document.getElementById('vForm').style.display='none';
   document.getElementById('vOut').style.display='none';
   document.getElementById('vProg').style.display='';
@@ -143,7 +143,7 @@ function render(r, who, budget){
   document.getElementById('vProg').style.display='none';
   const v=document.getElementById('vOut'); v.style.display='';
   v.innerHTML=`<div class="hero" style="padding-bottom:16px">
-      <h1 style="font-size:21px">${esc(who)}님께,<br>예산 <span class="b">${esc(budget)}</span>, 이런 건 어때요</h1>
+      <h1 style="font-size:21px">${who?esc(who)+'님께,<br>':''}예산 <span class="b">${esc(budget)}</span>, 이런 건 어때요</h1>
     </div>`
     +(r.picks||[]).map(p=>{
       const prods=(p.products||[]).map(x=>`

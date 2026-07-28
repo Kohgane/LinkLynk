@@ -909,8 +909,8 @@ def gift_reco_api():
     budget = (d.get("budget") or "").strip()[:20]
     taste = (d.get("taste") or "").strip()[:80]
     exclude = [x.strip()[:30] for x in (d.get("exclude") or []) if x.strip()][:12]
-    if not who or not budget:
-        return jsonify({"ok": False, "error": "받는 사람과 예산을 알려주세요"}), 400
+    if not budget:
+        return jsonify({"ok": False, "error": "예산을 골라주세요"}), 400
     import gift as _gift
     key = os.environ.get("BOIM_LLM_KEY", "").strip() or "__free__"
     r = _gift.recommend(key, who, budget, taste, exclude=exclude)

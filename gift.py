@@ -152,7 +152,8 @@ def recommend(api_key, who, budget, taste, exclude=None):
     if exclude:
         ex = "\n★이전에 추천한 방향이니 겹치지 않게 완전히 다른 계열로: " + ", ".join(exclude[:12])
     user = (
-        f"받는 사람: {who}\n예산: {budget}\n취향 힌트: {taste or '없음'}{ex}\n\n"
+        f"받는 사람: {who or '특정하지 않음 — 누구에게든 두루 통하는 세련된 선물로'}\n"
+        f"예산: {budget}\n취향 힌트: {taste or '없음'}{ex}\n\n"
         "선물 방향 3개, 서로 완전히 다른 계열로.\n"
         "★keyword의 상품 실구매가가 반드시 예산 범위 안이어야 한다. 저 예산이면 그 값어치의 물건을 — "
         "20만원대 예산에 만원짜리 소품 금지, 3만원대 예산에 30만원짜리 금지.\n"
@@ -285,7 +286,7 @@ def recommend(api_key, who, budget, taste, exclude=None):
         failed_kws = [out[i]["keyword"] for i in failed_idx]
         ok_kws = [o["keyword"] for o in out if o["products"]]
         user2 = (
-            f"받는 사람: {who}\n예산: {budget}\n취향 힌트: {taste or '없음'}\n"
+            f"받는 사람: {who or '특정하지 않음'}\n예산: {budget}\n취향 힌트: {taste or '없음'}\n"
             f"다음 키워드는 쿠팡에 실재 상품이 없어 실패: {', '.join(failed_kws)}\n"
             f"이미 성공한 방향(겹치지 말 것): {', '.join(ok_kws) or '없음'}\n\n"
             f"실패분을 대체할 방향 {len(failed_idx)}개 — 같은 감각의 결이되 "
