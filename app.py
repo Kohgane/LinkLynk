@@ -783,6 +783,11 @@ def gift_page():
     return app.send_static_file("gift.html")
 
 
+@app.route("/penaltyradar-og.png")
+def penaltyradar_og():
+    return send_from_directory(".", "penaltyradar-og.png", mimetype="image/png")
+
+
 @app.route("/giftradar-og.png")
 def giftradar_og():
     return send_from_directory(".", "giftradar-og.png", mimetype="image/png")
