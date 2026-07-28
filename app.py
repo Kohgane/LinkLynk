@@ -788,6 +788,39 @@ def giftradar_og():
     return send_from_directory(".", "giftradar-og.png", mimetype="image/png")
 
 
+@app.route("/gov")
+def gov_page():
+    return app.send_static_file("gov.html")
+
+
+@app.route("/api/gov/plan", methods=["POST", "OPTIONS"])
+def gov_plan_api():
+    """과태료레이더 — 행정 기한 계산 (공개, 규칙 기반이라 비용 0)."""
+    if request.method == "OPTIONS":
+        resp = make_response("", 204)
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return resp
+    d = request.get_json(force=True, silent=True) or {}
+    import gov as _gov
+    try:
+        r = _gov.plan(
+            birth_year=d.get("birth_year"),
+            license_type=d.get("license_type"),
+            license_year=d.get("license_year"),
+            car_reg=d.get("car_reg"),
+            last_insp_year=d.get("last_insp_year"),
+            worker=d.get("worker"),
+            passport_exp=d.get("passport_exp"),
+        )
+    except Exception:
+        r = {"ok": False, "error": "계산 오류 — 입력을 확인해주세요"}
+    resp = jsonify(r)
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
+
 @app.route("/api/gift/config")
 def gift_config_api():
     """미니앱 런타임 설정 — 광고 그룹 ID(콘솔 발급 후 Render 환경변수로).
