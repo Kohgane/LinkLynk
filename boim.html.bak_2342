@@ -134,43 +134,23 @@ input:focus{border-color:var(--text-2)}
   <div class="logo"><div class="mark">B</div><div class="nm">보임 <b>BOIM</b> · AI 검색 노출 진단</div></div>
 
   <div id="viewForm">
-    <h1>손님이 AI에게 물으면<br><span class="q">어느 가게 이름이 나올까요</span></h1>
+    <h1>챗GPT가 당신 상품을<br><span class="q">팔아주고 있습니까?</span></h1>
     <div class="sub">
-      손님은 이제 검색창 대신 AI에게 "뭐 살까"를 묻습니다.<br>
-      그 답변에 <b>당신 가게가 있는지, 아니면 어느 경쟁사가 대신 불리는지</b> 30초면 확인됩니다.<br>
-      의견이 아니라 <b>기록</b>입니다 — 같은 질문을 직접 던져 대조하셔도 됩니다. 무료입니다.
-    </div>
-    <div class="sub" style="border-top:1px solid var(--line);padding-top:18px;margin-top:-12px">
-      <b style="display:block;margin-bottom:8px;font-size:15px">왜 지금 확인해야 하나요</b>
-      검색창에 키워드를 넣고 목록에서 고르던 방식이 바뀌고 있습니다.
-      이제는 AI에게 <b>"OO 추천해줘"</b>라고 묻고, AI가 <b>이름 몇 개만</b> 골라 답합니다.<br><br>
-      검색 결과 2페이지에 있으면 스크롤이라도 내려서 볼 수 있지만,
-      AI 답변에 없으면 <b>존재 자체가 노출되지 않습니다</b>.
-      순위가 아니라 <b>언급 여부</b>가 기준이 된 것입니다.<br><br>
-      보임은 실제 AI에게 쇼핑 질문을 던져 <b>당신 가게가 불리는지</b>를 세어 기록합니다.
-      처방이 아니라 측정입니다.
-      <a href="/boim/guide" style="color:var(--text);text-decoration:underline;
-      text-underline-offset:3px;display:inline-block;margin-top:10px;font-size:13px">
-      AI 검색이 뭔지 더 알아보기 →</a>
+      사람들은 이제 검색창 대신 AI에게 "뭐 살까"를 묻습니다.<br>
+      보임은 실제 AI에게 쇼핑 질문을 던지고, <b>답변에 당신 스토어가 나오는지</b> 그대로 보여드립니다.<br>
+      의견이 아니라 <b>기록</b>입니다 — 같은 질문을 직접 던져 확인하셔도 됩니다. 무료입니다.
     </div>
     <div class="card">
       <label>스토어 이름</label>
       <input id="fStore" placeholder="예: 고코스모스" maxlength="40">
       <div class="hint">네이버 스마트스토어 · 쿠팡 · 자사몰 모두 가능</div>
-      <div id="aliasToggle" onclick="document.getElementById('aliasBox').style.display='block';this.style.display='none'"
-           style="font-size:11.5px;color:var(--muted);cursor:pointer;margin:2px 0 10px;text-decoration:underline">+ 영문명·별칭도 있어요</div>
-      <div id="aliasBox" style="display:none">
-        <label>다른 표기 (선택)</label>
-        <input id="fAlias" placeholder="예: gocosmos (영문명·별칭)" maxlength="60">
-      </div>
+      <label>다른 표기 (선택)</label>
+      <input id="fAlias" placeholder="예: gocosmos (영문명·별칭)" maxlength="60">
       <label>업종 키워드 (쉼표로 1~3개)</label>
       <input id="fKw" placeholder="예: 니치 향수, 남자 향수" maxlength="70">
       <div class="hint">손님이 AI에게 물어볼 법한 상품 카테고리</div>
       <button class="btn" id="goBtn" onclick="startScan()">무료 진단 시작</button>
       <div class="small">약 30초~1분 · 회원가입 없음 · 하루 3회</div>
-      <div class="small" style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,.07);opacity:.75">
-        진단은 <b>끝까지 무료</b>입니다. 결과를 보고 원하시면 그때<br>
-        재측정(워치 9,900원)이나 실행 키트(부스트 29,900원)를 고르시면 됩니다.</div>
       <div id="formErr"></div>
     </div>
   </div>
@@ -231,20 +211,8 @@ async function poll(id){
     const d=await fetch('/api/boim/scan/'+id).then(x=>x.json());
     if(d.status==='done' && d.result){ render(d); return; }
     if(d.status==='error'){ document.getElementById('progLine').textContent='진단 실패: '+(d.error||''); return; }
-    const steps=[
-      '실제 AI에 쇼핑 질문을 던지는 중…',
-      '답변 수집 완료 — 당신 가게 이름을 찾는 중',
-      '답변에 등장한 다른 가게 이름을 세는 중',
-      '결과를 정리하는 중 — 거의 다 됐어요'];
-    const done=Math.min(Math.floor(pollN/3),steps.length-1);
-    let html='';
-    for(let i=0;i<steps.length;i++){
-      if(i<done)      html+='<div style="font-size:12px;color:var(--muted);margin:3px 0"><b style="color:var(--text-2)">✓</b> '+steps[i]+'</div>';
-      else if(i===done) html+='<div style="font-size:12.5px;color:var(--text);margin:3px 0;font-weight:700">'+steps[i]+'</div>';
-      else            html+='<div style="font-size:12px;color:var(--muted);opacity:.35;margin:3px 0">· '+steps[i]+'</div>';
-    }
-    if(d.found_others) html+='<div style="margin-top:9px;padding:8px 10px;border-radius:8px;background:rgba(255,255,255,.05);font-size:11.5px"><b>⚠ 답변에서 다른 가게 이름이 발견됐습니다</b></div>';
-    document.getElementById('progLine').innerHTML=html;
+    const msgs=['쇼핑 질문을 던지고 답변을 수집하고 있어요','답변에서 스토어 언급을 찾는 중','경쟁 스토어를 파악하는 중','거의 다 됐어요'];
+    document.getElementById('progLine').textContent=msgs[Math.min(Math.floor(pollN/3),msgs.length-1)];
   }catch(e){}
   setTimeout(()=>poll(id), 2500);
 }
@@ -270,16 +238,9 @@ function render(d){
       </div>
       <div class="verdict">${esc(r.verdict)}</div>
     </div>
-    ${comps?`<div class="sec-t">AI가 당신 대신 부른 이름들</div>
-    <div class="card" style="border-color:rgba(255,255,255,.18)">
-      <div style="font-size:12px;color:var(--muted);margin-bottom:9px;line-height:1.5">
-        같은 질문에 AI는 <b style="color:var(--text)">이 가게들</b>을 추천했습니다.
-        손님이 지금 보고 있는 이름입니다.</div>
-      <div style="margin-bottom:2px">${comps}</div>
-    </div>`:''}
-    <div class="sec-t">근거 — 질문별 결과</div>
+    <div class="sec-t">질문별 결과</div>
     <div class="card">${rows||'<div class="qtext">응답을 받지 못했어요</div>'}</div>
-    ${false?`<div class="sec-t">AI가 대신 언급한 이름들</div>
+    ${comps?`<div class="sec-t">AI가 대신 언급한 이름들</div>
       <div class="card">${comps}
       <div class="hint" style="margin-top:4px">AI 답변에 2회 이상 등장한 브랜드·스토어 후보</div></div>`:''}
     <div class="sec-t">무료 맛보기 — 내 상품 FAQ</div>
@@ -303,18 +264,10 @@ function render(d){
       <div class="plan" data-plan="boost" onclick="pickPlan(this)">
         <div><div class="pl">보임 부스트</div><div class="pd">워치 + 실행 키트: 내 상품 FAQ·텍스트 설명 자동 생성 (복붙 5분)</div></div>
         <div class="pp">29,900<span>원/30일</span></div>
-        <div style="font-size:10.5px;color:var(--muted);margin-top:3px">하루 997원 · 광고 하루 예산 수준</div>
-      </div>
-      <div style="display:flex;align-items:center;gap:8px;justify-content:center;margin:4px 0 12px;
-                  padding:9px 12px;border:1px solid rgba(255,255,255,.14);border-radius:10px;background:rgba(255,255,255,.03)">
-        <div style="font-size:15px">🛡</div>
-        <div style="font-size:11.5px;line-height:1.45;text-align:left">
-          <b style="color:var(--text)">키트 만족 보장 · 90일 추적</b><br>
-          <span style="color:var(--muted)">실행 키트를 받고 쓸모없다 판단되면 7일 내 전액 환불<br>
-          이후 90일간 같은 질문으로 재측정해 변화를 기록해 드립니다</span></div>
       </div>
       <button class="btn" onclick="checkout()">이용권 결제하기</button>
-      <div class="small">토스페이먼츠 안전결제 · 30일 이용권 · 자동갱신 없음<br><span style="opacity:.7">AI 인용은 즉시 바뀌지 않습니다. 보임은 바뀌는 과정을 기록합니다.</span></div>
+      <div class="small">토스페이먼츠 안전결제 · 30일 이용권 (자동갱신 없음)<br>
+        부스트: 적용 후 30일 내 점수가 오르지 않으면 <b style="color:var(--text-2)">전액 환불</b></div>
     </div>
     <button class="share" onclick="shareReport()">리포트 링크 복사</button>`;
   loadHistory(r.store);
@@ -358,7 +311,7 @@ function renderTeaser(t){
     +'<div class="kb-t" style="font-size:13.5px;font-weight:800">'+esc(t.product)+' — 무료 3문답</div></div>'
     +freeRows
     +(lockRows?'<div style="margin-top:14px;padding-top:10px;border-top:1px dashed var(--line)">'
-      +'<div style="font-size:11px;color:var(--muted);margin-bottom:6px">손님이 이것도 궁금해합니다 — 잠긴 문답 '+(t.locked||[]).length+'개</div>'
+      +'<div style="font-size:11px;color:var(--muted);margin-bottom:6px">잠긴 문답 '+(t.locked||[]).length+'개 — 부스트에서 전부 열립니다</div>'
       +lockRows+'</div>':'')
     +'<button class="btn" onclick="document.querySelector(\'.cta\').scrollIntoView({behavior:\'smooth\'})" style="margin-top:14px">나머지 문답 + 텍스트 설명 전체 받기</button>';
 }
@@ -546,7 +499,7 @@ function renderKit(oid, k){
       <b style="color:var(--text)">다음 순서</b><br>
       ① 위 블록을 상세페이지 하단·공지에 붙여넣기 (5분)<br>
       ② 1~2주 뒤 리포트 링크에서 재진단 — 점수 변화를 확인하세요<br>
-      ③ 키트가 쓸모없다 판단되면 7일 내 전액 환불 · 이후 90일간 재측정 기록</div></div>
+      ③ 30일 내 점수가 안 오르면 전액 환불해드립니다</div></div>
     <button class="share" onclick="renderKitForm('${esc(oid)}')">다른 상품으로 다시 만들기</button>`;
   v.innerHTML=html;
 }

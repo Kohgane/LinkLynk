@@ -9,7 +9,7 @@ LinkLynk — 백엔드 API 서버 (멀티테넌트)
 import os
 import threading
 from functools import wraps
-from flask import Flask, request, jsonify, send_from_directory, session, make_response
+from flask import Flask, request, jsonify, send_from_directory, session, make_response, Response
 
 from core import CoupangPartners, is_valid_coupang_url, make_blog_draft, COUPANG_DISCLOSURE, unshorten_coupang, is_short_coupang_link, extract_coupang_url, build_naver_html, zernio_publish
 import store
@@ -445,6 +445,35 @@ def boim_landing():
     return app.send_static_file("boim.html")
 
 
+@app.route("/boim/guide")
+def boim_guide():
+    return app.send_static_file("boim_guide.html")
+
+
+@app.route("/robots.txt")
+def _robots():
+    body = ("User-agent: *\n"
+            "Allow: /boim\n"
+            "Allow: /boim/guide\n"
+            "Disallow: /api/\n"
+            "Disallow: /boim/r/\n"
+            "Disallow: /boim/pay/\n"
+            "Sitemap: https://linklynk.onrender.com/sitemap.xml\n")
+    return Response(body, mimetype="text/plain")
+
+
+@app.route("/sitemap.xml")
+def _sitemap():
+    urls = ["https://linklynk.onrender.com/boim",
+            "https://linklynk.onrender.com/boim/guide"]
+    x = ['<?xml version="1.0" encoding="UTF-8"?>',
+         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    for u in urls:
+        x.append("<url><loc>%s</loc><changefreq>weekly</changefreq></url>" % u)
+    x.append("</urlset>")
+    return Response("\n".join(x), mimetype="application/xml")
+
+
 @app.route("/boim/r/<scan_id>")
 def boim_report_page(scan_id):
     return app.send_static_file("boim.html")
@@ -461,7 +490,7 @@ def boim_scan_start():
     ip = (request.headers.get("X-Forwarded-For", request.remote_addr) or "?").split(",")[0].strip()
     if store.boim_recent_by_ip(ip, 24) >= 3:
         return jsonify({"ok": False,
-                        "error": "무료 진단은 하루 3회까지예요. 내일 다시 시도해주세요."}), 429
+                        "error": "무료 진단은 하루 3회까지예요. 스토어를 여러 개 운영하시거나 변화를 계속 보시려면 워치(9,900원/30일)에서 주간 재측정과 점수 히스토리를 제공합니다.", "upsell": "watch"}), 429
 
     scan_id = _uuid.uuid4().hex[:12]
     store.boim_create(scan_id, store_name, kws, ip)
