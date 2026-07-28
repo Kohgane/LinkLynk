@@ -908,7 +908,7 @@ def gift_reco_api():
     who = (d.get("who") or "").strip()[:30]
     budget = (d.get("budget") or "").strip()[:20]
     taste = (d.get("taste") or "").strip()[:80]
-    exclude = [x.strip()[:30] for x in (d.get("exclude") or []) if x.strip()][:6]
+    exclude = [x.strip()[:30] for x in (d.get("exclude") or []) if x.strip()][:12]
     if not who or not budget:
         return jsonify({"ok": False, "error": "받는 사람과 예산을 알려주세요"}), 400
     import gift as _gift

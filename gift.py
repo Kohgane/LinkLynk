@@ -150,7 +150,7 @@ def _dedupe_products(items):
 def recommend(api_key, who, budget, taste, exclude=None):
     ex = ""
     if exclude:
-        ex = "\n★이전에 추천한 방향이니 겹치지 않게 완전히 다른 계열로: " + ", ".join(exclude[:6])
+        ex = "\n★이전에 추천한 방향이니 겹치지 않게 완전히 다른 계열로: " + ", ".join(exclude[:12])
     user = (
         f"받는 사람: {who}\n예산: {budget}\n취향 힌트: {taste or '없음'}{ex}\n\n"
         "선물 방향 3개, 서로 완전히 다른 계열로.\n"
