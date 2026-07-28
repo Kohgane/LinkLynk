@@ -821,6 +821,57 @@ def gov_plan_api():
     return resp
 
 
+_GOV_IP = {}
+
+
+@app.route("/api/gov/prep", methods=["POST", "OPTIONS"])
+def gov_prep_api():
+    """관공서 업무 준비물 안내 — 과태료레이더 미니앱용. IP당 하루 20회."""
+    if request.method == "OPTIONS":
+        resp = make_response("", 204)
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return resp
+    ip = (request.headers.get("X-Forwarded-For", request.remote_addr) or "?").split(",")[0].strip()
+    import time as _t
+    now = int(_t.time())
+    hist = [t for t in _GOV_IP.get(ip, []) if now - t < 86400]
+    if len(hist) >= 20:
+        return jsonify({"ok": False, "error": "오늘 조회 한도에 닿았어요"}), 429
+    d = request.get_json(force=True, silent=True) or {}
+    task = (d.get("task") or "").strip()[:60]
+    if not task:
+        return jsonify({"ok": False, "error": "업무를 알려주세요"}), 400
+    from core import llm_chat, _parse_json_out, scrub_garbled
+    sysp = (
+        "너는 한국 행정 업무 안내 도우미다. 2026년 기준으로 답하되, 제도·수수료는 바뀔 수 "
+        "있으니 보수적으로. 확실하지 않으면 '관할 기관 확인'이라고 써라.\n"
+        "출력 JSON: {\"online\":\"온라인 처리 가능 여부와 사이트(정부24 등)\","
+        "\"docs\":[\"준비물 목록\"],\"fee\":\"수수료\",\"time\":\"소요시간\","
+        "\"tip\":\"헛걸음 방지 팁 한 줄\"}"
+    )
+    key = os.environ.get("BOIM_LLM_KEY", "").strip() or "__free__"
+    r = llm_chat(key, sysp, f"업무: {task}", max_tokens=700)
+    if not r.get("ok") and key != "__free__":
+        r = llm_chat("__free__", sysp, f"업무: {task}", max_tokens=700)
+    if not r.get("ok"):
+        return jsonify({"ok": False, "error": "안내 생성 실패"})
+    try:
+        out = _parse_json_out(r["text"])
+    except Exception:
+        return jsonify({"ok": False, "error": "형식 오류"})
+    hist.append(now); _GOV_IP[ip] = hist
+    resp = jsonify({"ok": True,
+                    "online": scrub_garbled(str(out.get("online") or ""))[:120],
+                    "docs": [scrub_garbled(str(x))[:60] for x in (out.get("docs") or [])[:8]],
+                    "fee": scrub_garbled(str(out.get("fee") or ""))[:60],
+                    "time": scrub_garbled(str(out.get("time") or ""))[:60],
+                    "tip": scrub_garbled(str(out.get("tip") or ""))[:120]})
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
+
 @app.route("/api/gift/config")
 def gift_config_api():
     """미니앱 런타임 설정 — 광고 그룹 ID(콘솔 발급 후 Render 환경변수로).
