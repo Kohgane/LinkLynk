@@ -453,13 +453,14 @@ def boim_guide():
 @app.route("/robots.txt")
 def _robots():
     body = ("User-agent: *\n"
-            "Allow: /boim$\n"
-            "Allow: /boim/guide\n"
             "Disallow: /\n"
-            "Allow: /boim\n"
             "Disallow: /api/\n"
             "Disallow: /boim/r/\n"
             "Disallow: /boim/pay/\n"
+            "Allow: /boim\n"
+            "Allow: /boim/guide\n"
+            "Allow: /boim-manifest.json\n"
+            "Allow: /boim-icon-192.png\n"
             "Sitemap: https://linklynk.onrender.com/sitemap.xml\n")
     return Response(body, mimetype="text/plain")
 
