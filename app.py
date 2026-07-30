@@ -861,6 +861,17 @@ def gov_plan_api():
 _GOV_IP = {}
 
 
+@app.route("/api/gov/config")
+def gov_config_api():
+    """과태료레이더 런타임 설정 — 배너 광고 그룹 ID (재빌드 없이 on/off)."""
+    _ad = os.environ.get("PENALTY_AD_GROUP_ID", "").strip()
+    if len(_ad) < 8:
+        _ad = ""
+    resp = jsonify({"ok": True, "banner_ad_group_id": _ad})
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
+
 @app.route("/api/gov/prep", methods=["POST", "OPTIONS"])
 def gov_prep_api():
     """관공서 업무 준비물 안내 — 과태료레이더 미니앱용. IP당 하루 20회."""
