@@ -147,7 +147,30 @@ def run_scan(api_key, store_name, keywords, aliases=None, progress_cb=None):
         verdict = "훌륭합니다. AI가 이미 당신 스토어를 추천하고 있습니다."
         grade = "A"
 
+    # ★선택 대행: 등급별로 '지금 딱 하나' 단 하나의 액션만 준다.
+    #  10개를 주면 0개를 한다. 하나를 주면 한다.
+    if grade == "?":
+        next_one = ""
+        risk = ""
+    elif grade == "F":
+        next_one = "대표 상품 하나만 골라, 손님이 물어볼 질문 3개와 답을 상품 설명에 텍스트로 넣으세요."
+        risk = "상세페이지가 이미지 한 장이면 AI는 그 안의 글자를 전혀 읽지 못합니다. 상품이 좋아도 인용할 문장이 없으면 영영 불리지 않습니다."
+    elif grade == "D":
+        next_one = "이미 불리는 그 질문 하나를 찾아, 같은 형식으로 상품을 두 개 더 정리하세요."
+        risk = "지금 불리는 것이 우연일 수 있습니다. 형식이 없으면 다음 모델 업데이트에서 사라집니다."
+    elif grade == "C":
+        next_one = "경쟁사가 불리는 질문 하나를 골라, 그 질문에 당신이 더 정확히 답하는 문장을 만드세요."
+        risk = "절반은 이미 왔습니다. 여기서 멈추면 먼저 형식을 갖춘 쪽이 그 자리를 굳힙니다."
+    elif grade == "B":
+        next_one = "가장 좁은 질문(가격대·용도·입문용)에서 확실히 1등이 되도록 그 조건을 명시하세요."
+        risk = "넓은 질문은 대형 브랜드가 가져갑니다. 좁은 질문을 놓치면 남는 자리가 없습니다."
+    else:
+        next_one = "지금 상태를 기록으로 남기고, 매주 같은 질문으로 변화를 추적하세요."
+        risk = "AI 응답은 모델이 바뀌면 함께 바뀝니다. 오늘의 결과가 내일을 보장하지 않습니다."
+
     return {
+        "next_one": next_one,
+        "risk": risk,
         "ok": True,
         "store": store_name,
         "keywords": keywords,

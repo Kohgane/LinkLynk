@@ -135,6 +135,8 @@ input:focus{border-color:var(--text-2)}
 
   <div id="viewForm">
     <h1>손님이 AI에게 물으면<br><span class="q">어느 가게 이름이 나올까요</span></h1>
+    <div style="font-size:13px;color:var(--text-2);margin:-14px 0 22px;letter-spacing:-.01em">
+      예전엔 명함과 후기가 평판이었습니다.<br>이제는 <b style="color:var(--text)">AI가 당신 이름을 부르는지</b>가 평판입니다.</div>
     <div class="sub">
       손님은 이제 검색창 대신 AI에게 "뭐 살까"를 묻습니다.<br>
       그 답변에 <b>당신 가게가 있는지, 아니면 어느 경쟁사가 대신 불리는지</b> 30초면 확인됩니다.<br>
@@ -269,6 +271,13 @@ function render(d){
         <div class="score-line">쇼핑 질문 <b>${r.asked}개</b> 중 <b>${r.mentioned}개</b> 언급 · 노출 점수 <b>${r.score}</b></div>
       </div>
       <div class="verdict">${esc(r.verdict)}</div>
+      ${r.next_one?`<div class="cta" style="text-align:left;margin:22px 0 0">
+        <div class="t" style="font-size:15px">지금 딱 하나만 하세요</div>
+        <div class="s" style="margin-bottom:0">${esc(r.next_one)}</div>
+      </div>`:''}
+      ${r.risk?`<div style="margin:14px 0 0;padding:14px 16px;border-left:3px solid var(--text-2);
+        background:var(--surface-1);border-radius:8px;font-size:13px;color:var(--text-2);line-height:1.7">
+        <b style="color:var(--text);display:block;margin-bottom:5px">그냥 두면</b>${esc(r.risk)}</div>`:''}
     </div>
     ${comps?`<div class="sec-t">AI가 당신 대신 부른 이름들</div>
     <div class="card" style="border-color:rgba(255,255,255,.18)">
