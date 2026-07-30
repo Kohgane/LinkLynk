@@ -263,8 +263,17 @@ function render(d){
     </div>`).join('');
   const comps=(r.competitors||[]).map(c=>`<span class="comp"><b>${esc(c.name)}</b><span class="n">${c.count}회</span></span>`).join('');
   window.__scanId = d.id; window.__store = r.store;
+  const compTop=(r.competitors||[]).slice(0,6).map(c=>
+    `<span class="comp"><b>${esc(c.name)}</b><span class="n">${c.count}회</span></span>`).join('');
   v.innerHTML=`
     <h1 style="font-size:21px">"${esc(r.store)}"<br>AI 노출 진단 결과</h1>
+    ${compTop?`<div class="card" style="border-color:var(--text-2)">
+      <div style="font-size:13px;color:var(--text-2);margin-bottom:10px">AI가 당신 대신 부른 이름들</div>
+      <div style="display:flex;flex-wrap:wrap;gap:7px">${compTop}</div>
+      <div style="font-size:12px;color:var(--text-2);margin-top:12px;line-height:1.7">
+        같은 질문에 손님이 들은 이름입니다. 점수는 해석의 여지가 있지만,
+        <b style="color:var(--text)">이 이름들이 불렸다는 사실은 그렇지 않습니다.</b></div>
+    </div>`:''}
     <div class="card">
       <div class="grade-wrap">
         <div class="grade g-${esc(r.grade)}">${esc(r.grade)}</div>
@@ -278,6 +287,15 @@ function render(d){
       ${r.risk?`<div style="margin:14px 0 0;padding:14px 16px;border-left:3px solid var(--text-2);
         background:var(--surface-1);border-radius:8px;font-size:13px;color:var(--text-2);line-height:1.7">
         <b style="color:var(--text);display:block;margin-bottom:5px">그냥 두면</b>${esc(r.risk)}</div>`:''}
+      ${r.next_one?`<div style="margin:16px 0 0;padding:15px 16px;border:1px dashed var(--text-2);
+        border-radius:10px;font-size:13px;line-height:1.75">
+        <b style="display:block;margin-bottom:6px">첫 성공을 먼저 만드세요</b>
+        <span style="color:var(--text-2)">한 번에 다 바꾸려 하면 아무것도 안 바뀝니다.
+        위 하나만 이번 주에 하고, <b style="color:var(--text)">7일 뒤 같은 질문으로 다시 재보세요.</b>
+        1개라도 더 불리면 그 방향이 맞다는 뜻입니다.</span>
+        <div style="margin-top:11px;font-size:12px;color:var(--text-2)">
+          측정 기록은 링크로 남습니다 — 이 링크를 저장해두면 다음 결과와 나란히 비교됩니다.</div>
+      </div>`:''}
     </div>
     ${comps?`<div class="sec-t">AI가 당신 대신 부른 이름들</div>
     <div class="card" style="border-color:rgba(255,255,255,.18)">
