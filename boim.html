@@ -297,13 +297,6 @@ function render(d){
           측정 기록은 링크로 남습니다 — 이 링크를 저장해두면 다음 결과와 나란히 비교됩니다.</div>
       </div>`:''}
     </div>
-    ${comps?`<div class="sec-t">AI가 당신 대신 부른 이름들</div>
-    <div class="card" style="border-color:rgba(255,255,255,.18)">
-      <div style="font-size:12px;color:var(--muted);margin-bottom:9px;line-height:1.5">
-        같은 질문에 AI는 <b style="color:var(--text)">이 가게들</b>을 추천했습니다.
-        손님이 지금 보고 있는 이름입니다.</div>
-      <div style="margin-bottom:2px">${comps}</div>
-    </div>`:''}
     <div class="sec-t">근거 — 질문별 결과</div>
     <div class="card">${rows||'<div class="qtext">응답을 받지 못했어요</div>'}</div>
     ${false?`<div class="sec-t">AI가 대신 언급한 이름들</div>
