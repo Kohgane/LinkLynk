@@ -2082,33 +2082,30 @@ FEWSHOT = '''다음은 실제로 반응이 좋았던 글들이다. 이 결의 �
 답글1: 진짜 원인은 따로 있는데 대부분 이걸 모름.\\n나도 3년을 엉뚱한 데서 찾았고.
 답글2: 목이 자는 동안 15도만 꺾여도 아침에 결린다더라.\\n그래서 높이 아니라 '각도' 잡아주는 베개로 바꿈.
 답글3: 바꾸고 일주일 만에 목 돌릴 때 뚝뚝 나던 게 없어짐.
-답글4: 베개 하나 바꾼 걸로 이렇게 될 줄은 몰랐고.
-답글5: 밑에 링크.\\n{링크}\\n\\n(광고) 쿠팡파트너스 활동으로 수수료를 받습니다.
-답글6: 원인 알고 나니까 허무하더라. 진작 바꿀걸.\\n{링크}\\n\\n#꿀잠 #목통증 #경추베개
+답글4: 밑에 링크.\\n{링크}\\n\\n(광고) 쿠팡파트너스 활동으로 수수료를 받습니다.
+답글5: 원인 알고 나니까 허무하더라. 진작 바꿀걸.\\n{링크}\\n\\n#꿀잠 #목통증 #경추베개
 
 [예시2 — 정밀 오버셰어링 / 존댓말 / 홈캠]
 본글: 아기 재워놓고 문 닫고 나오는데, 문틈으로 3초를 더 쳐다보고 있는 나를 발견함.
 답글1: 혹시 자다가 이불 얼굴 덮으면 어쩌지, 그 생각 하나로요.\\n이 마음, 부모면 다 아실 거예요.
 답글2: 홈캠 달고부터는 그 3초를 폰으로 대신하게 됐어요.\\n어디 있든 실시간으로 보이고 소리도 감지되니까요.
 답글3: 별거 아닌 것 같아도 그 3초의 불안이 사라진 게 컸어요.
-답글4: 물론 안 보고 자는 날도 있어요. 그것도 괜찮더라고요.
-답글5: 혹시 저 같은 분 계실까 봐 남겨둘게요.\\n{링크}\\n\\n(광고) 쿠팡파트너스 활동으로 수수료를 받습니다.
-답글6: 그 작은 불안들이 쌓이는 게 육아더라고요.\\n{링크}\\n\\n#육아 #홈캠 #베이비모니터
+답글4: 혹시 저 같은 분 계실까 봐 남겨둘게요.\\n{링크}\\n\\n(광고) 쿠팡파트너스 활동으로 수수료를 받습니다.
+답글5: 그 작은 불안들이 쌓이는 게 육아더라고요.\\n{링크}\\n\\n#육아 #홈캠 #베이비모니터
 
 [예시3 — 손실회피 / 반말 담백 / 넥선풍기]
 본글: 작년에 손선풍기 사느라 쓴 돈이 아까워서 계산해봤다.
 답글1: 세 개 사서 다 버렸으니 3만원 넘게 날린 셈.\\n손에 드는 거라 결국 안 쓰게 되더라고.
 답글2: 그 돈이면 목에 거는 거 하나 제대로 살 걸 그랬음.\\n손 안 쓰니까 계속 걸고 있게 됨.
 답글3: 날개 없어서 애 머리 안 빨리는 것도 몰랐던 장점.
-답글4: 뭐 목에 거는 게 다 좋다는 건 아니고, 무게는 좀 있음.
-답글5: 밑에.\\n{링크}\\n\\n(광고) 쿠팡파트너스 활동으로 수수료를 받습니다.
-답글6: 싼 거 여러 번 사는 게 결국 더 비쌌음.\\n{링크}\\n\\n#여름 #넥선풍기 #쿨템
+답글4: 밑에.\\n{링크}\\n\\n(광고) 쿠팡파트너스 활동으로 수수료를 받습니다.
+답글5: 싼 거 여러 번 사는 게 결국 더 비쌌음.\\n{링크}\\n\\n#여름 #넥선풍기 #쿨템
 
 관찰할 것:
 - 본글은 '제품'이 아니라 '내가 겪은 순간·계산·발견'에서 시작한다.
 - 숫자와 디테일이 구체적이다(3초, 15도, 3만원, 세 개).
 - 광고 티가 없다. 설명하지 않고 툭 던진다.
-- 답글4까지 링크가 없다. 감정이 연결된 뒤 답글5에서 링크. 링크는 답글5·6 두 곳뿐이다.
+- 답글3까지 링크가 없다. 감정이 연결된 뒤 답글4에서 링크.
 '''
 
 # ── 모델 등급 ──────────────────────────────────────────────
@@ -2335,11 +2332,11 @@ def repair_structure(posts, deeplink, product_name=""):
     tags = next((p for p in posts if has_tags(p) and p is not disc), None)
     rest = [p for p in posts if p is not disc and p is not tags]
 
-    # 본글·답글1~4 = 링크 없는 글 5개
+    # 본글·답글1~3 = 링크 없는 글 4개
     rest = [re.sub(r"https?://\S+", "", p).strip() for p in rest]
     rest = [p for p in rest if p]
 
-    while len(rest) < 5:
+    while len(rest) < 4:
         # 모자라면 가장 긴 글을 두 문장으로 쪼개서 채운다 (억지 생성 금지)
         idx = max(range(len(rest)), key=lambda i: len(rest[i])) if rest else None
         if idx is None:
@@ -2348,38 +2345,38 @@ def repair_structure(posts, deeplink, product_name=""):
         parts = re.split(r"(?<=[.!?…])\s+|\n+", rest[idx])
         parts = [x.strip() for x in parts if x.strip()]
         if len(parts) < 2:
-            rest.append("…")
+            rest.append(rest[idx])
             break
         half = max(1, len(parts) // 2)
         rest[idx] = " ".join(parts[:half])
         rest.insert(idx + 1, " ".join(parts[half:]))
-    rest = rest[:5]
+    rest = rest[:4]
 
-    # 답글5: 링크 + 고지문구 (모델이 쓴 한 줄 안내는 살린다)
+    # 답글4: 링크 + 고지문구 (모델이 쓴 한 줄 안내는 살린다)
     lead = ""
     if disc:
         lead = re.sub(r"https?://\S+", "", disc).replace(DISCLOSURE, "")
         lead = re.sub(r"\(광고\)[^\n]*", "", lead).strip()
     if not lead:
         lead = "밑에."
-    r5 = f"{lead}\n{deeplink}\n\n{DISCLOSURE}"
+    r4 = f"{lead}\n{deeplink}\n\n{DISCLOSURE}"
 
-    # 답글6: 마무리 + 링크 + 해시태그 3개
+    # 답글5: 마무리 + 링크 + 해시태그 3개
     tail, hashtags = "", ""
     if tags:
         hashtags = " ".join(re.findall(r"#\S+", tags)[:3])
         tail = re.sub(r"#\S+", "", tags)
         tail = re.sub(r"https?://\S+", "", tail).strip()
     if not tail or tail == lead:
-        # 답글5와 답글6이 같은 말이면 안 된다
+        # 답글4와 답글5가 같은 말이면 안 된다
         cands = [x for x in rest if x and x != lead and x != tail]
         tail = cands[-1] if cands else (rest[-1] if rest else "그냥 그렇다고.")
     if not hashtags:
         base = re.sub(r"[^가-힣A-Za-z ]", " ", product_name or "").split()
         hashtags = " ".join("#" + w for w in base[:3]) or "#추천"
-    r6 = f"{tail}\n{deeplink}\n\n{hashtags}"
+    r5 = f"{tail}\n{deeplink}\n\n{hashtags}"
 
-    return rest[:5] + [r5, r6]
+    return rest + [r4, r5]
 
 
 def quality_gate(posts, product_name):
@@ -2391,7 +2388,7 @@ def quality_gate(posts, product_name):
 
     # 0) ★모델이 프롬프트 예시(플레이스홀더)를 그대로 뱉은 경우 — NVIDIA 등 약한 모델이 자주.
     #  정확히 자리표시자 단어와 일치하는 것만 센다(짧은 실제 답글 '밑에','끝'은 오판 금지).
-    PLACEHOLDER = {"본글", "답글1", "답글2", "답글3", "답글4", "답글5", "답글6",
+    PLACEHOLDER = {"본글", "답글1", "답글2", "답글3", "답글4", "답글5",
                    "ans글4", "ans답글5", "ans 글4", "ans 답글5"}
     stripped = [re.sub(r"[\s]", "", str(x)) for x in posts]
     ph_hits = sum(1 for x in stripped if x in PLACEHOLDER)
