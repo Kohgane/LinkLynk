@@ -289,7 +289,8 @@ function polishDraft(btn){
     const jid = await serverJob('write', {deeplink:d.deeplink, channel:'threads',
       tone:(window.curTone||'friendly'), productName:d.productName||'',
       provider:(window.__llmPick||null),
-      extra:(document.getElementById('w_extra')?.value||''), quality:true});
+      extra:(document.getElementById('w_extra')?.value||''), quality:true,
+      post_mode:(window.__postMode||'ad')});
     const res = await pollJob(jid, {interval:2000});
     if(!res || !res.ok) throw new Error('실패');
     return {draft: res};
