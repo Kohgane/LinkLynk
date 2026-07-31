@@ -848,6 +848,19 @@
     </div>
 
     <div class="fgroup">
+      <label class="flabel">글 유형</label>
+      <div style="display:flex;gap:8px">
+        <button type="button" id="pmAd" class="btn" onclick="setPostMode('ad')"
+          style="flex:1;padding:11px;font-size:13px">🔗 광고글<br>
+          <span style="font-size:11px;opacity:.7;font-weight:400">링크 + 공정위 고지</span></button>
+        <button type="button" id="pmInfo" class="btn" onclick="setPostMode('info')"
+          style="flex:1;padding:11px;font-size:13px;opacity:.5">📝 정보글<br>
+          <span style="font-size:11px;opacity:.7;font-weight:400">링크 없음 · 계정 보호</span></button>
+      </div>
+      <div class="fhint" style="margin-top:7px;line-height:1.6">
+        광고글만 쌓이면 계정 노출이 떨어져요. <b>정보글 7 : 광고글 3</b> 정도로 섞는 걸 권해요.</div>
+    </div>
+    <div class="fgroup">
       <label class="flabel">추가 요청</label>
       <textarea id="w_extra" rows="3" placeholder="예: 육아 경험담으로 시작하고, 광고처럼 보이지 않게 작성해줘"></textarea>
     </div>

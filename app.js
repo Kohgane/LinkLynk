@@ -392,15 +392,17 @@ async function generate(){
   const pname = (document.getElementById('pname')?.value || '').trim() || '쿠팡 상품';
   const go = document.getElementById('go');
   if(!url){ toast('링크를 먼저 붙여넣어 주세요'); return; }
-  if(!/coupang/.test(url)){ toast('쿠팡 링크가 맞는지 확인해주세요'); return; }
+  const _pm = window.__postMode || 'ad';
+  if(_pm !== 'info' && !/coupang/.test(url)){ toast('쿠팡 링크가 맞는지 확인해주세요'); return; }
 
   go.classList.add('loading');
   try{
     // 수동 모드(직접 붙여넣기)만 manual, 나머지는 auto (단축링크는 서버가 자동으로 펼쳐서 변환)
-    const endpoint = mode === 'manual' ? '/api/generate-manual' : '/api/generate';
-    const body = mode === 'manual'
-      ? {deeplink:url, channel, tone:(window.curTone||'friendly'), productName:pname, skip_draft:true}
-      : {url, channel, tone:(window.curTone||'friendly'), productName:pname, skip_draft:true};
+    const _isInfo = (_pm === 'info');
+    const endpoint = (_isInfo || mode === 'manual') ? '/api/generate-manual' : '/api/generate';
+    const body = (_isInfo || mode === 'manual')
+      ? {deeplink:url, channel, tone:(window.curTone||'friendly'), productName:pname, skip_draft:true, post_mode:_pm}
+      : {url, channel, tone:(window.curTone||'friendly'), productName:pname, skip_draft:true, post_mode:_pm};
     const r = await fetch(endpoint, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
     const d = await r.json();
     if(!d.ok){
@@ -2449,7 +2451,9 @@ async function publishToSns(platform, btn){
   }
   let content = d.blogDraft || '';
   // 쓰레드/X는 6분할 전체를 보냄 (서버가 답글체인으로 게시)
-  const media = d.image ? [d.image] : [];
+  // 직접 올린 사진이 있으면 그것을 우선 사용 (없으면 자동 확보 이미지)
+  const up = (window.__uploadedUrls || []).filter(Boolean);
+  const media = up.length ? up.slice(0, 10) : (d.image ? [d.image] : []);
   const o = btn.textContent; btn.textContent='게시 중…'; btn.disabled=true;
   try{
     const accIds = {};
@@ -2790,16 +2794,24 @@ function showPicked(name, link){
   const l = document.getElementById('w_link');
   if(l && link) l.value = link;
 }
+window.__uploadedUrls = window.__uploadedUrls || [];
 function addImages(files){
   const box = document.getElementById('imgThumbs');
   if(!box || !files) return;
   [...files].slice(0, 12 - window.__attachedImages.length).forEach(f=>{
+    // 1) 즉시 미리보기 (base64)
     const rd = new FileReader();
     rd.onload = e => {
       window.__attachedImages.push(e.target.result);
       renderThumbs();
     };
     rd.readAsDataURL(f);
+    // 2) 동시에 서버 업로드 → 발행에 쓸 공개 URL 확보
+    const fd = new FormData(); fd.append('file', f);
+    fetch('/api/upload-image', {method:'POST', body:fd})
+      .then(x=>x.json())
+      .then(r=>{ if(r && r.ok && r.url){ window.__uploadedUrls.push(r.url); } })
+      .catch(()=>{});
   });
 }
 function renderThumbs(){
@@ -2809,6 +2821,7 @@ function renderThumbs(){
 }
 function removeImage(i){
   window.__attachedImages.splice(i,1);
+  if(window.__uploadedUrls) window.__uploadedUrls.splice(i,1);
   renderThumbs();
 }
 
@@ -2816,3 +2829,16 @@ function removeImage(i){
 // 앱을 열 때마다 서버에 돌던 작업을 이어받는다
 document.addEventListener('DOMContentLoaded', ()=>{ setTimeout(resumeJobs, 1200); setTimeout(()=>{ loadRefined(); if((window.__refinedTopics||[]).length && (document.getElementById('topicOut')||document.getElementById('result'))){ renderRefinedTopics(); } }, 800); });
 window.addEventListener('focus', ()=>{ if(!window.__resumedAt || Date.now()-window.__resumedAt > 30000){ window.__resumedAt = Date.now(); resumeJobs(); } });
+
+// ── 글 유형 (광고글 / 정보글) ─────────────────────────
+window.__postMode = 'ad';
+function setPostMode(m){
+  window.__postMode = m;
+  const a=document.getElementById('pmAd'), i=document.getElementById('pmInfo');
+  if(a) a.style.opacity = (m==='ad') ? '1' : '.5';
+  if(i) i.style.opacity = (m==='info') ? '1' : '.5';
+  const lk=document.getElementById('w_link');
+  if(lk) lk.placeholder = (m==='info')
+    ? '정보글은 링크 없이 씁니다 (비워두세요)'
+    : '쿠팡 파트너스 링크를 붙여넣으세요';
+}

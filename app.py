@@ -1913,7 +1913,7 @@ def generate():
     if not d.get("skip_draft"):
         ok_d, _, _ = store.check_and_bump(user["id"], "draft", user["plan"])
         if ok_d:
-            draft = _gen_draft(user["id"], product_name, deeplink, tone, channel, info, d.get("provider"), d.get("extra", ""), d.get("quality", False))
+            draft = _gen_draft(user["id"], product_name, deeplink, tone, channel, info, d.get("provider"), d.get("extra", ""), d.get("quality", False), mode=(d.get("mode") or "ad"))
 
     store.save_link(user["id"], url, deeplink, product_name, channel)
 
@@ -1936,14 +1936,17 @@ def generate_manual():
     channel = (d.get("channel") or "blog").strip()
     tone = (d.get("tone") or "friendly").strip()
     product_name = (d.get("productName") or "쿠팡 상품").strip()
-    # 쿠팡 파트너스 링크 형식 확인 (link.coupang.com 또는 coupang.com)
-    if "coupang" not in deeplink:
+    # ★정보글 모드: 링크 없이 쓴다 (계정 품질 유지용 — 광고글만 쌓이면 노출이 죽는다)
+    _info_mode = (d.get("post_mode") or "ad") == "info"
+    if _info_mode:
+        deeplink = ""
+    elif "coupang" not in deeplink:
         return jsonify({"ok": False, "error": "쿠팡 파트너스 링크를 붙여넣어 주세요 (link.coupang.com/...)"}), 400
     user = store.get_user(session["uid"])
     # ★실제 상품 확인: 본인 파트너스 키가 있고 상품명이 입력됐을 때만 검색 1회
     #   (폴백 키 절대 안 씀 / 검색 실패해도 앱 정상 / API 한도 보호 위해 링크당 최소 호출)
     info = None
-    if product_name and product_name != "쿠팡 상품":
+    if (not _info_mode) and product_name and product_name != "쿠팡 상품":
         partners, own_key = _partners_for(user)
         if partners is not None:   # 본인 키 있을 때만
             try:
@@ -1956,10 +1959,13 @@ def generate_manual():
     if not d.get("skip_draft"):
         ok_d, _, _ = store.check_and_bump(user["id"], "draft", user["plan"])
         if ok_d:
-            draft = _gen_draft(user["id"], product_name, deeplink, tone, channel, info, d.get("provider"), d.get("extra", ""), d.get("quality", False))
-    store.save_link(user["id"], "", deeplink, product_name, channel)
-    naver_html = build_naver_html(product_name, deeplink, draft, info) if draft else None
-    return jsonify({"ok": True, "deeplink": deeplink, "disclosure": COUPANG_DISCLOSURE,
+            draft = _gen_draft(user["id"], product_name, deeplink, tone, channel, info, d.get("provider"), d.get("extra", ""), d.get("quality", False), mode=("info" if _info_mode else "ad"))
+    if not _info_mode:
+        store.save_link(user["id"], "", deeplink, product_name, channel)
+    naver_html = (build_naver_html(product_name, deeplink, draft, info) if (draft and not _info_mode) else None)
+    return jsonify({"ok": True, "deeplink": deeplink,
+                    "disclosure": ("" if _info_mode else COUPANG_DISCLOSURE),
+                    "post_mode": ("info" if _info_mode else "ad"),
                     "blogDraft": draft, "channel": channel, "manual": True,
                     "naverHtml": naver_html, "productName": product_name,
                     "image": _auto_image(product_name, info)})
