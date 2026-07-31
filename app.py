@@ -351,6 +351,21 @@ def save_sns_key():
     return jsonify({"ok": True, "message": "SNS 자동 게시가 연결됐어요"})
 
 
+@app.route("/api/upload-image", methods=["POST"])
+@login_required
+def upload_image_api():
+    """직접 찍은 사진 업로드 → 공개 URL. 서버 디스크 미사용(Supabase Storage)."""
+    import media
+    if not media.enabled():
+        return jsonify({"ok": False, "error": "이미지 저장소가 설정되지 않았습니다 (SUPABASE_URL/SERVICE_KEY)"}), 400
+    f = request.files.get("file")
+    if not f:
+        return jsonify({"ok": False, "error": "파일이 없습니다"}), 400
+    data = f.read()
+    r = media.upload(session.get("uid"), f.filename or "photo.jpg", data)
+    return jsonify(r), (200 if r.get("ok") else 400)
+
+
 @app.route("/api/search-images", methods=["POST"])
 @login_required
 def search_images_api():
