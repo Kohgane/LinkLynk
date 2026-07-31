@@ -883,6 +883,69 @@ def gov_plan_api():
 _GOV_IP = {}
 
 
+_JIREUM_IP = {}
+
+
+@app.route("/api/jireum/config")
+def jireum_config_api():
+    _ad = os.environ.get("JIREUM_AD_GROUP_ID", "").strip()
+    if len(_ad) < 8:
+        _ad = ""
+    resp = jsonify({"ok": True, "banner_ad_group_id": _ad})
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
+
+@app.route("/api/jireum/search", methods=["POST", "OPTIONS"])
+def jireum_search_api():
+    """'그래도 살래' -> 쿠팡 최저가 후보 (파트너스 수익 링크). IP당 하루 30회."""
+    if request.method == "OPTIONS":
+        resp = make_response("", 204)
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return resp
+    ip = (request.headers.get("X-Forwarded-For", request.remote_addr) or "?").split(",")[0].strip()
+    import time as _t
+    now = int(_t.time())
+    hist = [t for t in _JIREUM_IP.get(ip, []) if now - t < 86400]
+    if len(hist) >= 30:
+        return jsonify({"ok": False, "error": "오늘 조회 한도에 닿았어요"}), 429
+    d = request.get_json(force=True, silent=True) or {}
+    q = (d.get("q") or "").strip()[:50]
+    if not q:
+        return jsonify({"ok": False, "error": "상품명을 알려주세요"}), 400
+    ck = os.environ.get("COUPANG_ACCESS_KEY", "") or os.environ.get("COUPANG_ACCESS", "")
+    cs = os.environ.get("COUPANG_SECRET_KEY", "") or os.environ.get("COUPANG_SECRET", "")
+    items = []
+    if ck and cs:
+        try:
+            from core import CoupangPartners
+            cp = CoupangPartners(ck, cs)
+            found = cp.search_products(q, limit=6) or []
+            seen = set()
+            for f in found:
+                nm = (f.get("name") or "")[:60]
+                if nm[:12] in seen:
+                    continue
+                seen.add(nm[:12])
+                items.append({"name": nm, "price": f.get("price"),
+                              "image": f.get("image"), "link": f.get("url")})
+                if len(items) >= 3:
+                    break
+        except Exception:
+            pass
+    hist.append(now); _JIREUM_IP[ip] = hist
+    resp = jsonify({"ok": True, "items": items})
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
+
+@app.route("/jireumradar-og.png")
+def jireumradar_og():
+    return send_from_directory(".", "jireumradar-og.png", mimetype="image/png")
+
+
 @app.route("/api/gov/config")
 def gov_config_api():
     """과태료레이더 런타임 설정 — 배너 광고 그룹 ID (재빌드 없이 on/off)."""
