@@ -1338,9 +1338,9 @@ def claude_write_thread(api_key, product_name, deeplink, tone="friendly", price=
     base = (
         "너는 쿠팡 파트너스 쓰레드(Threads) 글을 쓰는 한국인이다. 마케터가 아니라 그냥 사람이다.\n"
         "★1순위: 사람이 쓴 글처럼. AI 티가 나면 그 글은 실패다.\n"
-        "구조: 본글 1개 + 답글 6개. 본글에는 링크 절대 넣지 마라.\n"
-        "답글1~4: 공감 → 원인/발견 → 변화 → 덧붙임(전부 링크 없음). 답글5: 링크+고지문구. 답글6: 마무리+링크+해시태그 3개.\n"
-        "답글5에 '(광고) 쿠팡파트너스 활동으로 수수료를 받습니다' 포함. 링크는 답글5·6에만, 글당 최대 2개.\n"
+        "구조: 본글 1개 + 답글 5개. 본글에는 링크 절대 넣지 마라.\n"
+        "답글1~3: 공감 → 원인/발견 → 변화(링크 없음). 답글4: 링크+고지문구. 답글5: 마무리+링크+해시태그 3개.\n"
+        "답글4에 '(광고) 쿠팡파트너스 활동으로 수수료를 받습니다' 포함.\n"
         "각 글 2~3줄, 400자 이내.\n"
         "★★반드시 순수한 한국어로만 써라. 러시아어·중국어·일본어·라틴 특수문자를 "
         "한글 사이에 절대 섞지 마라(예: '창문이 уже 말라'❌). "
@@ -1354,7 +1354,7 @@ def claude_write_thread(api_key, product_name, deeplink, tone="friendly", price=
         + diversity_block() + "\n"                   # ★매번 다른 골격·화자·훅 (틀 복제 차단·모든 모델)
         + ("" if is_top else SCAFFOLD + "\n" + quirk_block(prov) + "\n")
         + HUMANIZE_RULES + "\n" + FEWSHOT + "\n" + QUALITY_RULES +
-        '\n출력은 JSON만: {"posts":["본글","답글1","답글2","답글3","답글4","답글5","답글6"]}'
+        '\n출력은 JSON만: {"posts":["본글","답글1","답글2","답글3","답글4","답글5"]}'
     )
     user_msg = (
         f"상품: {product_name}\n{price_line}링크: {deeplink}\n"
@@ -1440,11 +1440,11 @@ def _polish_pass(api_key, product_name, tone_desc, posts):
         "1) 본글 첫 문장을 더 구체적인 장면으로 (숫자·시간·행동이 보이게).\n"
         "2) 뻔한 문장을 하나 골라 그 사람만의 디테일로 교체.\n"
         "3) 문장 리듬을 다양하게 (짧은 문장 하나는 반드시).\n"
-        "4) 답글6은 여운을 남기며 끝내라. 설명하지 마라.\n"
+        "4) 답글5는 여운을 남기며 끝내라. 설명하지 마라.\n"
         "절대 하지 말 것: 광고 문구 추가, 과장, 이모지 늘리기, 문장 길이 균일화.\n"
-        "구조(본글+답글6)와 링크·고지문구는 그대로.\n"
+        "구조(본글+답글5)와 링크·고지문구는 그대로.\n"
         + HUMANIZE_RULES +
-        '\n출력은 JSON만: {"posts":["본글","답글1","답글2","답글3","답글4","답글5","답글6"]}'
+        '\n출력은 JSON만: {"posts":["본글","답글1","답글2","답글3","답글4","답글5"]}'
     )
     user_p = f"상품: {product_name}\n말투: {tone_desc}\n\n원문:\n{json.dumps({'posts': posts}, ensure_ascii=False)}"
     r = llm_chat(api_key, sys_p, user_p, max_tokens=3000)
@@ -2244,9 +2244,9 @@ def _quality_critique(api_key, product_name, tone_desc, draft_json_text):
     sys_p = (
         "너는 한국어 카피 에디터다. 아래 쓰레드 초안을 품질 기준에 맞춰 고쳐 써라.\n"
         "AI 티, 광고 클리셰, 뭉뚱그린 칭찬을 제거하고 구체적 장면·숫자로 바꿔라.\n"
-        "구조(본글+답글6)와 링크·고지문구 위치는 유지해라.\n"
+        "구조(본글+답글5)와 링크·고지문구 위치는 유지해라.\n"
         + QUALITY_RULES +
-        '\n출력은 JSON만: {"posts":["본글","답글1","답글2","답글3","답글4","답글5","답글6"]}'
+        '\n출력은 JSON만: {"posts":["본글","답글1","답글2","답글3","답글4","답글5"]}'
     )
     user_p = f"상품: {product_name}\n말투: {tone_desc}\n\n초안:\n{draft_json_text}\n\n위 기준으로 다시 써라."
     r = llm_chat(api_key, sys_p, user_p, max_tokens=3000)
@@ -2562,7 +2562,7 @@ def _fix_pass(api_key, product_name, tone_desc, posts, fails, max_tokens=3000):
     ★'더 잘 써봐'는 작은 모델에 안 통한다. '이 항목을 이렇게 고쳐라'는 통한다."""
     sys_p = (
         "너는 한국어 카피 에디터다. 아래 쓰레드 글에서 지적된 문제만 정확히 고쳐라.\n"
-        "지적되지 않은 부분은 절대 건드리지 마라. 구조(본글+답글6)와 링크·고지문구는 그대로 유지.\n\n"
+        "지적되지 않은 부분은 절대 건드리지 마라. 구조(본글+답글5)와 링크·고지문구는 그대로 유지.\n\n"
         "■ 고치는 법 예시:\n"
         "  문제 '빈 감성 문장' → '작은 것 하나로 위로받는 느낌' 을 "
         "'선풍기 끄고 자도 등이 안 축축한 게 그렇게 클 줄 몰랐음' 으로.\n"
@@ -2570,7 +2570,7 @@ def _fix_pass(api_key, product_name, tone_desc, posts, fails, max_tokens=3000):
         "'거울 앞에서 매일 한숨 쉬던 게 한 달 전인데' 로.\n"
         "  문제 '숫자 없음' → 시간·개수·금액·기간 중 하나를 실제로 박아라.\n\n"
         + HUMANIZE_RULES +
-        '\n출력은 JSON만: {"posts":["본글","답글1","답글2","답글3","답글4","답글5","답글6"]}'
+        '\n출력은 JSON만: {"posts":["본글","답글1","답글2","답글3","답글4","답글5"]}'
     )
     user_p = (
         f"상품: {product_name}\n말투: {tone_desc}\n\n"
@@ -2647,7 +2647,7 @@ def _humanize_pass(api_key, product_name, tone_desc, posts, tells):
         + HUMANIZE_RULES +
         f"\n검출된 금지 표현: {', '.join(tells)}\n"
         "이 표현들을 반드시 없애고, 구체적 장면·관찰로 바꿔라.\n"
-        "구조(본글+답글6)와 링크·고지문구 위치는 그대로 유지.\n"
+        "구조(본글+답글5)와 링크·고지문구 위치는 그대로 유지.\n"
         '출력은 JSON만: {"posts":["본글","답글1","답글2","답글3","답글4","답글5"]}'
     )
     user_p = f"상품: {product_name}\n말투: {tone_desc}\n\n원문:\n{json.dumps({'posts': posts}, ensure_ascii=False)}"

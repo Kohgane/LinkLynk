@@ -64,8 +64,15 @@ def _auto_image(product_name, info=None):
     return None
 
 
-def _gen_draft(uid, product_name, deeplink, tone, channel, info, provider=None, extra="", quality=False):
-    """초안 생성. AI 키 있으면 AI가 직접 작성(사람다움), 없으면 템플릿."""
+def _gen_draft(uid, product_name, deeplink, tone, channel, info, provider=None, extra="", quality=False, mode="ad"):
+    """초안 생성. AI 키 있으면 AI가 직접 작성(사람다움), 없으면 템플릿.
+    mode="ad"   : 기존 — 제휴링크 + 공정위 고지
+    mode="info" : 정보글 — 링크/고지 없음. 계정 품질 유지용(광고글만 쌓이면 저품질 판정)."""
+    if mode == "info":
+        deeplink = ""
+        extra = (extra + "\n\n※이 글은 제휴링크 없는 순수 정보글이다. "
+                 "상품 구매를 유도하지 말고, 링크·가격·구매처를 일절 넣지 마라. "
+                 "'광고' 고지문구도 넣지 마라. 경험과 정보만 담아라.").strip()
     if channel == "threads":
         try:
             keys = store.get_llm_keys(uid)
