@@ -891,9 +891,27 @@ def jireum_config_api():
     _ad = os.environ.get("JIREUM_AD_GROUP_ID", "").strip()
     if len(_ad) < 8:
         _ad = ""
-    resp = jsonify({"ok": True, "banner_ad_group_id": _ad})
+    _rw = os.environ.get("JIREUM_REWARD_AD_GROUP_ID", "").strip()
+    if len(_rw) < 8:
+        _rw = ""
+    resp = jsonify({"ok": True, "banner_ad_group_id": _ad, "reward_ad_group_id": _rw})
     resp.headers["Access-Control-Allow-Origin"] = "*"
     return resp
+
+
+@app.route("/api/lucky/config")
+def lucky_config_api():
+    _rw = os.environ.get("LUCKY_AD_GROUP_ID", "").strip()
+    if len(_rw) < 8:
+        _rw = ""
+    resp = jsonify({"ok": True, "reward_ad_group_id": _rw})
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
+
+@app.route("/luckyradar-og.png")
+def luckyradar_og():
+    return send_from_directory(".", "luckyradar-og.png", mimetype="image/png")
 
 
 @app.route("/api/jireum/search", methods=["POST", "OPTIONS"])
