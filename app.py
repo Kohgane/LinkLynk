@@ -64,12 +64,12 @@ def _auto_image(product_name, info=None):
     return None
 
 
-def _gen_draft(uid, product_name, deeplink, tone, channel, info, provider=None, extra="", quality=False, mode="ad"):
+def _gen_draft(uid, product_name, deeplink, tone, channel, info, provider=None, extra="", quality=False, mode="ad", deeplink2=""):
     """초안 생성. AI 키 있으면 AI가 직접 작성(사람다움), 없으면 템플릿.
     mode="ad"   : 기존 — 제휴링크 + 공정위 고지
     mode="info" : 정보글 — 링크/고지 없음. 계정 품질 유지용(광고글만 쌓이면 저품질 판정)."""
     if mode == "info":
-        deeplink = ""
+        deeplink = ""; deeplink2 = ""
         extra = (extra + "\n\n※이 글은 제휴링크 없는 순수 정보글이다. "
                  "상품 구매를 유도하지 말고, 링크·가격·구매처를 일절 넣지 마라. "
                  "'광고' 고지문구도 넣지 마라. 경험과 정보만 담아라.").strip()
@@ -100,7 +100,7 @@ def _gen_draft(uid, product_name, deeplink, tone, channel, info, provider=None, 
                     chain.append(keys[fp])
             chain.append("__free__")   # 최후: 키 없이 되는 무료 AI
             for k in chain:
-                r = claude_write_thread(k, product_name, deeplink, tone, price, extra=extra, fast=(not quality))
+                r = claude_write_thread(k, product_name, deeplink, tone, price, extra=extra, fast=(not quality), deeplink2=deeplink2)
                 tried.append(r.get("provider") or "?")
                 if r.get("ok") and r.get("content"):
                     # ★플레이스홀더가 최종 결과에 남아있으면 폴백 계속
@@ -1994,7 +1994,7 @@ def generate():
     if not d.get("skip_draft"):
         ok_d, _, _ = store.check_and_bump(user["id"], "draft", user["plan"])
         if ok_d:
-            draft = _gen_draft(user["id"], product_name, deeplink, tone, channel, info, d.get("provider"), d.get("extra", ""), d.get("quality", False), mode=(d.get("mode") or "ad"))
+            draft = _gen_draft(user["id"], product_name, deeplink, tone, channel, info, d.get("provider"), d.get("extra", ""), d.get("quality", False), mode=(d.get("mode") or "ad"), deeplink2=(d.get("deeplink2") or ""))
 
     store.save_link(user["id"], url, deeplink, product_name, channel)
 
@@ -2040,7 +2040,7 @@ def generate_manual():
     if not d.get("skip_draft"):
         ok_d, _, _ = store.check_and_bump(user["id"], "draft", user["plan"])
         if ok_d:
-            draft = _gen_draft(user["id"], product_name, deeplink, tone, channel, info, d.get("provider"), d.get("extra", ""), d.get("quality", False), mode=("info" if _info_mode else "ad"))
+            draft = _gen_draft(user["id"], product_name, deeplink, tone, channel, info, d.get("provider"), d.get("extra", ""), d.get("quality", False), mode=("info" if _info_mode else "ad"), deeplink2=("" if _info_mode else (d.get("deeplink2") or "")))
     if not _info_mode:
         store.save_link(user["id"], "", deeplink, product_name, channel)
     naver_html = (build_naver_html(product_name, deeplink, draft, info) if (draft and not _info_mode) else None)

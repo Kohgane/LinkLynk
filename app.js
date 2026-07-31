@@ -290,7 +290,8 @@ function polishDraft(btn){
       tone:(window.curTone||'friendly'), productName:d.productName||'',
       provider:(window.__llmPick||null),
       extra:(document.getElementById('w_extra')?.value||''), quality:true,
-      post_mode:(window.__postMode||'ad')});
+      post_mode:(window.__postMode||'ad'),
+      deeplink2:((window.__extraLinks||[])[0]||'')});
     const res = await pollJob(jid, {interval:2000});
     if(!res || !res.ok) throw new Error('실패');
     return {draft: res};
@@ -314,7 +315,10 @@ function writeWithSettings(){
   const typed = (document.getElementById('w_link')?.value || '').trim();
   const deeplink = typed || (d && d.deeplink);
   if(!deeplink){ toast('쿠팡파트너스 링크를 넣거나 먼저 링크를 만들어주세요'); return; }
-  const pname = (document.getElementById('pickedName')?.textContent || '').trim() || (d && d.productName) || '';
+  const _pl = window.__pickedProducts || [];
+  const pname = _pl.length ? _pl.map(x=>x.name).join(' / ')
+              : ((document.getElementById('pickedName')?.textContent || '').trim() || (d && d.productName) || '');
+  window.__extraLinks = _pl.slice(1).map(x=>x.deeplink);
   window.__writing = true;
   const b = document.getElementById('writeGo');
   if(b){ b.classList.add('loading'); b.disabled = true; }
@@ -402,7 +406,7 @@ async function generate(){
     const _isInfo = (_pm === 'info');
     const endpoint = (_isInfo || mode === 'manual') ? '/api/generate-manual' : '/api/generate';
     const body = (_isInfo || mode === 'manual')
-      ? {deeplink:url, channel, tone:(window.curTone||'friendly'), productName:pname, skip_draft:true, post_mode:_pm}
+      ? {deeplink:url, channel, tone:(window.curTone||'friendly'), productName:pname, skip_draft:true, post_mode:_pm, deeplink2:((window.__extraLinks||[])[0]||'')}
       : {url, channel, tone:(window.curTone||'friendly'), productName:pname, skip_draft:true, post_mode:_pm};
     const r = await fetch(endpoint, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
     const d = await r.json();
@@ -624,15 +628,54 @@ async function showResearch(i, btn){
 }
 
 // 상품 카드 선택 → 그 상품으로 링크·글 준비
+window.__pickedProducts = window.__pickedProducts || [];
 function pickProduct(i){
   const p = (window.__searchProducts||[])[i];
   if(!p) return;
-  window.__lastResult = {deeplink: p.deeplink, productName: p.name, image: p.image, price: p.price, channel};
-  showPicked(p.name, p.deeplink);
-  toast('상품을 골랐어요 — 말투 고른 뒤 "글 작성하기"를 누르세요');
+  const list = window.__pickedProducts;
+  const at = list.findIndex(x => x.deeplink === p.deeplink);
+  if(at >= 0){                       // 이미 고른 것 → 해제
+    list.splice(at,1);
+    toast('선택 해제됐어요');
+  }else{
+    if(list.length >= 2){            // ★글당 최대 2개 (자체 기준)
+      toast('한 글에 상품은 2개까지예요. 하나를 해제한 뒤 고르세요');
+      renderPicked(); return;
+    }
+    list.push({deeplink:p.deeplink, name:p.name, image:p.image, price:p.price});
+    toast(list.length===1 ? '1개 선택 — 하나 더 고를 수 있어요'
+                          : '2개 선택 완료 — 말투 고른 뒤 "글 작성하기"');
+  }
+  renderPicked();
+  const first = list[0];
+  window.__lastResult = first
+    ? {deeplink:first.deeplink, productName:first.name, image:first.image, price:first.price, channel}
+    : null;
   window.__pgLock = Date.now() + 900;
-  const s3 = document.querySelector('#page-make [data-sec="3"]');
-  if(s3) s3.scrollIntoView({behavior:'smooth', block:'start'});
+  if(list.length){
+    const s3 = document.querySelector('#page-make [data-sec="3"]');
+    if(s3) s3.scrollIntoView({behavior:'smooth', block:'start'});
+  }
+}
+function renderPicked(){
+  const list = window.__pickedProducts || [];
+  const el = document.getElementById('pickedProd');
+  const nm = document.getElementById('pickedName');
+  const l  = document.getElementById('w_link');
+  if(!el || !nm) return;
+  if(!list.length){ el.classList.add('hidden'); nm.textContent=''; if(l) l.value=''; return; }
+  el.classList.remove('hidden');
+  nm.innerHTML = list.map((x,i)=>
+    `<span style="display:inline-block;margin-right:6px">${i+1}. ${esc(x.name).slice(0,26)}`
+    + `<a href="#" onclick="unpickProduct(${i});return false" style="margin-left:5px;opacity:.6">✕</a></span>`
+  ).join('');
+  if(l) l.value = list.map(x=>x.deeplink).join('\n');
+}
+function unpickProduct(i){
+  (window.__pickedProducts||[]).splice(i,1);
+  renderPicked();
+  const f = (window.__pickedProducts||[])[0];
+  window.__lastResult = f ? {deeplink:f.deeplink, productName:f.name, image:f.image, price:f.price, channel} : null;
 }
 
 async function genFromSearch(deeplink, pname){

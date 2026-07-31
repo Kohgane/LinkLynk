@@ -1324,7 +1324,7 @@ def product_mismatch(posts, brief):
     return fails
 
 
-def claude_write_thread(api_key, product_name, deeplink, tone="friendly", price=None, extra="", fast=False):
+def claude_write_thread(api_key, product_name, deeplink, tone="friendly", price=None, extra="", fast=False, deeplink2=""):
     """쓰레드 6분할 작성. ★사람다움 최우선: few-shot + 휴머나이즈 규칙 + AI티 검출 재작성."""
     if not api_key:
         return {"ok": False, "error": "no_key"}
@@ -1413,7 +1413,7 @@ def claude_write_thread(api_key, product_name, deeplink, tone="friendly", price=
         # fast여도 게이트 통과할 때까지 2회, 일반 모드는 3회까지 고친다.
         budget = 2 if fast else 3
 
-    posts = repair_structure(posts, deeplink, product_name)   # ★먼저 구조를 못 박는다
+    posts = repair_structure(posts, deeplink, product_name, deeplink2)   # ★먼저 구조를 못 박는다
 
     for _ in range(budget):
         fails = quality_gate(posts, product_name)
@@ -1436,7 +1436,7 @@ def claude_write_thread(api_key, product_name, deeplink, tone="friendly", price=
         if polished:
             posts = polished
 
-    posts = repair_structure(posts, deeplink, product_name)   # 재작성 뒤 구조 재확정
+    posts = repair_structure(posts, deeplink, product_name, deeplink2)   # 재작성 뒤 구조 재확정
     posts = [scrub_ai_artifacts(str(p)) for p in posts]
     posts = _strip_leading_product(posts, product_name)       # 본글 첫 문장 제품명 규칙 제거
     posts = _strip_weak_opener(posts)                         # 약한 오프너 도입부 규칙 제거
@@ -2328,7 +2328,7 @@ HUMANIZE_RULES = '''사람이 쓴 글처럼(가장 중요):
 DISCLOSURE = "(광고) 쿠팡파트너스 활동으로 수수료를 받습니다."
 
 
-def repair_structure(posts, deeplink, product_name=""):
+def repair_structure(posts, deeplink, product_name="", deeplink2=""):
     """★구조는 모델에게 맡기지 않는다. 코드가 강제한다.
     작은 모델은 '6개를 써라'를 자주 어긴다(5개·7개). 목소리는 모델이,
     개수·링크 위치·고지문구·해시태그는 기계가 책임진다."""
@@ -2405,7 +2405,8 @@ def repair_structure(posts, deeplink, product_name=""):
     if not hashtags:
         base = re.sub(r"[^가-힣A-Za-z ]", " ", product_name or "").split()
         hashtags = " ".join("#" + w for w in base[:3]) or "#추천"
-    r6 = f"{tail}\n{deeplink}\n\n{hashtags}"
+    _d2 = (deeplink2 or "").strip() or deeplink
+    r6 = f"{tail}\n{_d2}\n\n{hashtags}"
 
     return rest[:5] + [r5, r6]
 
