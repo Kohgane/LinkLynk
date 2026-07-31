@@ -189,8 +189,11 @@ def is_valid_coupang_url(url: str) -> bool:
     return bool(re.match(r'https?://([\w.]+\.)?coupang\.com/', u))
 
 
-def append_disclosure(text: str) -> str:
-    """블로그 초안 하단에 고지문구 자동 삽입 (없으면)."""
+def append_disclosure(text: str, deeplink: str = "x") -> str:
+    """블로그 초안 하단에 고지문구 자동 삽입 (없으면).
+    ★정보글(링크 없음)에는 붙이지 않는다."""
+    if not (deeplink or "").strip():
+        return text
     if COUPANG_DISCLOSURE[:20] in text:
         return text
     return text.rstrip() + "\n\n---\n" + COUPANG_DISCLOSURE
@@ -611,7 +614,7 @@ def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", ch
         body = (f"{R(opens)}\n\n{R(bodies)}\n"
                 f"{'가격 '+price_txt+' / ' if price_txt else ''}{R(guides)}\n\n"
                 f"👉 {deeplink}\n\n{tags}")
-        return append_disclosure(body)
+        return append_disclosure(body, deeplink)
 
     # ── 유튜브: 설명란, 매번 다른 인트로 ──
     if channel == "youtube":
@@ -631,7 +634,7 @@ def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", ch
                 f"───────────\n"
                 f"⏱ 타임스탬프\n00:00 인트로\n00:30 제품 소개\n02:00 사용 후기\n\n"
                 f"👍 도움 되셨다면 좋아요와 구독 부탁드려요!")
-        return append_disclosure(body)
+        return append_disclosure(body, deeplink)
 
     # ── 블로그(네이버): 긴 글, 매번 다른 제목·인트로·소제목 ──
     titles = [
@@ -695,7 +698,7 @@ def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", ch
             f"{sub3}\n{outro}")
     if info and info.get("image"):
         body += f"\n\n[상품 이미지]\n{info['image']}"
-    return append_disclosure(body)
+    return append_disclosure(body, deeplink)
 
 
 # ══════════════ 자동 게시 / HTML 내보내기 ══════════════
@@ -800,10 +803,20 @@ def zernio_publish(api_key, platforms, content, media_urls=None, account_ids=Non
             entry = {"platform": zp, "accountId": aid}
             if thread_items and zp in ("threads", "twitter", "bluesky"):
                 items = []
+                # 이미지 배치: 본글(0) 1장 + 링크가 있는 답글(주로 5·6)에 각 1장.
+                #  링크 옆에 실물 사진이 있으면 클릭률이 오른다.
+                _m = list(media_urls or [])
+                _link_idx = [i for i, t in enumerate(thread_items)
+                             if "coupang.com" in str(t)]
                 for i, txt in enumerate(thread_items):
                     it = {"content": txt}
-                    if i == 0 and media_urls:
-                        it["mediaItems"] = [{"type": "image", "url": u} for u in media_urls]
+                    if _m:
+                        if i == 0:
+                            it["mediaItems"] = [{"type": "image", "url": _m[0]}]
+                        elif i in _link_idx and len(_m) > 1:
+                            _k = 1 + _link_idx.index(i)
+                            if _k < len(_m):
+                                it["mediaItems"] = [{"type": "image", "url": _m[_k]}]
                     items.append(it)
                 entry["platformSpecificData"] = {"threadItems": items}
             targets.append(entry)
@@ -2322,6 +2335,21 @@ def repair_structure(posts, deeplink, product_name=""):
     posts = [str(p).strip() for p in (posts or []) if str(p).strip()]
     # 모델이 프롬프트의 {링크} 플레이스홀더를 그대로 뱉는 경우가 있다 → 제거
     posts = [re.sub(r"\{\s*(링크|link|url|deeplink)\s*\}", "", p).strip() for p in posts]
+    # ★정보글 모드: 링크가 없으면 링크·고지 조립을 통째로 건너뛴다.
+    #  (모델이 실수로 남긴 쿠팡 링크·고지문구도 제거)
+    if not (deeplink or "").strip():
+        out = []
+        for _p in posts:
+            _p = re.sub(r"https?://\S*coupang\S*", "", str(_p))
+            _p = re.sub(r"\(광고\)[^\n]*", "", _p)
+            _p = _p.replace(DISCLOSURE, "")
+            _p = re.sub(r"[^\n]*쿠팡파트너스[^\n]*", "", _p)
+            _p = re.sub(r"[^\n]*수수료를 받습니다[^\n]*", "", _p)
+            _p = re.sub(r"\n{3,}", "\n\n", _p).strip()
+            if _p: out.append(_p)
+        while len(out) < 7:
+            out.append("…")
+        return out[:7]
     posts = [p for p in posts if p]
     if not posts:
         return posts
