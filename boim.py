@@ -153,7 +153,7 @@ def run_scan(api_key, store_name, keywords, aliases=None, progress_cb=None):
         next_one = ""
         risk = ""
     elif grade == "F":
-        next_one = "대표 상품 하나만 골라, 손님이 물어볼 질문 3개와 답을 상품 설명에 텍스트로 넣으세요."
+        next_one = "대표 상품 하나만 골라, 사람들이 물어볼 질문 3개와 답을 상품 설명에 텍스트로 넣으세요."
         risk = "상세페이지가 이미지 한 장이면 AI는 그 안의 글자를 전혀 읽지 못합니다. 상품이 좋아도 인용할 문장이 없으면 영영 불리지 않습니다."
     elif grade == "D":
         next_one = "이미 불리는 그 질문 하나를 찾아, 같은 형식으로 상품을 두 개 더 정리하세요."
