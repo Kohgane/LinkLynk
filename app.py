@@ -904,7 +904,10 @@ def lucky_config_api():
     _rw = os.environ.get("LUCKY_AD_GROUP_ID", "").strip()
     if len(_rw) < 8:
         _rw = ""
-    resp = jsonify({"ok": True, "reward_ad_group_id": _rw})
+    _bn = os.environ.get("LUCKY_BANNER_AD_GROUP_ID", "").strip()
+    if len(_bn) < 8:
+        _bn = ""
+    resp = jsonify({"ok": True, "reward_ad_group_id": _rw, "banner_ad_group_id": _bn})
     resp.headers["Access-Control-Allow-Origin"] = "*"
     return resp
 
