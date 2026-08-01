@@ -2499,7 +2499,8 @@ def quality_gate(posts, product_name):
             fails.append("링크가 %d개다. 글당 최대 2개다." % _n)
         if _n == 0:
             fails.append("링크가 하나도 없다.")
-        if len(posts) >= 6 and "수수료를 받습니다" not in str(posts[5]):
+        if len(posts) >= 6 and not any(
+                k in str(posts[5]) for k in ("수수료를 받습니다", "수수료를 제공받습니다")):
             fails.append("답글5에 공정위 고지문구가 없다.")
 
     # 개수·링크위치·고지문구는 repair_structure()가 코드로 보장한다 → 모델에게 시키지 않는다.
