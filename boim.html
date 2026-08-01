@@ -414,7 +414,7 @@ async function checkout(){
     const m=location.pathname.match(/\/boim\/r\/([a-z0-9]+)/);
     const scanId=m?m[1]:'direct';
     const amount=_plan==='boost'?29900:9900;
-    const orderName=_plan==='boost'?'보임 부스트 30일':'보임 워치 30일';
+    const orderName=_plan==='boost'?'SPECULA 부스트 30일':'SPECULA 워치 30일';
     if(!window.TossPayments){
       await new Promise((res,rej)=>{const s=document.createElement('script');
         s.src='https://js.tosspayments.com/v1/payment';s.onload=res;s.onerror=rej;document.head.appendChild(s);});
@@ -431,7 +431,7 @@ async function checkout(){
 
 function shareReport(){
   const url=location.href;
-  if(navigator.share){ navigator.share({title:'보임 AI 노출 진단', url}).catch(()=>{}); }
+  if(navigator.share){ navigator.share({title:'SPECULA AI 노출 진단', url}).catch(()=>{}); }
   else navigator.clipboard.writeText(url).then(()=>toast('링크가 복사됐어요'));
 }
 
