@@ -914,6 +914,11 @@ def luckyradar_og():
     return send_from_directory(".", "luckyradar-og.png", mimetype="image/png")
 
 
+@app.route("/fortuneradar-og.png")
+def fortuneradar_og():
+    return send_from_directory(".", "luckyradar-og.png", mimetype="image/png")
+
+
 @app.route("/api/jireum/search", methods=["POST", "OPTIONS"])
 def jireum_search_api():
     """'그래도 살래' -> 쿠팡 최저가 후보 (파트너스 수익 링크). IP당 하루 30회."""
