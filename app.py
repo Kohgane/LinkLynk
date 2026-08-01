@@ -2029,8 +2029,10 @@ def generate_manual():
     _info_mode = (d.get("post_mode") or "ad") == "info"
     if _info_mode:
         deeplink = ""
-    elif "coupang" not in deeplink:
-        return jsonify({"ok": False, "error": "쿠팡 파트너스 링크를 붙여넣어 주세요 (link.coupang.com/...)"}), 400
+    elif not any(h in deeplink.lower() for _v in __import__("core").AFFILIATES.values()
+                 for h in (_v["host"] + (_v["short"],))):
+        return jsonify({"ok": False,
+            "error": "제휴 링크를 붙여넣어 주세요 (쿠팡 파트너스 · 토스쇼핑 쉐어링크 · 네이버 커넥트)"}), 400
     user = store.get_user(session["uid"])
     # ★실제 상품 확인: 본인 파트너스 키가 있고 상품명이 입력됐을 때만 검색 1회
     #   (폴백 키 절대 안 씀 / 검색 실패해도 앱 정상 / API 한도 보호 위해 링크당 최소 호출)

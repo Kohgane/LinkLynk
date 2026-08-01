@@ -42,6 +42,34 @@ DEEPLINK_PATH = "/v2/providers/affiliate_open_api/apis/openapi/v1/deeplink"
 
 # 공정위 필수 고지문구 (쿠팡 파트너스)
 COUPANG_DISCLOSURE = "이 포스팅은 쿠팡 파트너스 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다."
+TOSS_DISCLOSURE = "이 포스팅은 토스쇼핑 쉐어링크 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다."
+NAVER_DISCLOSURE = "이 포스팅은 네이버 커넥트 활동의 일환으로, 이에 따른 일정액의 수수료를 제공받습니다."
+
+# ── 제휴 플랫폼 정의 ───────────────────────────────
+#  수수료는 2026-07 기준. 토스가 쿠팡의 2~3배(베타 프로모션)라 같은 상품이면 토스 우선.
+AFFILIATES = {
+    "coupang": {"name": "쿠팡 파트너스", "rate": "3~5%",
+                "disc": COUPANG_DISCLOSURE,
+                "host": ("coupang.com",), "short": "link.coupang.com"},
+    "toss":    {"name": "토스쇼핑 쉐어링크", "rate": "10%",
+                "disc": TOSS_DISCLOSURE,
+                "host": ("toss.im", "tosspayments.com", "shopping.toss.im"), "short": "toss.me"},
+    "naver":   {"name": "네이버 커넥트", "rate": "상품별",
+                "disc": NAVER_DISCLOSURE,
+                "host": ("naver.com", "smartstore.naver.com"), "short": "naver.me"},
+}
+
+def detect_affiliate(url: str) -> str:
+    """링크 도메인으로 제휴사를 판별한다. 못 찾으면 coupang."""
+    u = (url or "").lower()
+    for k, v in AFFILIATES.items():
+        if any(h in u for h in v["host"]) or v["short"] in u:
+            return k
+    return "coupang"
+
+def disclosure_for(url_or_key: str) -> str:
+    k = url_or_key if url_or_key in AFFILIATES else detect_affiliate(url_or_key)
+    return AFFILIATES[k]["disc"]
 
 
 class CoupangPartners:
@@ -194,9 +222,10 @@ def append_disclosure(text: str, deeplink: str = "x") -> str:
     ★정보글(링크 없음)에는 붙이지 않는다."""
     if not (deeplink or "").strip():
         return text
-    if COUPANG_DISCLOSURE[:20] in text:
+    _disc = disclosure_for(deeplink)
+    if _disc[:20] in text or COUPANG_DISCLOSURE[:20] in text:
         return text
-    return text.rstrip() + "\n\n---\n" + COUPANG_DISCLOSURE
+    return text.rstrip() + "\n\n---\n" + _disc
 
 
 def guess_category(name: str):
@@ -807,7 +836,8 @@ def zernio_publish(api_key, platforms, content, media_urls=None, account_ids=Non
                 #  링크 옆에 실물 사진이 있으면 클릭률이 오른다.
                 _m = list(media_urls or [])
                 _link_idx = [i for i, t in enumerate(thread_items)
-                             if "coupang.com" in str(t)]
+                             if any(h in str(t) for v in AFFILIATES.values()
+                                    for h in (v["host"] + (v["short"],)))]
                 for i, txt in enumerate(thread_items):
                     it = {"content": txt}
                     if _m:
@@ -2088,6 +2118,29 @@ def diversity_block():
     )
 
 
+
+# ── ★실전 검증 골격: '선의의 실수' (육아/관계/습관 계열에서 폭발) ──
+#   근거: 10분 600뷰. 링크 없는 순수 정보글이었다.
+SKELETON_GOODWILL = """[골격: 선의의 실수]
+① 본글 — 독자가 실제로 하는 말을 따옴표로 인용한다. 설명하지 말고 대사만.
+   예) 아이가 무섭다고 할 때 이렇게 말하게 되죠. "괜찮아, 하나도 안 무서워."
+② 그 말의 의도가 선하다는 걸 먼저 인정한다. (달래주려고 / 걱정돼서 / 도와주려고)
+③ 그런데 상대에게는 안 닿는다 — 상대 입장에서 왜 그런지 한 문단.
+④ 반전 한 줄: 좋은 의도가 오히려 반대로 작동한다는 구조를 짚는다.
+   예) 감정을 줄여주는 말이 오히려 통로를 닫는 셈이에요.
+⑤ 대체 문장을 따옴표로 준다. 그대로 복사해 쓸 수 있어야 한다. 2개면 충분.
+⑥ ★과잉 경계선 — "여기까지가 적당한 농도". 너무 하면 왜 역효과인지.
+   이 항목이 신뢰를 만든다. 절대 빼지 마라.
+⑦ "그리고 진짜 중요한 순간은 따로 있어요" — 두 번째 문을 연다.
+   여기서 끝나는 줄 알았던 독자가 계속 읽는다. 체류시간이 두 배가 된다.
+⑧ 두 번째 상황의 대사를 준다.
+⑨ 미래 보상으로 닫는다. 지금의 작은 행동 → 상대의 장기 변화.
+   예) 이 말이 반복되면 나중에 아이가 스스로에게 그렇게 말하게 됩니다.
+
+금지: 제품명·스펙·"추천"·단정적 훈계·전문가 인용·통계.
+톤: 낮은 목소리. 가르치지 말고 옆에서 알려주는 사람.
+"""
+
 FEWSHOT = '''다음은 실제로 반응이 좋았던 글들이다. 이 결의 담백함·구체성을 그대로 따라라.
 
 [예시1 — 정보격차 / 반말 건조 / 경추베개]
@@ -2340,9 +2393,10 @@ def repair_structure(posts, deeplink, product_name="", deeplink2=""):
     if not (deeplink or "").strip():
         out = []
         for _p in posts:
-            _p = re.sub(r"https?://\S*coupang\S*", "", str(_p))
+            _p = re.sub(r"https?://\S*(coupang|toss\.me|shopping\.toss|naver\.me)\S*", "", str(_p))
             _p = re.sub(r"\(광고\)[^\n]*", "", _p)
-            _p = _p.replace(DISCLOSURE, "")
+            for _d in (COUPANG_DISCLOSURE, TOSS_DISCLOSURE, NAVER_DISCLOSURE):
+                _p = _p.replace(_d, "")
             _p = re.sub(r"[^\n]*쿠팡파트너스[^\n]*", "", _p)
             _p = re.sub(r"[^\n]*수수료를 받습니다[^\n]*", "", _p)
             _p = re.sub(r"\n{3,}", "\n\n", _p).strip()
@@ -2390,7 +2444,7 @@ def repair_structure(posts, deeplink, product_name="", deeplink2=""):
         lead = re.sub(r"\(광고\)[^\n]*", "", lead).strip()
     if not lead:
         lead = "밑에."
-    r5 = f"{lead}\n{deeplink}\n\n{DISCLOSURE}"
+    r5 = f"{lead}\n{deeplink}\n\n{disclosure_for(deeplink)}"
 
     # 답글6: 마무리 + 링크 + 해시태그 3개
     tail, hashtags = "", ""
@@ -2429,16 +2483,18 @@ def quality_gate(posts, product_name):
         return ["__PLACEHOLDER__"]
     # ★최종 안전망 — repair_structure() 결과를 믿지 않고 한 번 더 검사한다.
     #  정보글 모드(링크·고지 둘 다 없음)는 링크 검사 전체를 건너뛴다.
-    _L = "link.coupang.com"
+    def _has_link(t):
+        t = str(t)
+        return any(h in t for v in AFFILIATES.values() for h in (v["host"] + (v["short"],)))
     _all = "\n".join(str(x) for x in posts)
-    _INFO = (_L not in _all) and ("수수료" not in _all)
+    _INFO = (not _has_link(_all)) and ("수수료" not in _all)
     if not _INFO:
         if len(posts) != 7:
             fails.append("블록이 %d개다. 본글+답글6 = 7개여야 한다." % len(posts))
         for _i, _t in enumerate(posts[:5]):
-            if _L in str(_t):
+            if _has_link(_t):
                 fails.append(("본글" if _i == 0 else "답글%d" % _i) + "에 링크가 있다. 링크는 답글5·6에만 넣어라.")
-        _n = sum(1 for _t in posts if _L in str(_t))
+        _n = sum(1 for _t in posts if _has_link(_t))
         if _n > 2:
             fails.append("링크가 %d개다. 글당 최대 2개다." % _n)
         if _n == 0:

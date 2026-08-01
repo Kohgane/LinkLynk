@@ -3,13 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-<title>SPECULA — 챗GPT가 당신 상품을 팔아주고 있습니까?</title>
+<title>보임 BOIM — 챗GPT가 당신 상품을 팔아주고 있습니까?</title>
 <meta name="description" content="AI 검색 시대, 당신의 스토어가 AI 답변에 등장하는지 무료로 진단합니다.">
 <meta name="theme-color" content="#0A0A0B">
 <link rel="manifest" href="/boim-manifest.json">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<meta name="apple-mobile-web-app-title" content="SPECULA">
+<meta name="apple-mobile-web-app-title" content="보임">
 <link rel="apple-touch-icon" href="/boim-icon-192.png">
 <style>
 :root{
@@ -131,7 +131,7 @@ input:focus{border-color:var(--text-2)}
 </head>
 <body>
 <div class="wrap">
-  <div class="logo"><div class="mark">S</div><div class="nm">SPECULA · AI 검색 노출 진단</div></div>
+  <div class="logo"><div class="mark">B</div><div class="nm">보임 <b>BOIM</b> · AI 검색 노출 진단</div></div>
 
   <div id="viewForm">
     <h1>손님이 AI에게 물으면<br><span class="q">어느 가게 이름이 나올까요</span></h1>
@@ -149,7 +149,7 @@ input:focus{border-color:var(--text-2)}
       검색 결과 2페이지에 있으면 스크롤이라도 내려서 볼 수 있지만,
       AI 답변에 없으면 <b>존재 자체가 노출되지 않습니다</b>.
       순위가 아니라 <b>언급 여부</b>가 기준이 된 것입니다.<br><br>
-      SPECULA는 실제 AI에게 쇼핑 질문을 던져 <b>당신 가게가 불리는지</b>를 세어 기록합니다.
+      보임은 실제 AI에게 쇼핑 질문을 던져 <b>당신 가게가 불리는지</b>를 세어 기록합니다.
       처방이 아니라 측정입니다.
       <a href="/boim/guide" style="color:var(--text);text-decoration:underline;
       text-underline-offset:3px;display:inline-block;margin-top:10px;font-size:13px">
@@ -189,7 +189,7 @@ input:focus{border-color:var(--text-2)}
   <div id="viewReport" style="display:none"></div>
 
   <div class="footer">
-    SPECULA — 라틴어로 망루(望樓). 같은 뿌리에서 speculum(거울)과 speculate(예측)가 나왔습니다.<br>
+    보임 BOIM — AI 검색 시대의 노출 진단<br>
     <a href="/boim">새 진단하기</a>
   </div>
 </div>
@@ -315,13 +315,13 @@ function render(d){
       <div class="t">이 점수는 바뀝니다 — 그리고 측정됩니다</div>
       <div class="s">AI가 인용하는 가게의 조건은 <b>사람이 믿고 사는 가게의 조건</b>과 같습니다:
         궁금증에 미리 답하는 FAQ, 검색에 걸리는 텍스트 설명, 일관된 브랜드명.
-        구글·네이버가 공식 문서로 권하는 것들이고, SPECULA는 이걸 <b>당신 가게 기준으로 만들어드립니다.</b></div>
+        구글·네이버가 공식 문서로 권하는 것들이고, 보임은 이걸 <b>당신 가게 기준으로 만들어드립니다.</b></div>
       <div class="plan on" data-plan="watch" onclick="pickPlan(this)">
-        <div><div class="pl">SPECULA 워치</div><div class="pd">매주 같은 질문으로 재측정 · 점수 변화 기록</div></div>
+        <div><div class="pl">보임 워치</div><div class="pd">매주 같은 질문으로 재측정 · 점수 변화 기록</div></div>
         <div class="pp">9,900<span>원/30일</span></div>
       </div>
       <div class="plan" data-plan="boost" onclick="pickPlan(this)">
-        <div><div class="pl">SPECULA 부스트</div><div class="pd">워치 + 실행 키트: 내 상품 FAQ·텍스트 설명 자동 생성 (복붙 5분)</div></div>
+        <div><div class="pl">보임 부스트</div><div class="pd">워치 + 실행 키트: 내 상품 FAQ·텍스트 설명 자동 생성 (복붙 5분)</div></div>
         <div class="pp">29,900<span>원/30일</span></div>
         <div style="font-size:10.5px;color:var(--muted);margin-top:3px">하루 997원 · 광고 하루 예산 수준</div>
       </div>
@@ -334,7 +334,7 @@ function render(d){
           이후 90일간 같은 질문으로 재측정해 변화를 기록해 드립니다</span></div>
       </div>
       <button class="btn" onclick="checkout()">이용권 결제하기</button>
-      <div class="small">토스페이먼츠 안전결제 · 30일 이용권 · 자동갱신 없음<br><span style="opacity:.7">AI 인용은 즉시 바뀌지 않습니다. SPECULA는 바뀌는 과정을 기록합니다.</span></div>
+      <div class="small">토스페이먼츠 안전결제 · 30일 이용권 · 자동갱신 없음<br><span style="opacity:.7">AI 인용은 즉시 바뀌지 않습니다. 보임은 바뀌는 과정을 기록합니다.</span></div>
     </div>
     <button class="share" onclick="shareReport()">리포트 링크 복사</button>`;
   loadHistory(r.store);
