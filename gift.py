@@ -81,6 +81,8 @@ def _own_index_search(toks, lo, hi, limit=3):
             nm = r.get("name") or ""
             if brand not in nm:      # 일반 토큰 매칭으로 끼어들기 금지 — 어색하면 안 나온다
                 continue
+            if len(toks) >= 2 and not any(t in nm for t in toks[1:]):
+                continue                 # 부분일치 함정 방지(라이프->라이프베리)
             pr = r.get("price")
             if pr and not (lo <= pr <= hi):
                 continue
@@ -249,12 +251,16 @@ def recommend(api_key, who, budget, taste, exclude=None):
             if not picked:
                 brand = toks[0] if toks else ""
                 own = [u for u in rel_nv if u.get("own") and brand and brand in u["name"]
+                       and (len(toks) < 2 or any(t in u["name"] for t in toks[1:]))
                        and _price_ok_range(u, wide_lo, wide_hi)]
                 picked += own[:1]
 
             # ② 쿠팡 브랜드 진품 — 넓은 가격창 (선물은 브랜드 정합 > 엄격한 예산)
             if len(picked) < 3:
+                # ★부분일치 함정 방지: '라이프' 노트 -> '라이프베리' 립글로스 사태.
+                # 브랜드 + 품목 토큰까지 맞아야 진품 취급 (키워드 1단어면 브랜드만)
                 bh = [u for u in rel_cp if brand and brand in u["name"]
+                      and (len(toks) < 2 or any(t in u["name"] for t in toks[1:]))
                       and _price_ok_range(u, wide_lo, wide_hi)]
                 picked += [u for u in bh if u not in picked][:3 - len(picked)]
 
