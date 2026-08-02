@@ -335,7 +335,9 @@ def recommend(api_key, who, budget, taste, exclude=None):
                 if pid:
                     url_map[f"https://www.coupang.com/vp/products/{pid}"] = u
         if url_map:
-            for l in (cp.make_deeplinks(list(url_map.keys())[:10], sub_id="giftradar") or []):
+            res = cp.make_deeplinks(list(url_map.keys())[:10], sub_id="giftradar")
+            links = res.get("data", []) if isinstance(res, dict) and res.get("ok") else []
+            for l in links:
                 u = url_map.get(l.get("originalUrl"))
                 if u and l.get("shortenUrl"):
                     u["link"] = l["shortenUrl"]

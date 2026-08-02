@@ -1003,7 +1003,10 @@ def jireum_search_api():
                 canon = {f"https://www.coupang.com/vp/products/{it['_pid']}": it
                          for it in items if it.get("_pid")}
                 if canon:
-                    for l in (cp.make_deeplinks(list(canon.keys()), sub_id="jireum") or []):
+                    res = cp.make_deeplinks(list(canon.keys()), sub_id="jireum")
+                    links = (res.get("data", [])
+                             if isinstance(res, dict) and res.get("ok") else [])
+                    for l in links:
                         it = canon.get(l.get("originalUrl"))
                         if it and l.get("shortenUrl"):
                             it["link"] = l["shortenUrl"]
