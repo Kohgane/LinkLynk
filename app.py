@@ -1258,12 +1258,15 @@ def gift_reco_api():
         resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
         resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
         return resp
-    """선물 추천 — IP당 하루 10회 + 리워드 광고 보너스 5회."""
+    """선물 추천 — 기기당 하루 3회 + 광고 보너스. ★쿼터 키는 기기ID(did) 우선:
+    LTE는 통신사 CGNAT로 수천 명이 IP를 공유하므로 IP 쿼터는 무고한 차단을 만든다."""
     ip = (request.headers.get("X-Forwarded-For", request.remote_addr) or "?").split(",")[0].strip()
     import time as _t
     now = int(_t.time())
     d0 = request.get_json(force=True, silent=True) or {}
     is_bonus = bool(d0.get("bonus"))
+    did = (str(d0.get("did") or "")[:64]).strip()
+    ip = ("d:" + did) if len(did) >= 8 else ip   # 기기ID 있으면 그걸 키로
     # 항목: {"t": ts, "b": 보너스여부} — 과거 int 형식도 허용
     hist = []
     for e in _GIFT_IP.get(ip, []):
@@ -1287,6 +1290,11 @@ def gift_reco_api():
                             "can_bonus": bonus_used < _GIFT_BONUS_LIMIT}), 429
     d = request.get_json(force=True, silent=True) or {}
     who = (d.get("who") or "").strip()[:30]
+    _g = (d.get("g") or "").strip()[:2]
+    _a = (d.get("a") or "").strip()[:3]
+    if _g or _a:
+        demo = (f"{_a}대 " if _a else "") + {"여": "여성", "남": "남성"}.get(_g, "")
+        who = (who + f" ({demo.strip()})").strip() if who else demo.strip()
     budget = (d.get("budget") or "").strip()[:20]
     taste = (d.get("taste") or "").strip()[:80]
     exclude = [x.strip()[:30] for x in (d.get("exclude") or []) if x.strip()][:12]
