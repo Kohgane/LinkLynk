@@ -339,6 +339,20 @@ def extract_keywords(name: str):
 
 
 def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", channel: str = "blog", info: dict = None) -> str:
+    # ★정보글(링크 없음): 템플릿에 링크·고지·구매유도가 섞이지 않도록 전용 골격을 쓴다.
+    if not (deeplink or "").strip():
+        _c = (product_name or "").strip() or "요즘 생각한 것"
+        if channel in ("threads", "x"):
+            return "\n===THREAD===\n".join([
+                f"{_c}, 다들 어떻게 하고 계세요?",
+                "저는 한동안 이게 맞나 싶었어요.",
+                "찾아보니 생각보다 이유가 단순하더라고요.",
+                "바꾸고 나서야 알았습니다.",
+                "물론 사람마다 다르겠지만요.",
+                "혹시 비슷한 고민 하시는 분 있을까 싶어 적어봐요.",
+                "각자 방식이 있으니 참고만 하세요.",
+            ])
+        return f"[{_c}]\n\n오늘은 {_c}에 대해 정리해봤어요.\n\n(정보 공유 목적의 글입니다.)"
     """플랫폼별 맞춤 초안. ★매번 다른 글 + ★상품 키워드 반영 + ★사람같은 문체."""
     name = product_name
     first = name.split()[0] if name else "이거"

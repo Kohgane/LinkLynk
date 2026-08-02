@@ -1592,6 +1592,13 @@ async function refineTopic(title, btn){
         window.__refinedTopics[idx].error = (d && d.error) || '기획 실패';
       }
       window.__rtActive = window.__refinedTopics.findIndex(t=>t.title===title);
+      // ★다듬기 완료 → 결과 카드로 자동 이동 (사용자가 스크롤 안 해도 되게)
+      setTimeout(()=>{
+        const el = document.getElementById('refinedBox')
+                || document.querySelector('.refined-card')
+                || document.querySelector('[data-refined]');
+        if(el) el.scrollIntoView({behavior:'smooth', block:'start'});
+      }, 300);
       saveRefined();
       renderRefinedTopics();
     }
