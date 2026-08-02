@@ -1931,7 +1931,9 @@ def list_posts():
     # 민감정보 제외하고 반환
     out = [{"id": p["id"], "channel": p["channel"], "product_name": p["product_name"],
             "content": p["content"][:200], "status": p["status"], "post_url": p.get("post_url"),
-            "created_at": p["created_at"], "published_at": p.get("published_at")} for p in posts]
+            "created_at": p["created_at"], "published_at": p.get("published_at"),
+            "sub_id": p.get("sub_id"), "views": p.get("views") or 0, "clicks": p.get("clicks") or 0,
+            "post_mode": p.get("post_mode"), "skeleton": p.get("skeleton")} for p in posts]
     return jsonify({"ok": True, "posts": out})
 
 
