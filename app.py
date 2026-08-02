@@ -864,8 +864,8 @@ def boim_cron_weekly():
 # ══════════ 선물레이더 — 앱인토스 미니앱 (공개) ══════════
 _GIFT_IP = {}
 _GIFT_CREDIT = {}          # 공유 리워드 크레딧 {ip: {"n": int, "t": ts}}
-_GIFT_BASE_LIMIT = 10      # 기본 무료
-_GIFT_BONUS_LIMIT = 5      # 리워드 광고 시청으로 추가 가능한 횟수
+_GIFT_BASE_LIMIT = 3       # 기본 무료 (희소성 = 광고·공유 동기)
+_GIFT_BONUS_LIMIT = 10     # 리워드 광고 1회 시청 = 추천 1회, 하루 10회까지
 _GIFT_VIRAL_DAILY_CAP = 10 # 하루 공유 적립 상한
 
 
@@ -1163,6 +1163,73 @@ def gift_viral_credit():
         c["t"] = now
         _GIFT_CREDIT[ip] = c
         resp = jsonify({"ok": True, "credits": c["n"], "added": amt})
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
+
+_GIFT_RANK_CACHE = {}
+# 성별·연령 -> 쿠팡 카테고리 조합 (선물로 많이 오가는 품목군)
+_RANK_MAP = {
+    ("여", "10"): [1010, 1021, 1020], ("여", "20"): [1010, 1001, 1015],
+    ("여", "30"): [1010, 1015, 1013], ("여", "40"): [1024, 1010, 1013],
+    ("남", "10"): [1020, 1016, 1021], ("남", "20"): [1016, 1002, 1017],
+    ("남", "30"): [1016, 1017, 1018], ("남", "40"): [1024, 1017, 1016],
+}
+
+
+@app.route("/api/gift/ranking")
+def gift_ranking_api():
+    """성별·연령별 인기 선물 TOP 10 — 쿠팡 카테고리 베스트 실데이터. 6시간 캐시."""
+    g = (request.args.get("g") or "여").strip()[:1]
+    a = (request.args.get("a") or "20").strip()[:2]
+    key = (g if g in ("여", "남") else "여", a if a in ("10", "20", "30", "40") else "20")
+    import time as _t
+    now = _t.time()
+    hit = _GIFT_RANK_CACHE.get(key)
+    if hit and now - hit[0] < 21600:
+        resp = jsonify({"ok": True, "items": hit[1], "cached": True})
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        return resp
+    ck = os.environ.get("COUPANG_ACCESS_KEY", "")
+    cs = os.environ.get("COUPANG_SECRET_KEY", "")
+    items = []
+    if ck and cs:
+        try:
+            from core import CoupangPartners
+            cp = CoupangPartners(ck, cs)
+            pools = [cp.best_products(cid, limit=8) or [] for cid in _RANK_MAP[key]]
+            seen = set()
+            # 카테고리 인터리브 -> 다양성 있는 TOP 10
+            for i in range(8):
+                for pool in pools:
+                    if i < len(pool):
+                        it = pool[i]
+                        nk = (it.get("name") or "")[:12]
+                        if nk in seen or not it.get("name"):
+                            continue
+                        seen.add(nk)
+                        items.append(it)
+                if len(items) >= 10:
+                    break
+            items = items[:10]
+            # 정착륙 딥링크
+            canon = {f"https://www.coupang.com/vp/products/{it['productId']}": it
+                     for it in items if it.get("productId")}
+            if canon:
+                res = cp.make_deeplinks(list(canon.keys())[:10], sub_id="giftrank")
+                links = res.get("data", []) if isinstance(res, dict) and res.get("ok") else []
+                for l in links:
+                    it = canon.get(l.get("originalUrl"))
+                    if it and l.get("shortenUrl"):
+                        it["url"] = l["shortenUrl"]
+            items = [{"rank": i + 1, "name": (it.get("name") or "")[:60],
+                      "price": it.get("price"), "image": it.get("image"),
+                      "link": it.get("url")} for i, it in enumerate(items)]
+        except Exception:
+            items = []
+    if items:
+        _GIFT_RANK_CACHE[key] = (now, items)
+    resp = jsonify({"ok": True, "items": items})
     resp.headers["Access-Control-Allow-Origin"] = "*"
     return resp
 

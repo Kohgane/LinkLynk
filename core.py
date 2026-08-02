@@ -145,6 +145,28 @@ class CoupangPartners:
                         "isRocket": p.get("isRocket", False)})
         return out
 
+    def best_products(self, category_id, limit=10):
+        """쿠팡 카테고리 베스트 상품 (실판매 인기 랭킹). 실패 시 []."""
+        import urllib.parse
+        limit = max(1, min(int(limit or 10), 30))
+        path = f"/v2/providers/affiliate_open_api/apis/openapi/products/bestcategories/{category_id}"
+        q = f"limit={limit}"
+        dt = time.strftime('%y%m%dT%H%M%SZ', time.gmtime())
+        sig = hmac.new(self.secret.encode(), (dt+"GET"+path+q).encode(), hashlib.sha256).hexdigest()
+        auth = f"CEA algorithm=HmacSHA256, access-key={self.access}, signed-date={dt}, signature={sig}"
+        req = urllib.request.Request(COUPANG_DOMAIN+path+"?"+q,
+            headers={"Authorization": auth, "Content-Type": "application/json"}, method="GET")
+        try:
+            res = json.loads(urllib.request.urlopen(req, context=_ctx, timeout=8).read())
+        except Exception:
+            return []
+        if res.get("rCode") != "0":
+            return []
+        return [{"name": p.get("productName"), "price": p.get("productPrice"),
+                 "image": p.get("productImage"), "url": p.get("productUrl"),
+                 "productId": p.get("productId")}
+                for p in (res.get("data") or [])[:limit]]
+
     def make_deeplinks(self, coupang_urls, sub_id="linklynk"):
         """
         쿠팡 URL 리스트 → 수익 딥링크 변환.
