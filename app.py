@@ -987,15 +987,30 @@ def jireum_search_api():
             cp = CoupangPartners(ck, cs)
             found = cp.search_products(q, limit=6) or []
             seen = set()
+            pids = []
             for f in found:
                 nm = (f.get("name") or "")[:60]
                 if nm[:12] in seen:
                     continue
                 seen.add(nm[:12])
                 items.append({"name": nm, "price": f.get("price"),
-                              "image": f.get("image"), "link": f.get("url")})
+                              "image": f.get("image"), "link": f.get("url"),
+                              "_pid": f.get("productId")})
                 if len(items) >= 3:
                     break
+            # ★정착륙: productId 정식 URL -> 딥링크 변환 (검색URL 오착륙 방지)
+            try:
+                canon = {f"https://www.coupang.com/vp/products/{it['_pid']}": it
+                         for it in items if it.get("_pid")}
+                if canon:
+                    for l in (cp.make_deeplinks(list(canon.keys()), sub_id="jireum") or []):
+                        it = canon.get(l.get("originalUrl"))
+                        if it and l.get("shortenUrl"):
+                            it["link"] = l["shortenUrl"]
+            except Exception:
+                pass
+            for it in items:
+                it.pop("_pid", None)
         except Exception:
             pass
     hist.append(now); _JIREUM_IP[ip] = hist
