@@ -171,7 +171,8 @@ def recommend(api_key, who, budget, taste, exclude=None):
         "그 예산대라면 리델 잔 세트, 이딸라 풀세트, 빈티지 그릇, 니치 향수, 만년필, 오디오 같은 걸로).\n"
         "angle(계열 이름)도 세련되게 — '감각적 소품' 같은 밋밋한 말 대신 "
         "그 방향의 매력을 담은 짧은 이름(예: '백년 된 물건의 힘', '책상 위의 의식', '아날로그 한 조각').\n"
-        'JSON: {"picks":[{"keyword":"브랜드명+상품유형(2~4단어)","reason":"한 줄 이유","angle":"계열 이름"}x3]}'
+        'JSON: {"clue":"받는 사람의 핵심 단서(형용사·상황) 한 단어",'
+        '"picks":[{"keyword":"브랜드명+상품유형(2~4단어)","reason":"한 줄 이유","angle":"계열 이름"}x3]}'
     )
     r = llm_chat(api_key, _SYS, user, max_tokens=900)
     if not r.get("ok"):
@@ -202,7 +203,8 @@ def recommend(api_key, who, budget, taste, exclude=None):
             "name": f.get("name", "")[:60],
             "price": f.get("price"),
             "image": f.get("image"),
-            "link": f.get("url"),   # 파트너스 검색 결과 URL은 이미 수익 트래킹 링크
+            "link": f.get("url"),
+            "pid": f.get("productId"),   # 딥링크 정착륙 변환용
         } for f in found])
 
     _lo, _hi = _budget_range(budget)
@@ -323,5 +325,22 @@ def recommend(api_key, who, budget, taste, exclude=None):
                                  "reason": scrub_garbled(str(p2.get("reason") or ""))[:160],
                                  "angle": scrub_garbled(str(p2.get("angle") or ""))[:20],
                                  "products": prods2}
+    # ★링크 정착륙: 검색 API productUrl은 가끔 다른 상품/검색결과로 떨어진다.
+    # productId로 정식 상품 URL 재구성 -> 딥링크 API 일괄 변환(파트너스 수익 유지).
+    try:
+        url_map = {}
+        for o in out:
+            for u in o.get("products", []):
+                pid = u.pop("pid", None)
+                if pid:
+                    url_map[f"https://www.coupang.com/vp/products/{pid}"] = u
+        if url_map:
+            for l in (cp.make_deeplinks(list(url_map.keys())[:10], sub_id="giftradar") or []):
+                u = url_map.get(l.get("originalUrl"))
+                if u and l.get("shortenUrl"):
+                    u["link"] = l["shortenUrl"]
+    except Exception:
+        pass   # 변환 실패 시 기존 링크 유지
+
     return {"ok": True, "picks": out, "src": used_model,
             "coupang": bool(cp), "coupang_err": (cp.last_error if cp else "no_keys")}
