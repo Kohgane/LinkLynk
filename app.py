@@ -351,6 +351,32 @@ def save_sns_key():
     return jsonify({"ok": True, "message": "SNS 자동 게시가 연결됐어요"})
 
 
+@app.route("/api/media-diag")
+@login_required
+def media_diag():
+    """업로드 실패 원인 즉시 확인용."""
+    import media, urllib.request, json as _j
+    out = {"enabled": media.enabled(), "bucket": media.BUCKET,
+           "url_set": bool(media.SB_URL), "key_len": len(media.SB_KEY or ""),
+           "key_prefix": (media.SB_KEY or "")[:10]}
+    if media.enabled():
+        try:
+            req = urllib.request.Request(
+                media.SB_URL + "/storage/v1/bucket/" + media.BUCKET)
+            req.add_header("Authorization", "Bearer " + media.SB_KEY)
+            req.add_header("apikey", media.SB_KEY)
+            out["bucket_check"] = _j.loads(urllib.request.urlopen(req, timeout=20).read().decode())
+        except Exception as e:
+            d = ""
+            try: d = e.read().decode()[:200]
+            except Exception: d = str(e)[:200]
+            out["bucket_check_error"] = d
+        r = media.upload(session.get("uid"), "diag.png",
+                         b"\x89PNG\r\n\x1a\n" + b"\x00" * 40)
+        out["upload_test"] = r
+    return jsonify(out)
+
+
 @app.route("/api/upload-image", methods=["POST"])
 @login_required
 def upload_image_api():

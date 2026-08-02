@@ -29,6 +29,7 @@ def upload(uid, filename, data):
     url = "%s/storage/v1/object/%s/%s" % (SB_URL, BUCKET, key)
     req = urllib.request.Request(url, data=data, method="POST")
     req.add_header("Authorization", "Bearer " + SB_KEY)
+    req.add_header("apikey", SB_KEY)
     req.add_header("Content-Type", ct)
     req.add_header("x-upsert", "true")
     try:
