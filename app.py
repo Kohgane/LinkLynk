@@ -156,6 +156,17 @@ def sw():
 def icon(name):
     return send_from_directory(".", f"icon-{name}", mimetype="image/png")
 
+@app.route("/specula-<name>.png")
+def _specula_icon(name):
+    return send_from_directory(".", f"specula-{name}.png", mimetype="image/png")
+
+
+@app.route("/specula-manifest.json")
+def _specula_manifest():
+    return send_from_directory(".", "specula-manifest.json",
+                               mimetype="application/manifest+json")
+
+
 @app.route("/apple-touch-icon.png")
 @app.route("/apple-touch-icon-precomposed.png")
 def apple_icon():
