@@ -247,7 +247,7 @@ def recommend(api_key, who, budget, taste, exclude=None):
     def _relevant(items, toks):
         return [u for u in items if any(t in u["name"] for t in toks)] if toks else items
 
-    def _fetch(kw):
+    def _fetch(kw, _retry=True):
         """멀티소스: 자사 스토어(마진 전체) > 쿠팡 브랜드 진품 > 쿠팡 일반.
         관련성(콜라·화장지 차단) + 가격대(예산 격 훼손 차단) 이중 검증은 전 소스 공통."""
         try:
@@ -302,6 +302,12 @@ def recommend(api_key, who, budget, taste, exclude=None):
             # 내부 필드 정리
             for u in picked:
                 u.pop("mall", None)
+            # ★검색 실패 시 간소 키워드 재시도 — 수식어·용량이 검색을 죽이는 경우
+            # ('산타마리아노벨라 탈크 파우더 100g' -> '산타마리아노벨라 파우더')
+            if not picked and _retry:
+                _tk = _kw_tokens(kw)
+                if len(_tk) >= 3:
+                    return _fetch(f"{_tk[0]} {_tk[-1]}", _retry=False)
             return _dedupe_products(picked)[:3]
         except Exception:
             return []
@@ -338,6 +344,10 @@ def recommend(api_key, who, budget, taste, exclude=None):
             f"이미 성공한 방향(겹치지 말 것): {', '.join(ok_kws) or '없음'}\n\n"
             f"실패분을 대체할 방향 {len(failed_idx)}개 — 같은 감각의 결이되 "
             "쿠팡에서 확실히 팔릴 대중 유통 브랜드로. keyword·reason 정합 규칙 동일.\n"
+            "★쿠팡에 확실히 재고가 있는 안전 브랜드 예(이 결에서 골라도 좋다): "
+            "킨토, 하리오, 칼리타, 미도리, 라미, 카웨코, 로디아, 몰스킨, 스탠리, "
+            "프로라소, 이딸라, 로얄코펜하겐, 조지젠슨, 야마자키, 브라운, 마샬, "
+            "인스탁스, 레고, 반다이, 무인양품, 펜텔, 파이롯트, 트래블러스컴퍼니\n"
             '"JSON: {"picks":[{"keyword":"...","reason":"...","angle":"..."}]}"'
         )
         r2 = llm_chat(api_key, _SYS, user2, max_tokens=700)
