@@ -68,6 +68,13 @@ def init_db():
         content TEXT, deeplink TEXT, image TEXT,
         status TEXT DEFAULT 'draft', post_url TEXT, post_id TEXT,
         created_at BIGINT, published_at BIGINT);""")
+    # ★성과 지표 — 어느 글이 클릭을 만들었는지 재기 위한 컬럼
+    for _c, _t in (("sub_id","TEXT"), ("views","INT DEFAULT 0"), ("clicks","INT DEFAULT 0"),
+                   ("orders","INT DEFAULT 0"), ("revenue","INT DEFAULT 0"),
+                   ("skeleton","TEXT"), ("persona","TEXT"), ("post_mode","TEXT DEFAULT 'ad'"),
+                   ("affiliate","TEXT DEFAULT 'coupang'"), ("metrics_at","BIGINT")):
+        try: _q("ALTER TABLE linklynk_posts ADD COLUMN IF NOT EXISTS %s %s" % (_c, _t))
+        except Exception: pass
 
     # 검색 캐시: 키워드→상품 (API 호출 최소화, 시간당 10회 제한 보호)
     _q("""CREATE TABLE IF NOT EXISTS linklynk_search_cache(
@@ -169,11 +176,41 @@ def save_zernio_key(uid, key):
     return {"ok": True}
 
 # ── 게시물(posts): 임시저장 → 게시 ──
-def save_post(uid, channel, product_name, content, deeplink, image=None, status="draft"):
-    row = _q("""INSERT INTO linklynk_posts(user_id,channel,product_name,content,deeplink,image,status,created_at)
-                VALUES(%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
-             (uid, channel, product_name, content, deeplink, image, status, int(time.time())), fetch="one")
+def save_post(uid, channel, product_name, content, deeplink, image=None, status="draft",
+              sub_id=None, skeleton=None, persona=None, post_mode="ad", affiliate="coupang"):
+    row = _q("""INSERT INTO linklynk_posts(user_id,channel,product_name,content,deeplink,image,status,created_at,
+                                           sub_id,skeleton,persona,post_mode,affiliate)
+                VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING id""",
+             (uid, channel, product_name, content, deeplink, image, status, int(time.time()),
+              sub_id, skeleton, persona, post_mode, affiliate), fetch="one")
     return row["id"] if row else None
+
+def update_metrics(post_id, uid, views=None, clicks=None, orders=None, revenue=None):
+    """조회수·클릭·주문 기록. None이면 그 항목은 유지."""
+    sets, vals = [], []
+    for k, v in (("views",views), ("clicks",clicks), ("orders",orders), ("revenue",revenue)):
+        if v is not None:
+            sets.append(k + "=%s"); vals.append(int(v))
+    if not sets: return False
+    sets.append("metrics_at=%s"); vals.append(int(time.time()))
+    vals += [post_id, uid]
+    _q("UPDATE linklynk_posts SET " + ",".join(sets) + " WHERE id=%s AND user_id=%s", tuple(vals))
+    return True
+
+def stats_summary(uid):
+    """골격·화자·모드별 성과 집계 — 뭐가 먹히는지 본다."""
+    rows = _q("""SELECT skeleton, persona, post_mode, affiliate, channel,
+                        COUNT(*) n, SUM(views) v, SUM(clicks) c, SUM(orders) o, SUM(revenue) r
+                 FROM linklynk_posts
+                 WHERE user_id=%s AND channel!='__search__' AND status='published'
+                 GROUP BY skeleton, persona, post_mode, affiliate, channel""",
+              (uid,), fetch="all")
+    out = []
+    for x in (rows or []):
+        d = dict(x); v = d.get("v") or 0; c = d.get("c") or 0
+        d["ctr"] = round(c / v * 100, 2) if v else 0
+        out.append(d)
+    return out
 
 def get_posts(uid, status=None):
     if status:

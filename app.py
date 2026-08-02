@@ -388,6 +388,49 @@ def media_diag():
     return jsonify(out)
 
 
+@app.route("/api/metrics", methods=["POST"])
+@login_required
+def save_metrics():
+    """조회수·클릭·주문 기록. 스레드/파트너스에서 본 숫자를 넣는다."""
+    d = request.get_json(force=True, silent=True) or {}
+    pid = d.get("post_id")
+    if not pid:
+        return jsonify({"ok": False, "error": "post_id가 필요해요"}), 400
+    ok = store.update_metrics(pid, session["uid"],
+                              views=d.get("views"), clicks=d.get("clicks"),
+                              orders=d.get("orders"), revenue=d.get("revenue"))
+    return jsonify({"ok": bool(ok)})
+
+
+@app.route("/api/perf")
+@login_required
+def get_perf():
+    """골격·화자·모드별 성과 — 뭐가 먹히는지."""
+    rows = store.stats_summary(session["uid"])
+    posts = store.get_posts(session["uid"], status="published")
+    tot = {"n": len(posts),
+           "views": sum((p.get("views") or 0) for p in posts),
+           "clicks": sum((p.get("clicks") or 0) for p in posts),
+           "orders": sum((p.get("orders") or 0) for p in posts),
+           "revenue": sum((p.get("revenue") or 0) for p in posts)}
+    tot["ctr"] = round(tot["clicks"] / tot["views"] * 100, 2) if tot["views"] else 0
+    tot["cvr"] = round(tot["orders"] / tot["clicks"] * 100, 2) if tot["clicks"] else 0
+    # 성과 좋은 순 / 나쁜 순 각 5개
+    ranked = sorted([p for p in posts if (p.get("views") or 0) > 0],
+                    key=lambda p: ((p.get("clicks") or 0) / (p.get("views") or 1)), reverse=True)
+    def _slim(p):
+        v = p.get("views") or 0; c = p.get("clicks") or 0
+        return {"id": p["id"], "product": (p.get("product_name") or "")[:40],
+                "hook": (p.get("content") or "").split("\n")[0][:50],
+                "views": v, "clicks": c, "ctr": round(c / v * 100, 2) if v else 0,
+                "skeleton": p.get("skeleton"), "persona": p.get("persona"),
+                "mode": p.get("post_mode"), "sub_id": p.get("sub_id"),
+                "at": p.get("published_at") or p.get("created_at")}
+    return jsonify({"ok": True, "total": tot, "groups": rows,
+                    "best": [_slim(p) for p in ranked[:5]],
+                    "worst": [_slim(p) for p in ranked[-5:]][::-1]})
+
+
 @app.route("/api/upload-image", methods=["POST"])
 @login_required
 def upload_image_api():
@@ -1994,6 +2037,17 @@ def publish_sns():
                         "error": "먼저 설정에서 SNS를 연결해주세요"}), 403
 
     # 쓰레드/X: 6분할(본글+답글)을 답글 체인으로 게시
+    # ★subId 발급 — 글 단위 추적. 파트너스 리포트에서 어느 글이 클릭을 만들었는지 갈린다.
+    import hashlib as _h
+    _sub = "lk" + _h.md5((str(session.get("uid")) + content[:200] + str(platforms)).encode()).hexdigest()[:8]
+    def _tag(txt):
+        import re as _re
+        def _rep(m):
+            u = m.group(0)
+            if "subId=" in u: return u
+            return u + ("&" if "?" in u else "?") + "subId=" + _sub
+        return _re.sub(r"https://link\.coupang\.com/\S+", _rep, str(txt))
+    content = _tag(content)
     thread_items = None
     if channel in ("threads", "x") and "\n===THREAD===\n" in content:
         thread_items = [p.strip() for p in content.split("\n===THREAD===\n") if p.strip()]
@@ -2018,7 +2072,7 @@ def publish_sns():
         else:
             new_id = store.save_post(session["uid"], channel, d.get("productName", ""),
                                      content, d.get("deeplink", ""), (media[0] if media else None),
-                                     status=("scheduled" if d.get("scheduled_for") else "published"))
+                                     status=("scheduled" if d.get("scheduled_for") else "published"), sub_id=_sub, post_mode=(d.get('post_mode') or 'ad'))
             if new_id:
                 store.mark_published(new_id, prof_url, str((r.get("data") or {}).get("post", {}).get("_id", "")))
         return jsonify({"ok": True, "message": "게시됐어요!", "post_url": prof_url})

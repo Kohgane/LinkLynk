@@ -174,7 +174,9 @@ class CoupangPartners:
         subId는 채널 추적용(블로그/인스타 등 유입 구분).
         """
         auth = self._auth("POST", DEEPLINK_PATH)
-        body = json.dumps({"coupangUrls": coupang_urls, "subId": sub_id}).encode()
+        # ★subId = 글 단위 추적키. 파트너스 리포트에서 어느 글이 클릭을 만들었는지 갈린다.
+        #  형식: {채널1자}{계정1자}{글ID6자}  예) th1a3f2c
+        body = json.dumps({"coupangUrls": coupang_urls, "subId": (sub_id or "linklynk")[:32]}).encode()
         req = urllib.request.Request(
             COUPANG_DOMAIN + DEEPLINK_PATH, data=body,
             headers={"Authorization": auth, "Content-Type": "application/json"},
