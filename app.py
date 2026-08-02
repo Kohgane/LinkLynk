@@ -1878,6 +1878,11 @@ def publish_sns():
     if channel in ("threads", "x") and "\n===THREAD===\n" in content:
         thread_items = [p.strip() for p in content.split("\n===THREAD===\n") if p.strip()]
 
+    try:
+        app.logger.warning("[publish] media=%r thread_items=%d ch=%s",
+                           media, len(thread_items or []), channel)
+    except Exception:
+        pass
     r = zernio_publish(key, platforms, content, media,
                        account_ids=(d.get("account_ids") or {}),
                        thread_items=thread_items,
