@@ -2572,6 +2572,18 @@ async function loadPosts(status, btn){
       let actions;
       if(isPub || isSched){
         actions = p.post_url ? `<button class="btn-sm" onclick="window.open('${p.post_url}','_blank')">글 보기 ↗</button>` : '';
+        if(isPub){
+          const sid = p.sub_id ? `<span style="font-family:monospace;font-size:10.5px;color:var(--muted)">${esc(p.sub_id)}</span>` : '';
+          actions += `<div style="display:flex;gap:5px;align-items:center;margin-top:7px;flex-wrap:wrap">
+            ${sid}
+            <input id="mv${p.id}" type="number" placeholder="조회" value="${p.views||''}"
+              style="width:64px;padding:5px 7px;font-size:12px;border-radius:7px">
+            <input id="mc${p.id}" type="number" placeholder="클릭" value="${p.clicks||''}"
+              style="width:60px;padding:5px 7px;font-size:12px;border-radius:7px">
+            <button class="btn-sm" onclick="saveMetrics(${p.id}, document.getElementById('mv${p.id}').value, document.getElementById('mc${p.id}').value)">기록</button>
+            ${(p.views>0)?`<span style="font-size:11.5px;color:var(--text-2)">CTR ${((p.clicks||0)/p.views*100).toFixed(1)}%</span>`:''}
+          </div>`;
+        }
       } else {
         actions = `<button class="btn-sm" onclick="editPost(${p.id},this)">✏️ 편집</button>
           <button class="btn-sm mint" onclick="publishPost(${p.id},this)">🚀 게시</button>
@@ -2702,7 +2714,44 @@ function copyProfileUrl(btn){
 }
 
 // ── 통계/사용량 ──
+async function loadPerf(){
+  try{
+    const d = await (await fetch('/api/perf')).json();
+    if(!d.ok) return;
+    const t = d.total||{};
+    const sum = document.getElementById('perfSummary');
+    if(sum){
+      sum.innerHTML = `<div style="display:grid;grid-template-columns:repeat(4,1fr);gap:8px;text-align:center">
+        ${[['글',t.n||0],['조회',(t.views||0).toLocaleString()],['클릭',(t.clicks||0).toLocaleString()],['CTR',(t.ctr||0)+'%']]
+          .map(([k,v])=>`<div style="padding:10px 4px;background:var(--surface-1);border-radius:9px">
+            <div style="font-size:17px;font-weight:800">${v}</div>
+            <div style="font-size:11px;color:var(--text-2);margin-top:2px">${k}</div></div>`).join('')}
+      </div>`;
+    }
+    const g = document.getElementById('perfGroups');
+    if(g){
+      const best=(d.best||[]).filter(x=>x.views>0);
+      if(!best.length){
+        g.innerHTML='<div style="font-size:12.5px;color:var(--muted);padding:10px 0">아직 기록된 조회수가 없어요. 게시물 목록에서 숫자를 넣어보세요.</div>';
+      }else{
+        g.innerHTML='<div style="font-size:12px;color:var(--text-2);font-weight:700;margin:6px 0">CTR 높은 글</div>'
+          + best.map(x=>`<div style="display:flex;justify-content:space-between;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);font-size:12.5px">
+              <span style="flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(x.hook||x.product||'')}</span>
+              <span style="color:var(--text-2)">${x.views}뷰</span>
+              <span style="font-weight:700">${x.ctr}%</span></div>`).join('');
+      }
+    }
+  }catch(e){}
+}
+async function saveMetrics(pid, views, clicks){
+  try{
+    const r = await (await fetch('/api/metrics',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({post_id:pid, views:Number(views)||0, clicks:Number(clicks)||0})})).json();
+    if(r.ok){ toast('기록했어요'); loadPerf(); }
+  }catch(e){ toast('저장 실패'); }
+}
 async function loadStats(){
+  loadPerf();
   try{
     const d = await (await fetch('/api/stats')).json();
     if(!d.ok) return;

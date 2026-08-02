@@ -2481,8 +2481,15 @@ def repair_structure(posts, deeplink, product_name="", deeplink2=""):
         lead = re.sub(r"https?://\S+", "", disc).replace(DISCLOSURE, "")
         lead = re.sub(r"\(광고\)[^\n]*", "", lead).strip()
     if not lead:
-        lead = "밑에."
-    r5 = f"{lead}\n{deeplink}\n\n{disclosure_for(deeplink)}"
+        lead = random.choice(["", "", "밑에."])   # 2/3은 무언(광고 신호 최소화)
+    # ★고지를 링크 앞으로 — 뒤에 있으면 클릭 직전에 '광고'를 보고 손이 멈춘다.
+    #  앞에 두면 미리 알고 링크를 본다. 법적 표기는 그대로 유지.
+    #  lead가 비면 안내 문구 없이 링크만 둔다(무언 변형: 광고 신호를 줄인다).
+    _d5 = disclosure_for(deeplink)
+    if lead:
+        r5 = f"{lead}\n{_d5}\n{deeplink}"
+    else:
+        r5 = f"{_d5}\n{deeplink}"
 
     # 답글6: 마무리 + 링크 + 해시태그 3개
     tail, hashtags = "", ""
