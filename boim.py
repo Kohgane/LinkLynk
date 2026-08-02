@@ -270,7 +270,7 @@ def build_teaser(api_key, store_name, product_name, keywords):
     faq = full["faq"]
     return {
         "product": product_name,
-        "free": faq[:3],                                    # 전문 공개
-        "locked": [{"q": x["q"]} for x in faq[3:10]],       # 질문만 보이고 답은 잠금
+        "free": faq[:10],                                   # ★전량 무료 공개 (미끼)
+        "locked": [],                                        # 잠금 없음 — 추적이 유료
         "desc_preview": (full.get("desc") or "")[:120],
     }
