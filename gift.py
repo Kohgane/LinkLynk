@@ -254,9 +254,15 @@ def recommend(api_key, who, budget, taste, exclude=None):
                       and _price_ok_range(u, wide_lo, wide_hi)]
                 picked += [u for u in bh if u not in picked][:3 - len(picked)]
 
-            # ③ 쿠팡 일반 (정가격대만)
+            # ③ 쿠팡 일반 — ★토큰 2개 이상 일치만 (브랜드 없이 '파우더' 한 단어로
+            # 로즈마리 요리 파우더가 끼는 것 차단. 1개 일치는 실격 -> 빈 결과가
+            # 재추천 루프를 발동시켜 쿠팡에 실재하는 브랜드로 교체됨)
             if len(picked) < 3:
-                gen = [u for u in rel_cp if _price_ok(u) and u not in picked]
+                def _score(u):
+                    return sum(1 for t in toks if t in u["name"])
+                need = 2 if len(toks) >= 2 else 1
+                gen = [u for u in rel_cp
+                       if _price_ok(u) and u not in picked and _score(u) >= need]
                 picked += gen[:3 - len(picked)]
 
 
