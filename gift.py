@@ -334,36 +334,43 @@ def recommend(api_key, who, budget, taste, exclude=None):
 
     # ★재추천 루프: 상품 매칭 실패한 계열은 폴백(스토리-상품 모순의 원흉)이 아니라
     # LLM에게 되물어 '쿠팡에 실재하는 다른 브랜드'로 통째 교체 — 훅과 물건이 항상 일치.
-    failed_idx = [i for i, o in enumerate(out) if not o["products"]]
-    if failed_idx and cp:
-        failed_kws = [out[i]["keyword"] for i in failed_idx]
-        ok_kws = [o["keyword"] for o in out if o["products"]]
-        user2 = (
-            f"받는 사람: {who or '특정하지 않음'}\n예산: {budget}\n취향 힌트: {taste or '없음'}\n"
-            f"다음 키워드는 쿠팡에 실재 상품이 없어 실패: {', '.join(failed_kws)}\n"
-            f"이미 성공한 방향(겹치지 말 것): {', '.join(ok_kws) or '없음'}\n\n"
-            f"실패분을 대체할 방향 {len(failed_idx)}개 — 같은 감각의 결이되 "
-            "쿠팡에서 확실히 팔릴 대중 유통 브랜드로. keyword·reason 정합 규칙 동일.\n"
-            "★쿠팡에 확실히 재고가 있는 안전 브랜드 예(이 결에서 골라도 좋다): "
-            "킨토, 하리오, 칼리타, 미도리, 라미, 카웨코, 로디아, 몰스킨, 스탠리, "
-            "프로라소, 이딸라, 로얄코펜하겐, 조지젠슨, 야마자키, 브라운, 마샬, "
-            "인스탁스, 레고, 반다이, 무인양품, 펜텔, 파이롯트, 트래블러스컴퍼니\n"
-            '"JSON: {"picks":[{"keyword":"...","reason":"...","angle":"..."}]}"'
-        )
-        r2 = llm_chat(api_key, _SYS, user2, max_tokens=700)
-        if r2.get("ok"):
-            try:
-                repl = _parse_json_out(r2["text"]).get("picks", [])[:len(failed_idx)]
-            except Exception:
-                repl = []
-            for slot, p2 in zip(failed_idx, repl):
-                kw2 = _clean_kw(p2.get("keyword"))
-                prods2 = _fetch(kw2) if kw2 else []
-                if prods2:
-                    out[slot] = {"keyword": kw2,
-                                 "reason": scrub_garbled(str(p2.get("reason") or ""))[:160],
-                                 "angle": scrub_garbled(str(p2.get("angle") or ""))[:20],
-                                 "products": prods2}
+    for _round in range(2):   # 재추천 최대 2라운드
+      failed_idx = [i for i, o in enumerate(out) if not o["products"]]
+      if failed_idx and cp:
+         failed_kws = [out[i]["keyword"] for i in failed_idx]
+         ok_kws = [o["keyword"] for o in out if o["products"]]
+         user2 = (
+             f"받는 사람: {who or '특정하지 않음'}\n예산: {budget}\n취향 힌트: {taste or '없음'}\n"
+             f"다음 키워드는 쿠팡에 실재 상품이 없어 실패: {', '.join(failed_kws)}\n"
+             f"이미 성공한 방향(겹치지 말 것): {', '.join(ok_kws) or '없음'}\n\n"
+             f"실패분을 대체할 방향 {len(failed_idx)}개 — 같은 감각의 결이되 "
+             "쿠팡에서 확실히 팔릴 대중 유통 브랜드로. keyword·reason 정합 규칙 동일.\n"
+             "★쿠팡에 확실히 재고가 있는 안전 브랜드 예(이 결에서 골라도 좋다): "
+             "킨토, 하리오, 칼리타, 미도리, 라미, 카웨코, 로디아, 몰스킨, 스탠리, "
+             "프로라소, 이딸라, 로얄코펜하겐, 조지젠슨, 야마자키, 브라운, 마샬, "
+             "인스탁스, 레고, 반다이, 무인양품, 펜텔, 파이롯트, 트래블러스컴퍼니\n"
+             '"JSON: {"picks":[{"keyword":"...","reason":"...","angle":"..."}]}"'
+         )
+         r2 = llm_chat(api_key, _SYS, user2, max_tokens=700)
+         if r2.get("ok"):
+             try:
+                 repl = _parse_json_out(r2["text"]).get("picks", [])[:len(failed_idx)]
+             except Exception:
+                 repl = []
+             for slot, p2 in zip(failed_idx, repl):
+                 kw2 = _clean_kw(p2.get("keyword"))
+                 prods2 = _fetch(kw2) if kw2 else []
+                 if prods2:
+                     out[slot] = {"keyword": kw2,
+                                  "reason": scrub_garbled(str(p2.get("reason") or ""))[:160],
+                                  "angle": scrub_garbled(str(p2.get("angle") or ""))[:20],
+                                  "products": prods2}
+    # ★빈 픽 제거: '상품을 찾지 못했어요' 카드는 체감 품질을 죽인다 —
+    # 꽉 찬 2장이 빈칸 낀 3장보다 낫다 (전부 비면 그대로 두고 에러 노출)
+    filled = [o for o in out if o["products"]]
+    if filled:
+        out = filled
+
     # ★링크 정착륙: 검색 API productUrl은 가끔 다른 상품/검색결과로 떨어진다.
     # productId로 정식 상품 URL 재구성 -> 딥링크 API 일괄 변환(파트너스 수익 유지).
     try:
