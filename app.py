@@ -1197,10 +1197,25 @@ def gift_ranking_api():
         try:
             from core import CoupangPartners
             cp = CoupangPartners(ck, cs)
-            pools = [cp.best_products(cid, limit=8) or [] for cid in _RANK_MAP[key]]
+            pools = [cp.best_products(cid, limit=20) or [] for cid in _RANK_MAP[key]]
+            # ★선물 정제: 카테고리 베스트는 판매량 기준이라 생필품(건전지·테이프·
+            # 비닐봉투)이 섞인다 — 선물의 격을 깨는 것들 블랙리스트 + 가격 하한
+            _BAN = ("건전지", "테이프", "봉투", "봉지", "수거", "종량제", "물티슈",
+                    "휴지", "세제", "지퍼백", "행주", "고무장갑", "면봉", "밴드",
+                    "발을씻자", "발샴푸", "살충", "제습제", "방충", "베이킹소다",
+                    "락스", "수세미", "리필", "코인티슈", "쓰레기")
+            def _gifty(it):
+                nm = it.get("name") or ""
+                if any(b in nm for b in _BAN):
+                    return False
+                try:
+                    return int(it.get("price") or 0) >= 9000
+                except Exception:
+                    return False
+            pools = [[it for it in pool if _gifty(it)] for pool in pools]
             seen = set()
             # 카테고리 인터리브 -> 다양성 있는 TOP 10
-            for i in range(8):
+            for i in range(20):
                 for pool in pools:
                     if i < len(pool):
                         it = pool[i]
