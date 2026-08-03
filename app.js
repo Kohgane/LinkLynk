@@ -2941,3 +2941,17 @@ function setPostMode(m){
     ? '정보글은 링크 없이 씁니다 (비워두세요)'
     : '쿠팡 파트너스 링크를 붙여넣으세요';
 }
+
+// ── 제휴 링크 만들기 (쿠팡=API 자동 / 토스=앱에서 생성 후 붙여넣기) ──
+function openAff(kind){
+  if(kind === 'toss'){
+    toast('토스앱 → 전체 → 쇼핑 → 쉐어링크 에서 링크를 복사해 붙여넣으세요');
+    window.open('https://toss.im/', '_blank');
+    const l = document.getElementById('w_link');
+    if(l){ l.placeholder = 'https://toss.im/_m/... (토스앱에서 복사)'; l.focus(); }
+  }else{
+    const l = document.getElementById('w_link');
+    if(l){ l.placeholder = 'https://link.coupang.com/... 또는 상품 URL'; l.focus(); }
+    toast('쿠팡은 상품 URL만 넣으면 제휴링크로 자동 변환됩니다');
+  }
+}
