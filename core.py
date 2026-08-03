@@ -1443,7 +1443,11 @@ def claude_write_thread(api_key, product_name, deeplink, tone="friendly", price=
         + hook_block() + "\n"                        # ★첫 줄 훅 과학 (조회수의 핵심)
         + diversity_block() + "\n"                   # ★매번 다른 골격·화자·훅 (틀 복제 차단·모든 모델)
         + ("" if is_top else SCAFFOLD + "\n" + quirk_block(prov) + "\n")
-        + HUMANIZE_RULES + "\n" + FEWSHOT + "\n" + QUALITY_RULES +
+        + HUMANIZE_RULES + "\n"
+        + (("★★이 글은 정보글이다. 링크·URL·주소·(광고) 고지문구를 절대 쓰지 마라.\n"
+            "  아래 예시에 링크가 보여도 그건 광고글 예시다. 너는 링크를 넣지 마라.\n"
+            "  답글5·6도 링크 없이 여운으로만 끝내라.\n") if not (deeplink or "").strip() else "")
+        + FEWSHOT + "\n" + QUALITY_RULES +
         '\n출력은 JSON만: {"posts":["본글","답글1","답글2","답글3","답글4","답글5","답글6"]}'
     )
     user_msg = (
@@ -2455,7 +2459,9 @@ def repair_structure(posts, deeplink, product_name="", deeplink2=""):
     if not (deeplink or "").strip():
         out = []
         for _p in posts:
-            _p = re.sub(r"https?://\S*(coupang|toss\.me|shopping\.toss|naver\.me)\S*", "", str(_p))
+            _p = re.sub(r"https?://\S+", "", str(_p))
+            _p = re.sub(r"\bwww\.\S+", "", _p)
+            _p = re.sub(r"\S+\.(com|co\.kr|me|ly|kr)/\S*", "", _p)
             _p = re.sub(r"\(광고\)[^\n]*", "", _p)
             for _d in (COUPANG_DISCLOSURE, TOSS_DISCLOSURE, NAVER_DISCLOSURE):
                 _p = _p.replace(_d, "")
