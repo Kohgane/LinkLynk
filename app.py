@@ -1293,6 +1293,47 @@ def gift_ranking_api():
     return resp
 
 
+def _ember_resp(d, code=200):
+    r = jsonify(d)
+    r.headers["Access-Control-Allow-Origin"] = "*"
+    r.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    return r, code
+
+
+@app.route("/api/ember/<action>", methods=["POST", "OPTIONS"])
+def ember_api(action):
+    if request.method == "OPTIONS":
+        return _ember_resp({"ok": True})
+    import ember
+    d = request.get_json(force=True, silent=True) or {}
+    did = str(d.get("did") or "")[:64]
+    code = str(d.get("code") or "").upper()[:8]
+    if not did:
+        return _ember_resp({"ok": False, "error": "did"}, 400)
+    if action == "create":
+        p = ember.create(did, str(d.get("name") or "나"))
+        return _ember_resp({"ok": True, "code": p["code"]})
+    if action == "join":
+        p, err = ember.join(code, did, str(d.get("name") or "나"))
+        if err:
+            return _ember_resp({"ok": False, "error": err}, 400)
+        return _ember_resp({"ok": True, "code": p["code"]})
+    if action == "checkin":
+        p, err = ember.checkin(code, did, str(d.get("mood") or ""))
+        if err:
+            return _ember_resp({"ok": False, "error": err}, 400)
+        return _ember_resp({"ok": True, "state": ember.state(code, did)})
+    if action == "state":
+        st = ember.state(code, did)
+        if not st:
+            return _ember_resp({"ok": False, "error": "불씨를 찾을 수 없어요"}, 404)
+        return _ember_resp({"ok": True, "state": st})
+    if action == "freeze":
+        p = ember.add_freeze(code)
+        return _ember_resp({"ok": bool(p), "freeze": (p or {}).get("freeze", 0)})
+    return _ember_resp({"ok": False, "error": "unknown"}, 404)
+
+
 @app.route("/api/gift/reco", methods=["POST", "OPTIONS"])
 def gift_reco_api():
     if request.method == "OPTIONS":
