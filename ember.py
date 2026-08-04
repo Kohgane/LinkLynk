@@ -93,10 +93,11 @@ def _rollover(p):
     p["day"] = today
     p["a_done"] = False; p["b_done"] = False
     p["a_mood"] = ""; p["b_mood"] = ""
+    p["a_note"] = ""; p["b_note"] = ""
     save(p)
     return p
 
-def checkin(code, did, mood):
+def checkin(code, did, mood, note=""):
     p = load(code)
     if not p:
         return None, "불씨를 찾을 수 없어요"
@@ -106,9 +107,13 @@ def checkin(code, did, mood):
         return None, "이 불씨의 멤버가 아니에요"
     p[side + "_done"] = True
     p[side + "_mood"] = (mood or "")[:4]
+    p[side + "_note"] = (note or "")[:40]
     if p["a_done"] and p["b_done"] and p["last_complete"] != p["day"]:
         p["streak"] += 1
         p["last_complete"] = p["day"]
+        # ★7일마다 프리즈 1개 보상 (최대 2)
+        if p["streak"] % 7 == 0:
+            p["freeze"] = min(p.get("freeze", 0) + 1, 2)
     save(p)
     return p, None
 
@@ -125,6 +130,8 @@ def state(code, did):
             "partner": o.get("name") or "", "connected": bool(p.get("b")),
             "my_done": p[me + "_done"], "partner_done": p[other + "_done"] if p.get(other) else False,
             "partner_mood": p[other + "_mood"] if p.get(other) else "",
+            "partner_note": p.get(other + "_note", "") if p.get(other) else "",
+            "my_note": p.get(me + "_note", ""),
             "both_done": p["a_done"] and p["b_done"]}
 
 def add_freeze(code):

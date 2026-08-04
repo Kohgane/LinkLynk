@@ -1325,7 +1325,7 @@ def ember_api(action):
             return _ember_resp({"ok": False, "error": err}, 400)
         return _ember_resp({"ok": True, "code": p["code"]})
     if action == "checkin":
-        p, err = ember.checkin(code, did, str(d.get("mood") or ""))
+        p, err = ember.checkin(code, did, str(d.get("mood") or ""), str(d.get("note") or ""))
         if err:
             return _ember_resp({"ok": False, "error": err}, 400)
         return _ember_resp({"ok": True, "state": ember.state(code, did)})
