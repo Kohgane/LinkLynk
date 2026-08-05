@@ -54,12 +54,15 @@ def save(p):
         except Exception:
             pass
 
-def create(did, name):
+def create(did, name, solo=False):
     code = "".join(random.choices(string.ascii_uppercase.replace("O", "").replace("I", "") + "23456789", k=6))
-    p = {"code": code, "a": {"did": did, "name": name[:12]}, "b": None,
+    b = {"did": "bot", "name": "불씨봇 🤖"} if solo else None
+    p = {"code": code, "a": {"did": did, "name": name[:12]}, "b": b,
          "streak": 0, "freeze": 0, "day": _kst_today(),
          "a_done": False, "b_done": False, "a_mood": "", "b_mood": "",
          "last_complete": ""}
+    if solo:
+        p["b_done"] = True; p["b_mood"] = "🤖"; p["b_note"] = "오늘도 자동으로 지켰다"
     save(p)
     return p
 
@@ -92,6 +95,8 @@ def _rollover(p):
                 p["streak"] = 0
     p["day"] = today
     p["a_done"] = False; p["b_done"] = False
+    if p.get("b") and p["b"].get("did") == "bot":
+        p["b_done"] = True; p["b_mood"] = "🤖"; p["b_note"] = "오늘도 자동으로 지켰다"
     p["a_mood"] = ""; p["b_mood"] = ""
     p["a_note"] = ""; p["b_note"] = ""
     save(p)

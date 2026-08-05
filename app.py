@@ -1340,7 +1340,7 @@ def ember_api(action):
     if not did:
         return _ember_resp({"ok": False, "error": "did"}, 400)
     if action == "create":
-        p = ember.create(did, str(d.get("name") or "나"))
+        p = ember.create(did, str(d.get("name") or "나"), solo=bool(d.get("solo")))
         return _ember_resp({"ok": True, "code": p["code"]})
     if action == "join":
         p, err = ember.join(code, did, str(d.get("name") or "나"))
