@@ -1312,6 +1312,23 @@ def emberduo_og():
     return send_file("static/emberduo-og.png", mimetype="image/png")
 
 
+@app.route("/api/toilet/config", methods=["GET"])
+def toilet_config():
+    import os
+    r = jsonify({"ok": True, "ad_group_id": os.environ.get("GOTTAGO_AD_GROUP_ID", ""),
+                 "free_per_day": int(os.environ.get("GOTTAGO_FREE_PER_DAY", "3"))})
+    r.headers["Access-Control-Allow-Origin"] = "*"
+    return r
+
+
+@app.route("/api/ember/config", methods=["GET"])
+def ember_config():
+    import os
+    r = jsonify({"ok": True, "ad_group_id": os.environ.get("EMBER_AD_GROUP_ID", "")})
+    r.headers["Access-Control-Allow-Origin"] = "*"
+    return r
+
+
 @app.route("/api/toilet/near", methods=["GET", "OPTIONS"])
 def toilet_near():
     r_hdr = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type"}
