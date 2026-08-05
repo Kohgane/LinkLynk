@@ -99,10 +99,37 @@ def _rollover(p):
         p["b_done"] = True; p["b_mood"] = "🤖"; p["b_note"] = "오늘도 자동으로 지켰다"
     p["a_mood"] = ""; p["b_mood"] = ""
     p["a_note"] = ""; p["b_note"] = ""
+    p["a_vibe"] = ""; p["b_vibe"] = ""
     save(p)
     return p
 
-def checkin(code, did, mood, note="", av=""):
+BOT_FALLBACK = [
+    "오 그거 좋다, 내일도 이어가자 🔥", "듣기만 해도 따뜻하네", "역시 너답다 ㅋㅋ",
+    "장작 하나 더 넣은 기분이야", "그 얘기 내일 더 해줘", "오늘도 불가에 와줘서 고마워",
+    "그럴 때가 제일 어렵지, 잘했어", "내일은 더 좋은 일 있을 거야", "불꽃이 살짝 커진 것 같아",
+]
+
+
+def _bot_reply(note, name):
+    import os, random
+    if not note:
+        return "오늘도 자동으로 지켰다"
+    try:
+        from core import llm_chat
+        key = os.environ.get("BOIM_LLM_KEY", "").strip() or "__free__"
+        sys_p = ("너는 '불씨봇'. 모닥불 앱에서 혼자 스트릭을 잇는 사용자의 유일한 불친구다. "
+                 "사용자의 오늘 미션 답/한마디에 짧고 따뜻하게, 반말로, 재치있게 답해라. "
+                 "40자 이내 딱 한 문장. 이모지 최대 1개. 설교 금지.")
+        r = llm_chat(key, sys_p, "%s님의 오늘 한마디: %s" % (name, note[:60]), max_tokens=80)
+        r = (r or "").strip().strip('"').replace("\n", " ")
+        if 2 <= len(r) <= 60:
+            return r[:44]
+    except Exception:
+        pass
+    return random.choice(BOT_FALLBACK)
+
+
+def checkin(code, did, mood, note="", av="", vibe=""):
     p = load(code)
     if not p:
         return None, "불씨를 찾을 수 없어요"
@@ -115,6 +142,13 @@ def checkin(code, did, mood, note="", av=""):
     p[side + "_note"] = (note or "")[:40]
     if av:
         p[side + "_av"] = av[:4]
+    if vibe:
+        p[side + "_vibe"] = vibe[:16]
+    # 솔로 페어: 봇이 내 한마디에 AI로 답장
+    if p.get("b") and p["b"].get("did") == "bot" and side == "a":
+        p["b_note"] = _bot_reply(note, p["a"].get("name", "친구"))
+        import random as _r
+        p["b_mood"] = _r.choice(["😊", "🔥", "🤗", "😎", "🥰"])
     if p["a_done"] and p["b_done"] and p["last_complete"] != p["day"]:
         p["streak"] += 1
         p["last_complete"] = p["day"]
@@ -141,6 +175,8 @@ def state(code, did):
             "my_note": p.get(me + "_note", ""),
             "partner_av": p.get(other + "_av", "") if p.get(other) else "",
             "my_av": p.get(me + "_av", ""),
+            "my_vibe": p.get(me + "_vibe", ""),
+            "partner_vibe": p.get(other + "_vibe", "") if p.get(other) else "",
             "packs": p.get("packs", ["daily"]),
             "custom": p.get("custom", []),
             "both_done": p["a_done"] and p["b_done"]}
