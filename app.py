@@ -1374,6 +1374,11 @@ def ember_api(action):
         if not st:
             return _ember_resp({"ok": False, "error": "불씨를 찾을 수 없어요"}, 404)
         return _ember_resp({"ok": True, "state": st})
+    if action == "reroll":
+        p, err = ember.reroll(code)
+        if err:
+            return _ember_resp({"ok": False, "error": err}, 400)
+        return _ember_resp({"ok": True, "m_off": p.get("m_off", 0)})
     if action == "missions":
         p = ember.set_missions(code, d.get("packs") or [], d.get("custom") or [])
         return _ember_resp({"ok": bool(p)})

@@ -93,6 +93,12 @@ def _rollover(p):
                 p["freeze"] -= 1        # 프리즈 1개로 하루 방어
             else:
                 p["streak"] = 0
+    if p.get("a_note") or p.get("b_note"):
+        p.setdefault("log", []).append({
+            "d": p["day"], "a": p.get("a_note", ""), "b": p.get("b_note", ""),
+            "am": p.get("a_mood", ""), "bm": p.get("b_mood", "")})
+        p["log"] = p["log"][-30:]
+    p["m_off"] = 0
     p["day"] = today
     p["a_done"] = False; p["b_done"] = False
     if p.get("b") and p["b"].get("did") == "bot":
@@ -179,6 +185,8 @@ def state(code, did):
             "partner_vibe": p.get(other + "_vibe", "") if p.get(other) else "",
             "packs": p.get("packs", ["daily"]),
             "custom": p.get("custom", []),
+            "m_off": p.get("m_off", 0),
+            "log": list(reversed(p.get("log", [])[-14:])),
             "both_done": p["a_done"] and p["b_done"]}
 
 def add_freeze(code):
@@ -198,3 +206,15 @@ def set_missions(code, packs, custom):
     p["custom"] = [str(x)[:60] for x in custom][:10]
     save(p)
     return p
+
+
+def reroll(code):
+    p = load(code)
+    if not p:
+        return None, "불씨를 찾을 수 없어요"
+    p = _rollover(p)
+    if p.get("m_off", 0) >= 3:
+        return None, "오늘 미션 바꾸기 3번을 다 썼어요"
+    p["m_off"] = p.get("m_off", 0) + 1
+    save(p)
+    return p, None
