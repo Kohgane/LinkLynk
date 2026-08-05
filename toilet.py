@@ -38,7 +38,7 @@ def near_v2(lat, lng, n=15):
         dx = (t["lng"] - lng) * 111320.0 * coslat
         d = math.hypot(dx, dy)
         if d < 30000:
-            w = d * (0.85 if t.get("ty") in ("pub", "st", "mart") else 1.0)
+            w = d * (1.0 if t.get("ty") in ("cafe", "ff") else 0.85)
             out.append((w, d, t))
     out.sort(key=lambda x: x[0])
     res = []
