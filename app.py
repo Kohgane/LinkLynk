@@ -1365,7 +1365,7 @@ def ember_api(action):
             return _ember_resp({"ok": False, "error": err}, 400)
         return _ember_resp({"ok": True, "code": p["code"]})
     if action == "checkin":
-        p, err = ember.checkin(code, did, str(d.get("mood") or ""), str(d.get("note") or ""))
+        p, err = ember.checkin(code, did, str(d.get("mood") or ""), str(d.get("note") or ""), str(d.get("av") or ""))
         if err:
             return _ember_resp({"ok": False, "error": err}, 400)
         return _ember_resp({"ok": True, "state": ember.state(code, did)})
@@ -1374,6 +1374,9 @@ def ember_api(action):
         if not st:
             return _ember_resp({"ok": False, "error": "불씨를 찾을 수 없어요"}, 404)
         return _ember_resp({"ok": True, "state": st})
+    if action == "missions":
+        p = ember.set_missions(code, d.get("packs") or [], d.get("custom") or [])
+        return _ember_resp({"ok": bool(p)})
     if action == "freeze":
         p = ember.add_freeze(code)
         return _ember_resp({"ok": bool(p), "freeze": (p or {}).get("freeze", 0)})

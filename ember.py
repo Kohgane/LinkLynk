@@ -102,7 +102,7 @@ def _rollover(p):
     save(p)
     return p
 
-def checkin(code, did, mood, note=""):
+def checkin(code, did, mood, note="", av=""):
     p = load(code)
     if not p:
         return None, "불씨를 찾을 수 없어요"
@@ -113,6 +113,8 @@ def checkin(code, did, mood, note=""):
     p[side + "_done"] = True
     p[side + "_mood"] = (mood or "")[:4]
     p[side + "_note"] = (note or "")[:40]
+    if av:
+        p[side + "_av"] = av[:4]
     if p["a_done"] and p["b_done"] and p["last_complete"] != p["day"]:
         p["streak"] += 1
         p["last_complete"] = p["day"]
@@ -137,6 +139,10 @@ def state(code, did):
             "partner_mood": p[other + "_mood"] if p.get(other) else "",
             "partner_note": p.get(other + "_note", "") if p.get(other) else "",
             "my_note": p.get(me + "_note", ""),
+            "partner_av": p.get(other + "_av", "") if p.get(other) else "",
+            "my_av": p.get(me + "_av", ""),
+            "packs": p.get("packs", ["daily"]),
+            "custom": p.get("custom", []),
             "both_done": p["a_done"] and p["b_done"]}
 
 def add_freeze(code):
@@ -144,5 +150,15 @@ def add_freeze(code):
     if not p:
         return None
     p["freeze"] = min(p.get("freeze", 0) + 1, 2)
+    save(p)
+    return p
+
+
+def set_missions(code, packs, custom):
+    p = load(code)
+    if not p:
+        return None
+    p["packs"] = [str(x)[:12] for x in packs][:6] or ["daily"]
+    p["custom"] = [str(x)[:60] for x in custom][:10]
     save(p)
     return p
