@@ -29,16 +29,20 @@ def spinads_verbs():
             if not pub:
                 return jsonify(error="invalid api key"), 403
             cur.execute("""
-                select id, verb, short_code, bid_krw, weight from spinads.campaigns
-                where active and lang in (%s, 'all') and starts_at <= now()
+                select id, kind, verb, short_code, bid_krw, weight from spinads.campaigns
+                where active and kind <> 'b2b' and lang in (%s, 'all') and starts_at <= now()
                   and (ends_at is null or ends_at > now())
                   and (budget_krw is null or spent_krw < budget_krw)
             """, (pub["lang"],))
             camps = cur.fetchall()
             if not camps:
                 return jsonify(verbs=[], session_id=None)
-            picked, pool = [], list(camps)
-            for _ in range(min(MAX_ADS_PER_SESSION, len(pool))):
+            picked = []
+            sponsors = [c for c in camps if c["kind"] == "sponsor"]
+            if sponsors:  # 스폰서 팩: 세션당 1줄 보장
+                picked.append(random.choices(sponsors, weights=[x["weight"] for x in sponsors], k=1)[0])
+            pool = [c for c in camps if c not in picked and c["kind"] != "sponsor"]
+            for _ in range(min(MAX_ADS_PER_SESSION - len(picked), len(pool))):
                 c = random.choices(pool, weights=[x["weight"] for x in pool], k=1)[0]
                 picked.append(c); pool.remove(c)
             base = request.url_root.rstrip("/")
@@ -156,7 +160,7 @@ def spinads_apply():
 
 @spinads_bp.get("/api/spinads/health")
 def spinads_health():
-    return jsonify(ok=True, service="spinads", version="v3")
+    return jsonify(ok=True, service="spinads", version="v4")
 
 # ---- 퍼블리셔 온보딩 (v2.1) ----
 from flask import Response
@@ -202,3 +206,54 @@ def spinads_client_ps1():
 @spinads_bp.get("/spinads/client.py")
 def spinads_client_py():
     return _script(_assets.CLIENT_PY)
+
+# ---- 문구 공모 (v4) ----
+@spinads_bp.post("/api/spinads/suggest")
+def spinads_suggest():
+    d = request.get_json(silent=True) or {}
+    verb = (d.get("verb") or "").strip()[:60]
+    contact = (d.get("contact") or "").strip()[:120]
+    lang = d.get("lang") if d.get("lang") in ("ko", "en") else "ko"
+    if not verb:
+        return jsonify(error="missing verb"), 400
+    with _db() as conn:
+        with conn.cursor() as cur:
+            cur.execute("insert into spinads.suggestions (verb, contact, lang) values (%s,%s,%s)",
+                        (verb, contact or None, lang))
+    return jsonify(ok=True), 201
+
+# ---- B2B 커스텀 팩 호스팅 (v4) ----
+def _pack_verbs(slug):
+    with _db() as conn:
+        with conn.cursor() as cur:
+            cur.execute("""select verb from spinads.campaigns
+                           where kind='b2b' and advertiser=%s and active order by created_at""", (slug,))
+            return [r[0] for r in cur.fetchall()]
+
+@spinads_bp.get("/spinads/pack/<slug>")
+def spinads_pack_page(slug):
+    import html as _html, re as _re
+    if not _re.fullmatch(r"[a-z0-9\-]{2,40}", slug):
+        return "not found", 404
+    verbs = _pack_verbs(slug)
+    if not verbs:
+        return "not found", 404
+    items = "".join(f"<li>{_html.escape(v)}</li>" for v in verbs)
+    base = request.url_root.rstrip("/")
+    return _assets.PACK_HTML.replace("__SLUG__", slug).replace("__ITEMS__", items).replace("__BASE__", base)
+
+@spinads_bp.get("/spinads/pack/<slug>/install.ps1")
+def spinads_pack_ps1(slug):
+    verbs = _pack_verbs(slug)
+    if not verbs:
+        return "not found", 404
+    arr = ",".join("'" + v.replace("'", "''") + "'" for v in verbs)
+    return _script(_assets.PACK_INSTALL_PS1.replace("__VERBS_PS__", arr))
+
+@spinads_bp.get("/spinads/pack/<slug>/install.sh")
+def spinads_pack_sh(slug):
+    import json as _json
+    verbs = _pack_verbs(slug)
+    if not verbs:
+        return "not found", 404
+    return _script(_assets.PACK_INSTALL_SH.replace("__VERBS_JSON__", _json.dumps(verbs, ensure_ascii=False)))

@@ -207,8 +207,24 @@ pre{padding:12px;overflow-x:auto;font-size:12px;white-space:pre-wrap;word-break:
 <p>실행 후 Claude Code(터미널)를 재시작하면 다음 세션부터 문구팩이 돕니다.
 기존 커스텀 verb는 보존되고, settings.json의 spinnerVerbs와 SessionStart 훅을 지우면 언제든 해제됩니다.</p>
 </div>
+<h2>문구 공모</h2>
+<p>웃긴 문구 하나 있으시면 던져주세요. 채택되면 팩에 이름과 함께 실립니다.</p>
+<form id="sg">
+<input name="verb" placeholder="문구 (60자 이내)" required maxlength="60">
+<input name="contact" placeholder="쓰레드 핸들/이메일 (선택)" maxlength="120">
+<button>제출</button>
+</form>
+<p id="sgdone" style="display:none;color:#9f9;font-size:14px">접수됐습니다. 채택되면 연락드릴게요.</p>
 <p style="font-size:12px;color:#666">수익은 세션 단위로 원장에 적립되며 월 단위 정산 안내를 이메일로 드립니다.
-문의: ikymximy@kohganemultishop.org · <a style="color:#7aa2ff" href="/spinads">광고주이신가요?</a></p>
+문의: ikymximy@kohganemultishop.org · <a style="color:#7aa2ff" href="/spinads">광고·팩 제작 문의</a></p>
+<script>
+document.getElementById('sg').onsubmit=async function(e){e.preventDefault();
+const d=Object.fromEntries(new FormData(this));
+const r=await fetch('/api/spinads/suggest',{method:'POST',
+headers:{'Content-Type':'application/json'},body:JSON.stringify(d)});
+if(r.ok){this.style.display='none';document.getElementById('sgdone').style.display='block'}
+else{alert('접수 실패')}};
+</script>
 <script>
 document.getElementById('f').onsubmit=async function(e){e.preventDefault();
 const d=Object.fromEntries(new FormData(this));
@@ -223,3 +239,71 @@ document.getElementById('cmd-nix').textContent=
 document.getElementById('form-wrap').style.display='none';
 document.getElementById('result').style.display='block'};
 </script></body></html>"""
+
+
+PACK_INSTALL_PS1 = r'''# SpinAds pack installer (Windows) - static verbs, no key needed
+$ErrorActionPreference = "Stop"
+$u8 = New-Object System.Text.UTF8Encoding($false)
+$claudeDir = Join-Path $env:USERPROFILE ".claude"
+New-Item -ItemType Directory -Force -Path $claudeDir | Out-Null
+$settings = Join-Path $claudeDir "settings.json"
+$new = @(__VERBS_PS__)
+$cfg = New-Object PSCustomObject
+if (Test-Path $settings) { $cfg = Get-Content $settings -Raw -Encoding UTF8 | ConvertFrom-Json }
+if (-not ($cfg.PSObject.Properties.Name -contains "spinnerVerbs")) {
+  $cfg | Add-Member -NotePropertyName spinnerVerbs -NotePropertyValue ([PSCustomObject]@{ mode = "append"; verbs = @() })
+}
+if (-not ($cfg.spinnerVerbs.PSObject.Properties.Name -contains "verbs")) {
+  $cfg.spinnerVerbs | Add-Member -NotePropertyName verbs -NotePropertyValue @()
+}
+$merged = @($cfg.spinnerVerbs.verbs) + @($new | Where-Object { @($cfg.spinnerVerbs.verbs) -notcontains $_ })
+$cfg.spinnerVerbs.verbs = $merged
+if (-not ($cfg.spinnerVerbs.PSObject.Properties.Name -contains "mode")) {
+  $cfg.spinnerVerbs | Add-Member -NotePropertyName mode -NotePropertyValue "append"
+}
+[IO.File]::WriteAllText($settings, ($cfg | ConvertTo-Json -Depth 20), $u8)
+Write-Host "Pack installed. Restart Claude Code (terminal)."
+'''
+
+PACK_INSTALL_SH = r'''#!/usr/bin/env bash
+# SpinAds pack installer (macOS/Linux) - static verbs, no key needed
+set -e
+python3 - <<PYEOF2
+import json, os
+VERBS = json.loads(r"""__VERBS_JSON__""")
+home = os.path.expanduser("~")
+sdir = os.path.join(home, ".claude")
+os.makedirs(sdir, exist_ok=True)
+sp = os.path.join(sdir, "settings.json")
+cfg = {}
+if os.path.exists(sp):
+    with open(sp, encoding="utf-8") as f:
+        cfg = json.load(f)
+sv = cfg.setdefault("spinnerVerbs", {"mode": "append", "verbs": []})
+sv.setdefault("verbs", [])
+sv["verbs"] += [v for v in VERBS if v not in sv["verbs"]]
+sv.setdefault("mode", "append")
+with open(sp, "w", encoding="utf-8") as f:
+    json.dump(cfg, f, ensure_ascii=False, indent=2)
+print("Pack installed. Restart Claude Code (terminal).")
+PYEOF2
+'''
+
+PACK_HTML = """<!doctype html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SpinAds 팩 — __SLUG__</title>
+<style>body{font-family:system-ui,-apple-system,'Noto Sans KR',sans-serif;background:#111;color:#eee;
+max-width:560px;margin:0 auto;padding:48px 20px;line-height:1.7}
+h1{font-size:24px}h2{font-size:16px;margin-top:28px}p,li{color:#bbb;font-size:14px}
+pre{font-family:ui-monospace,monospace;background:#1c1c1c;border-radius:6px;padding:12px;
+overflow-x:auto;font-size:12px;white-space:pre-wrap;word-break:break-all}</style></head><body>
+<h1>문구팩: __SLUG__</h1>
+<p>이 팩에 담긴 스피너 문구:</p>
+<ul>__ITEMS__</ul>
+<h2>설치 — Windows (PowerShell)</h2>
+<pre>irm __BASE__/spinads/pack/__SLUG__/install.ps1 | iex</pre>
+<h2>설치 — macOS / Linux</h2>
+<pre>curl -fsSL __BASE__/spinads/pack/__SLUG__/install.sh | bash</pre>
+<p>설치 후 Claude Code(터미널)를 재시작하면 적용됩니다. 기존 문구는 보존됩니다.
+우리 팀 전용 팩이 필요하신가요? <a style="color:#7aa2ff" href="/spinads">제작 문의</a></p>
+</body></html>"""
