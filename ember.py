@@ -116,23 +116,35 @@ BOT_FALLBACK = [
 ]
 
 
-def _bot_reply(note, name):
+CHAT_FALLBACK = [
+    "ㅋㅋ 그래서 그래서?", "오 더 얘기해봐", "불멍이나 같이 때리자 🔥", "그럴 수 있지",
+    "장작이나 하나 더 넣자", "듣고 있어, 계속해봐", "음… 그 말 좀 깊다", "내일은 뭐 할 거야?",
+    "네 얘기 들으니까 불이 더 따뜻해졌어", "그건 나도 궁금했어", "오늘 하늘은 봤어?", "탁— (장작 튀는 소리)",
+]
+
+
+def _bot_reply(note, name, kind="checkin"):
     import os, random
     if not note:
         return "오늘도 자동으로 지켰다"
     try:
         from core import llm_chat
         key = os.environ.get("BOIM_LLM_KEY", "").strip() or "__free__"
-        sys_p = ("너는 '불씨봇'. 모닥불 앱에서 혼자 스트릭을 잇는 사용자의 유일한 불친구다. "
-                 "사용자의 오늘 미션 답/한마디에 짧고 따뜻하게, 반말로, 재치있게 답해라. "
-                 "40자 이내 딱 한 문장. 이모지 최대 1개. 설교 금지.")
-        r = llm_chat(key, sys_p, "%s님의 오늘 한마디: %s" % (name, note[:60]), max_tokens=80)
+        if kind == "chat":
+            sys_p = ("너는 '불씨봇'. 모닥불 앞에서 사용자와 수다 떠는 불친구다. "
+                     "사용자의 말에 자연스럽게 반말로 대화를 이어가라. 궁금하면 되물어도 좋다. "
+                     "40자 이내 딱 한 문장. 이모지 최대 1개.")
+        else:
+            sys_p = ("너는 '불씨봇'. 모닥불 앱에서 혼자 스트릭을 잇는 사용자의 유일한 불친구다. "
+                     "사용자의 오늘 미션 답/한마디에 짧고 따뜻하게, 반말로, 재치있게 답해라. "
+                     "40자 이내 딱 한 문장. 이모지 최대 1개. 설교 금지.")
+        r = llm_chat(key, sys_p, "%s: %s" % (name, note[:60]), max_tokens=80)
         r = (r or "").strip().strip('"').replace("\n", " ")
         if 2 <= len(r) <= 60:
             return r[:44]
     except Exception:
         pass
-    return random.choice(BOT_FALLBACK)
+    return random.choice(CHAT_FALLBACK if kind == "chat" else BOT_FALLBACK)
 
 
 def checkin(code, did, mood, note="", av="", vibe=""):
@@ -264,7 +276,7 @@ def say(code, did, text):
     import datetime as _dt
     chat.append({"s": side, "t": text, "ts": _dt.datetime.utcnow().strftime("%H:%M")})
     if p.get("b") and p["b"].get("did") == "bot" and side == "a":
-        chat.append({"s": "b", "t": _bot_reply(text, p["a"].get("name", "친구")),
+        chat.append({"s": "b", "t": _bot_reply(text, p["a"].get("name", "친구"), kind="chat"),
                      "ts": _dt.datetime.utcnow().strftime("%H:%M")})
     p["chat"] = chat[-60:]
     save(p)
