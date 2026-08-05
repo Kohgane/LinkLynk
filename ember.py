@@ -31,10 +31,8 @@ def _sb(method, key, data=None):
     return urllib.request.urlopen(req, timeout=12).read()
 
 def load(code):
+    """멀티워커 정합성: 스토리지가 항상 진실, 메모리 캐시는 장애 폴백."""
     code = (code or "").upper()
-    with _lock:
-        if code in _cache:
-            return dict(_cache[code])
     if SB_URL and SB_KEY:
         try:
             p = json.loads(_sb("GET", code))
@@ -42,7 +40,10 @@ def load(code):
                 _cache[code] = p
             return dict(p)
         except Exception:
-            return None
+            pass
+    with _lock:
+        if code in _cache:
+            return dict(_cache[code])
     return None
 
 def save(p):
