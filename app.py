@@ -1306,6 +1306,23 @@ def emberduo_og():
     return send_file("static/emberduo-og.png", mimetype="image/png")
 
 
+@app.route("/api/toilet/near", methods=["GET", "OPTIONS"])
+def toilet_near():
+    r_hdr = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type"}
+    if request.method == "OPTIONS":
+        r = jsonify({"ok": True}); r.headers.update(r_hdr); return r
+    import toilet
+    try:
+        lat = float(request.args.get("lat", "0")); lng = float(request.args.get("lng", "0"))
+    except ValueError:
+        lat = lng = 0
+    if not (33 < lat < 39 and 124 < lng < 132):
+        r = jsonify({"ok": False, "error": "좌표가 이상해요"}); r.headers.update(r_hdr); return r, 400
+    r = jsonify({"ok": True, "items": toilet.near(lat, lng)})
+    r.headers.update(r_hdr)
+    return r
+
+
 @app.route("/api/ember/<action>", methods=["POST", "OPTIONS"])
 def ember_api(action):
     if request.method == "OPTIONS":
