@@ -18,14 +18,12 @@ def _yesterday(day):
     return d.strftime("%Y-%m-%d")
 
 def _sb(method, key, data=None):
+    # GET도 인증 경로(오리진 직행) — public URL CDN 전파 지연 회피
     url = "%s/storage/v1/object/%s/ember/%s.json" % (SB_URL, BUCKET, key)
-    if method == "GET":
-        url = "%s/storage/v1/object/public/%s/ember/%s.json?t=%d" % (
-            SB_URL, BUCKET, key, int(datetime.datetime.utcnow().timestamp()))
     req = urllib.request.Request(url, data=data, method=method)
+    req.add_header("Authorization", "Bearer " + SB_KEY)
+    req.add_header("apikey", SB_KEY)
     if method != "GET":
-        req.add_header("Authorization", "Bearer " + SB_KEY)
-        req.add_header("apikey", SB_KEY)
         req.add_header("Content-Type", "application/json")
         req.add_header("x-upsert", "true")
     return urllib.request.urlopen(req, timeout=12).read()
