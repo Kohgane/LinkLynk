@@ -185,6 +185,7 @@ def state(code, did):
             "packs": p.get("packs", ["daily"]),
             "custom": p.get("custom", []),
             "m_off": p.get("m_off", 0),
+            "solo": bool(p.get("b") and p["b"].get("did") == "bot"),
             "log": list(reversed(p.get("log", [])[-14:])),
             "both_done": p["a_done"] and p["b_done"]}
 
@@ -212,8 +213,33 @@ def reroll(code):
     if not p:
         return None, "불씨를 찾을 수 없어요"
     p = _rollover(p)
-    if p.get("m_off", 0) >= 3:
-        return None, "오늘 미션 바꾸기 3번을 다 썼어요"
+    if p.get("m_off", 0) >= 6:
+        return None, "오늘 미션 바꾸기를 다 썼어요"
     p["m_off"] = p.get("m_off", 0) + 1
     save(p)
     return p, None
+
+
+def reroll_refill(code):
+    p = load(code)
+    if not p:
+        return None
+    p["m_off"] = max(0, p.get("m_off", 0) - 3)
+    save(p)
+    return p
+
+
+def bot_set(code, av="", mood="", vibe="", name=""):
+    p = load(code)
+    if not p or not p.get("b") or p["b"].get("did") != "bot":
+        return None
+    if av:
+        p["b_av"] = av[:4]
+    if mood:
+        p["b_mood"] = mood[:4]
+    if vibe:
+        p["b_vibe"] = vibe[:16]
+    if name:
+        p["b"]["name"] = name[:12]
+    save(p)
+    return p
