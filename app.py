@@ -1450,6 +1450,11 @@ def ember_api(action):
         if err:
             return _ember_resp({"ok": False, "error": err}, 400)
         return _ember_resp({"ok": True, "m_off": p.get("m_off", 0)})
+    if action == "say":
+        p, err = ember.say(code, did, str(d.get("text") or ""))
+        if err:
+            return _ember_resp({"ok": False, "error": err}, 400)
+        return _ember_resp({"ok": True, "state": ember.state_of(p, did)}) if hasattr(ember, "state_of") else _ember_resp({"ok": True})
     if action == "reroll_refill":
         p = ember.reroll_refill(code)
         return _ember_resp({"ok": bool(p), "m_off": (p or {}).get("m_off", 0)})

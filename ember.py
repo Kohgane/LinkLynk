@@ -98,6 +98,7 @@ def _rollover(p):
             "am": p.get("a_mood", ""), "bm": p.get("b_mood", "")})
         p["log"] = p["log"][-30:]
     p["m_off"] = 0
+    p["chat"] = []
     p["day"] = today
     p["a_done"] = False; p["b_done"] = False
     if p.get("b") and p["b"].get("did") == "bot":
@@ -186,6 +187,7 @@ def state(code, did):
             "custom": p.get("custom", []),
             "m_off": p.get("m_off", 0),
             "solo": bool(p.get("b") and p["b"].get("did") == "bot"),
+            "chat": [{**c, "me": c["s"] == me} for c in p.get("chat", [])[-24:]],
             "log": list(reversed(p.get("log", [])[-14:])),
             "both_done": p["a_done"] and p["b_done"]}
 
@@ -243,3 +245,27 @@ def bot_set(code, av="", mood="", vibe="", name=""):
         p["b"]["name"] = name[:12]
     save(p)
     return p
+
+
+def say(code, did, text):
+    p = load(code)
+    if not p:
+        return None, "불씨를 찾을 수 없어요"
+    p = _rollover(p)
+    side = "a" if p["a"]["did"] == did else ("b" if p.get("b") and p["b"]["did"] == did else None)
+    if not side:
+        return None, "이 불씨의 멤버가 아니에요"
+    text = (text or "").strip()[:60]
+    if not text:
+        return None, "내용이 비었어요"
+    chat = p.setdefault("chat", [])
+    if len(chat) >= 60:
+        return None, "오늘 대화가 가득 찼어요"
+    import datetime as _dt
+    chat.append({"s": side, "t": text, "ts": _dt.datetime.utcnow().strftime("%H:%M")})
+    if p.get("b") and p["b"].get("did") == "bot" and side == "a":
+        chat.append({"s": "b", "t": _bot_reply(text, p["a"].get("name", "친구")),
+                     "ts": _dt.datetime.utcnow().strftime("%H:%M")})
+    p["chat"] = chat[-60:]
+    save(p)
+    return p, None
