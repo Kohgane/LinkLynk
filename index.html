@@ -859,6 +859,12 @@
     </div>
 
     <div class="fgroup">
+      <label class="flabel">이미 쓴 글이 있나요? <span class="fhint">붙여넣으면 스레드 형식으로 정리</span></label>
+      <textarea id="w_paste" rows="4" placeholder="작성해둔 글을 그대로 붙여넣으세요. 링크·고지문구는 자동으로 답글5·6에 배치됩니다."></textarea>
+      <button type="button" class="btn" onclick="pasteToThread(this)"
+        style="width:100%;margin-top:7px;padding:11px;font-size:13px">🧵 스레드 형식으로 정리</button>
+    </div>
+    <div class="fgroup">
       <label class="flabel">글 유형</label>
       <div style="display:flex;gap:8px">
         <button type="button" id="pmAd" class="btn" onclick="setPostMode('ad')"
@@ -1072,6 +1078,6 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="/app.js?v=1785749628"></script>
+<script src="/app.js?v=1785934362"></script>
 </body>
 </html>

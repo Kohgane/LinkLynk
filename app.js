@@ -2572,6 +2572,7 @@ async function loadPosts(status, btn){
       let actions;
       if(isPub || isSched){
         actions = p.post_url ? `<button class="btn-sm" onclick="window.open('${p.post_url}','_blank')">글 보기 ↗</button>` : '';
+        if(isSched){ actions += `<button class="btn-sm" onclick="cancelSchedule(${p.id},this)">⏰ 예약 취소</button>`; }
         if(isPub){
           const sid = p.sub_id ? `<span style="font-family:monospace;font-size:10.5px;color:var(--muted)">${esc(p.sub_id)}</span>` : '';
           actions += `<div style="display:flex;gap:5px;align-items:center;margin-top:7px;flex-wrap:wrap">
@@ -2954,4 +2955,34 @@ function openAff(kind){
     if(l){ l.placeholder = 'https://link.coupang.com/... 또는 상품 URL'; l.focus(); }
     toast('쿠팡은 상품 URL만 넣으면 제휴링크로 자동 변환됩니다');
   }
+}
+
+// ── 작성해둔 글 → 스레드 7분할 정리 ──
+async function pasteToThread(btn){
+  const t = (document.getElementById('w_paste')?.value||'').trim();
+  if(!t){ toast('붙여넣을 글을 입력하세요'); return; }
+  const o = btn.textContent; btn.textContent='정리 중…'; btn.disabled=true;
+  try{
+    const r = await (await fetch('/api/paste-thread',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({text:t, productName:(document.getElementById('pname')?.value||'')})})).json();
+    if(!r.ok){ toast(r.error||'정리 실패'); return; }
+    window.__lastResult = {blogDraft:r.content, channel:'threads',
+      deeplink:r.deeplink||'', productName:(document.getElementById('pname')?.value||''), image:null};
+    renderResult(window.__lastResult);
+    toast(`${r.blocks}블록으로 정리했어요${r.affiliate?' ('+r.affiliate+')':''}`);
+  }catch(e){ toast('서버 연결 실패'); }
+  finally{ btn.textContent=o; btn.disabled=false; }
+}
+// ── 예약 게시 취소 ──
+async function cancelSchedule(pid, btn){
+  if(!confirm('이 예약을 취소할까요? 되돌릴 수 없습니다.')) return;
+  const o = btn.textContent; btn.textContent='취소 중…'; btn.disabled=true;
+  try{
+    const r = await (await fetch('/api/cancel-schedule',{method:'POST',
+      headers:{'Content-Type':'application/json'},body:JSON.stringify({post_id:pid})})).json();
+    toast(r.message || (r.ok?'취소됐어요':'취소 실패'));
+    if(r.ok) loadPosts('all');
+  }catch(e){ toast('서버 연결 실패'); }
+  finally{ btn.textContent=o; btn.disabled=false; }
 }

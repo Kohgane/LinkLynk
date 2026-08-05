@@ -221,6 +221,11 @@ def get_posts(uid, status=None):
                   (uid,), fetch="all")
     return [dict(r) for r in rows] if rows else []
 
+def update_post_status(post_id, status):
+    """예약 취소 등으로 상태를 되돌린다."""
+    _q("UPDATE linklynk_posts SET status=%s WHERE id=%s", (status, post_id))
+    return True
+
 def get_post(post_id):
     row = _q("SELECT * FROM linklynk_posts WHERE id=%s", (post_id,), fetch="one")
     return dict(row) if row else None

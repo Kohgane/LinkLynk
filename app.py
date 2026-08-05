@@ -431,6 +431,75 @@ def get_perf():
                     "worst": [_slim(p) for p in ranked[-5:]][::-1]})
 
 
+@app.route("/api/cancel-schedule", methods=["POST"])
+@login_required
+def cancel_schedule():
+    """예약 게시 취소 — Zernio에서 내리고 우리 DB도 임시저장으로 되돌린다."""
+    d = request.get_json(force=True, silent=True) or {}
+    pid = d.get("post_id")
+    if not pid:
+        return jsonify({"ok": False, "error": "post_id가 필요해요"}), 400
+    p = store.get_post(pid)
+    if not p or p["user_id"] != session["uid"]:
+        return jsonify({"ok": False, "error": "글을 찾을 수 없어요"}), 404
+    if p.get("status") != "scheduled":
+        return jsonify({"ok": False, "error": "예약 상태인 글만 취소할 수 있어요"}), 400
+    from core import zernio_cancel
+    key = store.get_zernio_key(session["uid"])
+    zid = p.get("post_id")          # Zernio 게시물 ID (mark_published 때 저장)
+    r = zernio_cancel(key, zid) if zid else {"ok": False, "error": "no_zernio_id"}
+    # Zernio 취소 성공 여부와 무관하게 우리 쪽은 초안으로 되돌린다(중복 발행 방지)
+    try:
+        store.update_post_status(pid, "draft")
+    except Exception:
+        pass
+    if r.get("ok"):
+        return jsonify({"ok": True, "message": "예약이 취소됐어요"})
+    return jsonify({"ok": True, "warn": True,
+                    "message": "우리 쪽 예약은 해제했지만 Zernio에서 확인이 필요해요",
+                    "detail": r.get("error")})
+
+
+@app.route("/api/paste-thread", methods=["POST"])
+@login_required
+def paste_thread():
+    """작성된 글을 붙여넣으면 7분할 스레드 형식으로 정리한다.
+    빈 줄로 나뉜 문단을 블록으로 보고, 링크·고지는 답글5·6으로 재배치."""
+    d = request.get_json(force=True, silent=True) or {}
+    raw = (d.get("text") or "").strip()
+    if not raw:
+        return jsonify({"ok": False, "error": "붙여넣을 글이 없어요"}), 400
+    import re as _re
+    from core import repair_structure, detect_affiliate
+    # 링크 추출 (쿠팡·토스·네이버)
+    links = _re.findall(r"https?://\S+", raw)
+    links = [l.rstrip(".,)") for l in links]
+    seen, uniq = set(), []
+    for l in links:
+        if l not in seen:
+            seen.add(l); uniq.append(l)
+    dl = uniq[0] if uniq else ""
+    dl2 = uniq[1] if len(uniq) > 1 else ""
+    # 링크·고지 줄 제거 후 문단 분리
+    body = raw
+    for l in uniq:
+        body = body.replace(l, "")
+    body = _re.sub(r"[^\n]*수수료를 (받|제공받)습니다[^\n]*", "", body)
+    body = _re.sub(r"[^\n]*쿠팡파트너스[^\n]*", "", body)
+    blocks = [b.strip() for b in _re.split(r"\n\s*\n", body) if b.strip()]
+    # 해시태그 줄은 마지막 블록에 붙인다
+    tags = ""
+    if blocks and blocks[-1].lstrip().startswith("#"):
+        tags = blocks.pop()
+    posts = repair_structure(blocks, dl, d.get("productName", ""), dl2)
+    if tags and posts:
+        posts[-1] = posts[-1].rstrip() + "\n\n" + tags
+    return jsonify({"ok": True, "blocks": len(posts),
+                    "affiliate": detect_affiliate(dl) if dl else None,
+                    "deeplink": dl, "deeplink2": dl2,
+                    "content": "\n===THREAD===\n".join(posts)})
+
+
 @app.route("/api/upload-image", methods=["POST"])
 @login_required
 def upload_image_api():
@@ -2345,8 +2414,11 @@ def generate_manual():
     user = store.get_user(session["uid"])
     # ★실제 상품 확인: 본인 파트너스 키가 있고 상품명이 입력됐을 때만 검색 1회
     #   (폴백 키 절대 안 씀 / 검색 실패해도 앱 정상 / API 한도 보호 위해 링크당 최소 호출)
+    # ★쿠팡 링크가 아니면 파트너스 검색을 하지 않는다.
+    #  토스·네이버 링크인데 쿠팡에서 상품명을 검색하면 엉뚱한 상품 정보가 섞인다.
+    _is_cp = "coupang" in (deeplink or "").lower()
     info = None
-    if (not _info_mode) and product_name and product_name != "쿠팡 상품":
+    if (not _info_mode) and _is_cp and product_name and product_name != "쿠팡 상품":
         partners, own_key = _partners_for(user)
         if partners is not None:   # 본인 키 있을 때만
             try:
@@ -2368,7 +2440,7 @@ def generate_manual():
                     "post_mode": ("info" if _info_mode else "ad"),
                     "blogDraft": draft, "channel": channel, "manual": True,
                     "naverHtml": naver_html, "productName": product_name,
-                    "image": _auto_image(product_name, info)})
+                    "image": (_auto_image(product_name, info) if _is_cp else None)})
 
 
 @app.route("/api/my-links")

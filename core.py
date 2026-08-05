@@ -3233,3 +3233,22 @@ def naver_research(product_name, limit=6):
         if out:
             break
     return out
+
+def zernio_cancel(api_key, post_id):
+    """Zernio 예약 게시 취소. post_id는 게시 응답의 data.post._id."""
+    if not api_key or not post_id:
+        return {"ok": False, "error": "no_key_or_id"}
+    try:
+        req = urllib.request.Request(
+            "https://zernio.com/api/v1/posts/%s" % post_id,
+            headers={"Authorization": "Bearer " + api_key}, method="DELETE")
+        ctx = ssl.create_default_context()
+        with urllib.request.urlopen(req, timeout=30, context=ctx) as r:
+            return {"ok": True, "data": r.read().decode()[:200]}
+    except urllib.error.HTTPError as e:
+        d = ""
+        try: d = e.read().decode()[:200]
+        except Exception: pass
+        return {"ok": False, "error": "http_%d" % e.code, "detail": d}
+    except Exception as e:
+        return {"ok": False, "error": str(e)[:120]}
