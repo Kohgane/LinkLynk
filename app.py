@@ -484,8 +484,10 @@ def paste_thread():
     body = raw
     for l in uniq:
         body = body.replace(l, "")
+    # 링크만 있던 줄은 지우되, 링크 앞뒤 문장은 살린다
     body = _re.sub(r"[^\n]*수수료를 (받|제공받)습니다[^\n]*", "", body)
     body = _re.sub(r"[^\n]*쿠팡파트너스[^\n]*", "", body)
+    body = _re.sub(r"\n{3,}", "\n\n", body)
     blocks = [b.strip() for b in _re.split(r"\n\s*\n", body) if b.strip()]
     # 해시태그 줄은 마지막 블록에 붙인다
     tags = ""

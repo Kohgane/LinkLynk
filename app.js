@@ -398,14 +398,19 @@ async function generate(){
   const go = document.getElementById('go');
   if(!url){ toast('링크를 먼저 붙여넣어 주세요'); return; }
   const _pm = window.__postMode || 'ad';
-  if(_pm !== 'info' && !/coupang/.test(url)){ toast('쿠팡 링크가 맞는지 확인해주세요'); return; }
+  // ★제휴 링크 판별: 쿠팡·토스·네이버 전부 허용. 쿠팡이 아니면 manual 경로로 보낸다
+  //  (/api/generate는 쿠팡 URL 변환 전용이라 토스 링크를 넣으면 엉뚱한 상품이 잡힌다)
+  const _isCp = /coupang/.test(url);
+  const _isAff = _isCp || /toss\.(im|me)|shopping\.toss|naver\.me|smartstore\.naver/.test(url);
+  if(_pm !== 'info' && !_isAff){ toast('쿠팡·토스·네이버 제휴 링크를 붙여넣어 주세요'); return; }
 
   go.classList.add('loading');
   try{
     // 수동 모드(직접 붙여넣기)만 manual, 나머지는 auto (단축링크는 서버가 자동으로 펼쳐서 변환)
     const _isInfo = (_pm === 'info');
-    const endpoint = (_isInfo || mode === 'manual') ? '/api/generate-manual' : '/api/generate';
-    const body = (_isInfo || mode === 'manual')
+    const _useManual = (_isInfo || mode === 'manual' || !_isCp);   // ★비쿠팡 링크는 무조건 manual
+    const endpoint = _useManual ? '/api/generate-manual' : '/api/generate';
+    const body = _useManual
       ? {deeplink:url, channel, tone:(window.curTone||'friendly'), productName:pname, skip_draft:true, post_mode:_pm, deeplink2:((window.__extraLinks||[])[0]||'')}
       : {url, channel, tone:(window.curTone||'friendly'), productName:pname, skip_draft:true, post_mode:_pm};
     const r = await fetch(endpoint, {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(body)});
