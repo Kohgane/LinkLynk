@@ -1300,6 +1300,12 @@ def _ember_resp(d, code=200):
     return r, code
 
 
+@app.route("/toiletnow-og.png")
+def toiletnow_og():
+    from flask import send_file
+    return send_file("static/toiletnow-og.png", mimetype="image/png")
+
+
 @app.route("/emberduo-og.png")
 def emberduo_og():
     from flask import send_file
