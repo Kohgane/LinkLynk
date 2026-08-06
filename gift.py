@@ -224,7 +224,9 @@ def recommend(api_key, who, budget, taste, exclude=None):
         "카웨코 스포츠, 스탠리 클래식 진공, 하리오 V60). 사양은 실검색에 쓰는 것 하나 — "
         "용량(300ml)·닙 굵기(EF)·심 굵기(0.5mm)·사이즈·재질(티타늄) "
         "(예: '이딸라 떼에마 머그 300ml', '라미 사파리 만년필 EF' — '예쁜 머그컵' 금지). "
-        "단 쿠팡 검색에 안 걸릴 과도한 수식은 빼라.\n"
+        "단 쿠팡 검색에 안 걸릴 과도한 수식은 빼라. "
+        "★브랜드명은 반드시 붙여 써라: 카이보이슨(O) 카이 보이슨(X), "
+        "로얄코펜하겐(O) 로얄 코펜하겐(X) — 띄어 쓰면 검색이 엉뚱한 상품에 걸린다.\n"
         "★alt는 같은 방향의 다른 브랜드 대체 검색어(2~4단어) — keyword가 쿠팡에 없을 때 대비.\n"
         'JSON: {"clue":"받는 사람의 핵심 단서(형용사·상황) 한 단어",'
         f'"picks":[{{"keyword":"브랜드+라인+사양(3~5단어)","alt":"대체 브랜드 검색어","reason":"한 줄 이유","angle":"계열 이름"}}x{n_dir}]}}'
@@ -329,7 +331,8 @@ def recommend(api_key, who, budget, taste, exclude=None):
                     return sum(1 for t in toks if t in u["name"])
                 need = 2 if len(toks) >= 2 else 1
                 gen = [u for u in rel_cp
-                       if _price_ok(u) and u not in picked and _score(u) >= need]
+                       if _price_ok(u) and u not in picked and _score(u) >= need
+                       and (not brand or brand in u["name"])]
                 picked += gen[:n_prod - len(picked)]
 
 
@@ -338,12 +341,15 @@ def recommend(api_key, who, budget, taste, exclude=None):
             if not picked:
                 r_lo, r_hi = int(_lo * 0.5), int(_hi * 1.6)
                 resc = [u for u in rel_cp if _score2(u, toks) >= (2 if len(toks) >= 2 else 1)
+                        and (not brand or brand in u.get("name", ""))
                         and _price_ok_range(u, r_lo, r_hi)]
                 resc.sort(key=lambda u: abs(int(u.get("price") or 0) - (_lo + _hi) // 2))
                 picked += resc[:3]
             if not picked and rel_cp:
                 resc = sorted(rel_cp, key=lambda u: -_score2(u, toks))
-                picked += [u for u in resc if int(u.get("price") or 0) <= _hi * 2][:2]
+                picked += [u for u in resc
+                           if brand and brand in u.get("name", "")
+                           and int(u.get("price") or 0) <= _hi * 2][:2]
 
             # 내부 필드 정리
             for u in picked:
