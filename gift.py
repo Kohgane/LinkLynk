@@ -241,6 +241,14 @@ def recommend(api_key, who, budget, taste, exclude=None):
         return {"ok": False, "error": "추천 형식 오류"}
     if not picks:
         return {"ok": False, "error": "추천이 비었어요"}
+    # ★배제 강제 집행: LLM이 금지를 무시하고 이전 라운드 브랜드를 또 내면(실측 2/5)
+    # 검색 전에 강제 실패시켜 재추천 루프가 다른 브랜드로 교체하게 한다.
+    banned = {k.split()[0] for k in (exclude or []) if k and k.split()}
+    for p in picks:
+        _t0 = str(p.get("keyword") or "").split()
+        if _t0 and _t0[0] in banned:
+            p["keyword"] = ""
+            p["alt"] = ""
     used_model = r.get("model") or "?"
 
     # 쿠팡 실상품 매핑 (서버 파트너스 키)
@@ -406,6 +414,7 @@ def recommend(api_key, who, budget, taste, exclude=None):
              f"받는 사람: {who or '특정하지 않음'}\n예산: {budget}\n취향 힌트: {taste or '없음'}\n"
              f"다음 키워드는 쿠팡에 실재 상품이 없어 실패: {', '.join(failed_kws)}\n"
              f"이미 성공한 방향(겹치지 말 것): {', '.join(ok_kws) or '없음'}\n\n"
+             + (f"★이전 라운드 브랜드 재등장 절대 금지: {', '.join(sorted(banned))}\n" if banned else "") +
              f"실패분을 대체할 방향 {len(failed_idx)}개 — 같은 감각의 결이되 "
              "쿠팡에서 확실히 팔릴 대중 유통 브랜드로. keyword·reason 정합 규칙 동일.\n"
              "★쿠팡에 확실히 재고가 있는 안전 브랜드 예(이 결에서 골라도 좋다): "
@@ -422,6 +431,8 @@ def recommend(api_key, who, budget, taste, exclude=None):
                  repl = []
              for slot, p2 in zip(failed_idx, repl):
                  kw2 = _clean_kw(p2.get("keyword"))
+                 if kw2 and kw2.split() and kw2.split()[0] in banned:
+                     continue   # 교체분마저 금지 브랜드면 그 슬롯은 버린다(빈 픽 제거가 수습)
                  prods2 = _fetch(kw2) if kw2 else []
                  if prods2:
                      out[slot] = {"keyword": kw2,
