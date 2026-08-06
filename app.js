@@ -2951,8 +2951,15 @@ function setPostMode(m){
 // ── 제휴 링크 만들기 (쿠팡=API 자동 / 토스=앱에서 생성 후 붙여넣기) ──
 function openAff(kind){
   if(kind === 'toss'){
-    toast('토스앱 → 전체 → 쇼핑 → 쉐어링크 에서 링크를 복사해 붙여넣으세요');
-    window.open('https://toss.im/', '_blank');
+    toast('토스앱에서 쉐어링크를 복사해 붙여넣으세요');
+    // 앱이 깔려 있으면 앱으로, 없으면 웹으로 (1.2초 뒤에도 페이지에 있으면 웹 폴백)
+    const t0 = Date.now();
+    location.href = 'supertoss://';
+    setTimeout(()=>{
+      if(Date.now() - t0 < 2000 && !document.hidden){
+        window.open('https://toss.im/', '_blank');
+      }
+    }, 1200);
     const l = document.getElementById('w_link');
     if(l){ l.placeholder = 'https://toss.im/_m/... (토스앱에서 복사)'; l.focus(); }
   }else{
@@ -2972,8 +2979,10 @@ async function pasteToThread(btn){
       headers:{'Content-Type':'application/json'},
       body:JSON.stringify({text:t, productName:(document.getElementById('pname')?.value||'')})})).json();
     if(!r.ok){ toast(r.error||'정리 실패'); return; }
+    const _pn = r.productName || (document.getElementById('pname')?.value||'');
+    const _pi = document.getElementById('pname'); if(_pi && r.productName && !_pi.value) _pi.value = r.productName;
     window.__lastResult = {blogDraft:r.content, channel:'threads',
-      deeplink:r.deeplink||'', productName:(document.getElementById('pname')?.value||''), image:null};
+      deeplink:r.deeplink||'', productName:_pn, image:null};
     renderResult(window.__lastResult);
     toast(`${r.blocks}블록으로 정리했어요${r.affiliate?' ('+r.affiliate+')':''}`);
   }catch(e){ toast('서버 연결 실패'); }

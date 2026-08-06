@@ -493,10 +493,27 @@ def paste_thread():
     tags = ""
     if blocks and blocks[-1].lstrip().startswith("#"):
         tags = blocks.pop()
-    posts = repair_structure(blocks, dl, d.get("productName", ""), dl2)
+    # ★상품명이 비면 본문에서 뽑는다. 글 안에 "베이글" 같은 단어가 있는데 못 잡으면 안 된다.
+    pname = (d.get("productName") or "").strip()
+    if not pname:
+        # 해시태그 우선(#땅콩버터), 없으면 본문 빈출 명사
+        tagw = _re.findall(r"#([가-힣A-Za-z0-9]{2,})", raw)
+        STOP = {"집밥","살림","주방","여름","제철과일","아침식사","건강간식","아이간식",
+                "저녁메뉴","분리수거","보관법","세탁","욕실청소"}
+        cand = [w for w in tagw if w not in STOP]
+        if cand:
+            pname = cand[0]
+        else:
+            from collections import Counter as _C
+            ws = _re.findall(r"[가-힣]{2,10}", body)
+            SKIP = {"그런데","그리고","하지만","때문에","이라고","라고요","더라고요","같아요",
+                    "합니다","했어요","입니다","있어요","없어요","저희는","저는요","그냥","진짜"}
+            c = _C(w for w in ws if w not in SKIP and len(w) >= 2)
+            pname = c.most_common(1)[0][0] if c else ""
+    posts = repair_structure(blocks, dl, pname, dl2)
     if tags and posts:
         posts[-1] = posts[-1].rstrip() + "\n\n" + tags
-    return jsonify({"ok": True, "blocks": len(posts),
+    return jsonify({"ok": True, "blocks": len(posts), "productName": pname,
                     "affiliate": detect_affiliate(dl) if dl else None,
                     "deeplink": dl, "deeplink2": dl2,
                     "content": "\n===THREAD===\n".join(posts)})
