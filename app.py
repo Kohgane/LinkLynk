@@ -1489,6 +1489,32 @@ def ember_api(action):
 _GIFT_LAST = {}
 
 
+@app.route("/api/gift/debug-search")
+def gift_debug_search():
+    if request.args.get("k") != "kohgane-debug-7134":
+        return jsonify({"ok": False}), 403
+    kw = request.args.get("kw", "하리오 드리퍼")
+    out = {"kw": kw}
+    import gift as _g
+    ck = os.environ.get("COUPANG_ACCESS_KEY", "") or os.environ.get("COUPANG_ACCESS", "")
+    cs = os.environ.get("COUPANG_SECRET_KEY", "") or os.environ.get("COUPANG_SECRET", "")
+    out["cp_key"] = bool(ck and cs)
+    try:
+        from core import CoupangPartners
+        cp = CoupangPartners(ck, cs)
+        items = cp.search_products(kw, limit=8) or []
+        out["cp_n"] = len(items)
+        out["cp_first"] = (items[0].get("name", "")[:40] if items else "")
+    except Exception as e:
+        out["cp_err"] = str(e)[:200]
+    try:
+        nv = _g._naver_shop_search(kw)
+        out["nv_n"] = len(nv or [])
+    except Exception as e:
+        out["nv_err"] = str(e)[:200]
+    return jsonify(out)
+
+
 @app.route("/api/gift/reco", methods=["POST", "OPTIONS"])
 def gift_reco_api():
     if request.method == "OPTIONS":
