@@ -1486,6 +1486,9 @@ def ember_api(action):
     return _ember_resp({"ok": False, "error": "unknown"}, 404)
 
 
+_GIFT_LAST = {}
+
+
 @app.route("/api/gift/reco", methods=["POST", "OPTIONS"])
 def gift_reco_api():
     if request.method == "OPTIONS":
@@ -1536,13 +1539,41 @@ def gift_reco_api():
     exclude = [x.strip()[:30] for x in (d.get("exclude") or []) if x.strip()][:12]
     if not budget:
         return jsonify({"ok": False, "error": "예산을 골라주세요"}), 400
+    last = _GIFT_LAST.get(ip, 0)
+    if now - last < 5:
+        r0 = jsonify({"ok": False, "error": "숨 고르는 중이에요 — 5초 뒤 다시 눌러주세요"})
+        r0.headers["Access-Control-Allow-Origin"] = "*"
+        return r0, 429
+    _GIFT_LAST[ip] = now
+    if len(_GIFT_LAST) > 5000:
+        for k in list(_GIFT_LAST)[:2500]:
+            _GIFT_LAST.pop(k, None)
     import gift as _gift
     key = os.environ.get("BOIM_LLM_KEY", "").strip() or "__free__"
-    r = _gift.recommend(key, who, budget, taste, exclude=exclude)
+    from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FTimeout
+
+    def _run(k):
+        return _gift.recommend(k, who, budget, taste, exclude=exclude)
+
+    _ex = ThreadPoolExecutor(max_workers=1)
+    try:
+        r = _ex.submit(_run, key).result(timeout=50)
+    except _FTimeout:
+        r = {"ok": False, "error": "추천 엔진이 지금 붐벼요 — 10초 뒤 한 번만 다시 눌러주세요", "busy": True}
+    except Exception as _e:
+        r = {"ok": False, "error": "추천 생성 실패", "detail": str(_e)[:200]}
+    finally:
+        _ex.shutdown(wait=False)
     key_err = None
-    if not r.get("ok") and key != "__free__":
+    if not r.get("ok") and not r.get("busy") and key != "__free__":
         key_err = (r.get("detail") or r.get("error") or "")[:500]
-        r = _gift.recommend("__free__", who, budget, taste, exclude=exclude)   # 키 죽어도 서비스는 산다
+        _ex2 = ThreadPoolExecutor(max_workers=1)
+        try:
+            r = _ex2.submit(_run, "__free__").result(timeout=40)
+        except Exception:
+            r = {"ok": False, "error": "추천 엔진이 지금 붐벼요 — 잠시 뒤 다시 눌러주세요"}
+        finally:
+            _ex2.shutdown(wait=False)
     if key_err:
         r["key_err"] = key_err
     if r.get("ok"):
