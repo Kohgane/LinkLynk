@@ -487,8 +487,24 @@ def paste_thread():
     # 링크만 있던 줄은 지우되, 링크 앞뒤 문장은 살린다
     body = _re.sub(r"[^\n]*수수료를 (받|제공받)습니다[^\n]*", "", body)
     body = _re.sub(r"[^\n]*쿠팡파트너스[^\n]*", "", body)
-    body = _re.sub(r"\n{3,}", "\n\n", body)
+    body = _re.sub(r"\n{3,}", "\n\n", body).strip()
+    # ① 빈 줄 기준 분리
     blocks = [b.strip() for b in _re.split(r"\n\s*\n", body) if b.strip()]
+    # ② 모바일에서 붙여넣으면 빈 줄이 사라지는 경우가 많다 → 줄 단위로 재분리
+    if len(blocks) < 5:
+        lines = [l.strip() for l in body.split("\n") if l.strip()]
+        if len(lines) >= 5:
+            blocks = lines
+    # ③ 그래도 부족하면 문장 단위로 쪼갠다
+    if len(blocks) < 5:
+        sents = [x.strip() for x in _re.split(r"(?<=[.!?요다요])\s+", body.replace("\n", " ")) if x.strip()]
+        if len(sents) >= 5:
+            # 문장 7개 이하면 그대로, 많으면 균등 묶음
+            if len(sents) <= 7:
+                blocks = sents
+            else:
+                per = -(-len(sents) // 7)
+                blocks = [" ".join(sents[i:i+per]) for i in range(0, len(sents), per)][:7]
     # 해시태그 줄은 마지막 블록에 붙인다
     tags = ""
     if blocks and blocks[-1].lstrip().startswith("#"):
