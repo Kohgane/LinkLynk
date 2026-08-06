@@ -452,8 +452,11 @@ def recommend(api_key, who, budget, taste, exclude=None):
                     links += res.get("data", [])
             for l in links:
                 u = url_map.get(l.get("originalUrl"))
-                if u and l.get("shortenUrl"):
-                    u["link"] = l["shortenUrl"]
+                # ★landingUrl(/re/*) 우선: 쿠팡 iOS 앱의 유니버설링크는 link.coupang.com의
+                # /re/*·/re2/*만 클레임한다(AASA 실측 2026-08-06). 숏링크(/a/*)는 사파리로
+                # 빠지고, landingUrl은 lptag 추적 파라미터를 문 채로 쿠팡앱을 직접 연다.
+                if u and (l.get("landingUrl") or l.get("shortenUrl")):
+                    u["link"] = l.get("landingUrl") or l["shortenUrl"]
     except Exception:
         pass   # 변환 실패 시 기존 링크 유지
 
