@@ -1400,6 +1400,21 @@ def ember_config():
     return r
 
 
+@app.route("/api/toilet/report", methods=["POST", "OPTIONS"])
+def toilet_report():
+    hdr = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type"}
+    if request.method == "OPTIONS":
+        r = jsonify({"ok": True}); r.headers.update(hdr); return r
+    import toilet
+    d = request.get_json(silent=True) or {}
+    try:
+        lat = float(d.get("lat", 0)); lng = float(d.get("lng", 0))
+    except (TypeError, ValueError):
+        lat = lng = 0
+    ok = toilet.report(lat, lng, str(d.get("kind") or ""), str(d.get("name") or ""))
+    r = jsonify({"ok": bool(ok)}); r.headers.update(hdr); return r
+
+
 @app.route("/api/toilet/near", methods=["GET", "OPTIONS"])
 def toilet_near():
     r_hdr = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type"}
