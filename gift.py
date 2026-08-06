@@ -199,22 +199,27 @@ def recommend(api_key, who, budget, taste, exclude=None):
         f"받는 사람: {who or '특정하지 않음 — 누구에게든 두루 통하는 세련된 선물로'}\n"
         f"예산: {budget}\n취향 힌트: {taste or '없음'}{ex}\n\n"
         "먼저 받는 사람의 핵심 단서(고민·니즈·취향) 하나를 파악하고, "
-        "그 단서에 직접 답하는 선물 방향 3개를 서로 완전히 다른 계열로.\n"
+        "그 단서에 직접 답하는 선물 방향 4개를 서로 완전히 다른 계열로 "
+        "(최소 하나는 의외의 계열 — 뻔한 조합 금지).\n"
         "★keyword의 상품 실구매가가 반드시 예산 범위 안이어야 한다. 저 예산이면 그 값어치의 물건을 — "
         "20만원대 예산에 만원짜리 소품 금지, 3만원대 예산에 30만원짜리 금지.\n"
         "★쿠팡에서 실제 판매될 법한 키워드만 (에르메스·까르띠에급 하이엔드 명품 주얼리는 쿠팡에 없다 — "
         "그 예산대라면 리델 잔 세트, 이딸라 풀세트, 빈티지 그릇, 니치 향수, 만년필, 오디오 같은 걸로).\n"
         "angle(계열 이름)도 세련되게 — '감각적 소품' 같은 밋밋한 말 대신 "
         "그 방향의 매력을 담은 짧은 이름(예: '백년 된 물건의 힘', '책상 위의 의식', '아날로그 한 조각').\n"
+        "★keyword는 검색 정밀도가 생명: 브랜드+제품라인+구체 사양으로 3~5단어 "
+        "(예: '이딸라 떼에마 머그 300ml' — '예쁜 머그컵' 같은 뭉툭한 말 금지). "
+        "단 쿠팡 검색에 안 걸릴 과도한 수식은 빼라.\n"
+        "★alt는 같은 방향의 다른 브랜드 대체 검색어(2~4단어) — keyword가 쿠팡에 없을 때 대비.\n"
         'JSON: {"clue":"받는 사람의 핵심 단서(형용사·상황) 한 단어",'
-        '"picks":[{"keyword":"브랜드명+상품유형(2~4단어)","reason":"한 줄 이유","angle":"계열 이름"}x3]}'
+        '"picks":[{"keyword":"브랜드+라인+사양(3~5단어)","alt":"대체 브랜드 검색어","reason":"한 줄 이유","angle":"계열 이름"}x4]}'
     )
-    r = llm_chat(api_key, _SYS, user, max_tokens=900)
+    r = llm_chat(api_key, _SYS, user, max_tokens=1200)
     if not r.get("ok"):
         return {"ok": False, "error": "추천 생성 실패",
                 "detail": str(r.get("error") or "")[:120] + " " + str(r.get("detail") or "")[:150]}
     try:
-        picks = _parse_json_out(r["text"]).get("picks", [])[:3]
+        picks = _parse_json_out(r["text"]).get("picks", [])[:4]
     except Exception:
         return {"ok": False, "error": "추천 형식 오류"}
     if not picks:
@@ -290,24 +295,24 @@ def recommend(api_key, who, budget, taste, exclude=None):
                 picked += own[:1]
 
             # ② 쿠팡 브랜드 진품 — 넓은 가격창 (선물은 브랜드 정합 > 엄격한 예산)
-            if len(picked) < 3:
+            if len(picked) < 4:
                 # ★부분일치 함정 방지: '라이프' 노트 -> '라이프베리' 립글로스 사태.
                 # 브랜드 + 품목 토큰까지 맞아야 진품 취급 (키워드 1단어면 브랜드만)
                 bh = [u for u in rel_cp if brand and brand in u["name"]
                       and (len(toks) < 2 or any(t in u["name"] for t in toks[1:]))
                       and _price_ok_range(u, wide_lo, wide_hi)]
-                picked += [u for u in bh if u not in picked][:3 - len(picked)]
+                picked += [u for u in bh if u not in picked][:4 - len(picked)]
 
             # ③ 쿠팡 일반 — ★토큰 2개 이상 일치만 (브랜드 없이 '파우더' 한 단어로
             # 로즈마리 요리 파우더가 끼는 것 차단. 1개 일치는 실격 -> 빈 결과가
             # 재추천 루프를 발동시켜 쿠팡에 실재하는 브랜드로 교체됨)
-            if len(picked) < 3:
+            if len(picked) < 4:
                 def _score(u):
                     return sum(1 for t in toks if t in u["name"])
                 need = 2 if len(toks) >= 2 else 1
                 gen = [u for u in rel_cp
                        if _price_ok(u) and u not in picked and _score(u) >= need]
-                picked += gen[:3 - len(picked)]
+                picked += gen[:4 - len(picked)]
 
 
             # 내부 필드 정리
@@ -319,7 +324,7 @@ def recommend(api_key, who, budget, taste, exclude=None):
                 _tk = _kw_tokens(kw)
                 if len(_tk) >= 3:
                     return _fetch(f"{_tk[0]} {_tk[-1]}", _retry=False)
-            return _dedupe_products(picked)[:3]
+            return _dedupe_products(picked)[:4]
         except Exception:
             return []
 
@@ -329,12 +334,21 @@ def recommend(api_key, who, budget, taste, exclude=None):
         return re.sub(r"\s+", " ", k).strip()[:40]
 
     kws = [_clean_kw(p.get("keyword")) for p in picks]
+    alts = [_clean_kw(p.get("alt")) for p in picks]
     results = {}
     if cp:
         from concurrent.futures import ThreadPoolExecutor
-        with ThreadPoolExecutor(max_workers=3) as pool:
+        with ThreadPoolExecutor(max_workers=4) as pool:
             futs = {kw: pool.submit(_fetch, kw) for kw in kws if kw}
             results = {kw: f.result() for kw, f in futs.items()}
+        need_alt = [(kw, alt) for kw, alt in zip(kws, alts)
+                    if alt and len(results.get(kw, [])) < 2]
+        if need_alt:
+            with ThreadPoolExecutor(max_workers=3) as pool:
+                afuts = {kw: pool.submit(_fetch, alt) for kw, alt in need_alt}
+                for kw, f in afuts.items():
+                    extra = [u for u in f.result() if u not in results.get(kw, [])]
+                    results[kw] = _dedupe_products(results.get(kw, []) + extra)[:4]
 
     out = []
     for p, kw in zip(picks, kws):
