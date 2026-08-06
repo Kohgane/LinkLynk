@@ -1512,6 +1512,7 @@ def gift_debug_search():
         out["nv_n"] = len(nv or [])
     except Exception as e:
         out["nv_err"] = str(e)[:200]
+    out["last_fetch_err"] = getattr(_g, "LAST_FETCH_ERR", "")
     return jsonify(out)
 
 

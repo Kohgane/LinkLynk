@@ -341,6 +341,8 @@ def recommend(api_key, who, budget, taste, exclude=None):
                     return _fetch(f"{_tk[0]} {_tk[-1]}", _retry=False)
             return _dedupe_products(picked)[:4]
         except Exception:
+            import traceback
+            globals()["LAST_FETCH_ERR"] = traceback.format_exc()[-800:]
             return []
 
     def _clean_kw(k):
