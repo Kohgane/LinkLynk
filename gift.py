@@ -260,6 +260,9 @@ def recommend(api_key, who, budget, taste, exclude=None):
     def _price_ok(u):
         return _price_ok_range(u, _lo, _hi)
 
+    def _score2(u, toks):
+        return sum(1 for t in toks if t in u.get("name", ""))
+
     def _relevant(items, toks):
         return [u for u in items if any(t in u["name"] for t in toks)] if toks else items
 
@@ -314,6 +317,18 @@ def recommend(api_key, who, budget, taste, exclude=None):
                        if _price_ok(u) and u not in picked and _score(u) >= need]
                 picked += gen[:4 - len(picked)]
 
+
+            # ★가격 전멸 구제 2단: 정밀 키워드가 저가/고가 실상품에 꽂혀
+            # 예산창이 전부 걸러버리는 역설 방지 (0개 노출 >> 예산 약간 이탈)
+            if not picked:
+                r_lo, r_hi = int(_lo * 0.5), int(_hi * 1.6)
+                resc = [u for u in rel_cp if _score2(u, toks) >= (2 if len(toks) >= 2 else 1)
+                        and _price_ok_range(u, r_lo, r_hi)]
+                resc.sort(key=lambda u: abs(int(u.get("price") or 0) - (_lo + _hi) // 2))
+                picked += resc[:3]
+            if not picked and rel_cp:
+                resc = sorted(rel_cp, key=lambda u: -_score2(u, toks))
+                picked += [u for u in resc if int(u.get("price") or 0) <= _hi * 2][:2]
 
             # 내부 필드 정리
             for u in picked:
