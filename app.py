@@ -1383,10 +1383,23 @@ def emberduo_og():
     return send_file("static/emberduo-og.png", mimetype="image/png")
 
 
+def _ait_ad(env_key, mode_key):
+    """광고 ID 스위치. 토스 정책상 미출시(QR/테스트) 환경에선 라이브 ID(ait.v2.live.*)가
+    이벤트 없이 무한로딩만 하고, 실ID로 테스트하면 정책 위반이다. env 한 줄로 전환:
+    {mode_key}=test -> 공용 테스트 ID / off -> 광고 게이트 끔 / (미설정) -> 라이브 ID."""
+    import os
+    mode = os.environ.get(mode_key, "").strip().lower()
+    if mode == "test":
+        return "ait-ad-test-rewarded-id"
+    if mode == "off":
+        return ""
+    return os.environ.get(env_key, "").strip()
+
+
 @app.route("/api/toilet/config", methods=["GET"])
 def toilet_config():
     import os
-    r = jsonify({"ok": True, "ad_group_id": os.environ.get("GOTTAGO_AD_GROUP_ID", ""),
+    r = jsonify({"ok": True, "ad_group_id": _ait_ad("GOTTAGO_AD_GROUP_ID", "GOTTAGO_AD_MODE"),
                  "free_per_day": int(os.environ.get("GOTTAGO_FREE_PER_DAY", "3"))})
     r.headers["Access-Control-Allow-Origin"] = "*"
     return r
@@ -1394,8 +1407,7 @@ def toilet_config():
 
 @app.route("/api/ember/config", methods=["GET"])
 def ember_config():
-    import os
-    r = jsonify({"ok": True, "ad_group_id": os.environ.get("EMBER_AD_GROUP_ID", "")})
+    r = jsonify({"ok": True, "ad_group_id": _ait_ad("EMBER_AD_GROUP_ID", "EMBER_AD_MODE")})
     r.headers["Access-Control-Allow-Origin"] = "*"
     return r
 
@@ -1487,6 +1499,7 @@ def ember_api(action):
 
 
 _GIFT_LAST = {}
+_GIFT_EXCL = {}   # 재뽑기 누적 배제 히스토리 {기기|조건: {"t": ts, "kw": [...]}}
 
 
 @app.route("/api/gift/debug-search")
@@ -1563,7 +1576,15 @@ def gift_reco_api():
         who = (who + f" ({demo.strip()})").strip() if who else demo.strip()
     budget = (d.get("budget") or "").strip()[:20]
     taste = (d.get("taste") or "").strip()[:80]
-    exclude = [x.strip()[:30] for x in (d.get("exclude") or []) if x.strip()][:12]
+    exclude = [x.strip()[:30] for x in (d.get("exclude") or []) if x.strip()][:20]
+    # ★재뽑기 누적 배제: 클라는 직전 라운드 키워드만 보낸다 — 같은 조건(기기+대상+예산+취향)의
+    # 이전 라운드 전부를 서버가 기억해 합쳐야 3번째 뽑기가 1라운드로 회귀하지 않는다.
+    _ck = ip + "|" + who + "|" + budget + "|" + taste
+    _pv = _GIFT_EXCL.get(_ck)
+    if exclude and _pv and now - _pv.get("t", 0) < 7200:
+        exclude = list(dict.fromkeys(_pv.get("kw", []) + exclude))[-24:]
+    elif not exclude:
+        _GIFT_EXCL.pop(_ck, None)   # 조건 새로 입력 = 히스토리 리셋
     if not budget:
         return jsonify({"ok": False, "error": "예산을 골라주세요"}), 400
     last = _GIFT_LAST.get(ip, 0)
@@ -1608,6 +1629,13 @@ def gift_reco_api():
                      "b": (is_bonus and base_used >= _GIFT_BASE_LIMIT
                            and not consumed_credit)})
         _GIFT_IP[ip] = hist
+        _kws = [p.get("keyword", "") for p in (r.get("picks") or []) if p.get("keyword")]
+        if _kws:
+            _GIFT_EXCL[_ck] = {"t": now,
+                               "kw": list(dict.fromkeys(list(exclude or []) + _kws))[-24:]}
+            if len(_GIFT_EXCL) > 3000:
+                for _k in list(_GIFT_EXCL)[:1500]:
+                    _GIFT_EXCL.pop(_k, None)
     resp = jsonify(r)
     resp.headers["Access-Control-Allow-Origin"] = "*"
     return resp
