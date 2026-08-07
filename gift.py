@@ -191,6 +191,18 @@ def _dedupe_products(items):
     return out
 
 
+def _style_line(taste):
+    """추천 스타일 3모드: 취향 힌트 속 칩 문구로 감지.
+    '정석'이면 뻔함 환영, '의외'면 뻔함 금지, 무표기면 혼합(기본)."""
+    t = taste or ""
+    if "정석" in t or "뻔해도" in t or "무난" in t:
+        return ("★스타일=정석: 스테디셀러·검증된 정석 환영. 의외성 강박 금지 — "
+                "받는 사람이 확실히 쓸 물건이 최우선. 다만 같은 정석이라도 급이 다른 버전으로.")
+    if "의외" in t or "특이" in t or "남다른" in t:
+        return "★스타일=의외: 전부 의외의 계열 — 뻔한 조합 절대 금지, 듣도 보도 못한 결로."
+    return "★스타일=혼합(기본): 정석 1~2개 + 나머지는 의외의 계열로 섞어라."
+
+
 def recommend(api_key, who, budget, taste, exclude=None):
     reroll = bool(exclude)
     n_dir = 5 if reroll else 4     # ★재뽑기 = 폭 확장: 방향 4->5
@@ -205,8 +217,8 @@ def recommend(api_key, who, budget, taste, exclude=None):
         f"받는 사람: {who or '특정하지 않음 — 누구에게든 두루 통하는 세련된 선물로'}\n"
         f"예산: {budget}\n취향 힌트: {taste or '없음'}{ex}\n\n"
         "먼저 받는 사람의 핵심 단서(고민·니즈·취향) 하나를 파악하고, "
-        f"그 단서에 직접 답하는 선물 방향 {n_dir}개를 서로 완전히 다른 계열로 "
-        "(최소 하나는 의외의 계열 — 뻔한 조합 금지).\n"
+        f"그 단서에 직접 답하는 선물 방향 {n_dir}개를 서로 완전히 다른 계열로.\n"
+        + _style_line(taste) + "\n"
         + ("★각 방향은 서로 다른 카테고리 패밀리에서 하나씩만: 문구·필기 / 홈카페·차 / "
            "향·공간 / 주방·리빙 / 주류·잔 / EDC·가죽 / 오디오·아날로그 / 아웃도어 / "
            "바디·그루밍 / 보드게임·취미 / 패션잡화(모자·스카프·장갑) / 도자·유리 공예 / "
