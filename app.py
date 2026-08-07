@@ -1608,7 +1608,7 @@ def gift_reco_api():
         demo = (f"{_a}대 " if _a else "") + {"여": "여성", "남": "남성"}.get(_g, "")
         who = (who + f" ({demo.strip()})").strip() if who else demo.strip()
     budget = (d.get("budget") or "").strip()[:20]
-    taste = (d.get("taste") or "").strip()[:200]   # 상황·스타일 칩+자유입력 동승
+    taste = (d.get("taste") or "").strip()[:300]   # 상황·스타일 칩+자유입력 동승
     exclude = [x.strip()[:30] for x in (d.get("exclude") or []) if x.strip()][:20]
     # ★재뽑기 누적 배제: 클라는 직전 라운드 키워드만 보낸다 — 같은 조건(기기+대상+예산+취향)의
     # 이전 라운드 전부를 서버가 기억해 합쳐야 3번째 뽑기가 1라운드로 회귀하지 않는다.
