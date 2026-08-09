@@ -445,8 +445,8 @@ def recommend(api_key, who, budget, taste, exclude=None):
                     results[kw] = _dedupe_products(results.get(kw, []) + extra)[:n_prod]
 
     out = []
-    for p, kw in zip(picks, kws):
-        out.append({"keyword": kw,
+    for p, kw, _alt in zip(picks, kws, alts):
+        out.append({"keyword": kw, "_alt": _alt,
                     "reason": scrub_garbled(str(p.get("reason") or ""))[:160],
                     "angle": scrub_garbled(str(p.get("angle") or ""))[:20],
                     "products": results.get(kw, [])})
@@ -487,27 +487,25 @@ def recommend(api_key, who, budget, taste, exclude=None):
                                   "reason": scrub_garbled(str(p2.get("reason") or ""))[:160],
                                   "angle": scrub_garbled(str(p2.get("angle") or ""))[:20],
                                   "products": prods2}
-    # ★alt 재정렬: 상품 전부가 keyword 브랜드와 무관하면(=alt 브랜드로 채워진 픽)
-    # 키워드·설명을 실브랜드 기준으로 갈아끼워 삼자일치를 만든다
-    for p in picks:
-        kw0 = str(p.get("keyword") or "").split()
-        prods = p.get("products") or []
+    # ★삼자일치 최종 패스 (응답 실체인 out 대상):
+    # ①alt로 채워진 픽은 키워드·설명을 실브랜드로 재정렬 ②설명이 키워드 브랜드를
+    # 안 담으면 중립화 — 사용자 눈에 설명-키워드-상품이 절대 어긋나지 않게.
+    for o in out:
+        kw0 = str(o.get("keyword") or "").split()
+        prods = o.get("products") or []
         b = kw0[0] if kw0 else ""
         if b and prods and not any(_bmatch(b, u.get("name") or "") for u in prods):
             nb = ((prods[0].get("name") or "").split() or [""])[0]
             if nb:
-                alt = str(p.get("alt") or "")
-                p["keyword"] = alt if (alt and nb in alt) else \
+                alt = str(o.get("_alt") or "")
+                o["keyword"] = alt if (alt and nb in alt) else \
                     (nb + (" " + " ".join(kw0[1:3]) if len(kw0) > 1 else "")).strip()
-                p["reason"] = nb + " — 같은 결의 검증된 대안으로 골랐어요."
-
-    # ★설명-상품 불일치 중립화: reason이 keyword 브랜드를 안 담으면(엉뚱 브랜드 서사)
-    # 상품과 어긋나 보이므로 keyword 기준 안전 문구로 교체
-    for p in picks:
-        kw0 = str(p.get("keyword") or "").split()
-        if kw0 and p.get("reason") and kw0[0] not in str(p.get("reason", "")):
-            p["reason"] = (kw0[0] + " " + " ".join(kw0[1:3])).strip() + \
+                o["reason"] = nb + " — 같은 결의 검증된 대안으로 골랐어요."
+        kw0 = str(o.get("keyword") or "").split()
+        if kw0 and o.get("reason") and kw0[0] not in str(o.get("reason", "")):
+            o["reason"] = (kw0[0] + " " + " ".join(kw0[1:3])).strip() + \
                           " — 받는 분의 결에 맞춰 고른 픽이에요."
+        o.pop("_alt", None)
 
     # ★빈 픽 제거: '상품을 찾지 못했어요' 카드는 체감 품질을 죽인다 —
     # 꽉 찬 2장이 빈칸 낀 3장보다 낫다 (전부 비면 그대로 두고 에러 노출)
