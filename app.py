@@ -485,6 +485,15 @@ def paste_thread():
     for l in uniq:
         body = body.replace(l, "")
     # 링크만 있던 줄은 지우되, 링크 앞뒤 문장은 살린다
+    # ★고지문구 줄에 상품명이 같이 붙어 있는 경우가 많다(토스 공유 형식).
+    #  "…제공받습니다. 터치 라이트 아토캡 캡슐세제, 8g" → 상품명만 건져낸다.
+    _m = _re.search(r"수수료를 (?:받|제공받)습니다\.?\s*(.+)", body)
+    if _m:
+        _cand = _m.group(1).strip()
+        if 2 <= len(_cand) <= 80 and not _cand.startswith("#"):
+            d.setdefault("productName", "")
+            if not (d.get("productName") or "").strip():
+                d["productName"] = _cand
     body = _re.sub(r"[^\n]*수수료를 (받|제공받)습니다[^\n]*", "", body)
     body = _re.sub(r"[^\n]*쿠팡파트너스[^\n]*", "", body)
     body = _re.sub(r"\n{3,}", "\n\n", body).strip()
