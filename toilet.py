@@ -153,3 +153,111 @@ def near_v2(lat, lng, n=15):
                     "rep_ok": a.get("ok", 0), "rep_safe": a.get("safe", 0),
                     "rep_closed": a.get("closed", 0)})
     return res
+
+
+# ══════════ 도장깨기 (발자취 메커니즘: 자동 기록 + 시군구 수집) ══════════
+_GEO = None
+_SIDO = {"11": "서울", "21": "부산", "22": "대구", "23": "인천", "24": "광주",
+         "25": "대전", "26": "울산", "29": "세종", "31": "경기", "32": "강원",
+         "33": "충북", "34": "충남", "35": "전북", "36": "전남", "37": "경북",
+         "38": "경남", "39": "제주"}
+
+
+def _geo_load():
+    """시군구 경계(251개) 지연 로드 + bbox 프리컴퓨트"""
+    global _GEO
+    if _GEO is None:
+        p = os.path.join(os.path.dirname(os.path.abspath(__file__)), "kr_sigungu_geo.json")
+        feats = json.load(open(p, encoding="utf-8"))["features"]
+        out = []
+        for f in feats:
+            g = f["geometry"]
+            polys = g["coordinates"] if g["type"] == "MultiPolygon" else [g["coordinates"]]
+            rings = [pl[0] for pl in polys if pl]
+            xs = [x for r in rings for x, y in r]
+            ys = [y for r in rings for x, y in r]
+            out.append({"code": f["properties"].get("code", ""),
+                        "name": f["properties"].get("name", ""),
+                        "bbox": (min(xs), min(ys), max(xs), max(ys)), "rings": rings})
+        _GEO = out
+    return _GEO
+
+
+def _pip(lat, lng, ring):
+    inside = False
+    j = len(ring) - 1
+    for i in range(len(ring)):
+        xi, yi = ring[i][0], ring[i][1]
+        xj, yj = ring[j][0], ring[j][1]
+        if (yi > lat) != (yj > lat) and lng < (xj - xi) * (lat - yi) / ((yj - yi) or 1e-12) + xi:
+            inside = not inside
+        j = i
+    return inside
+
+
+def region_of(lat, lng):
+    for f in _geo_load():
+        x0, y0, x1, y1 = f["bbox"]
+        if not (x0 <= lng <= x1 and y0 <= lat <= y1):
+            continue
+        for ring in f["rings"]:
+            if _pip(lat, lng, ring):
+                sido = _SIDO.get(str(f["code"])[:2], "")
+                return str(f["code"]), (sido + " " + f["name"]).strip()
+    return "", ""
+
+
+def _pg(method, path):
+    req = urllib.request.Request(SB_URL + "/rest/v1/" + path, method=method.split(":")[0])
+    req.add_header("apikey", SB_KEY)
+    req.add_header("Authorization", "Bearer " + SB_KEY)
+    return req
+
+
+def stamp(did, name, lat, lng):
+    """지도앱 여는 순간 자동 도장. 같은 곳(소수4자리)+같은 기기 12시간 내 중복 스킵."""
+    la, ln = round(lat, 4), round(lng, 4)
+    since = (datetime.datetime.utcnow() - datetime.timedelta(hours=12)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    try:
+        q = "gg_stamps?did=eq.%s&lat=eq.%s&lng=eq.%s&ts=gte.%s&select=id&limit=1" % (
+            urllib.request.quote(did), la, ln, since)
+        if json.loads(urllib.request.urlopen(_pg("GET", q), timeout=8).read() or b"[]"):
+            return {"ok": True, "dup": True}
+    except Exception:
+        pass
+    code, region = region_of(lat, lng)
+    try:
+        req = _pg("POST", "gg_stamps")
+        req.add_header("Content-Type", "application/json")
+        req.add_header("Prefer", "return=minimal")
+        req.data = json.dumps({"did": did[:64], "name": (name or "")[:40], "lat": la, "lng": ln,
+                               "region_code": code, "region": region}).encode()
+        urllib.request.urlopen(req, timeout=8).read()
+        return {"ok": True, "region": region}
+    except Exception:
+        return {"ok": False}
+
+
+_TITLES = [(100, "👑 골든 스로너"), (40, "🛡 화장실 개척자"), (15, "🏇 순례자"),
+           (5, "🧭 탐색가"), (1, "🚽 초행자"), (0, "🌱 새싹")]
+
+
+def mystats(did):
+    try:
+        q = "gg_stamps?did=eq.%s&select=name,lat,lng,region,region_code,ts&order=ts.desc&limit=2000" % \
+            urllib.request.quote(did)
+        rows = json.loads(urllib.request.urlopen(_pg("GET", q), timeout=8).read() or b"[]")
+    except Exception:
+        rows = []
+    places = {(r["lat"], r["lng"]) for r in rows}
+    regions = {}
+    for r in rows:
+        if r.get("region_code"):
+            regions[r["region_code"]] = r.get("region", "")
+    n = len(rows)
+    title = next(t for th, t in _TITLES if n >= th)
+    return {"ok": True, "stamps": n, "places": len(places),
+            "regions": sorted(set(regions.values())), "region_n": len(regions),
+            "total_regions": 251, "title": title,
+            "recent": [{"name": r.get("name") or "이름 없는 화장실", "region": r.get("region", ""),
+                        "ts": (r.get("ts") or "")[:10]} for r in rows[:5]]}

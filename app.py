@@ -1460,6 +1460,37 @@ def toilet_report():
     r = jsonify({"ok": bool(ok)}); r.headers.update(hdr); return r
 
 
+@app.route("/api/toilet/stamp", methods=["POST", "OPTIONS"])
+def toilet_stamp():
+    hdr = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type"}
+    if request.method == "OPTIONS":
+        r = jsonify({"ok": True}); r.headers.update(hdr); return r
+    import toilet
+    d = request.get_json(silent=True) or {}
+    did = str(d.get("did") or "")[:64]
+    try:
+        lat = float(d.get("lat", 0)); lng = float(d.get("lng", 0))
+    except (TypeError, ValueError):
+        lat = lng = 0
+    if not did or not (33 < lat < 39 and 124 < lng < 132):
+        r = jsonify({"ok": False}); r.headers.update(hdr); return r, 400
+    r = jsonify(toilet.stamp(did, str(d.get("name") or ""), lat, lng))
+    r.headers.update(hdr); return r
+
+
+@app.route("/api/toilet/mystats", methods=["GET", "OPTIONS"])
+def toilet_mystats():
+    hdr = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type"}
+    if request.method == "OPTIONS":
+        r = jsonify({"ok": True}); r.headers.update(hdr); return r
+    import toilet
+    did = str(request.args.get("did") or "")[:64]
+    if not did:
+        r = jsonify({"ok": False}); r.headers.update(hdr); return r, 400
+    r = jsonify(toilet.mystats(did))
+    r.headers.update(hdr); return r
+
+
 @app.route("/api/toilet/near", methods=["GET", "OPTIONS"])
 def toilet_near():
     r_hdr = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type"}
