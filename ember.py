@@ -92,11 +92,12 @@ def _rollover(p):
                 p["freeze"] -= 1        # 프리즈 1개로 하루 방어
             else:
                 p["streak"] = 0
-    if p.get("a_note") or p.get("b_note"):
+    if p.get("a_note") or p.get("b_note") or p.get("a_mood") or p.get("b_mood"):
         p.setdefault("log", []).append({
             "d": p["day"], "a": p.get("a_note", ""), "b": p.get("b_note", ""),
-            "am": p.get("a_mood", ""), "bm": p.get("b_mood", "")})
-        p["log"] = p["log"][-30:]
+            "am": p.get("a_mood", ""), "bm": p.get("b_mood", ""),
+            "full": bool(p.get("a_done") and p.get("b_done"))})
+        p["log"] = p["log"][-40:]
     p["m_off"] = 0
     p["chat"] = []
     p["day"] = today
@@ -176,6 +177,41 @@ def checkin(code, did, mood, note="", av="", vibe=""):
     save(p)
     return p, None
 
+
+_TITLES = [(365, "🌅 영원한 불"), (100, "🔥 화톳불"), (60, "🗼 봉화"), (30, "🕯 횃불"),
+           (14, "🏮 화롯불"), (7, "🪵 모닥불"), (3, "✨ 불꽃지기"), (1, "🔥 불씨"), (0, "🌱 첫 불씨 전")]
+
+_QS = ["오늘 최고의 한 입은 뭐였어?", "오늘 나를 웃게 한 순간은?", "지금 제일 듣고 싶은 노래는?",
+ "오늘 하루를 색으로 표현하면?", "요즘 제일 기다려지는 게 뭐야?", "오늘 가장 고마웠던 사람은?",
+ "지금 창밖 날씨 어때?", "오늘의 나에게 점수를 준다면?", "요즘 빠져있는 거 하나만!",
+ "내일 꼭 하고 싶은 것 하나는?", "오늘 들은 말 중 기억에 남는 건?", "지금 먹고 싶은 야식은?",
+ "오늘 걸은 길 중 제일 좋았던 곳은?", "요즘 고민 한 줄로 하면?", "오늘 산 것 중 제일 잘 산 건?",
+ "어릴 때 이맘때 뭐 하고 놀았어?", "지금 당장 떠난다면 어디로?", "오늘의 BGM은 뭐였어?",
+ "요즘 제일 자주 쓰는 이모지는?", "오늘 처음 해본 게 있다면?", "지금 옆에 있으면 좋겠는 것?",
+ "오늘 하루 중 다시 돌리고 싶은 순간은?", "요즘 최애 간식은?", "오늘 나의 MVP 순간은?",
+ "함께 가보고 싶은 곳 하나만!", "오늘 배운 것 하나는?", "지금 기분을 날씨로 말하면?",
+ "요즘 아침에 눈 뜨면 제일 먼저 뭐 해?", "오늘 제일 오래 본 화면은?", "이번 주말에 뭐 하고 싶어?",
+ "최근에 참은 것 중 제일 힘들었던 건?", "오늘 스스로 칭찬할 일 하나는?", "요즘 새로 알게 된 맛집은?",
+ "지금 생각나는 옛날 추억 하나는?", "오늘 하루가 영화라면 제목은?", "요즘 위시리스트 1순위는?",
+ "오늘 마신 것 중 제일 맛있던 건?", "함께 해보고 싶은 챌린지 있어?", "오늘 만난 귀여운 것은?",
+ "지금 딱 한 시간 자유시간이 생기면?", "요즘 제일 편한 옷은?", "오늘 나를 버티게 한 건?",
+ "최근 웃긴 짤 하나 소환한다면?", "오늘 밥 뭐 먹었어? 솔직히!", "요즘 잠들기 전에 뭐 해?",
+ "우리 처음 만났을 때 첫인상 기억나?", "오늘 하늘 봤어? 어땠어?", "요즘 제일 아끼는 물건은?",
+ "다음에 만나면 뭐 먹을까?", "오늘의 컨디션 몇 %였어?", "요즘 도전해보고 싶은 건?",
+ "오늘 지나가다 본 것 중 인상 깊은 건?", "겨울/여름 중 지금 어느 쪽이 그리워?", "요즘 나의 스트레스 해소법은?",
+ "오늘 누군가에게 들키고 싶지 않았던 순간은?", "지금 당장 순간이동 된다면?", "요즘 제일 보고 싶은 사람은?",
+ "오늘 한 결정 중 제일 잘한 건?", "나의 요즘을 한 단어로 하면?", "오늘 밤 꿈에서 보고 싶은 장면은?"]
+
+
+def title_of(streak):
+    return next(t for th, t in _TITLES if streak >= th)
+
+
+def q_today():
+    doy = (datetime.datetime.utcnow() + datetime.timedelta(hours=9)).timetuple().tm_yday
+    return _QS[doy % len(_QS)]
+
+
 def state(code, did):
     p = load(code)
     if not p:
@@ -200,7 +236,9 @@ def state(code, did):
             "m_off": p.get("m_off", 0),
             "solo": bool(p.get("b") and p["b"].get("did") == "bot"),
             "chat": [{**c, "me": c["s"] == me} for c in p.get("chat", [])[-24:]],
-            "log": list(reversed(p.get("log", [])[-14:])),
+            "log": list(reversed(p.get("log", [])[-30:])),
+            "title": title_of(p["streak"]), "q": q_today(),
+            "week_full": sum(1 for x in p.get("log", [])[-7:] if x.get("full")),
             "both_done": p["a_done"] and p["b_done"]}
 
 def add_freeze(code):
