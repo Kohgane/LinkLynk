@@ -96,6 +96,34 @@ def plan(birth_year=None, license_type=None, license_year=None,
         except Exception:
             pass
 
+    # ── 세금 캘린더 (전국 공통 법정 기한 — 벤치마킹: 세금 시즌에 정부24류 급등) ──
+    def _next(m, d, m2=None, d2=None):
+        """매년 반복 기한의 다음 도래일 (m2/d2 주면 연2회 중 가까운 것)"""
+        cands = [datetime.date(today.year + dy, mm, dd)
+                 for dy in (0, 1) for mm, dd in ([(m, d)] + ([(m2, d2)] if m2 else []))]
+        return min(c for c in cands if c >= today)
+
+    add("🏠", "재산세 납부", _next(7, 31, 9, 30),
+        "기한 넘기면 가산금 3% + 매달 중가산", "위택스·서울은 이택스, 토스 고지서 납부도 가능",
+        "1기분 7/31 · 2기분 9/30 (주택·토지)")
+    add("🧾", "주민세(개인분) 납부", _next(8, 31),
+        "기한 넘기면 가산금 3%", "위택스 또는 고지서 — 8월 한 달이 납부기간",
+        "매년 8/16~8/31")
+    if car_reg:
+        add("🚙", "자동차세 납부", _next(6, 30, 12, 31),
+            "기한 넘기면 가산금 3%", "위택스 납부 — 1월 연납 신청하면 할인",
+            "1기분 6/30 · 2기분 12/31")
+        jan = datetime.date(today.year + (1 if today.month > 1 else 0), 1, 31)
+        add("💸", "자동차세 연납 신청", jan,
+            "놓치면 할인 없이 연 2회 납부", "위택스 > 자동차세 연납 신청 (1월 한 달)",
+            "1월 신청 시 연세액 할인")
+    add("📊", "종합소득세 신고", _next(5, 31),
+        "무신고 가산세 20% — 프리랜서·부업·임대소득 해당", "홈택스 5/1~5/31 (해당자만)",
+        "근로소득만 있으면 연말정산으로 갈음")
+    add("🧮", "부가가치세 신고", _next(1, 25, 7, 25),
+        "무신고 가산세 — 사업자만 해당", "홈택스 1/25·7/25 (간이과세는 1/25 연 1회)",
+        "사업자등록 있는 경우만")
+
     # 긴급도 정렬: 이미 지난 것 -> 임박 -> 먼 것
     items.sort(key=lambda x: (x["dday"] is None, x["dday"] if x["dday"] is not None else 9999))
     # 상태 태그
