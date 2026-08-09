@@ -2588,6 +2588,14 @@ def generate_manual():
     product_name = (d.get("productName") or "쿠팡 상품").strip()
     # ★정보글 모드: 링크 없이 쓴다 (계정 품질 유지용 — 광고글만 쌓이면 노출이 죽는다)
     _info_mode = (d.get("post_mode") or "ad") == "info"
+    # ★비쿠팡 링크는 상품 정보를 가져올 방법이 없다(토스·네이버 API 없음).
+    #  상품명이 비면 AI가 엉뚱한 상품 글을 지어내므로 여기서 막는다.
+    if (not _info_mode) and "coupang" not in (deeplink or "").lower():
+        if not product_name or product_name == "쿠팡 상품":
+            return jsonify({"ok": False,
+                "error": "토스·네이버 링크는 상품 이름을 직접 입력해야 해요. "
+                         "(예: 터치 라이트 아토캡 캡슐세제 120개입)",
+                "need_product_name": True}), 400
     if _info_mode:
         deeplink = ""
     elif not any(h in deeplink.lower() for _v in __import__("core").AFFILIATES.values()

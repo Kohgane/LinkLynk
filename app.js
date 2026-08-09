@@ -403,6 +403,12 @@ async function generate(){
   const _isCp = /coupang/.test(url);
   const _isAff = _isCp || /toss\.(im|me)|shopping\.toss|naver\.me|smartstore\.naver/.test(url);
   if(_pm !== 'info' && !_isAff){ toast('쿠팡·토스·네이버 제휴 링크를 붙여넣어 주세요'); return; }
+  // ★토스·네이버는 상품 정보를 가져올 API가 없다 → 상품명 필수
+  if(_pm !== 'info' && !_isCp && (pname === '쿠팡 상품' || !pname.trim())){
+    toast('토스·네이버 링크는 상품 이름을 직접 입력해주세요');
+    document.getElementById('pname')?.focus();
+    return;
+  }
 
   go.classList.add('loading');
   try{
