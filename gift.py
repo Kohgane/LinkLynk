@@ -126,6 +126,16 @@ def _own_index_search(toks, lo, hi, limit=3):
         return []
 
 
+def _bmatch(brand, name):
+    """브랜드-상품명 매칭. 2자 이하 브랜드는 부분일치 함정('해이'->'해이톡')이 있어
+    단어 경계를 요구한다."""
+    if not brand or not name:
+        return False
+    if len(brand) >= 3:
+        return brand in name
+    return brand in name.split() or name.startswith(brand + " ")
+
+
 def _naver_shop_search(kw, limit=8):
     """네이버 쇼핑 검색 API (openapi.naver.com, IP 제한 없음).
     NAVER_SEARCH_ID/SECRET 없으면 빈 목록 — 쿠팡 단독으로 동작."""
@@ -352,7 +362,7 @@ def recommend(api_key, who, budget, taste, exclude=None):
 
             # ① 네이버 검색 own — 같은 원칙: 브랜드 토큰 일치분만
             if not picked:
-                own = [u for u in rel_nv if u.get("own") and brand and brand in u["name"]
+                own = [u for u in rel_nv if u.get("own") and _bmatch(brand, u["name"])
                        and (len(toks) < 2 or any(t in u["name"] for t in toks[1:]))
                        and _price_ok_range(u, wide_lo, wide_hi)]
                 picked += own[:1]
@@ -361,7 +371,7 @@ def recommend(api_key, who, budget, taste, exclude=None):
             if len(picked) < n_prod:
                 # ★부분일치 함정 방지: '라이프' 노트 -> '라이프베리' 립글로스 사태.
                 # 브랜드 + 품목 토큰까지 맞아야 진품 취급 (키워드 1단어면 브랜드만)
-                bh = [u for u in rel_cp if brand and brand in u["name"]
+                bh = [u for u in rel_cp if _bmatch(brand, u["name"])
                       and (len(toks) < 2 or any(t in u["name"] for t in toks[1:]))
                       and _price_ok_range(u, wide_lo, wide_hi)]
                 picked += [u for u in bh if u not in picked][:n_prod - len(picked)]
@@ -375,7 +385,7 @@ def recommend(api_key, who, budget, taste, exclude=None):
                 need = 2 if len(toks) >= 2 else 1
                 gen = [u for u in rel_cp
                        if _price_ok(u) and u not in picked and _score(u) >= need
-                       and (not brand or brand in u["name"])]
+                       and (not brand or _bmatch(brand, u["name"]))]
                 picked += gen[:n_prod - len(picked)]
 
 
@@ -384,14 +394,14 @@ def recommend(api_key, who, budget, taste, exclude=None):
             if not picked:
                 r_lo, r_hi = int(_lo * 0.5), int(_hi * 1.6)
                 resc = [u for u in rel_cp if _score2(u, toks) >= (2 if len(toks) >= 2 else 1)
-                        and (not brand or brand in u.get("name", ""))
+                        and (not brand or _bmatch(brand, u.get("name", "")))
                         and _price_ok_range(u, r_lo, r_hi)]
                 resc.sort(key=lambda u: abs(int(u.get("price") or 0) - (_lo + _hi) // 2))
                 picked += resc[:3]
             if not picked and rel_cp:
                 resc = sorted(rel_cp, key=lambda u: -_score2(u, toks))
                 picked += [u for u in resc
-                           if brand and brand in u.get("name", "")
+                           if _bmatch(brand, u.get("name", ""))
                            and int(u.get("price") or 0) <= _hi * 2][:2]
 
             # ★삼자 일치 최종 방어: 설명이 다른 브랜드를 말하면 상품과 어긋나 보인다.
@@ -424,8 +434,9 @@ def recommend(api_key, who, budget, taste, exclude=None):
         with ThreadPoolExecutor(max_workers=5) as pool:
             futs = {kw: pool.submit(_fetch, kw) for kw in kws if kw}
             results = {kw: f.result() for kw, f in futs.items()}
+        # ★alt는 primary가 전멸(0개)일 때만 — 한 픽에 두 브랜드 섞이면 설명-상품이 어긋난다
         need_alt = [(kw, alt) for kw, alt in zip(kws, alts)
-                    if alt and len(results.get(kw, [])) < 2]
+                    if alt and not results.get(kw)]
         if need_alt:
             with ThreadPoolExecutor(max_workers=3) as pool:
                 afuts = {kw: pool.submit(_fetch, alt) for kw, alt in need_alt}
@@ -476,6 +487,20 @@ def recommend(api_key, who, budget, taste, exclude=None):
                                   "reason": scrub_garbled(str(p2.get("reason") or ""))[:160],
                                   "angle": scrub_garbled(str(p2.get("angle") or ""))[:20],
                                   "products": prods2}
+    # ★alt 재정렬: 상품 전부가 keyword 브랜드와 무관하면(=alt 브랜드로 채워진 픽)
+    # 키워드·설명을 실브랜드 기준으로 갈아끼워 삼자일치를 만든다
+    for p in picks:
+        kw0 = str(p.get("keyword") or "").split()
+        prods = p.get("products") or []
+        b = kw0[0] if kw0 else ""
+        if b and prods and not any(_bmatch(b, u.get("name") or "") for u in prods):
+            nb = ((prods[0].get("name") or "").split() or [""])[0]
+            if nb:
+                alt = str(p.get("alt") or "")
+                p["keyword"] = alt if (alt and nb in alt) else \
+                    (nb + (" " + " ".join(kw0[1:3]) if len(kw0) > 1 else "")).strip()
+                p["reason"] = nb + " — 같은 결의 검증된 대안으로 골랐어요."
+
     # ★설명-상품 불일치 중립화: reason이 keyword 브랜드를 안 담으면(엉뚱 브랜드 서사)
     # 상품과 어긋나 보이므로 keyword 기준 안전 문구로 교체
     for p in picks:
