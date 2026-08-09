@@ -252,7 +252,9 @@ def recommend(api_key, who, budget, taste, exclude=None):
         "그 예산대라면 리델 잔 세트, 이딸라 풀세트, 빈티지 그릇, 니치 향수, 만년필, 오디오 같은 걸로).\n"
         "angle(계열 이름)도 세련되게 — '감각적 소품' 같은 밋밋한 말 대신 "
         "그 방향의 매력을 담은 짧은 이름(예: '백년 된 물건의 힘', '책상 위의 의식', '아날로그 한 조각').\n"
-        "★reason과 angle은 keyword의 바로 그 브랜드·제품을 설명해야 한다 — keyword에 없는 다른 브랜드명을 reason에 쓰는 것 절대 금지(keyword가 '이딸라 떼에마'면 reason도 이딸라 얘기만).\n        "★keyword는 검색 정밀도가 생명: '브랜드+라인/모델명+사양' 3~5단어. "
+        "★reason과 angle은 keyword의 바로 그 브랜드·제품을 설명해야 한다 — "
+        "keyword에 없는 다른 브랜드명을 reason에 쓰는 것 절대 금지.\n"
+        "★keyword는 검색 정밀도가 생명: '브랜드+라인/모델명+사양' 3~5단어. "
         "라인·모델명이 있는 브랜드는 반드시 라인까지 명시하라(이딸라 떼에마, 라미 사파리, "
         "카웨코 스포츠, 스탠리 클래식 진공, 하리오 V60). 사양은 실검색에 쓰는 것 하나 — "
         "용량(300ml)·닙 굵기(EF)·심 굵기(0.5mm)·사이즈·재질(티타늄) "
@@ -474,6 +476,14 @@ def recommend(api_key, who, budget, taste, exclude=None):
                                   "reason": scrub_garbled(str(p2.get("reason") or ""))[:160],
                                   "angle": scrub_garbled(str(p2.get("angle") or ""))[:20],
                                   "products": prods2}
+    # ★설명-상품 불일치 중립화: reason이 keyword 브랜드를 안 담으면(엉뚱 브랜드 서사)
+    # 상품과 어긋나 보이므로 keyword 기준 안전 문구로 교체
+    for p in picks:
+        kw0 = str(p.get("keyword") or "").split()
+        if kw0 and p.get("reason") and kw0[0] not in str(p.get("reason", "")):
+            p["reason"] = (kw0[0] + " " + " ".join(kw0[1:3])).strip() + \
+                          " — 받는 분의 결에 맞춰 고른 픽이에요."
+
     # ★빈 픽 제거: '상품을 찾지 못했어요' 카드는 체감 품질을 죽인다 —
     # 꽉 찬 2장이 빈칸 낀 3장보다 낫다 (전부 비면 그대로 두고 에러 노출)
     filled = [o for o in out if o["products"]]
