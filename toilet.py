@@ -57,6 +57,8 @@ def report(lat, lng, kind, name=""):
             r["new"] = r["new"][-2000:]
         else:
             a = r["agg"].setdefault(_key(lat, lng), {"ok": 0, "closed": 0, "safe": 0})
+            for _k in ("paper", "lock"):
+                a.setdefault(_k, 0)
             if kind in a:
                 a[kind] += 1
         _rep_save()
@@ -123,35 +125,61 @@ def near(lat, lng, n=15):
     return res
 
 
-def near_v2(lat, lng, n=15):
+# 차량 모드 타입 가중: 주차 되고 차로 접근 좋은 곳 우대, 지하철 역사 강등
+_CAR_W = {"rest": 0.55, "fuel": 0.7, "mart": 0.75, "cine": 0.85, "hosp": 0.9,
+          "gov": 0.95, "st": 1.7, "cafe": 1.1, "ff": 1.05}
+
+
+def near_v2(lat, lng, n=15, mode="walk", open_only=False):
     data = _load()
     rep = _rep_load()
     agg = rep.get("agg", {})
     coslat = math.cos(math.radians(lat))
+    car = (mode == "car")
+    radius = 60000 if car else 30000
     out = []
     for t in list(data) + rep.get("new", []):
         dy = (t["lat"] - lat) * 111320.0
         dx = (t["lng"] - lng) * 111320.0 * coslat
         d = math.hypot(dx, dy)
-        if d < 30000:
+        if d < radius:
             a = agg.get(_key(t["lat"], t["lng"]), {})
-            w = d * (1.0 if t.get("ty") in ("cafe", "ff") else 0.85)
+            if car:
+                w = d * _CAR_W.get(t.get("ty"), 1.0)
+            else:
+                w = d * (1.0 if t.get("ty") in ("cafe", "ff") else 0.85)
             if t.get("ty") == "user":
                 w *= 0.9
             closed_n = a.get("closed", 0)
+            # ★닫힘 방지 강화: 제보 2건부터 강등 시작, 3건+우세면 사실상 퇴출급
             if closed_n >= 3 and closed_n > a.get("ok", 0):
-                w *= 2.2
+                w *= 3.0
+            elif closed_n >= 2 and closed_n > a.get("ok", 0):
+                w *= 1.8
             code, label = open_status(t)
             if code == "closed":
-                w *= 1.5
+                if open_only:
+                    continue
+                w *= 1.6
+            elif code == "maybe" and open_only:
+                w *= 1.3   # 열린곳만 모드: maybe는 남기되 뒤로
             out.append((w, d, t, a, code, label))
     out.sort(key=lambda x: x[0])
     res = []
     for w, d, t, a, code, label in out[:n]:
+        # 제보 기반 실전 라벨 — 클라 무수정으로 노출
+        if a.get("lock", 0) >= 1:
+            label += " · 🔒비번 제보 %d건" % a["lock"]
+        if a.get("paper", 0) >= 1:
+            label += " · 🧻휴지없음 제보"
+        if a.get("closed", 0) >= 2 and a.get("closed", 0) > a.get("ok", 0):
+            label += " · ⚠️최근 닫힘 제보 잦음"
         res.append({**t, "dist": int(d), "walk": max(1, int(d / 67)),
+                    "drive": max(1, int(d / 550)),
                     "open": code, "open_label": label,
                     "rep_ok": a.get("ok", 0), "rep_safe": a.get("safe", 0),
-                    "rep_closed": a.get("closed", 0)})
+                    "rep_closed": a.get("closed", 0),
+                    "rep_lock": a.get("lock", 0), "rep_paper": a.get("paper", 0)})
     return res
 
 

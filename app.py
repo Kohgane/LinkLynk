@@ -1503,7 +1503,9 @@ def toilet_near():
         lat = lng = 0
     if not (33 < lat < 39 and 124 < lng < 132):
         r = jsonify({"ok": False, "error": "좌표가 이상해요"}); r.headers.update(r_hdr); return r, 400
-    r = jsonify({"ok": True, "items": toilet.near_v2(lat, lng)})
+    mode = "car" if request.args.get("mode") == "car" else "walk"
+    open_only = request.args.get("open") == "1"
+    r = jsonify({"ok": True, "items": toilet.near_v2(lat, lng, mode=mode, open_only=open_only)})
     r.headers.update(r_hdr)
     return r
 
