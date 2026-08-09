@@ -535,6 +535,12 @@ def paste_thread():
                     "합니다","했어요","입니다","있어요","없어요","저희는","저는요","그냥","진짜"}
             c = _C(w for w in ws if w not in SKIP and len(w) >= 2)
             pname = c.most_common(1)[0][0] if c else ""
+    try:
+        app.logger.warning("[paste] raw=%d chars, lines=%d, links=%d, blocks=%d, pname=%r, first=%r",
+                           len(raw), raw.count("\n")+1, len(uniq), len(blocks), pname,
+                           (blocks[0][:40] if blocks else ""))
+    except Exception:
+        pass
     posts = repair_structure(blocks, dl, pname, dl2)
     if tags and posts:
         posts[-1] = posts[-1].rstrip() + "\n\n" + tags

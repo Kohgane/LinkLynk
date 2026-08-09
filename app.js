@@ -2979,11 +2979,16 @@ function openAff(kind){
 async function pasteToThread(btn){
   const t = (document.getElementById('w_paste')?.value||'').trim();
   if(!t){ toast('붙여넣을 글을 입력하세요'); return; }
+  // ★이전 글의 상품명·결과가 남아 엉뚱한 키워드를 잡는 것을 막는다
+  window.__lastResult = null;
+  window.__pickedProducts = [];
+  const _pi0 = document.getElementById('pname'); if(_pi0) _pi0.value = '';
+  const _lk0 = document.getElementById('w_link'); if(_lk0) _lk0.value = '';
   const o = btn.textContent; btn.textContent='정리 중…'; btn.disabled=true;
   try{
     const r = await (await fetch('/api/paste-thread',{method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({text:t, productName:(document.getElementById('pname')?.value||'')})})).json();
+      body:JSON.stringify({text:t})})).json();
     if(!r.ok){ toast(r.error||'정리 실패'); return; }
     const _pn = r.productName || (document.getElementById('pname')?.value||'');
     const _pi = document.getElementById('pname'); if(_pi && r.productName && !_pi.value) _pi.value = r.productName;
