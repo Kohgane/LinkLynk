@@ -2983,12 +2983,13 @@ async function pasteToThread(btn){
   window.__lastResult = null;
   window.__pickedProducts = [];
   const _pi0 = document.getElementById('pname'); if(_pi0) _pi0.value = '';
-  const _lk0 = document.getElementById('w_link'); if(_lk0) _lk0.value = '';
+  // ★링크 칸은 지우지 않는다 — 붙여넣은 글에 링크가 없으면 이 값을 쓴다
   const o = btn.textContent; btn.textContent='정리 중…'; btn.disabled=true;
   try{
     const r = await (await fetch('/api/paste-thread',{method:'POST',
       headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({text:t})})).json();
+      body:JSON.stringify({text:t,
+        fallbackLink:(document.getElementById('w_link')?.value||'').trim()})})).json();
     if(!r.ok){ toast(r.error||'정리 실패'); return; }
     const _pn = r.productName || (document.getElementById('pname')?.value||'');
     const _pi = document.getElementById('pname'); if(_pi && r.productName && !_pi.value) _pi.value = r.productName;

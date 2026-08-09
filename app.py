@@ -467,8 +467,17 @@ def paste_thread():
     빈 줄로 나뉜 문단을 블록으로 보고, 링크·고지는 답글5·6으로 재배치."""
     d = request.get_json(force=True, silent=True) or {}
     raw = (d.get("text") or "").strip()
+    import re as _re0
     if not raw:
         return jsonify({"ok": False, "error": "붙여넣을 글이 없어요"}), 400
+    # ★상품명 한 줄만 붙여넣는 경우가 많다 — 그걸로는 7분할을 만들 수 없다
+    _plain = _re0.sub(r"https?://\S+", "", raw)
+    _plain = _re0.sub(r"[^\n]*수수료를 (받|제공받)습니다[^\n]*", "", _plain).strip()
+    if len(_plain) < 60:
+        return jsonify({"ok": False,
+            "error": "이 칸은 이미 써둔 본문을 넣는 곳이에요. 상품명만 있으면 위의 "
+                     "'상품 이름'과 '제휴 링크'를 채우고 [글 작성하기]를 눌러주세요.",
+            "too_short": True}), 400
     import re as _re
     from core import repair_structure, detect_affiliate
     # 링크 추출 (쿠팡·토스·네이버)
@@ -478,7 +487,7 @@ def paste_thread():
     for l in links:
         if l not in seen:
             seen.add(l); uniq.append(l)
-    dl = uniq[0] if uniq else ""
+    dl = uniq[0] if uniq else (d.get("fallbackLink") or "").strip()
     dl2 = uniq[1] if len(uniq) > 1 else ""
     # 링크·고지 줄 제거 후 문단 분리
     body = raw
