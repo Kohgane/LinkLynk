@@ -2117,14 +2117,23 @@ async function serverJob(kind, params){
 // 서버 작업이 끝날 때까지 물어본다. 화면을 나갔다 와도 job_id만 있으면 이어진다.
 async function pollJob(jobId, {interval=2000, timeout=300000}={}){
   const t0 = Date.now();
-  while(Date.now() - t0 < timeout){
-    await new Promise(r=>setTimeout(r, interval));
-    let d;
-    try{ d = await fetch('/api/job/'+jobId).then(x=>x.json()); }
-    catch(e){ continue; }                      // 네트워크가 잠깐 끊겨도 포기하지 않는다
-    if(!d.ok) continue;
-    if(d.status === 'done')  return d.result;
-    if(d.status === 'error') throw new Error(d.error || '작업 실패');
+  let miss = 0;
+  // ★모바일은 화면이 꺼지면 타이머가 멈춘다 → 복귀 시 즉시 한 번 더 조회
+  const onWake = ()=>{ if(!document.hidden) miss = 0; };
+  document.addEventListener('visibilitychange', onWake);
+  try{
+    while(Date.now() - t0 < timeout){
+      await new Promise(r=>setTimeout(r, interval));
+      let d;
+      try{ d = await fetch('/api/job/'+jobId, {cache:'no-store'}).then(x=>x.json()); }
+      catch(e){ miss++; if(miss > 30) throw new Error('연결이 끊겼어요'); continue; }
+      miss = 0;
+      if(!d.ok) continue;
+      if(d.status === 'done')  return d.result;
+      if(d.status === 'error') throw new Error(d.error || '작업 실패');
+    }
+  } finally {
+    document.removeEventListener('visibilitychange', onWake);
   }
   throw new Error('시간이 너무 오래 걸려요');
 }
