@@ -252,7 +252,7 @@ def recommend(api_key, who, budget, taste, exclude=None):
         "그 예산대라면 리델 잔 세트, 이딸라 풀세트, 빈티지 그릇, 니치 향수, 만년필, 오디오 같은 걸로).\n"
         "angle(계열 이름)도 세련되게 — '감각적 소품' 같은 밋밋한 말 대신 "
         "그 방향의 매력을 담은 짧은 이름(예: '백년 된 물건의 힘', '책상 위의 의식', '아날로그 한 조각').\n"
-        "★keyword는 검색 정밀도가 생명: '브랜드+라인/모델명+사양' 3~5단어. "
+        "★reason과 angle은 keyword의 바로 그 브랜드·제품을 설명해야 한다 — keyword에 없는 다른 브랜드명을 reason에 쓰는 것 절대 금지(keyword가 '이딸라 떼에마'면 reason도 이딸라 얘기만).\n        "★keyword는 검색 정밀도가 생명: '브랜드+라인/모델명+사양' 3~5단어. "
         "라인·모델명이 있는 브랜드는 반드시 라인까지 명시하라(이딸라 떼에마, 라미 사파리, "
         "카웨코 스포츠, 스탠리 클래식 진공, 하리오 V60). 사양은 실검색에 쓰는 것 하나 — "
         "용량(300ml)·닙 굵기(EF)·심 굵기(0.5mm)·사이즈·재질(티타늄) "
@@ -342,6 +342,7 @@ def recommend(api_key, who, budget, taste, exclude=None):
             # 브랜드 우대 창도 정밀화: 0.9~1.2배 (정밀 테이블 위에 얹으므로 충분)
             wide_lo, wide_hi = int(_lo * 0.9), int(_hi * 1.2)
             picked = []
+            brand = toks[0] if toks else ""
 
             # ⓪ 자사 상품 — 단, ★브랜드가 정확히 일치할 때만 최대 1개 (자연스러움 > 수익.
             # 어색한 끼워넣기는 '어떻게 알았지'를 '광고네'로 무너뜨린다)
@@ -349,7 +350,6 @@ def recommend(api_key, who, budget, taste, exclude=None):
 
             # ① 네이버 검색 own — 같은 원칙: 브랜드 토큰 일치분만
             if not picked:
-                brand = toks[0] if toks else ""
                 own = [u for u in rel_nv if u.get("own") and brand and brand in u["name"]
                        and (len(toks) < 2 or any(t in u["name"] for t in toks[1:]))
                        and _price_ok_range(u, wide_lo, wide_hi)]
@@ -392,7 +392,9 @@ def recommend(api_key, who, budget, taste, exclude=None):
                            if brand and brand in u.get("name", "")
                            and int(u.get("price") or 0) <= _hi * 2][:2]
 
-            # 내부 필드 정리
+            # ★삼자 일치 최종 방어: 설명이 다른 브랜드를 말하면 상품과 어긋나 보인다.
+            #  keyword 브랜드가 reason에 없고 다른 긴 고유명사가 있으면 설명을 중립화.
+            # (여기서는 picked만 만지고, reason 교정은 recommend 쪽 후처리에서)
             for u in picked:
                 u.pop("mall", None)
             # ★검색 실패 시 간소 키워드 재시도 — 수식어·용량이 검색을 죽이는 경우
