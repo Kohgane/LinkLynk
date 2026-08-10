@@ -1201,7 +1201,7 @@ def jireumradar_og():
 @app.route("/api/gov/config")
 def gov_config_api():
     """과태료레이더 런타임 설정 — 배너 광고 그룹 ID (재빌드 없이 on/off)."""
-    _ad = os.environ.get("PENALTY_AD_GROUP_ID", "").strip()
+    _ad = _ait_ad("PENALTY_AD_GROUP_ID", "PENALTY_AD_MODE", test_id="ait-ad-test-banner-id")
     if len(_ad) < 8:
         _ad = ""
     resp = jsonify({"ok": True, "banner_ad_group_id": _ad})
@@ -1440,14 +1440,15 @@ def emberduo_og():
     return send_file("static/emberduo-og.png", mimetype="image/png")
 
 
-def _ait_ad(env_key, mode_key):
+def _ait_ad(env_key, mode_key, test_id="ait-ad-test-rewarded-id"):
     """광고 ID 스위치. 토스 정책상 미출시(QR/테스트) 환경에선 라이브 ID(ait.v2.live.*)가
     이벤트 없이 무한로딩만 하고, 실ID로 테스트하면 정책 위반이다. env 한 줄로 전환:
-    {mode_key}=test -> 공용 테스트 ID / off -> 광고 게이트 끔 / (미설정) -> 라이브 ID."""
+    {mode_key}=test -> 테스트 ID / off -> 광고 끔 / (미설정) -> 라이브 ID.
+    테스트 ID 자체를 바꾸려면 {mode_key}_ID 로 지정."""
     import os
     mode = os.environ.get(mode_key, "").strip().lower()
     if mode == "test":
-        return "ait-ad-test-rewarded-id"
+        return os.environ.get(mode_key + "_ID", "").strip() or test_id
     if mode == "off":
         return ""
     return os.environ.get(env_key, "").strip()
