@@ -1493,6 +1493,19 @@ def _sky_pg(method, path):
     return toilet._pg(method, path)
 
 
+@app.route("/sky")
+@app.route("/sky/")
+def sky_page():
+    from flask import send_from_directory
+    return send_from_directory("static/sky", "index.html")
+
+
+@app.route("/sky/<path:fn>")
+def sky_asset(fn):
+    from flask import send_from_directory
+    return send_from_directory("static/sky", fn)
+
+
 @app.route("/api/sky/add", methods=["POST", "OPTIONS"])
 def sky_add():
     hdr = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type"}

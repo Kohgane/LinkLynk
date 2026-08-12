@@ -1,0 +1,189 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<link rel="manifest" href="/sky/manifest.json">
+<link rel="icon" href="/sky/icon-192.png"><link rel="apple-touch-icon" href="/sky/icon-192.png">
+<meta name="theme-color" content="#101828">
+<meta property="og:title" content="SameSky — one sky a day">
+<meta property="og:description" content="Catch today's colors. Find your sky twin on Earth.">
+<meta property="og:image" content="https://linklynk.onrender.com/sky/og.png">
+<meta name="twitter:card" content="summary_large_image">
+<title>SameSky — one sky a day</title>
+<style>
+:root{--bg:#0f1420;--ink:#e9edf5;--dim:#7d879c;--line:#232b3d;--card:#161c2b}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:linear-gradient(180deg,#101828,#0c111c 60%);color:var(--ink);font-family:"Noto Serif KR",ui-serif,Georgia,serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:16px 12px 40px}
+.hd{width:100%;max-width:430px;display:flex;justify-content:space-between;align-items:baseline}
+h1{font-size:21px;margin:0;letter-spacing:4px;font-weight:900}
+h1 s{text-decoration:none;color:#8fb4e8}
+.mon{font-size:13px;color:var(--dim)}
+.today{width:100%;max-width:430px;margin:14px 0 6px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px;display:flex;gap:12px;align-items:center}
+.today .ph{width:74px;height:74px;border-radius:14px;background:#1d2537;display:flex;align-items:center;justify-content:center;font-size:26px;overflow:hidden;flex:0 0 74px}
+.today .ph img{width:100%;height:100%;object-fit:cover}
+.today .tx{flex:1}
+.today .t1{font-size:14.5px;font-weight:800}
+.today .t2{font-size:12px;color:var(--dim);margin-top:3px;line-height:1.5}
+.snap{font-family:inherit;background:#2b3document8;background:#28324a;border:1px solid #3a4763;color:var(--ink);padding:11px 16px;border-radius:12px;font-size:13.5px;font-weight:800}
+input[type=file]{display:none}
+.chips{display:flex;gap:6px;margin-top:8px}
+.chips i{width:22px;height:22px;border-radius:7px;border:1px solid #ffffff22}
+.cal{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;width:100%;max-width:430px;margin-top:14px}
+.dow{font-size:10px;color:var(--dim);text-align:center;padding:2px 0}
+.day{aspect-ratio:1;border-radius:11px;background:#141a29;border:1px solid var(--line);position:relative;overflow:hidden;display:flex;align-items:flex-start;justify-content:flex-start}
+.day span{font-size:9.5px;color:#ffffff99;margin:4px 0 0 5px;position:relative;z-index:2;text-shadow:0 1px 2px #0008}
+.day img{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;opacity:.92}
+.day.fill{border-color:#ffffff2e}
+.day.todaycell{outline:2px solid #8fb4e8;outline-offset:-2px}
+.pal{width:100%;max-width:430px;margin-top:16px;background:var(--card);border:1px solid var(--line);border-radius:18px;padding:14px}
+.pal .t{font-size:13.5px;font-weight:800;margin-bottom:10px}
+.pal .strip{display:flex;height:44px;border-radius:12px;overflow:hidden;border:1px solid #ffffff1a}
+.pal .strip i{flex:1}
+.pal .n{font-size:11px;color:var(--dim);margin-top:8px}
+.foot{margin-top:14px;font-size:10.5px;color:var(--dim);text-align:center;line-height:1.7}
+</style></head><body>
+<div class="hd"><h1>Same<s>Sky</s></h1><div class="mon" id="mon"></div></div>
+
+<div class="today">
+<label class="ph" for="pick" id="todayPh">📷</label>
+<div class="tx">
+<div class="t1" id="tt">Today's sky, not yet</div>
+<div class="t2" id="ts">Point up, take one — the day's colors fill your calendar.<br>Missed days are just clear sky. No goals, no guilt.</div>
+<div class="chips" id="chips"></div>
+</div>
+<label class="snap" for="pick">Catch</label>
+<input type="file" id="pick" accept="image/*" capture="environment">
+</div>
+
+<div class="cal" id="cal"></div>
+
+<div class="pal">
+<div class="t" id="palT">This month, your skies</div>
+<div class="strip" id="strip"></div>
+<div class="n" id="palN">Each catch adds a stripe — by month-end, your own gradient.</div>
+</div>
+
+<div class="pal" id="worldBox" style="display:none">
+<div class="t" id="worldT">🌍 Today, under the same sky</div>
+<div class="strip" id="worldStrip"></div>
+<div class="n" id="twinN"></div>
+</div>
+<button class="snap" id="shareBtn" style="width:100%;max-width:430px;margin-top:12px">🌍 Share my month of skies</button>
+<div class="foot">Photos never leave your device — only three colors travel.<br>Same day, same sky, different places.</div>
+
+<script>
+const KST=()=>new Date(Date.now()+9*3600e3);
+const now=KST(), Y=now.getUTCFullYear(), M=now.getUTCMonth(), D=now.getUTCDate();
+const mkey=`${Y}-${String(M+1).padStart(2,'0')}`;
+document.getElementById('mon').textContent=`${Y}. ${M+1}`;
+const store=()=>JSON.parse(localStorage['sky_'+mkey]||'{}');
+const save=o=>localStorage['sky_'+mkey]=JSON.stringify(o);
+
+function domColors(img){ // 하늘색 추출: 상단 60%에서 3색 (하늘·중간·수평선)
+ const c=document.createElement('canvas'),x=c.getContext('2d');
+ c.width=60;c.height=60;x.drawImage(img,0,0,60,60);
+ const bands=[[0,12],[14,26],[30,42]].map(([a,b])=>{
+  const d=x.getImageData(0,a,60,b-a).data;let r=0,g=0,bl=0,n=0;
+  for(let i=0;i<d.length;i+=4){r+=d[i];g+=d[i+1];bl+=d[i+2];n++}
+  return [Math.round(r/n),Math.round(g/n),Math.round(bl/n)]});
+ return bands.map(v=>'#'+v.map(k=>k.toString(16).padStart(2,'0')).join(''));
+}
+function thumb(img){const c=document.createElement('canvas'),x=c.getContext('2d');
+ const s=Math.min(img.width,img.height);
+ c.width=140;c.height=140;
+ x.drawImage(img,(img.width-s)/2,(img.height-s)/2,s,s,0,0,140,140);
+ return c.toDataURL('image/jpeg',.62)}
+
+document.getElementById('pick').onchange=e=>{
+ const f=e.target.files[0];if(!f)return;
+ const img=new Image();
+ img.onload=()=>{
+  const cols=domColors(img), th=thumb(img);
+  const o=store();o[D]={c:cols,t:th,h:now.getUTCHours()};save(o);render();if('serviceWorker'in navigator)navigator.serviceWorker.register('/sky/sw.js').catch(()=>{});
+  const hour=now.getUTCHours();
+  document.getElementById('tt').textContent=
+   hour<7?'A dawn catcher, rare breed':hour<11?'Morning sky, caught':hour<17?'Midday sky, caught':hour<20?'You caught the sunset':'Night sky, caught';
+  document.getElementById('ts').innerHTML='Three shades of your day, saved — and sent to the world strip (colors only).';shareSky(cols);
+ };
+ img.src=URL.createObjectURL(f);
+};
+
+function render(){
+ const o=store();
+ // 오늘 카드
+ if(o[D]){document.getElementById('todayPh').innerHTML='<img src="'+o[D].t+'">';
+  document.getElementById('chips').innerHTML=o[D].c.map(c=>'<i style="background:'+c+'"></i>').join('')}
+ // 달력
+ const cal=document.getElementById('cal');cal.innerHTML='';
+ '일월화수목금토'.split('').forEach(d=>{const s=document.createElement('div');s.className='dow';s.textContent=d;cal.appendChild(s)});
+ const first=new Date(Date.UTC(Y,M,1)).getUTCDay(), days=new Date(Date.UTC(Y,M+1,0)).getUTCDate();
+ for(let i=0;i<first;i++){const b=document.createElement('div');cal.appendChild(b)}
+ for(let d=1;d<=days;d++){
+  const el=document.createElement('div');el.className='day'+(d===D?' todaycell':'');
+  const rec=o[d];
+  if(rec){el.classList.add('fill');
+   el.innerHTML='<img src="'+rec.t+'"><span>'+d+'</span>';
+   el.style.borderColor=rec.c[0]+'66'}
+  else el.innerHTML='<span>'+d+'</span>';
+  cal.appendChild(el)}
+ // 팔레트
+ const strip=document.getElementById('strip');strip.innerHTML='';
+ let cnt=0;
+ for(let d=1;d<=days;d++){const i=document.createElement('i');
+  if(o[d]){i.style.background=`linear-gradient(180deg,${o[d].c[0]},${o[d].c[1]} 60%,${o[d].c[2]})`;cnt++}
+  else i.style.background='#131a29';
+  strip.appendChild(i)}
+ document.getElementById('palT').textContent=`This month, your skies — ${cnt}/${days}일`;
+ if(cnt>=days) document.getElementById('palN').textContent='한 달의 하늘을 전부 담았습니다. 이 띠가 당신의 '+(M+1)+'월입니다.';
+}
+render();
+
+const API='https://linklynk.onrender.com';
+const TZ=(Intl.DateTimeFormat().resolvedOptions().timeZone||'');
+const CITY=t=>(t.split('/').pop()||'somewhere').replace(/_/g,' ');
+async function shareSky(cols){
+ try{await fetch(API+'/api/sky/add',{method:'POST',headers:{'Content-Type':'application/json'},
+  body:JSON.stringify({c1:cols[0],c2:cols[1],c3:cols[2],tz:TZ,h:KST().getUTCHours()})})}catch{}
+ loadWorld(cols[0]);
+}
+async function loadWorld(mine){
+ try{
+  const u=API+'/api/sky/today'+(mine?('?c='+encodeURIComponent(mine)+'&tz='+encodeURIComponent(TZ)):'');
+  const r=await fetch(u).then(x=>x.json());
+  if(!r.ok||!r.world.length)return;
+  const box=document.getElementById('worldBox');box.style.display='block';
+  document.getElementById('worldT').textContent='🌍 Today, under the same sky — '+r.world.length+' places';
+  const st=document.getElementById('worldStrip');st.innerHTML='';
+  r.world.forEach(w=>{const i=document.createElement('i');
+   i.style.background=`linear-gradient(180deg,${w.c1},${w.c2} 60%,${w.c3})`;
+   i.title=CITY(w.tz)+' '+w.h+'h';st.appendChild(i)});
+  document.getElementById('twinN').textContent=r.twin
+   ?('Your sky twin today lives in '+CITY(r.twin.tz)+' — almost the same colors, '
+     +Math.abs(r.twin.h-KST().getUTCHours())+'h apart.')
+   :'Catch a sky to find your sky twin somewhere on Earth.';
+ }catch{}
+}
+loadWorld();
+
+document.getElementById('shareBtn').onclick=async()=>{
+ const o=store(),days=new Date(Date.UTC(Y,M+1,0)).getUTCDate();
+ const c=document.createElement('canvas');c.width=1080;c.height=1350;const x=c.getContext('2d');
+ x.fillStyle='#0c111c';x.fillRect(0,0,1080,1350);
+ const bw=1080/days;let cnt=0;
+ for(let d=1;d<=days;d++){const r=o[d];
+  if(r){const g=x.createLinearGradient(0,150,0,1050);
+   g.addColorStop(0,r.c[0]);g.addColorStop(.6,r.c[1]);g.addColorStop(1,r.c[2]);
+   x.fillStyle=g;cnt++}
+  else x.fillStyle='#131a29';
+  x.fillRect((d-1)*bw+1,150,bw-2,900)}
+ x.fillStyle='#eceef4';x.font='bold 64px Georgia,serif';x.textAlign='center';
+ x.fillText('SameSky',540,95);
+ x.fillStyle='#8a93a8';x.font='30px Georgia,serif';
+ const MN=['January','February','March','April','May','June','July','August','September','October','November','December'];
+ x.fillText(MN[M]+' '+Y+' — my skies · '+cnt+' days',540,1130);
+ x.fillText('one sky a day · find your sky twin',540,1180);
+ c.toBlob(async b=>{
+  const f=new File([b],'samesky-'+mkey+'.png',{type:'image/png'});
+  if(navigator.canShare&&navigator.canShare({files:[f]}))
+   try{await navigator.share({files:[f],title:'SameSky'})}catch{}
+  else{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=f.name;a.click()}
+ },'image/png')};
+</script></body></html>
