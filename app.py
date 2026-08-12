@@ -1485,6 +1485,79 @@ def toilet_report():
     r = jsonify({"ok": bool(ok)}); r.headers.update(hdr); return r
 
 
+# ══════════ SameSky / 하늘첩 — 글로벌 하늘 수집 ══════════
+import re as _re_sky
+
+def _sky_pg(method, path):
+    import toilet
+    return toilet._pg(method, path)
+
+
+@app.route("/api/sky/add", methods=["POST", "OPTIONS"])
+def sky_add():
+    hdr = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type"}
+    if request.method == "OPTIONS":
+        r = jsonify({"ok": True}); r.headers.update(hdr); return r
+    import urllib.request, json as _j, datetime as _dt
+    d = request.get_json(silent=True) or {}
+    cols = [str(d.get(k) or "") for k in ("c1", "c2", "c3")]
+    if not all(_re_sky.fullmatch(r"#[0-9a-fA-F]{6}", c) for c in cols):
+        r = jsonify({"ok": False}); r.headers.update(hdr); return r, 400
+    tz = str(d.get("tz") or "")[:40]
+    try:
+        h = max(0, min(23, int(d.get("h", 12))))
+    except (TypeError, ValueError):
+        h = 12
+    today = (_dt.datetime.utcnow() + _dt.timedelta(hours=9)).strftime("%Y-%m-%d")
+    try:
+        req = _sky_pg("POST", "sky")
+        req.add_header("Content-Type", "application/json")
+        req.add_header("Prefer", "return=minimal")
+        req.data = _j.dumps({"d": today, "tz": tz, "h": h,
+                             "c1": cols[0], "c2": cols[1], "c3": cols[2]}).encode()
+        urllib.request.urlopen(req, timeout=8).read()
+        r = jsonify({"ok": True})
+    except Exception:
+        r = jsonify({"ok": False})
+    r.headers.update(hdr); return r
+
+
+@app.route("/api/sky/today", methods=["GET", "OPTIONS"])
+def sky_today():
+    """오늘의 지구 하늘: 타임존별 최신 1건씩 최대 60곳 + 하늘 쌍둥이(색 최근접)."""
+    hdr = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type"}
+    if request.method == "OPTIONS":
+        r = jsonify({"ok": True}); r.headers.update(hdr); return r
+    import urllib.request, json as _j, datetime as _dt
+    today = (_dt.datetime.utcnow() + _dt.timedelta(hours=9)).strftime("%Y-%m-%d")
+    try:
+        q = ("sky?d=eq.%s&select=tz,h,c1,c2,c3&order=ts.desc&limit=400" % today)
+        rows = _j.loads(urllib.request.urlopen(_sky_pg("GET", q), timeout=8).read() or b"[]")
+    except Exception:
+        rows = []
+    seen, world = set(), []
+    for x in rows:
+        if x["tz"] not in seen:
+            seen.add(x["tz"]); world.append(x)
+        if len(world) >= 60:
+            break
+    twin = None
+    me = request.args.get("c", "")
+    if _re_sky.fullmatch(r"#[0-9a-fA-F]{6}", me or ""):
+        mr, mg, mb = int(me[1:3], 16), int(me[3:5], 16), int(me[5:7], 16)
+        my_tz = request.args.get("tz", "")
+        best = 1e9
+        for x in world:
+            if x["tz"] == my_tz:
+                continue
+            c = x["c1"]
+            dr = (int(c[1:3], 16)-mr)**2 + (int(c[3:5], 16)-mg)**2 + (int(c[5:7], 16)-mb)**2
+            if dr < best:
+                best, twin = dr, x
+    r = jsonify({"ok": True, "world": world, "twin": twin})
+    r.headers.update(hdr); return r
+
+
 @app.route("/api/toilet/stamp", methods=["POST", "OPTIONS"])
 def toilet_stamp():
     hdr = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type"}
