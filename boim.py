@@ -94,7 +94,7 @@ def _find_mentions(text, store_name, aliases):
     return hit, comps
 
 
-def run_scan(api_key, store_name, keywords, aliases=None, progress_cb=None):
+def run_scan(api_key, store_name, keywords, aliases=None, progress_cb=None, store_url=None):
     """진단 실행. api_key는 LinkLynk LLM 키(무엇이든) — '__free__' 가능."""
     aliases = aliases or []
     queries = build_queries(keywords, store_name)
@@ -122,7 +122,18 @@ def run_scan(api_key, store_name, keywords, aliases=None, progress_cb=None):
         time.sleep(0.4)          # 무료 한도 배려
 
     asked = sum(1 for r in results if r.get("ok"))
-    score = int(round(100 * hits / asked)) if asked else 0
+    # ── 4층 채점 ────────────────────────────────────
+    #  1~3층은 중소 스토어면 대부분 0이 나온다. 4층(인용 가능성)이
+    #  실제로 움직이는 축이고, 처방이 나오는 자리다.
+    mention_score = int(round(70 * hits / asked)) if asked else 0   # 1~2층 합산 70점
+    page = None
+    try:
+        import boim_page_v1 as _bp
+        page = _bp.diagnose_v2(store_url, store_name) if store_url else None
+    except Exception:
+        page = None
+    page_score = (page or {}).get("score", 0) * 3        # 10점 만점 → 30점
+    score = min(100, mention_score + page_score)
     top_comps = sorted(((k, v) for k, v in comp_count.items() if v >= 2),
                        key=lambda x: -x[1])[:8]
 
@@ -131,8 +142,11 @@ def run_scan(api_key, store_name, keywords, aliases=None, progress_cb=None):
         verdict = "AI 응답을 받지 못했어요. 잠시 후 다시 시도해주세요."
         grade = "?"
     elif score == 0:
-        verdict = ("AI에게 당신의 스토어는 아직 투명인간입니다. "
-                   "쇼핑 질문 어디에도 등장하지 않았어요. 지금이 선점 타이밍입니다.")
+        _blk = (page or {}).get("blocked")
+        verdict = ("AI가 인용할 소스 자체가 없습니다. "
+                   + ("스토어 페이지가 AI 크롤러에 막혀 있고, 밖에도 참조할 글이 없습니다."
+                      if _blk else
+                      "쇼핑 질문 어디에도 등장하지 않았고, 페이지도 인용될 형태가 아닙니다."))
         grade = "F"
     elif score < 20:
         verdict = "일부 질문에서만 등장합니다. 노출 기반은 있지만 매우 약합니다."
@@ -180,6 +194,10 @@ def run_scan(api_key, store_name, keywords, aliases=None, progress_cb=None):
         "grade": grade,
         "verdict": verdict,
         "competitors": [{"name": k, "count": v} for k, v in top_comps],
+        # ★4층: 페이지 인용 가능성 — 이게 실제 처방이 나오는 자리다
+        "page": page,
+        "mention_score": mention_score,
+        "page_score": page_score,
         "results": results,
     }
 

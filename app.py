@@ -732,7 +732,8 @@ def boim_scan_start():
         try:
             import boim as _boim
             r = _boim.run_scan("__free__", store_name, kws,
-                               aliases=[a.strip() for a in (d.get("aliases") or []) if a.strip()][:3])
+                               aliases=[a.strip() for a in (d.get("aliases") or []) if a.strip()][:3],
+                               store_url=(d.get("url") or "").strip() or None)
             store.boim_finish(scan_id, result=r)
         except Exception as e:
             store.boim_finish(scan_id, error=str(e))

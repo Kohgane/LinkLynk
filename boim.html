@@ -169,6 +169,9 @@ input:focus{border-color:var(--text-2)}
         <label>다른 표기 (선택)</label>
         <input id="fAlias" placeholder="예: gocosmos (영문명·별칭)" maxlength="60">
       </div>
+      <label>스토어 주소 (선택)</label>
+      <input id="fUrl" placeholder="smartstore.naver.com/... 또는 자사몰 주소" maxlength="120">
+      <div class="hint">넣으면 <b>페이지가 AI에 읽히는 형태인지</b>까지 함께 봅니다</div>
       <label>업종 키워드 (쉼표로 1~3개)</label>
       <input id="fKw" placeholder="예: 니치 향수, 남자 향수" maxlength="70">
       <div class="hint">사람들이 AI에게 물어볼 법한 상품 카테고리</div>
@@ -214,7 +217,8 @@ async function startScan(){
   const btn=document.getElementById('goBtn'); btn.disabled=true; btn.textContent='시작하는 중…';
   try{
     const r=await fetch('/api/boim/scan',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({store, keywords:kws, aliases: alias?[alias]:[]})}).then(x=>x.json());
+      body:JSON.stringify({store, keywords:kws, aliases: alias?[alias]:[],
+        url:(document.getElementById('fUrl')?.value||'').trim()})}).then(x=>x.json());
     if(!r.ok){
       errBox.innerHTML='<div class="msg-err">'+esc(r.error||'실패')+'</div>';
       btn.disabled=false; btn.textContent='무료 진단 시작'; return;
@@ -284,6 +288,18 @@ function render(d){
         <div class="score-line">쇼핑 질문 <b>${r.asked}개</b> 중 <b>${r.mentioned}개</b> 언급 · 노출 점수 <b>${r.score}</b></div>
       </div>
       <div class="verdict">${esc(r.verdict)}</div>
+      ${r.page?`<div class="card" style="margin-top:16px;text-align:left">
+        <div style="font-size:13px;color:var(--text-2);margin-bottom:4px">
+          ${r.page.platform?esc(r.page.platform)+' · ':''}페이지가 AI에 읽히는가</div>
+        <div style="font-size:15px;font-weight:800;margin-bottom:10px">
+          ${r.page_score||0} / 30점
+          <span style="font-size:12px;font-weight:400;color:var(--text-2)">
+            (AI 언급 ${r.mention_score||0}/70)</span></div>
+        ${(r.page.issues||[]).map(x=>`<div style="font-size:13px;line-height:1.7;padding:6px 0;
+          border-top:1px solid var(--line)">· ${esc(x)}</div>`).join('')}
+        ${(r.page.good||[]).length?`<div style="font-size:12px;color:var(--text-2);margin-top:9px">
+          잘 돼 있는 것 — ${(r.page.good||[]).map(esc).join(' · ')}</div>`:''}
+      </div>`:''}
       ${r.next_one?`<div class="cta" style="text-align:left;margin:22px 0 0">
         <div class="t" style="font-size:15px">지금 딱 하나만 하세요</div>
         <div class="s" style="margin-bottom:0">${esc(r.next_one)}</div>
