@@ -1214,13 +1214,22 @@ def aiknows_api():
     if len(name) < 2:
         return jsonify({"ok": False, "error": "가게 이름을 2자 이상 넣어주세요"}), 400
     import boim as _b
-    q = f"{name}는 어떤 곳인가요? 아는 만큼만 간단히 알려주고, 모르면 모른다고 답해주세요."
+    q = (f"'{name}'라는 가게 또는 브랜드를 알고 있습니까?\n"
+         "규칙: 확실히 아는 것만 말하세요. 추측·일반론·그럴듯한 설명을 지어내지 마세요.\n"
+         "모르면 첫 줄에 정확히 '모릅니다'라고만 쓰고 끝내세요.\n"
+         "안다면 첫 줄에 '압니다'라고 쓰고, 다음 줄부터 확실한 사실만 2~3문장으로 쓰세요.")
     ans = _b._ask_ai("__free__", q)
     if not ans:
         return jsonify({"ok": False, "error": "지금은 AI 응답을 받지 못했어요"}), 503
     ans = _b.scrub_garbled(ans)[:700]
     low = ans.replace(" ", "")
-    unknown = any(k in low for k in ("모르", "알수없", "정보가없", "확인되지", "찾을수없", "죄송"))
+    unknown = (low.startswith("모릅니다") or
+               any(k in low[:60] for k in ("모릅니다", "모르", "알수없", "정보가없",
+                                           "확인되지", "찾을수없", "죄송")))
+    # '압니다' 선언이 없으면 지어낸 설명일 가능성이 높다 → 모름으로 본다
+    if not unknown and not low.startswith("압니다"):
+        unknown = True
+    ans = ans.replace("압니다", "", 1).strip(" \n:.-")
     if unknown:
         lvl, summary = "unknown", "AI에게 이 이름은 아직 낯설어요. 검색해도 참고할 글이 적다는 뜻이에요."
     elif len(ans) < 90:
