@@ -577,7 +577,7 @@ function renderKit(oid, k){
       bid++;
       const _raw = p.jsonld.product + '\n\n' + p.jsonld.faq;
       html+=`<div class="kit-block"><div class="kb-h"><div class="kb-t">구조화 데이터 (붙여넣기용)</div>
-        <button class="kb-copy" onclick="copyKit('kb${bid}',this)">복사</button></div>
+        <button class="copy-btn" onclick="copyTxt('kb${bid}',this)">복사</button></div>
         <div style="font-size:11.5px;color:var(--muted);margin:-4px 0 8px;line-height:1.6">
           ${esc(p.jsonld.howto)}</div>
         <div class="kit-txt" id="kb${bid}" data-raw="${esc(_raw)}"
