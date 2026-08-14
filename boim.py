@@ -163,7 +163,38 @@ def run_scan(api_key, store_name, keywords, aliases=None, progress_cb=None, stor
 
     # ★선택 대행: 등급별로 '지금 딱 하나' 단 하나의 액션만 준다.
     #  10개를 주면 0개를 한다. 하나를 주면 한다.
+    # ★액션은 등급이 아니라 '무엇이 비었는지'로 고른다.
+    #  언급 0인데 "이미 불리는 질문을 찾아라"는 말이 안 된다.
+    _pg = page or {}
+    _det = _pg.get("detail") or {}
+    _blocked = _pg.get("blocked")
     if grade == "?":
+        next_one = ""
+        risk = ""
+    elif _blocked:
+        next_one = ("스토어 밖에 글 하나를 만드세요. 블로그든 어디든, "
+                    "대표 상품을 설명하는 텍스트가 검색되는 곳에 있어야 합니다.")
+        risk = ("이 플랫폼은 AI 크롤러 접근이 막혀 있습니다. "
+                "안에서 아무리 잘 써도 AI는 그 글을 볼 수 없습니다.")
+    elif _det.get("text_len", 0) < 800:
+        next_one = ("대표 상품 하나의 설명을 이미지에서 꺼내 텍스트로 옮기세요. "
+                    "성분·크기·사용법을 문장으로 적으면 됩니다.")
+        risk = ("상세가 이미지뿐이면 AI에게는 빈 페이지입니다. "
+                "상품이 좋아도 인용할 문장 자체가 없습니다.")
+    elif _det.get("questions", 0) < 5:
+        next_one = ("사람들이 실제로 묻는 질문 3개와 답을 상품 설명에 그대로 넣으세요. "
+                    "\"세탁기에 써도 되나요?\" 같은 문장 그대로요.")
+        risk = ("AI는 질문-답변 형식을 우선 인용합니다. "
+                "설명문만 있으면 읽어도 인용 단위를 못 만듭니다.")
+    elif not _det.get("jsonld"):
+        next_one = ("상품명·가격·브랜드를 구조화 데이터(JSON-LD)로 넣으세요. "
+                    "쇼핑몰 솔루션이면 대부분 설정 한 번으로 됩니다.")
+        risk = "기계가 읽을 형태가 없으면 AI는 페이지를 추측으로 해석합니다."
+    elif hits == 0:
+        next_one = ("좁은 질문 하나를 정하고 그 답을 페이지에 명시하세요. "
+                    "\"입문용 OO 추천\" 같은 조건이 붙은 질문이 뚫기 쉽습니다.")
+        risk = "넓은 질문은 대형 브랜드가 가져갑니다. 좁은 질문에서 먼저 자리를 잡아야 합니다."
+    elif grade == "?":
         next_one = ""
         risk = ""
     elif grade == "F":
@@ -262,6 +293,33 @@ def build_brand_intro(api_key, store_name, keywords):
         return None
 
 
+def build_jsonld(store_name, product_name, desc, faq):
+    """진단에서 'JSON-LD 없음'이 잡힌 경우 — 그대로 붙여넣는 구조화 데이터.
+    기계가 읽을 형태가 없으면 AI는 페이지를 추측으로 해석한다."""
+    import json as _j
+    prod = {
+        "@context": "https://schema.org", "@type": "Product",
+        "name": product_name,
+        "description": (desc or "")[:500],
+        "brand": {"@type": "Brand", "name": store_name},
+        "offers": {"@type": "Offer", "priceCurrency": "KRW",
+                   "price": "[판매가]", "availability": "https://schema.org/InStock"},
+    }
+    faqp = {
+        "@context": "https://schema.org", "@type": "FAQPage",
+        "mainEntity": [{"@type": "Question", "name": x["q"],
+                        "acceptedAnswer": {"@type": "Answer", "text": x["a"]}}
+                       for x in (faq or [])[:6]],
+    }
+    def _tag(o):
+        return ('<script type="application/ld+json">\n'
+                + _j.dumps(o, ensure_ascii=False, indent=1) + "\n</script>")
+    return {"product": _tag(prod), "faq": _tag(faqp),
+            "howto": ("상세페이지 HTML 편집 모드에서 </body> 앞이나 "
+                      "본문 맨 아래에 그대로 붙여넣으세요. "
+                      "[판매가]는 실제 숫자로 바꾸세요.")}
+
+
 def run_kit(api_key, store_name, keywords, products):
     """실행 키트 전체 생성. 상품 최대 3개."""
     out = {"ok": True, "store": store_name, "products": []}
@@ -271,7 +329,14 @@ def run_kit(api_key, store_name, keywords, products):
             item = build_kit_product(api_key, store_name, pn, keywords)
             if item:
                 break
-        out["products"].append({"name": pn, **(item or {"faq": [], "desc": ""})})
+        _it = item or {"faq": [], "desc": ""}
+        # ★진단 'JSON-LD 없음'에 대한 결과물 — 그대로 붙여넣는 구조화 데이터
+        if _it.get("faq"):
+            try:
+                _it["jsonld"] = build_jsonld(store_name, pn, _it.get("desc"), _it.get("faq"))
+            except Exception:
+                pass
+        out["products"].append({"name": pn, **_it})
         time.sleep(0.3)
     out["brand_intro"] = build_brand_intro(api_key, store_name, keywords) or ""
     made = sum(1 for p in out["products"] if p.get("faq"))
