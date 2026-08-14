@@ -1214,6 +1214,47 @@ def aiknows_api():
     if len(name) < 2:
         return jsonify({"ok": False, "error": "가게 이름을 2자 이상 넣어주세요"}), 400
     import boim as _b
+    from core import llm_chat as _chat
+    # ★교차검증: 같은 질문을 3번 던져 답이 갈리면 지어낸 것으로 본다.
+    #  무료 모델은 모르는 이름에도 그럴듯한 설명을 만들어내는데,
+    #  그 설명은 매번 달라진다. 아는 이름은 핵심어가 반복된다.
+    _sys = ("너는 사실 확인에 엄격한 도우미다. 모르면 모른다고 말한다. "
+            "추측하거나 그럴듯하게 지어내지 않는다.")
+    _probe = (f"'{name}'라는 이름의 가게나 브랜드를 들어본 적 있습니까?\n"
+              "확실히 아는 경우에만 '압니다'로 시작하고, 무엇을 하는 곳인지 한 문장으로만 쓰세요.\n"
+              "조금이라도 확신이 없으면 '모릅니다'라고만 답하세요.")
+    _outs = []
+    for _ in range(3):
+        _r = _chat("__free__", _sys, _probe, max_tokens=200)
+        if _r.get("ok") and _r.get("text"):
+            _outs.append(_b.scrub_garbled(_r["text"]).strip())
+    if not _outs:
+        return jsonify({"ok": False, "error": "지금은 AI 응답을 받지 못했어요"}), 503
+    _knows = [o for o in _outs if o.replace(" ", "").startswith("압니다")]
+    # 3번 중 2번 이상 '압니다'여야 아는 것으로 인정
+    if len(_knows) < 2:
+        return jsonify({"ok": True, "level": "unknown",
+            "summary": "AI에게 이 이름은 아직 낯설어요. 참고할 글이 거의 없다는 뜻이에요.",
+            "query": _probe.split("\n")[0],
+            "answer": "모릅니다",
+            "consistency": "%d/3" % len(_knows)}), 200
+    # 핵심어 일치도 — 답이 서로 다르면 지어낸 것
+    import re as _re2
+    _words = [set(_re2.findall(r"[가-힣]{2,}", o)) for o in _knows]
+    _common = set.intersection(*_words) if len(_words) > 1 else _words[0]
+    _common = {w for w in _common if w not in ("압니다", "입니다", "하는", "곳입니다", "이름", "브랜드", "가게")}
+    if len(_common) < 2:
+        return jsonify({"ok": True, "level": "vague",
+            "summary": "AI가 답할 때마다 설명이 달라져요. 확실히 아는 게 아니라는 뜻이에요.",
+            "query": _probe.split("\n")[0],
+            "answer": "\n\n".join("· " + o.replace("압니다", "").strip(" :.-") for o in _knows[:2]),
+            "consistency": "%d/3" % len(_knows)}), 200
+    _best = max(_knows, key=len).replace("압니다", "", 1).strip(" \n:.-")
+    return jsonify({"ok": True, "level": "known",
+        "summary": "여러 번 물어도 같게 답했어요. AI가 실제로 알고 있다는 뜻이에요.",
+        "query": _probe.split("\n")[0],
+        "answer": _best[:500],
+        "consistency": "%d/3" % len(_knows)}), 200
     q = (f"'{name}'라는 가게 또는 브랜드를 알고 있습니까?\n"
          "규칙: 확실히 아는 것만 말하세요. 추측·일반론·그럴듯한 설명을 지어내지 마세요.\n"
          "모르면 첫 줄에 정확히 '모릅니다'라고만 쓰고 끝내세요.\n"
