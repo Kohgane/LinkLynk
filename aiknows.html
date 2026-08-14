@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>AI는 이 가게를 알까?</title>
+<meta name="theme-color" content="#FFFFFF">
+<style>
+:root{
+  --bg:#FFFFFF; --surface:#F7F8FA; --surface-2:#F0F2F5;
+  --line:#E8EAED;
+  --blue:#3182F6; --blue-ink:#FFFFFF;
+  --text:#191F28; --text-2:#4E5968; --muted:#8B95A1;
+  --radius:18px; --radius-sm:13px;
+}
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{background:var(--bg);color:var(--text);
+  font-family:'Pretendard',-apple-system,system-ui,sans-serif;
+  line-height:1.6;-webkit-font-smoothing:antialiased}
+.wrap{max-width:560px;margin:0 auto;padding:max(20px,env(safe-area-inset-top)) 20px 80px}
+.hero{padding:18px 2px 26px}
+h1{font-size:26px;font-weight:800;letter-spacing:-.03em;line-height:1.35}
+h1 .b{color:var(--blue)}
+.sub{font-size:14px;color:var(--text-2);margin-top:8px;line-height:1.65}
+.card{background:var(--surface);border-radius:var(--radius);padding:20px 18px;margin-bottom:14px}
+label{display:block;font-size:12.5px;font-weight:700;color:var(--muted);margin:16px 0 7px}
+label:first-child{margin-top:0}
+input{width:100%;background:var(--bg);border:1.5px solid var(--line);
+  border-radius:var(--radius-sm);padding:14px;font-size:15px;color:var(--text);
+  outline:none;font-family:inherit;transition:border-color .15s}
+input:focus{border-color:var(--blue)}
+.chips{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}
+.chip{background:var(--bg);border:1.5px solid var(--line);border-radius:999px;
+  padding:8px 14px;font-size:13px;color:var(--text-2);cursor:pointer;font-weight:600}
+.chip:active{border-color:var(--blue);color:var(--blue)}
+.btn{width:100%;background:var(--blue);color:var(--blue-ink);border:none;
+  border-radius:var(--radius-sm);padding:16px;font-size:16px;font-weight:800;
+  cursor:pointer;margin-top:20px;font-family:inherit;transition:transform .1s}
+.btn:active{transform:scale(.985)}
+.btn:disabled{opacity:.5}
+.small{font-size:12px;color:var(--muted);text-align:center;margin-top:10px}
+.res-badge{display:inline-block;padding:7px 15px;border-radius:999px;
+  font-size:13px;font-weight:800;margin-bottom:14px}
+.b-yes{background:#EBF3FE;color:var(--blue)}
+.b-no{background:#FFF0F0;color:#E5484D}
+.b-mid{background:#FFF8E6;color:#B7791F}
+.ans{background:var(--bg);border-radius:var(--radius-sm);padding:15px;
+  font-size:14px;line-height:1.75;color:var(--text-2);white-space:pre-wrap;
+  border:1px solid var(--line)}
+.qline{font-size:13px;font-weight:700;color:var(--text);margin:16px 0 7px}
+.spin{display:inline-block;width:15px;height:15px;border:2px solid rgba(49,130,246,.25);
+  border-top-color:var(--blue);border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px}
+@keyframes sp{to{transform:rotate(360deg)}}
+.cta{background:#EBF3FE;border-radius:var(--radius);padding:18px;margin-top:20px}
+.cta .t{font-size:15px;font-weight:800;margin-bottom:6px}
+.cta .s{font-size:13px;color:var(--text-2);line-height:1.7}
+.foot{font-size:11.5px;color:var(--muted);text-align:center;margin-top:26px;line-height:1.7}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="hero">
+    <h1>AI는 <span class="b">이 가게</span>를<br>알고 있을까요?</h1>
+    <div class="sub">단골 카페, 동네 맛집, 사려던 브랜드.<br>
+      챗GPT에게 물어보면 뭐라고 답할지 대신 확인해드려요.</div>
+  </div>
+
+  <div class="card" id="formCard">
+    <label>가게 · 브랜드 이름</label>
+    <input id="q" placeholder="예: 성수동 대림창고" maxlength="40" autocomplete="off">
+    <div class="chips">
+      <span class="chip" onclick="setQ('스타벅스')">스타벅스</span>
+      <span class="chip" onclick="setQ('무신사')">무신사</span>
+      <span class="chip" onclick="setQ('올리브영')">올리브영</span>
+      <span class="chip" onclick="setQ('배스킨라빈스')">배스킨라빈스</span>
+    </div>
+    <button class="btn" id="go" onclick="ask()">AI에게 물어보기</button>
+    <div class="small">약 10초 · 회원가입 없음</div>
+  </div>
+
+  <div id="out"></div>
+
+  <div class="foot">AI 응답은 질문한 시점의 기록이며,<br>시간이 지나면 달라질 수 있습니다.</div>
+</div>
+
+<script>
+function esc(s){return String(s||'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]))}
+function setQ(v){document.getElementById('q').value=v;ask()}
+async function ask(){
+  const name=(document.getElementById('q').value||'').trim();
+  if(name.length<2){alert('가게 이름을 2자 이상 넣어주세요');return}
+  const btn=document.getElementById('go'); btn.disabled=true;
+  btn.innerHTML='<span class="spin"></span> 물어보는 중…';
+  document.getElementById('out').innerHTML='';
+  try{
+    const r=await fetch('/api/aiknows',{method:'POST',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({name})}).then(x=>x.json());
+    if(!r.ok){ alert(r.error||'실패했어요'); return; }
+    render(name,r);
+  }catch(e){ alert('연결에 실패했어요'); }
+  finally{ btn.disabled=false; btn.textContent='AI에게 물어보기'; }
+}
+function render(name,r){
+  const lv = r.level;
+  const badge = lv==='known' ? '<span class="res-badge b-yes">AI가 알고 있어요</span>'
+              : lv==='vague' ? '<span class="res-badge b-mid">어렴풋이 알아요</span>'
+              : '<span class="res-badge b-no">모른다고 답했어요</span>';
+  document.getElementById('out').innerHTML = `
+    <div class="card">
+      ${badge}
+      <div style="font-size:17px;font-weight:800;margin-bottom:4px">"${esc(name)}"</div>
+      <div style="font-size:13px;color:var(--text-2);margin-bottom:16px">${esc(r.summary||'')}</div>
+      <div class="qline">AI에게 물어본 것</div>
+      <div class="ans">${esc(r.query||'')}</div>
+      <div class="qline">AI가 답한 것</div>
+      <div class="ans">${esc(r.answer||'')}</div>
+    </div>
+    <div class="cta">
+      <div class="t">가게를 운영하고 계신가요?</div>
+      <div class="s">AI가 내 가게를 어떻게 말하는지, 왜 그런지,
+        무엇을 고치면 되는지 자세히 확인할 수 있어요.</div>
+      <button class="btn" style="margin-top:14px"
+        onclick="location.href='https://linklynk.onrender.com/boim'">내 가게 진단해보기</button>
+    </div>`;
+  window.scrollTo({top:document.getElementById('out').offsetTop-20,behavior:'smooth'});
+}
+</script>
+</body>
+</html>

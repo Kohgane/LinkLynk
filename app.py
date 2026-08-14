@@ -1199,6 +1199,38 @@ def jireumradar_og():
     return send_from_directory(".", "jireumradar-og.png", mimetype="image/png")
 
 
+@app.route("/aiknows")
+def aiknows_page():
+    return app.send_static_file("aiknows.html")
+
+
+@app.route("/api/aiknows", methods=["POST", "OPTIONS"])
+def aiknows_api():
+    """토스 미니앱 — 가게 이름 하나로 AI가 아는지 확인. 유입용, 무료."""
+    if request.method == "OPTIONS":
+        return ("", 204)
+    d = request.get_json(force=True, silent=True) or {}
+    name = (d.get("name") or "").strip()[:40]
+    if len(name) < 2:
+        return jsonify({"ok": False, "error": "가게 이름을 2자 이상 넣어주세요"}), 400
+    import boim as _b
+    q = f"{name}는 어떤 곳인가요? 아는 만큼만 간단히 알려주고, 모르면 모른다고 답해주세요."
+    ans = _b._ask_ai("__free__", q)
+    if not ans:
+        return jsonify({"ok": False, "error": "지금은 AI 응답을 받지 못했어요"}), 503
+    ans = _b.scrub_garbled(ans)[:700]
+    low = ans.replace(" ", "")
+    unknown = any(k in low for k in ("모르", "알수없", "정보가없", "확인되지", "찾을수없", "죄송"))
+    if unknown:
+        lvl, summary = "unknown", "AI에게 이 이름은 아직 낯설어요. 검색해도 참고할 글이 적다는 뜻이에요."
+    elif len(ans) < 90:
+        lvl, summary = "vague", "이름은 아는데 설명이 짧아요. 참고할 정보가 많지 않다는 뜻이에요."
+    else:
+        lvl, summary = "known", "AI가 구체적으로 설명했어요. 그만큼 참고할 글이 쌓여 있다는 뜻이에요."
+    return jsonify({"ok": True, "level": lvl, "summary": summary,
+                    "query": q, "answer": ans})
+
+
 @app.route("/api/gov/config")
 def gov_config_api():
     """과태료레이더 런타임 설정 — 배너 광고 그룹 ID (재빌드 없이 on/off)."""
