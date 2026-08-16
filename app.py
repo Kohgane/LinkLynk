@@ -1576,7 +1576,11 @@ def assetlinks():
                      "target": {"namespace": "android_app",
                                 "package_name": os.environ.get("SKY_ANDROID_PKG", "app.samesky.twa"),
                                 "sha256_cert_fingerprints": fps}})
-    _hw_fps = [x.strip() for x in os.environ.get("HWATU_ANDROID_SHA256", "2A:7C:BB:C6:7C:57:CB:1F:10:D8:01:19:F6:F7:07:3E:46:6A:4F:BF:96:20:FA:F8:C0:EB:CF:3F:23:F0:63:5F").split(",") if x.strip()]
+    _hw_default = (
+        "5B:A4:6F:67:D0:93:9C:99:96:37:4A:C2:0B:71:B6:B1:3C:A8:92:27:88:D5:C4:D1:9C:6F:00:1E:08:AB:1D:D5,"  # Play 앱 서명 키
+        "31:CA:80:F0:59:9A:8B:C7:F4:98:7D:2A:F4:E1:68:25:D0:8F:0C:3F:4F:9C:E2:13:48:90:00:18:B4:5D:DB:86,"  # 업로드 키(콘솔)
+        "2A:7C:BB:C6:7C:57:CB:1F:10:D8:01:19:F6:F7:07:3E:46:6A:4F:BF:96:20:FA:F8:C0:EB:CF:3F:23:F0:63:5F")  # 빌드 키
+    _hw_fps = [x.strip() for x in os.environ.get("HWATU_ANDROID_SHA256", _hw_default).split(",") if x.strip()]
     if _hw_fps:
         body.append({"relation": ["delegate_permission/common.handle_all_urls"],
                      "target": {"namespace": "android_app",
