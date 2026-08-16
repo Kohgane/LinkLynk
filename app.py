@@ -1565,7 +1565,11 @@ def _sky_pg(method, path):
 def assetlinks():
     """TWA 디지털 자산 링크 — Play 서명키 SHA256은 env로 주입 (콘솔 서명 후 확정)."""
     import os
-    fps = [x.strip() for x in os.environ.get("SKY_ANDROID_SHA256", "").split(",") if x.strip()]
+    _default_fps = (
+        "43:D1:E6:DB:13:FC:70:80:86:FD:A8:FC:F2:A0:15:1E:52:24:56:F8:24:E0:98:CD:79:80:EE:11:4A:37:DE:37,"  # Play 앱 서명 키
+        "D9:FB:ED:CF:04:0D:CB:F1:6E:02:AD:F7:9E:46:60:69:CA:0E:85:53:65:A0:6F:FA:73:DC:54:A0:15:FC:B8:02,"  # 업로드 키(콘솔)
+        "A1:09:F0:8C:1B:80:7C:6C:3E:9A:B0:27:87:E4:EE:F1:3A:8E:12:8F:D4:76:55:32:6A:3E:47:D1:9D:56:8D:0E")  # 빌드 키
+    fps = [x.strip() for x in os.environ.get("SKY_ANDROID_SHA256", _default_fps).split(",") if x.strip()]
     body = []
     if fps:
         body.append({"relation": ["delegate_permission/common.handle_all_urls"],
