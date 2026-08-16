@@ -106,11 +106,24 @@ font-size:14px;cursor:pointer;margin-top:10px}
 <p>Claude Code가 생각하는 동안 도는 스피너 — 하루에도 수백 번 개발자의 시선이 머무는 그 한 줄에
 광고를 싣습니다. <span class="mono">폭염 속 목에 걸 선풍기 찾는 중… 링크</span> 처럼요.</p>
 <h2>왜 이 지면인가</h2>
-<p>개발자가 가장 오래, 가장 자주 보는 화면은 터미널입니다. 배너 블라인드가 없는 자리, 세션당 과금,
-클릭 트래킹 제공.</p>
-<h2>광고 신청</h2>
+<p>개발자가 가장 오래, 가장 자주 보는 화면은 터미널입니다. 배너 블라인드가 없는 자리 —
+그래서 광고가 아니라 후원과 제작으로 팝니다.</p>
+<h2>상품</h2>
+<p><b>① 주간 팩 후원 — ₩50,000/주 정액</b><br>
+한 주간 모든 세션에 "이번 주 문구팩은 ○○이 후원합니다" 한 줄 보장 노출 + 이동 페이지 브랜딩.</p>
+<p><b>② 커스텀 팩 제작 — ₩150,000부터</b><br>
+사내 밈팩·컨퍼런스팩 10문구 제작 + 전용 설치 링크 호스팅(한 줄 설치).
+<a style="color:#7aa2ff" href="/spinads/pack/sample">샘플 팩 보기</a></p>
+<p><b>③ 한 줄 스폰서 — 세션당 ₩10부터 입찰</b><br>
+문구팩 로테이션에 스폰서 한 줄을 섞습니다. 클릭 트래킹 제공.</p>
+<h2>신청</h2>
 <form id="f">
-<input name="advertiser" placeholder="광고주명 (필수)" required maxlength="60">
+<select name="product">
+<option value="sponsor_week">주간 팩 후원 (₩50,000/주)</option>
+<option value="b2b_pack">커스텀 팩 제작 (₩150,000~)</option>
+<option value="line_bid">한 줄 스폰서 (세션당 입찰)</option>
+</select>
+<input name="advertiser" placeholder="광고주/팀명 (필수)" required maxlength="60">
 <input name="contact" placeholder="연락처 이메일/텔레그램 (필수)" required maxlength="120">
 <input name="verb" placeholder="스피너 문구 — 예: OO 개발자 키보드 세일 중… (필수, 40자 이내)" required maxlength="40">
 <input name="landing" placeholder="랜딩 URL (선택)" maxlength="300">
@@ -149,18 +162,19 @@ def spinads_apply():
         return jsonify(error="bad landing url"), 400
     if landing and "{URL}" not in verb:
         verb = verb + " {URL}"
+    product = d.get("product") if d.get("product") in ("sponsor_week", "b2b_pack", "line_bid") else "line_bid"
     code = secrets.token_urlsafe(4).lower().replace("_", "a").replace("-", "b")
     with _db() as conn:
         with conn.cursor() as cur:
             cur.execute("""insert into spinads.campaigns
-                (kind, advertiser, advertiser_contact, verb, landing_url, short_code, bid_krw, budget_krw, active)
-                values ('direct', %s, %s, %s, %s, %s, %s, %s, false)""",
-                (adv, contact, verb, landing or None, code, bid, budget))
+                (kind, advertiser, advertiser_contact, verb, landing_url, short_code, bid_krw, budget_krw, active, note)
+                values ('direct', %s, %s, %s, %s, %s, %s, %s, false, %s)""",
+                (adv, contact, verb, landing or None, code, bid, budget, product))
     return jsonify(ok=True), 201
 
 @spinads_bp.get("/api/spinads/health")
 def spinads_health():
-    return jsonify(ok=True, service="spinads", version="v4")
+    return jsonify(ok=True, service="spinads", version="v4.1")
 
 # ---- 퍼블리셔 온보딩 (v2.1) ----
 from flask import Response
