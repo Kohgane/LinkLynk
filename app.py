@@ -1214,7 +1214,7 @@ def aiknows_api():
     if len(name) < 2:
         return jsonify({"ok": False, "error": "가게 이름을 2자 이상 넣어주세요"}), 400
     import boim as _b
-    from core import llm_chat as _chat
+    _chat = _b.llm_chat
     # ★교차검증: 같은 질문을 3번 던져 답이 갈리면 지어낸 것으로 본다.
     #  무료 모델은 모르는 이름에도 그럴듯한 설명을 만들어내는데,
     #  그 설명은 매번 달라진다. 아는 이름은 핵심어가 반복된다.
@@ -1223,21 +1223,28 @@ def aiknows_api():
     _probe = (f"'{name}'라는 이름의 가게나 브랜드를 들어본 적 있습니까?\n"
               "확실히 아는 경우에만 '압니다'로 시작하고, 무엇을 하는 곳인지 한 문장으로만 쓰세요.\n"
               "조금이라도 확신이 없으면 '모릅니다'라고만 답하세요.")
+    # ★2회 병렬 — 순차 3회는 gunicorn timeout(60s)에 걸린다
+    import concurrent.futures as _cf
     _outs = []
-    for _ in range(3):
-        _r = _chat("__free__", _sys, _probe, max_tokens=200)
-        if _r.get("ok") and _r.get("text"):
-            _outs.append(_b.scrub_garbled(_r["text"]).strip())
+    def _one(_):
+        try:
+            _r = _chat("__free__", _sys, _probe, max_tokens=160)
+            return _b.scrub_garbled(_r["text"]).strip() if (_r.get("ok") and _r.get("text")) else None
+        except Exception:
+            return None
+    with _cf.ThreadPoolExecutor(max_workers=2) as _ex:
+        for _v in _ex.map(_one, range(2)):
+            if _v: _outs.append(_v)
     if not _outs:
         return jsonify({"ok": False, "error": "지금은 AI 응답을 받지 못했어요"}), 503
     _knows = [o for o in _outs if o.replace(" ", "").startswith("압니다")]
-    # 3번 중 2번 이상 '압니다'여야 아는 것으로 인정
+    # 2번 중 2번 다 '압니다'여야 아는 것으로 인정
     if len(_knows) < 2:
         return jsonify({"ok": True, "level": "unknown",
             "summary": "AI에게 이 이름은 아직 낯설어요. 참고할 글이 거의 없다는 뜻이에요.",
             "query": _probe.split("\n")[0],
             "answer": "모릅니다",
-            "consistency": "%d/3" % len(_knows)}), 200
+            "consistency": "%d/2" % len(_knows)}), 200
     # 핵심어 일치도 — 답이 서로 다르면 지어낸 것
     import re as _re2
     _words = [set(_re2.findall(r"[가-힣]{2,}", o)) for o in _knows]
@@ -1248,37 +1255,13 @@ def aiknows_api():
             "summary": "AI가 답할 때마다 설명이 달라져요. 확실히 아는 게 아니라는 뜻이에요.",
             "query": _probe.split("\n")[0],
             "answer": "\n\n".join("· " + o.replace("압니다", "").strip(" :.-") for o in _knows[:2]),
-            "consistency": "%d/3" % len(_knows)}), 200
+            "consistency": "%d/2" % len(_knows)}), 200
     _best = max(_knows, key=len).replace("압니다", "", 1).strip(" \n:.-")
     return jsonify({"ok": True, "level": "known",
         "summary": "여러 번 물어도 같게 답했어요. AI가 실제로 알고 있다는 뜻이에요.",
         "query": _probe.split("\n")[0],
         "answer": _best[:500],
-        "consistency": "%d/3" % len(_knows)}), 200
-    q = (f"'{name}'라는 가게 또는 브랜드를 알고 있습니까?\n"
-         "규칙: 확실히 아는 것만 말하세요. 추측·일반론·그럴듯한 설명을 지어내지 마세요.\n"
-         "모르면 첫 줄에 정확히 '모릅니다'라고만 쓰고 끝내세요.\n"
-         "안다면 첫 줄에 '압니다'라고 쓰고, 다음 줄부터 확실한 사실만 2~3문장으로 쓰세요.")
-    ans = _b._ask_ai("__free__", q)
-    if not ans:
-        return jsonify({"ok": False, "error": "지금은 AI 응답을 받지 못했어요"}), 503
-    ans = _b.scrub_garbled(ans)[:700]
-    low = ans.replace(" ", "")
-    unknown = (low.startswith("모릅니다") or
-               any(k in low[:60] for k in ("모릅니다", "모르", "알수없", "정보가없",
-                                           "확인되지", "찾을수없", "죄송")))
-    # '압니다' 선언이 없으면 지어낸 설명일 가능성이 높다 → 모름으로 본다
-    if not unknown and not low.startswith("압니다"):
-        unknown = True
-    ans = ans.replace("압니다", "", 1).strip(" \n:.-")
-    if unknown:
-        lvl, summary = "unknown", "AI에게 이 이름은 아직 낯설어요. 검색해도 참고할 글이 적다는 뜻이에요."
-    elif len(ans) < 90:
-        lvl, summary = "vague", "이름은 아는데 설명이 짧아요. 참고할 정보가 많지 않다는 뜻이에요."
-    else:
-        lvl, summary = "known", "AI가 구체적으로 설명했어요. 그만큼 참고할 글이 쌓여 있다는 뜻이에요."
-    return jsonify({"ok": True, "level": lvl, "summary": summary,
-                    "query": q, "answer": ans})
+        "consistency": "%d/2" % len(_knows)}), 200
 
 
 @app.route("/api/gov/config")
