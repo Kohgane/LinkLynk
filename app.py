@@ -1576,7 +1576,7 @@ def assetlinks():
                      "target": {"namespace": "android_app",
                                 "package_name": os.environ.get("SKY_ANDROID_PKG", "app.samesky.twa"),
                                 "sha256_cert_fingerprints": fps}})
-    _hw_fps = [x.strip() for x in os.environ.get("HWATU_ANDROID_SHA256", "").split(",") if x.strip()]
+    _hw_fps = [x.strip() for x in os.environ.get("HWATU_ANDROID_SHA256", "2A:7C:BB:C6:7C:57:CB:1F:10:D8:01:19:F6:F7:07:3E:46:6A:4F:BF:96:20:FA:F8:C0:EB:CF:3F:23:F0:63:5F").split(",") if x.strip()]
     if _hw_fps:
         body.append({"relation": ["delegate_permission/common.handle_all_urls"],
                      "target": {"namespace": "android_app",
