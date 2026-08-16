@@ -1218,11 +1218,9 @@ def aiknows_api():
     # ★교차검증: 같은 질문을 3번 던져 답이 갈리면 지어낸 것으로 본다.
     #  무료 모델은 모르는 이름에도 그럴듯한 설명을 만들어내는데,
     #  그 설명은 매번 달라진다. 아는 이름은 핵심어가 반복된다.
-    _sys = ("너는 사실 확인에 엄격한 도우미다. 모르면 모른다고 말한다. "
-            "추측하거나 그럴듯하게 지어내지 않는다.")
-    _probe = (f"'{name}'라는 이름의 가게나 브랜드를 들어본 적 있습니까?\n"
-              "확실히 아는 경우에만 '압니다'로 시작하고, 무엇을 하는 곳인지 한 문장으로만 쓰세요.\n"
-              "조금이라도 확신이 없으면 '모릅니다'라고만 답하세요.")
+    _sys = "너는 한국 소비자의 질문에 답하는 AI다. 아는 것은 답하고 모르는 것은 모른다고 한다."
+    _probe = (f"{name}은(는) 어떤 곳인가요? 한 문장으로만 답해주세요.\n"
+              "들어본 적 없는 이름이면 '모릅니다'라고만 쓰세요.")
     # ★2회 병렬 — 순차 3회는 gunicorn timeout(60s)에 걸린다
     import concurrent.futures as _cf
     _outs = []
@@ -1237,7 +1235,11 @@ def aiknows_api():
             if _v: _outs.append(_v)
     if not _outs:
         return jsonify({"ok": False, "error": "지금은 AI 응답을 받지 못했어요"}), 503
-    _knows = [o for o in _outs if o.replace(" ", "").startswith("압니다")]
+    def _is_unknown(o):
+        h = o.replace(" ", "")[:40]
+        return any(k in h for k in ("모릅니다", "모르겠", "알수없", "정보가없",
+                                    "확인되지", "찾을수없", "죄송"))
+    _knows = [o for o in _outs if not _is_unknown(o) and len(o) > 15]
     # 2번 중 2번 다 '압니다'여야 아는 것으로 인정
     if len(_knows) < 2:
         return jsonify({"ok": True, "level": "unknown",
@@ -1254,9 +1256,9 @@ def aiknows_api():
         return jsonify({"ok": True, "level": "vague",
             "summary": "AI가 답할 때마다 설명이 달라져요. 확실히 아는 게 아니라는 뜻이에요.",
             "query": _probe.split("\n")[0],
-            "answer": "\n\n".join("· " + o.replace("압니다", "").strip(" :.-") for o in _knows[:2]),
+            "answer": "\n\n".join("· " + o.strip(" :.-") for o in _knows[:2]),
             "consistency": "%d/2" % len(_knows)}), 200
-    _best = max(_knows, key=len).replace("압니다", "", 1).strip(" \n:.-")
+    _best = max(_knows, key=len).strip(" \n:.-")
     return jsonify({"ok": True, "level": "known",
         "summary": "여러 번 물어도 같게 답했어요. AI가 실제로 알고 있다는 뜻이에요.",
         "query": _probe.split("\n")[0],
