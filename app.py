@@ -1580,13 +1580,13 @@ def _sky_pg(method, path):
 def assetlinks():
     """TWA 디지털 자산 링크 — Play 서명키 SHA256은 env로 주입 (콘솔 서명 후 확정)."""
     import os
-    fp = os.environ.get("SKY_ANDROID_SHA256", "").strip()
+    fps = [x.strip() for x in os.environ.get("SKY_ANDROID_SHA256", "").split(",") if x.strip()]
     body = []
-    if fp:
+    if fps:
         body.append({"relation": ["delegate_permission/common.handle_all_urls"],
                      "target": {"namespace": "android_app",
                                 "package_name": os.environ.get("SKY_ANDROID_PKG", "app.samesky.twa"),
-                                "sha256_cert_fingerprints": [fp]}})
+                                "sha256_cert_fingerprints": fps}})
     r = jsonify(body)
     r.headers["Content-Type"] = "application/json"
     return r
