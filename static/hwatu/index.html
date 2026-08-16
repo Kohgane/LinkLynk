@@ -1,0 +1,208 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no">
+<link rel="manifest" href="/hwatu/manifest.json">
+<link rel="icon" href="/hwatu/icon-192.png"><link rel="apple-touch-icon" href="/hwatu/icon-192.png">
+<meta name="theme-color" content="#0a080d">
+<meta property="og:title" content="저승화투 — 차사와 한 판">
+<meta property="og:description" content="같은 달 패를 맞추면, 차사가 오늘의 화투점을 읊는다. 매일 자정 새 판.">
+<title>저승화투 — 차사와 한 판</title>
+<style>
+:root{--ink:#0a080d;--paper:#ddd3bd;--dim:#6f6757;--seal:#b83a28;--gold:#c9a24b;--wisp:#7fe8d0;--card:#191420;--line:#332c3d}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--ink);color:var(--paper);font-family:"Noto Serif KR",ui-serif,Georgia,serif;min-height:100vh;display:flex;flex-direction:column;align-items:center;padding:12px 10px 30px;overflow-x:hidden;position:relative}
+/* 삼도천 안개 + 등롱 빛 */
+body::before{content:"";position:fixed;inset:0;background:
+ radial-gradient(60% 34% at 50% -4%,#c9a24b14,transparent 70%),
+ radial-gradient(110% 70% at 50% 108%,#1b2733cc,transparent 60%),
+ radial-gradient(120% 90% at 50% 0%,#181322,var(--ink) 62%);pointer-events:none;z-index:0}
+.fog{position:fixed;left:-30%;width:160%;height:200px;border-radius:50%;filter:blur(46px);pointer-events:none;z-index:1;opacity:.5}
+.fog.a{bottom:-40px;background:#2a3a4a66;animation:fga 26s ease-in-out infinite alternate}
+.fog.b{bottom:60px;background:#3a2a4a44;animation:fga 34s ease-in-out infinite alternate-reverse}
+@keyframes fga{from{transform:translateX(-6%)}to{transform:translateX(6%)}}
+.wisp{position:fixed;width:7px;height:7px;border-radius:50%;background:var(--wisp);box-shadow:0 0 12px 3px #7fe8d066;pointer-events:none;z-index:1;opacity:0;animation:wf 11s linear infinite}
+@keyframes wf{0%{opacity:0;transform:translateY(30px) scale(.6)}12%{opacity:.75}55%{opacity:.35}100%{opacity:0;transform:translateY(-52vh) translateX(26px) scale(1.05)}}
+.z{position:relative;z-index:2}
+/* 현판 */
+.hd{width:100%;max-width:430px;display:flex;justify-content:space-between;align-items:center}
+.plaque{display:inline-flex;align-items:center;gap:10px}
+.plaque h1{font-size:21px;margin:0;letter-spacing:8px;font-weight:900;padding:7px 14px;border:1px solid #c9a24b55;border-bottom-width:3px;background:linear-gradient(#171220,#120e19);box-shadow:0 4px 14px #0009, inset 0 1px 0 #ffffff0d}
+.plaque h1 s{text-decoration:none;color:var(--seal)}
+.stamp{width:30px;height:30px;border:2px solid var(--seal);border-radius:6px;color:var(--seal);display:flex;align-items:center;justify-content:center;font-size:15px;font-weight:900;transform:rotate(-7deg);opacity:.9}
+.date{font-size:11px;color:var(--dim);text-align:right;line-height:1.5}
+/* 차사 */
+.chasa{width:100%;max-width:430px;display:flex;gap:11px;align-items:flex-end;margin:12px 0 10px}
+.chasa .fig{flex:0 0 66px;animation:idle 4.2s ease-in-out infinite;filter:drop-shadow(0 6px 14px #000c)}
+@keyframes idle{0%,100%{transform:translateY(0)}50%{transform:translateY(-3.5px)}}
+.bub{flex:1;background:linear-gradient(#1d1726,#171220);border:1px solid var(--line);border-radius:15px 15px 15px 4px;padding:10px 13px;font-size:13.5px;line-height:1.6;min-height:46px;color:#cfc4ab;box-shadow:0 6px 16px #0007}
+.bub b{color:var(--gold)}
+.meta{width:100%;max-width:430px;display:flex;justify-content:space-between;font-size:12px;color:var(--dim);margin-bottom:10px}
+.meta b{color:var(--paper)}
+/* 패 */
+#bd{display:grid;grid-template-columns:repeat(4,1fr);gap:9px;width:min(94vw,430px);perspective:900px}
+.cd{aspect-ratio:2/3;perspective:640px;cursor:pointer;position:relative}
+.in{position:relative;width:100%;height:100%;transform-style:preserve-3d;transition:transform .42s cubic-bezier(.3,1.35,.4,1)}
+.cd.f .in{transform:rotateY(180deg)}
+.face{position:absolute;inset:0;backface-visibility:hidden;border-radius:10px;display:flex;flex-direction:column;align-items:center;justify-content:center;overflow:hidden}
+.bk{background:
+ radial-gradient(60% 45% at 50% 42%,#2b2138,transparent 70%),
+ repeating-linear-gradient(45deg,#1c1526 0 7px,#181121 7px 14px);
+ border:1px solid #3d3152;box-shadow:inset 0 0 0 3px #0a080d, inset 0 0 0 4px #4a3d6133}
+.bk::after{content:"冥";font-size:21px;color:#5a4a78;font-weight:900;border:1.5px solid #5a4a7855;border-radius:50%;width:36px;height:36px;display:flex;align-items:center;justify-content:center}
+.ft{background:linear-gradient(168deg,#1d1826,#151019 70%);border:1px solid #45391f;gap:2px;
+ box-shadow:inset 0 0 0 2px #0a080d, inset 0 0 0 3px #c9a24b40, inset 0 14px 26px #0006}
+.ft svg{width:72%;height:50%;filter:drop-shadow(0 2px 6px #0008)}
+.ft .mn{font-size:10px;color:var(--gold);letter-spacing:2px}
+.ft .nm{font-size:11px;color:#948a76}
+.cd.done .ft{border-color:var(--seal);box-shadow:inset 0 0 0 2px #0a080d, inset 0 0 0 3px #b83a2870, 0 0 18px #b83a2833}
+.cd.done{animation:snap .34s}
+.cd.done::after{content:"合";position:absolute;right:5px;top:5px;font-size:10px;color:var(--seal);border:1px solid var(--seal);border-radius:4px;padding:1px 3px;transform:rotate(8deg);z-index:3;background:#0a080dcc}
+@keyframes snap{45%{transform:scale(1.08) rotate(.6deg)}}
+.burst{position:absolute;width:6px;height:6px;border-radius:50%;background:var(--wisp);box-shadow:0 0 10px 3px #7fe8d077;pointer-events:none;z-index:5;animation:bu .9s ease-out forwards}
+@keyframes bu{to{transform:translate(var(--dx),-64px) scale(.4);opacity:0}}
+.tools{display:flex;gap:8px;width:min(94vw,430px);margin-top:14px}
+.tools button{flex:1;font-family:inherit;font-size:13px;padding:11px 0;background:#ffffff06;border:1px solid var(--line);color:#a89d87;border-radius:11px}
+.tools button.on{color:var(--gold);border-color:#c9a24b66}
+.diff{display:flex;gap:6px;margin:11px 0 2px}
+.diff span{font-size:11.5px;padding:5px 13px;border:1px solid var(--line);border-radius:999px;color:var(--dim)}
+.diff span.on{color:var(--paper);border-color:var(--seal);background:#b83a2818}
+.foot{margin-top:12px;font-size:10.5px;color:#544d40;position:relative;z-index:2}
+/* 화투점 */
+.fin{position:fixed;inset:0;background:radial-gradient(80% 60% at 50% 30%,#181024ee,#0a080df6 70%);display:none;flex-direction:column;align-items:center;justify-content:center;z-index:50;text-align:center;padding:28px}
+.fin.show{display:flex}
+.fin .bigcard{width:128px;aspect-ratio:2/3;background:linear-gradient(168deg,#1d1826,#151019);border:1px solid var(--gold);border-radius:13px;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;animation:rise .6s cubic-bezier(.2,1.4,.4,1);box-shadow:0 0 40px #c9a24b22, inset 0 0 0 3px #c9a24b33}
+@keyframes rise{from{transform:translateY(46px) rotate(7deg);opacity:0}}
+.fin .bigcard svg{width:74%;height:52%}
+.fin .bigcard .mn{font-size:11px;color:var(--gold);letter-spacing:2px}
+.fin h2{font-size:17px;margin:22px 0 2px;font-weight:900;color:var(--gold);letter-spacing:1px}
+.fin .fx{font-size:15px;line-height:1.8;max-width:300px;color:#d8cdb5;margin-top:8px}
+.fin .fx::before,.fin .fx::after{content:"—";color:#5a5244;margin:0 8px}
+.fin .st{font-size:12.5px;color:var(--dim);margin-top:16px}
+.fin button{margin-top:26px;font-family:inherit;padding:13px 36px;background:var(--seal);color:#fff;border:0;border-radius:999px;font-size:14.5px;font-weight:900;box-shadow:0 6px 20px #b83a2844}
+</style></head><body>
+<div class="fog a"></div><div class="fog b"></div>
+<div class="hd z">
+<div class="plaque"><h1>저승<s>화투</s></h1><div class="stamp">占</div></div>
+<div class="date" id="dt"></div>
+</div>
+<div class="chasa z">
+<svg class="fig" viewBox="0 0 66 88">
+<ellipse cx="33" cy="21" rx="31" ry="7.5" fill="#07060a"/>
+<path d="M20 21 Q33 1 46 21 Z" fill="#07060a"/>
+<path d="M20 21 Q33 5 46 21" stroke="#c9a24b33" stroke-width=".8" fill="none"/>
+<ellipse cx="33" cy="34" rx="11" ry="12" fill="#d8cfc0"/>
+<circle cx="28.5" cy="33" r="1.5" fill="#141018"/><circle cx="37.5" cy="33" r="1.5" fill="#141018"/>
+<path d="M29 40.5 Q33 42 37 40.5" stroke="#6a6055" stroke-width="1" fill="none"/>
+<path d="M14 88 Q16 53 33 46 Q50 53 52 88 Z" fill="#100c18"/>
+<path d="M33 46 L33 88" stroke="#221a30" stroke-width="2"/>
+<path d="M25 58 Q33 63 41 58" stroke="#332c3d" stroke-width="1.4" fill="none"/>
+<path d="M22 74 Q33 78 44 74" stroke="#2a2336" stroke-width="1.2" fill="none"/>
+<circle cx="49" cy="63" r="2.6" fill="#7fe8d0" opacity=".8"><animate attributeName="opacity" values=".8;.25;.8" dur="3.4s" repeatCount="indefinite"/></circle>
+</svg>
+<div class="bub" id="say">삼도천은 잠시 미뤄두지. <b>같은 달</b>의 패를 맞춰봐라, 산 자.</div>
+</div>
+<div class="meta z"><span>🔥 <b id="stk">0</b>일째 살아있음</span><span>⏱ <b id="tm">0:00</b></span><span>패 넘김 <b id="mv">0</b></span></div>
+<div id="bd" class="z"></div>
+<div class="diff z" id="df"></div>
+<div class="tools z"><button id="rst">↺ 판 다시 깔기</button><button id="snd">🔔 소리</button></div>
+<div class="foot z">문양 자체 도안 · 매일 자정, 차사가 새 판을 깝니다 · <a href="/hwatu/privacy.html" style="color:#544d40">개인정보</a></div>
+<div class="fin" id="fin">
+<div class="bigcard" id="bigc"></div>
+<h2 id="finT"></h2>
+<div class="fx" id="finF"></div>
+<div class="st" id="finS"></div>
+<button onclick="document.getElementById('fin').classList.remove('show')">삼도천으로</button>
+</div>
+<script>
+for(let i=0;i<7;i++){const w=document.createElement('div');w.className='wisp';
+ w.style.left=(8+Math.random()*84)+'%';w.style.bottom=(4+Math.random()*30)+'%';
+ w.style.animationDelay=(Math.random()*11)+'s';w.style.animationDuration=(9+Math.random()*6)+'s';
+ document.body.appendChild(w)}
+const P='<circle cx="50" cy="26" r="14" fill="#b83a28"/>';
+const MON=[["송학","1月",'<path d="M18 78 L38 34 L58 78 Z" fill="#2f5d3a"/><path d="M30 78 L46 46 L62 78 Z" fill="#3c7048"/>'+P+'<path d="M60 58 q10 -8 20 -2 q-8 2 -10 8 q-4 -4 -10 -6" fill="#e8e2d2"/>'],
+["매조","2月",'<path d="M50 80 Q46 50 52 30" stroke="#5a4632" stroke-width="4" fill="none"/><circle cx="42" cy="38" r="6" fill="#c75462"/><circle cx="58" cy="30" r="6" fill="#c75462"/><circle cx="50" cy="22" r="6" fill="#d96b78"/><ellipse cx="64" cy="52" rx="9" ry="6" fill="#4a6b52"/><circle cx="70" cy="49" r="3" fill="#2c2c2c"/>'],
+["벚꽃","3月",'<g fill="#d98a97"><circle cx="50" cy="30" r="9"/><circle cx="36" cy="42" r="9"/><circle cx="64" cy="42" r="9"/><circle cx="42" cy="58" r="9"/><circle cx="58" cy="58" r="9"/></g><circle cx="50" cy="45" r="6" fill="#b83a28"/>'],
+["흑싸리","4月",'<path d="M50 82 Q44 50 50 22" stroke="#3a3040" stroke-width="4" fill="none"/><g fill="#4b3d55"><ellipse cx="38" cy="40" rx="11" ry="6" transform="rotate(-30 38 40)"/><ellipse cx="62" cy="34" rx="11" ry="6" transform="rotate(28 62 34)"/><ellipse cx="40" cy="60" rx="11" ry="6" transform="rotate(-24 40 60)"/></g>'],
+["난초","5月",'<g stroke="#4a6b52" stroke-width="4" fill="none"><path d="M50 82 Q48 48 40 26"/><path d="M50 82 Q54 50 64 30"/><path d="M50 82 Q50 56 50 40"/></g><circle cx="40" cy="24" r="4" fill="#c9a24b"/><circle cx="64" cy="28" r="4" fill="#c9a24b"/>'],
+["모란","6月",'<circle cx="50" cy="44" r="17" fill="#b04a58"/><circle cx="50" cy="44" r="9" fill="#d17a86"/><g fill="#3c7048"><ellipse cx="30" cy="62" rx="10" ry="5" transform="rotate(-22 30 62)"/><ellipse cx="70" cy="62" rx="10" ry="5" transform="rotate(22 70 62)"/></g>'],
+["홍싸리","7月",'<path d="M50 82 Q44 50 50 22" stroke="#5a3030" stroke-width="4" fill="none"/><g fill="#a34a3c"><ellipse cx="38" cy="38" rx="11" ry="6" transform="rotate(-30 38 38)"/><ellipse cx="62" cy="32" rx="11" ry="6" transform="rotate(28 62 32)"/><ellipse cx="40" cy="58" rx="11" ry="6" transform="rotate(-24 40 58)"/></g>'],
+["공산","8月",'<path d="M12 78 Q50 30 88 78 Z" fill="#2b2733"/><circle cx="50" cy="32" r="15" fill="#e8e2d2"/>'],
+["국화","9月",'<g stroke="#c9a24b" stroke-width="3"><path d="M50 46 L50 24"/><path d="M50 46 L68 32"/><path d="M50 46 L72 48"/><path d="M50 46 L64 64"/><path d="M50 46 L36 64"/><path d="M50 46 L28 48"/><path d="M50 46 L32 32"/></g><circle cx="50" cy="46" r="7" fill="#b83a28"/>'],
+["단풍","10月",'<g fill="#b3502e"><path d="M50 24 L58 44 L78 46 L62 58 L68 78 L50 66 L32 78 L38 58 L22 46 L42 44 Z"/></g>'],
+["오동","11月",'<g fill="#3f4a63"><ellipse cx="50" cy="60" rx="24" ry="14"/></g><g stroke="#3f4a63" stroke-width="3" fill="none"><path d="M40 46 L36 30"/><path d="M50 44 L50 26"/><path d="M60 46 L64 30"/></g><circle cx="36" cy="27" r="3.5" fill="#c9a24b"/><circle cx="50" cy="23" r="3.5" fill="#c9a24b"/><circle cx="64" cy="27" r="3.5" fill="#c9a24b"/>'],
+["비","12月",'<path d="M28 26 Q50 14 72 26 L72 34 Q50 24 28 34 Z" fill="#3a3040"/><g stroke="#6a7ba0" stroke-width="3"><path d="M34 44 L28 66"/><path d="M50 42 L46 70"/><path d="M66 44 L62 66"/></g><circle cx="50" cy="78" r="4" fill="#6a7ba0"/>']];
+const FORT=["먼 곳에서 소식이 온다. 학이 물어오는 것은 대체로 좋은 쪽이지.","기다리던 사람, 혹은 기다리게 한 사람 — 오늘 매듭이 풀린다.","화사한 일이 겹친다. 다만 꽃놀이에 지갑을 조심해라.","얽힌 일은 오늘 건드리지 마라. 내버려두면 스스로 풀린다.","조용히 향이 퍼지듯, 네 공이 알려지는 날이다.","귀한 자리, 귀한 대접. 사양 말고 앉아라.","작은 다툼수가 보인다. 붉은 것은 오늘 피해라.","달이 밝다. 밤에 결정하는 일이 낮보다 이롭다.","술 한 잔의 운. 오래 볼 사람과 마셔라.","손에 쥔 패가 생각보다 크다. 흥정에서 물러서지 마라.","뜻밖의 돈, 뜻밖의 빈손 — 오동은 늘 극단이지. 오늘은 지키는 쪽이다.","비 오는 날엔 길을 줄여라. 미룬 일 하나만 끝내면 족하다."];
+const SAY={start:["같은 달의 패를 맞춰라. 산 자의 기억력을 보겠다.","이승에서의 마지막 놀이가 될지도 모르지. 시작해라.","패는 깔렸다. 시간은… 네 편이 아니다."],
+match:["…제법이군.","눈썰미가 산 자답지 않아.","그 달을 기억하는가. 좋다.","호오.","명부에 적어두지 — <b>맞춤</b>."],
+miss:["이승의 기억력이란 그 정도인가.","틀렸다. 삼도천이 한 뼘 가까워졌군.","패는 거짓말을 하지 않아. 네 눈이 문제지.","…다시."],
+combo:["연달아 맞추는군. <b>차사가 긴장</b>하는 일은 드문데.","이 속도라면… 하루가 아니라 이틀을 줘야겠어."],
+near:["한 쌍 남았다. 마지막까지 흔들리지 마라."]};
+function mul32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+const KST=new Date(Date.now()+9*3600e3), dstr=KST.toISOString().slice(0,10);
+const DIFFS=[["초입 (4×4)",8,4],["명부 (4×5)",10,4],["삼도천 (4×6)",12,4]];
+let di=+(localStorage.jh_di||1), snd=localStorage.jh_snd!=='0';
+let deck,open=[],lock=false,found=0,moves=0,combo=0,t0=Date.now(),timer,lastM=0;
+// ── 소리: 풍경(매칭)·목탁(실패)·징(완성) 전부 실시간 합성 ──
+let AC=null;
+function ac(){if(!AC){const A=window.AudioContext||window.webkitAudioContext;if(A)AC=new A()}if(AC&&AC.resume)AC.resume();return AC}
+function tone(f,dur,type,gain,delay){const c=ac();if(!c||!snd)return;
+ const o=c.createOscillator(),g=c.createGain();o.type=type||'sine';o.frequency.value=f;
+ const t=c.currentTime+(delay||0);g.gain.setValueAtTime(gain||.12,t);
+ g.gain.exponentialRampToValueAtTime(.0001,t+dur);
+ o.connect(g);g.connect(c.destination);o.start(t);o.stop(t+dur)}
+const sMatch=()=>{tone(1568,.9,'sine',.08);tone(2093,1.3,'sine',.05,.03);tone(3136,.7,'sine',.03,.06)}; // 풍경
+const sMiss=()=>{tone(220,.09,'square',.05);tone(180,.1,'square',.04,.07)};                              // 목탁
+const sGong=()=>{tone(98,2.6,'sine',.14);tone(196,2.2,'sine',.07,.02);tone(147,1.8,'triangle',.05,.05)};  // 징
+function say(k){const a=SAY[k];document.getElementById('say').innerHTML=a[Math.floor(Math.random()*a.length)]}
+function svgCard(m){return '<svg viewBox="0 0 100 100">'+MON[m][2]+'</svg><div class="mn">'+MON[m][1]+'</div><div class="nm">'+MON[m][0]+'</div>'}
+function wisps(el){const r=el.getBoundingClientRect();
+ for(let i=0;i<3;i++){const w=document.createElement('div');w.className='burst';
+  w.style.left=(r.left+r.width/2)+'px';w.style.top=(r.top+r.height/2)+'px';
+  w.style.setProperty('--dx',(Math.random()*44-22)+'px');
+  document.body.appendChild(w);setTimeout(()=>w.remove(),950)}}
+function build(){const[,pairs,cols]=DIFFS[di];
+ const rng=mul32([...dstr+di].reduce((h,c)=>(h*31+c.charCodeAt(0))|0,7));
+ const months=[...Array(12).keys()].sort(()=>rng()-.5).slice(0,pairs);
+ deck=[...months,...months].map((m,i)=>({m,i})).sort(()=>rng()-.5);
+ open=[];lock=false;found=0;moves=0;combo=0;t0=Date.now();
+ const bd=document.getElementById('bd');bd.style.gridTemplateColumns=`repeat(${cols},1fr)`;bd.innerHTML='';
+ deck.forEach((c,idx)=>{const d=document.createElement('div');d.className='cd';
+  d.innerHTML='<div class="in"><div class="face bk"></div><div class="face ft">'+svgCard(c.m)+'</div></div>';
+  d.onclick=()=>flip(idx,d);bd.appendChild(d)});
+ clearInterval(timer);timer=setInterval(()=>{const s=Math.floor((Date.now()-t0)/1000);
+  document.getElementById('tm').textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0')},500);
+ document.getElementById('mv').textContent=0;say('start')}
+function flip(idx,el){if(lock||el.classList.contains('f')||el.classList.contains('done'))return;
+ ac();el.classList.add('f');open.push({idx,el});
+ if(open.length===2){lock=true;moves++;document.getElementById('mv').textContent=moves;
+  const[a,b]=open;
+  if(deck[a.idx].m===deck[b.idx].m){combo++;lastM=deck[a.idx].m;
+   setTimeout(()=>{a.el.classList.add('done');b.el.classList.add('done');
+    wisps(a.el);wisps(b.el);sMatch();
+    open=[];lock=false;found++;
+    const total=DIFFS[di][1];
+    if(found===total)finish();
+    else if(found===total-1)say('near');
+    else say(combo>=3?'combo':'match')},400)}
+  else{combo=0;setTimeout(()=>{sMiss();a.el.classList.remove('f');b.el.classList.remove('f');open=[];lock=false;say('miss')},720)}}}
+function finish(){clearInterval(timer);sGong();
+ const last=localStorage.jh_done,stk=+(localStorage.jh_stk||0);
+ if(last!==dstr){const y=new Date(KST-864e5).toISOString().slice(0,10);
+  localStorage.jh_stk=(last===y?stk+1:1);localStorage.jh_done=dstr}
+ document.getElementById('stk').textContent=localStorage.jh_stk;
+ const sec=Math.floor((Date.now()-t0)/1000);
+ document.getElementById('bigc').innerHTML=svgCard(lastM);
+ document.getElementById('finT').textContent='오늘의 패 · '+MON[lastM][1]+' '+MON[lastM][0];
+ document.getElementById('finF').textContent=FORT[lastM];
+ document.getElementById('finS').textContent=`${DIFFS[di][0]} · ${Math.floor(sec/60)}분 ${sec%60}초 · 넘김 ${moves} · 🔥 ${localStorage.jh_stk}일째 살아있음`;
+ setTimeout(()=>document.getElementById('fin').classList.add('show'),350)}
+const df=document.getElementById('df');
+DIFFS.forEach(([n],i)=>{const s=document.createElement('span');s.textContent=n;if(i===di)s.classList.add('on');
+ s.onclick=()=>{di=i;localStorage.jh_di=i;[...df.children].forEach((x,j)=>x.classList.toggle('on',j===i));build()};df.appendChild(s)});
+document.getElementById('rst').onclick=build;
+const sb=document.getElementById('snd');
+function sndUi(){sb.classList.toggle('on',snd);sb.textContent=snd?'🔔 소리':'🔕 소리'}
+sb.onclick=()=>{snd=!snd;localStorage.jh_snd=snd?'1':'0';sndUi();snd&&sMatch()};sndUi();
+document.getElementById('dt').innerHTML=dstr.replace(/-/g,'.')+'<br>차사 근무일지';
+document.getElementById('stk').textContent=localStorage.jh_stk||0;
+build();if('serviceWorker'in navigator)navigator.serviceWorker.register('/hwatu/sw.js').catch(()=>{});
+</script></body></html>

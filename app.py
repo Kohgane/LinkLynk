@@ -1576,9 +1576,28 @@ def assetlinks():
                      "target": {"namespace": "android_app",
                                 "package_name": os.environ.get("SKY_ANDROID_PKG", "app.samesky.twa"),
                                 "sha256_cert_fingerprints": fps}})
+    _hw_fps = [x.strip() for x in os.environ.get("HWATU_ANDROID_SHA256", "").split(",") if x.strip()]
+    if _hw_fps:
+        body.append({"relation": ["delegate_permission/common.handle_all_urls"],
+                     "target": {"namespace": "android_app",
+                                "package_name": os.environ.get("HWATU_ANDROID_PKG", "app.jeoseunghwatu.twa"),
+                                "sha256_cert_fingerprints": _hw_fps}})
     r = jsonify(body)
     r.headers["Content-Type"] = "application/json"
     return r
+
+
+@app.route("/hwatu")
+@app.route("/hwatu/")
+def hwatu_page():
+    from flask import send_from_directory
+    return send_from_directory("static/hwatu", "index.html")
+
+
+@app.route("/hwatu/<path:fn>")
+def hwatu_asset(fn):
+    from flask import send_from_directory
+    return send_from_directory("static/hwatu", fn)
 
 
 @app.route("/sky")
