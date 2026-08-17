@@ -393,6 +393,7 @@ function switchToManual(){
 }
 
 async function generate(){
+  resetWriteSession({keepLink:true, keepName:true});   // ★이전 결과만 버린다
   const url = document.getElementById('url').value.trim();
   const pname = (document.getElementById('pname')?.value || '').trim() || '쿠팡 상품';
   const go = document.getElementById('go');
@@ -1562,6 +1563,7 @@ window.__refinedTopics = window.__refinedTopics || loadRefined() || [];
 window.__refineJobs = window.__refineJobs || {};
 
 async function refineTopic(title, btn){
+  resetWriteSession();                    // ★이전 주제의 상품명·링크 제거
   title = (title||'').trim();
   if(!title) return;
   const exist = window.__refinedTopics.find(t=>t.title===title);
@@ -2537,6 +2539,7 @@ async function publishToSns(platform, btn){
       const isSched = !!window.__scheduleAt;
       const acc = (window.__pickedAccount||{})[platform];
       toast(isSched ? '예약됐어요! ⏰ 다른 계정·시간으로 또 예약할 수 있어요' : '게시됐어요! 🚀');
+      if(!isSched) setTimeout(()=>resetWriteSession(), 1800);   // ★다음 글을 새로 시작할 수 있게
       // ★버튼을 잠깐 완료 표시 후 원래대로 되살린다.
       //  (안 그러면 계정 바꿔서 다시 예약하려는데 버튼이 disabled로 막혀 안 눌린다)
       btn.textContent = isSched ? '예약 완료 ✓' : '게시 완료 ✓';
@@ -3020,4 +3023,28 @@ async function cancelSchedule(pid, btn){
     if(r.ok) loadPosts('all');
   }catch(e){ toast('서버 연결 실패'); }
   finally{ btn.textContent=o; btn.disabled=false; }
+}
+
+// ── ★작성 세션 초기화 — 이전 글의 상품명·링크·결과가 다음 글을 오염시키는 것을 막는다 ──
+function resetWriteSession(opts){
+  const keep = opts || {};
+  window.__lastResult = null;
+  window.__pickedProducts = [];
+  window.__extraLinks = [];
+  window.__uploadedUrls = [];
+  window.__attachedImages = [];
+  window.__scheduleAt = null;
+  window.__forcePublish = false;
+  if(!keep.keepLink){
+    const l = document.getElementById('w_link'); if(l) l.value = '';
+    const u = document.getElementById('url');    if(u) u.value = '';
+  }
+  if(!keep.keepName){
+    const p1 = document.getElementById('pname');      if(p1) p1.value = '';
+    const p2 = document.getElementById('pickedName'); if(p2) p2.innerHTML = '';
+    const pp = document.getElementById('pickedProd'); if(pp) pp.classList.add('hidden');
+  }
+  const px = document.getElementById('w_paste');  if(px) px.value = '';
+  const th = document.getElementById('imgThumbs'); if(th) th.innerHTML = '';
+  const ex = document.getElementById('w_extra');  if(ex) ex.value = '';
 }
