@@ -172,9 +172,18 @@ def spinads_apply():
                 (adv, contact, verb, landing or None, code, bid, budget, product))
     return jsonify(ok=True), 201
 
+@spinads_bp.get("/api/spinads/stats")
+def spinads_stats():
+    days = min(90, max(1, request.args.get("days", 14, type=int)))
+    with _db() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("select d::text, sessions, clicks, publisher_earn_krw from dw.spinads_daily order by d desc limit %s", (days,))
+            rows = cur.fetchall()
+    return jsonify(days=[dict(r) for r in rows])
+
 @spinads_bp.get("/api/spinads/health")
 def spinads_health():
-    return jsonify(ok=True, service="spinads", version="v4.1")
+    return jsonify(ok=True, service="spinads", version="v4.2")
 
 # ---- 퍼블리셔 온보딩 (v2.1) ----
 from flask import Response
