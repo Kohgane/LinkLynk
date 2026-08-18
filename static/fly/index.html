@@ -90,18 +90,46 @@ const DESTS = [
 ];
 
 const VEHICLES = [
-  {n:"제트기",     e:"✈️", sp:2.2, ag:0.9},
-  {n:"헬리콥터",   e:"🚁", sp:0.6, ag:1.8},
-  {n:"글라이더",   e:"🪂", sp:0.45,ag:1.2},
-  {n:"열기구",     e:"🎈", sp:0.15,ag:0.5},
-  {n:"로켓",       e:"🚀", sp:6.0, ag:0.5},
-  {n:"용",         e:"🐉", sp:1.6, ag:1.6},
-  {n:"마법양탄자", e:"🧞", sp:1.0, ag:2.0},
-  {n:"빗자루",     e:"🧹", sp:1.3, ag:2.4},
-  {n:"근두운",     e:"☁️", sp:3.2, ag:1.4},
-  {n:"UFO",        e:"🛸", sp:4.5, ag:3.0},
-  {n:"독수리",     e:"🦅", sp:0.8, ag:2.6},
-  {n:"커스텀",     e:"⚙️", sp:1.0, ag:1.0, custom:true},
+  {n:"제트기",e:"\u2708\uFE0F",sp:2.2,ag:0.9},
+  {n:"전투기",e:"\uD83D\uDEE9\uFE0F",sp:3.0,ag:1.5},
+  {n:"여객기",e:"\uD83D\uDEEB",sp:1.8,ag:0.5},
+  {n:"헬리콥터",e:"\uD83D\uDE81",sp:0.6,ag:1.8},
+  {n:"글라이더",e:"\uD83E\uDE82",sp:0.45,ag:1.2},
+  {n:"패러글라이더",e:"\uD83C\uDFCB\uFE0F",sp:0.3,ag:1.5},
+  {n:"열기구",e:"\uD83C\uDF88",sp:0.15,ag:0.5},
+  {n:"드론",e:"\uD83D\uDEF8",sp:0.5,ag:2.5},
+  {n:"복엽기",e:"\uD83D\uDEE9",sp:0.8,ag:1.1},
+  {n:"로켓",e:"\uD83D\uDE80",sp:6.0,ag:0.5,cat:"space"},
+  {n:"우주왕복선",e:"\uD83D\uDEF0\uFE0F",sp:5.0,ag:0.8,cat:"space"},
+  {n:"UFO",e:"\uD83D\uDEF8",sp:4.5,ag:3.0,cat:"space"},
+  {n:"스포츠카",e:"\uD83C\uDFCE\uFE0F",sp:1.2,ag:1.5,cat:"ground",off:2},
+  {n:"오토바이",e:"\uD83C\uDFCD\uFE0F",sp:1.0,ag:2.0,cat:"ground",off:2},
+  {n:"오프로드",e:"\uD83D\uDEFB",sp:0.8,ag:1.6,cat:"ground",off:3},
+  {n:"기차",e:"\uD83D\uDE84",sp:1.5,ag:0.3,cat:"ground",off:4},
+  {n:"탱크",e:"\uD83D\uDEE1\uFE0F",sp:0.5,ag:0.8,cat:"ground",off:3},
+  {n:"말",e:"\uD83D\uDC0E",sp:0.3,ag:1.8,cat:"ground",off:2},
+  {n:"치타",e:"\uD83D\uDC06",sp:0.6,ag:2.5,cat:"ground",off:1},
+  {n:"자전거",e:"\uD83D\uDEB2",sp:0.15,ag:1.5,cat:"ground",off:2},
+  {n:"쾌속정",e:"\uD83D\uDEA4",sp:0.9,ag:1.5,cat:"sea",off:2},
+  {n:"요트",e:"\u26F5",sp:0.4,ag:0.8,cat:"sea",off:3},
+  {n:"항공모함",e:"\uD83D\uDEA2",sp:0.6,ag:0.2,cat:"sea",off:15},
+  {n:"서핑보드",e:"\uD83C\uDFC4",sp:0.3,ag:2.0,cat:"sea",off:1},
+  {n:"잠수함",e:"\uD83E\uDD3F",sp:0.5,ag:0.8,cat:"sub"},
+  {n:"고래",e:"\uD83D\uDC33",sp:0.4,ag:1.2,cat:"sub"},
+  {n:"인어",e:"\uD83E\uDDDC",sp:0.3,ag:2.0,cat:"sub"},
+  {n:"드릴머신",e:"\uD83D\uDEE0\uFE0F",sp:0.4,ag:0.8,cat:"tunnel"},
+  {n:"두더지",e:"\uD83D\uDC00",sp:0.3,ag:1.5,cat:"tunnel"},
+  {n:"모래벌레",e:"\uD83E\uDEB1",sp:1.2,ag:1.0,cat:"tunnel"},
+  {n:"용",e:"\uD83D\uDC09",sp:1.6,ag:1.6},
+  {n:"그리핀",e:"\uD83E\uDD85",sp:1.2,ag:2.0},
+  {n:"페가수스",e:"\uD83E\uDD84",sp:1.4,ag:1.8},
+  {n:"불사조",e:"\uD83D\uDD25",sp:2.5,ag:2.0},
+  {n:"마법양탄자",e:"\uD83E\uDDDE",sp:1.0,ag:2.0},
+  {n:"빗자루",e:"\uD83E\uDDF9",sp:1.3,ag:2.4},
+  {n:"근두운",e:"\u2601\uFE0F",sp:3.2,ag:1.4},
+  {n:"산타썰매",e:"\uD83E\uDD8C",sp:2.0,ag:1.2},
+  {n:"종이비행기",e:"\uD83D\uDCC4",sp:0.4,ag:2.2},
+  {n:"커스텀",e:"\u2699\uFE0F",sp:1.0,ag:1.0,custom:true},
 ];
 
 let viewer, tier = "BASIC (키 없음: 평면지형)";
@@ -219,9 +247,35 @@ function tick(){
     if (keys.arrowright) c.lookRight(tr);
     if (keys.arrowup)    c.lookUp(tp);
     if (keys.arrowdown)  c.lookDown(tp);
-    vehHud.textContent = `${veh.e} ${veh.n} · ${Math.round(curSpeed()*3.6).toLocaleString()} km/h`;
+    clampToLayer(c);
+    vehHud.textContent = `${veh.e} ${veh.n} \u00B7 ${Math.round(curSpeed()*3.6).toLocaleString()} km/h`;
   }
 }
+
+function clampToLayer(c){
+  const cat = veh.cat || "air";
+  if (cat==="air" || cat==="space") return;
+  const cart = c.positionCartographic;
+  let target = null;
+  const g = viewer.scene.globe.getHeight(cart);
+  if (cat==="ground"){
+    if (g !== undefined) target = g + (veh.off||3);
+  } else if (cat==="sea"){
+    target = (veh.off||2);
+  } else if (cat==="sub"){
+    target = Math.min(cart.height, -3);
+    if (g !== undefined && g < -10) target = Math.max(target, g+5);
+  } else if (cat==="tunnel"){
+    target = Math.min(cart.height, (g===undefined?0:g) - 10);
+  }
+  if (target === null) return;
+  const h = cart.height + (target - cart.height)*0.12;
+  c.setView({
+    destination: Cesium.Cartesian3.fromRadians(cart.longitude, cart.latitude, h),
+    orientation: { heading: c.heading, pitch: c.pitch, roll: 0 }
+  });
+}
+
 
 function setupInput(){
   const map={KeyW:"w",KeyA:"a",KeyS:"s",KeyD:"d",KeyQ:"q",KeyE:"e",
@@ -247,8 +301,14 @@ function pickVeh(i){
   document.querySelectorAll(".vcard").forEach((c,j)=>c.classList.toggle("on", j===i));
   custWrap.style.display = veh.custom ? "flex" : "none";
   if (veh.custom){ veh.sp=parseFloat(custSp.value); veh.ag=parseFloat(custAg.value); }
+  const under = veh.cat==="sub" || veh.cat==="tunnel";
+  const gl = viewer.scene.globe;
+  gl.translucency.enabled = under;
+  gl.translucency.frontFaceAlpha = under ? 0.45 : 1.0;
+  viewer.scene.screenSpaceCameraController.enableCollisionDetection = !under && veh.cat!=="ground";
   goFree();
 }
+
 
 function buildUI(){
   const vw = document.getElementById("vehs");
