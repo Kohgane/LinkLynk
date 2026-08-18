@@ -50,7 +50,7 @@
 </div>
 <script>
 /* ===================== CONFIG ===================== */
-const CESIUM_ION_TOKEN = "";   // cesium.com 무료 토큰 → 3D 지형
+const CESIUM_ION_TOKEN = "";   // Unity와 같은 ion 토큰 → 3D 지형
 const GOOGLE_KEY       = "";   // Google Map Tiles API 키 → 포토리얼 3D
 /* ================================================== */
 
@@ -77,7 +77,7 @@ const DESTS = [
 ];
 
 let viewer, tier = "BASIC (키 없음: 평면지형)";
-let mode = "tour";           // tour | free | space
+let mode = "tour";
 let curIdx = -1, orbiting = false, orbitHeading = 0, orbitCenter = null, orbitR = 0, orbitP = 0;
 const keys = {};
 
@@ -88,7 +88,6 @@ async function init(){
     fullscreenButton:false, infoBox:false, selectionIndicator:false,
     requestRenderMode:false,
   };
-
   if (CESIUM_ION_TOKEN){
     Cesium.Ion.defaultAccessToken = CESIUM_ION_TOKEN;
     opts.terrain = Cesium.Terrain.fromWorldTerrain();
@@ -101,7 +100,6 @@ async function init(){
     }));
     viewer = new Cesium.Viewer("cesiumContainer", opts);
   }
-
   if (GOOGLE_KEY){
     try{
       Cesium.GoogleMaps.defaultApiKey = GOOGLE_KEY;
@@ -111,7 +109,6 @@ async function init(){
       tier = "PHOTOREAL (Google 3D Tiles)";
     }catch(e){ console.warn("Google tiles 실패, 하위 티어 유지", e); }
   }
-
   const sc = viewer.scene;
   sc.globe.enableLighting = true;
   sc.globe.atmosphereLightIntensity = 22;
@@ -126,12 +123,10 @@ async function init(){
   setLocalTime(17.5);
   goSpace(true);
   setTimeout(()=>flyToDest(0), 2500);
-
   viewer.clock.onTick.addEventListener(tick);
   setupInput();
 }
 
-/* ---------- 시간대(일몰) : 카메라 경도 기준 로컬시각 ---------- */
 function setLocalTime(h){
   const lon = Cesium.Math.toDegrees(viewer.camera.positionCartographic.longitude) || 0;
   let utc = h - lon/15;
@@ -142,7 +137,6 @@ function setLocalTime(h){
   document.getElementById("timeLabel").textContent = hh+":"+mm;
 }
 
-/* ---------- 투어 ---------- */
 function flyToDest(i){
   const d = DESTS[i]; curIdx = i; mode = "tour"; orbiting = false; syncBtns();
   document.querySelectorAll(".dcard").forEach((c,j)=>c.classList.toggle("on", j===i));
@@ -156,7 +150,6 @@ function flyToDest(i){
   });
 }
 
-/* ---------- 우주 ---------- */
 function goSpace(instant){
   mode = "space"; orbiting = false; curIdx = -1; syncBtns();
   document.querySelectorAll(".dcard").forEach(c=>c.classList.remove("on"));
@@ -165,9 +158,7 @@ function goSpace(instant){
   if (instant) viewer.camera.setView({destination:dst});
   else viewer.camera.flyTo({destination:dst, duration:5});
 }
-
-/* ---------- 자유비행 ---------- */
-let freeSpeed = 120; // m/s
+let freeSpeed = 120;
 function goFree(){
   mode = "free"; orbiting = false; syncBtns();
   viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
@@ -200,7 +191,6 @@ function setupInput(){
   addEventListener("keyup",   e=>{ keys[e.key.toLowerCase()] = false; });
 }
 
-/* ---------- UI ---------- */
 function syncBtns(){
   btnTour.classList.toggle("on", mode==="tour");
   btnFree.classList.toggle("on", mode==="free");
