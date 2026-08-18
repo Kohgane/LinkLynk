@@ -2934,3 +2934,7 @@ h1{{font-size:22px;font-weight:800;text-align:center;letter-spacing:-.02em}}
 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)
+
+@app.route("/fly")
+def fly():
+    return send_from_directory("static/fly", "index.html")
