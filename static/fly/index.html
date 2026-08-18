@@ -11,13 +11,16 @@
   #cesiumContainer{width:100%;height:100%}
   .hud{position:fixed;z-index:10;color:#fff;user-select:none;-webkit-user-select:none}
   #title{top:14px;left:16px;font-size:15px;letter-spacing:.14em;opacity:.85;font-weight:600;text-shadow:0 1px 6px #000}
+  #vehHud{top:12px;left:50%;transform:translateX(-50%);font-size:13px;font-weight:600;
+    background:rgba(0,0,0,.38);padding:7px 16px;border-radius:18px;backdrop-filter:blur(6px);display:none}
   #panel{bottom:0;left:0;right:0;padding:10px 12px calc(10px + env(safe-area-inset-bottom));
     background:linear-gradient(transparent,rgba(0,0,0,.72));display:flex;flex-direction:column;gap:8px}
-  #dests{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
-  #dests::-webkit-scrollbar{display:none}
-  .dcard{flex:0 0 auto;padding:8px 14px;border-radius:20px;background:rgba(255,255,255,.12);
-    backdrop-filter:blur(8px);font-size:13px;white-space:nowrap;cursor:pointer;border:1px solid rgba(255,255,255,.15)}
+  #vehs,#dests{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+  #vehs::-webkit-scrollbar,#dests::-webkit-scrollbar{display:none}
+  .dcard,.vcard{flex:0 0 auto;padding:8px 14px;border-radius:20px;background:rgba(255,255,255,.12);
+    backdrop-filter:blur(8px);font-size:13px;white-space:nowrap;cursor:pointer;border:1px solid rgba(255,255,255,.15);color:#fff}
   .dcard.on{background:rgba(255,180,80,.85);color:#1a0f00;font-weight:700;border-color:transparent}
+  .vcard.on{background:rgba(150,240,170,.88);color:#02240c;font-weight:700;border-color:transparent}
   #row2{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
   .btn{padding:8px 14px;border-radius:10px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.2);
     color:#fff;font-size:13px;cursor:pointer}
@@ -25,6 +28,8 @@
   #timeWrap{display:flex;align-items:center;gap:8px;flex:1;min-width:180px}
   #timeSlider{flex:1;accent-color:#ffb450}
   #timeLabel{font-size:12px;width:70px;text-align:right;opacity:.9}
+  #custWrap{display:none;align-items:center;gap:10px;font-size:12px;color:#dfd}
+  #custWrap input{accent-color:#9fe6a0;width:110px}
   #hint{top:14px;right:16px;font-size:11px;text-align:right;opacity:.6;line-height:1.7;text-shadow:0 1px 4px #000}
   #tier{position:fixed;top:44px;left:16px;font-size:11px;opacity:.55;color:#ffd9a0;z-index:10}
   .cesium-viewer-bottom{opacity:.4}
@@ -33,10 +38,18 @@
 <body>
 <div id="cesiumContainer"></div>
 <div class="hud" id="title">EARTHFLIGHT</div>
+<div class="hud" id="vehHud"></div>
 <div class="hud" id="hint"></div>
 <div id="tier"></div>
 <div class="hud" id="panel">
+  <div id="vehs"></div>
   <div id="dests"></div>
+  <div id="custWrap">
+    <span>⚙️ 속도 <output id="custSpv">1.0×</output></span>
+    <input type="range" id="custSp" min="0.1" max="8" step="0.1" value="1">
+    <span>민첩 <output id="custAgv">1.0×</output></span>
+    <input type="range" id="custAg" min="0.3" max="3" step="0.1" value="1">
+  </div>
   <div id="row2">
     <button class="btn" id="btnTour">투어</button>
     <button class="btn" id="btnFree">자유비행</button>
@@ -50,8 +63,8 @@
 </div>
 <script>
 /* ===================== CONFIG ===================== */
-const CESIUM_ION_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1MDI1ZGE2NC0wOGIyLTRlZWMtOWQ4OS05NWY4ZjMxNjg0ZmIiLCJpZCI6NDA1NTcyLCJpYXQiOjE3NzM4MzA1Mjl9.FCi-lCnBVst8VYPqaiKmOrYnOVD9SLQG6767GTfohH0";   // Unity와 같은 ion 토큰 → 3D 지형
-const GOOGLE_KEY       = "";   // Google Map Tiles API 키 → 포토리얼 3D
+const CESIUM_ION_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1MDI1ZGE2NC0wOGIyLTRlZWMtOWQ4OS05NWY4ZjMxNjg0ZmIiLCJpZCI6NDA1NTcyLCJpYXQiOjE3NzM4MzA1Mjl9.FCi-lCnBVst8VYPqaiKmOrYnOVD9SLQG6767GTfohH0";
+const GOOGLE_KEY       = "";
 /* ================================================== */
 
 const DESTS = [
@@ -76,9 +89,25 @@ const DESTS = [
   {n:"나이아가라",   lon:-79.075, lat:43.078,  h:400,   r:2800,  p:-24},
 ];
 
+const VEHICLES = [
+  {n:"제트기",     e:"✈️", sp:2.2, ag:0.9},
+  {n:"헬리콥터",   e:"🚁", sp:0.6, ag:1.8},
+  {n:"글라이더",   e:"🪂", sp:0.45,ag:1.2},
+  {n:"열기구",     e:"🎈", sp:0.15,ag:0.5},
+  {n:"로켓",       e:"🚀", sp:6.0, ag:0.5},
+  {n:"용",         e:"🐉", sp:1.6, ag:1.6},
+  {n:"마법양탄자", e:"🧞", sp:1.0, ag:2.0},
+  {n:"빗자루",     e:"🧹", sp:1.3, ag:2.4},
+  {n:"근두운",     e:"☁️", sp:3.2, ag:1.4},
+  {n:"UFO",        e:"🛸", sp:4.5, ag:3.0},
+  {n:"독수리",     e:"🦅", sp:0.8, ag:2.6},
+  {n:"커스텀",     e:"⚙️", sp:1.0, ag:1.0, custom:true},
+];
+
 let viewer, tier = "BASIC (키 없음: 평면지형)";
-let mode = "tour";
+let mode = "tour", veh = VEHICLES[0];
 let curIdx = -1, orbiting = false, orbitHeading = 0, orbitCenter = null, orbitR = 0, orbitP = 0;
+let lastT = 0;
 const keys = {};
 
 async function init(){
@@ -107,7 +136,7 @@ async function init(){
       viewer.scene.primitives.add(g);
       viewer.scene.globe.show = false;
       tier = "PHOTOREAL (Google 3D Tiles)";
-    }catch(e){ console.warn("Google tiles 실패, 하위 티어 유지", e); }
+    }catch(e){ console.warn("Google tiles 실패", e); }
   }
   const sc = viewer.scene;
   sc.globe.enableLighting = true;
@@ -158,31 +187,39 @@ function goSpace(instant){
   if (instant) viewer.camera.setView({destination:dst});
   else viewer.camera.flyTo({destination:dst, duration:5});
 }
-let freeSpeed = 120;
+
 function goFree(){
   mode = "free"; orbiting = false; syncBtns();
   viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
   document.querySelectorAll(".dcard").forEach(c=>c.classList.remove("on"));
 }
 
-function tick(clock){
+function curSpeed(){
+  const h = Math.max(viewer.camera.positionCartographic.height, 1);
+  const base = Math.min(Math.max(h*0.25, 25), 30000);
+  return base * veh.sp * (keys.shift ? 4 : 1);
+}
+function tick(){
+  const now = performance.now();
+  const dt = lastT ? Math.min((now-lastT)/1000, 0.1) : 1/60;
+  lastT = now;
   if (mode === "tour" && orbiting && orbitCenter){
-    orbitHeading += 0.0016;
+    orbitHeading += 0.1*dt;
     viewer.camera.lookAt(orbitCenter, new Cesium.HeadingPitchRange(orbitHeading, orbitP, orbitR));
   }
   if (mode === "free"){
-    const c = viewer.camera, dt = 1/60;
-    const sp = (keys["shift"] ? freeSpeed*6 : freeSpeed) * dt * 10;
-    if (keys["w"]) c.moveForward(sp);
-    if (keys["s"]) c.moveBackward(sp);
-    if (keys["a"]) c.moveLeft(sp);
-    if (keys["d"]) c.moveRight(sp);
-    if (keys["q"]) c.moveDown(sp*0.6);
-    if (keys["e"]) c.moveUp(sp*0.6);
-    if (keys["arrowleft"])  c.lookLeft(0.02);
-    if (keys["arrowright"]) c.lookRight(0.02);
-    if (keys["arrowup"])    c.lookUp(0.012);
-    if (keys["arrowdown"])  c.lookDown(0.012);
+    const c = viewer.camera, sp = curSpeed()*dt, tr = 1.4*veh.ag*dt, tp = 0.8*veh.ag*dt;
+    if (keys.w) c.moveForward(sp);
+    if (keys.s) c.moveBackward(sp);
+    if (keys.a) c.moveLeft(sp*0.7);
+    if (keys.d) c.moveRight(sp*0.7);
+    if (keys.q) c.moveDown(sp*0.5);
+    if (keys.e) c.moveUp(sp*0.5);
+    if (keys.arrowleft)  c.lookLeft(tr);
+    if (keys.arrowright) c.lookRight(tr);
+    if (keys.arrowup)    c.lookUp(tp);
+    if (keys.arrowdown)  c.lookDown(tp);
+    vehHud.textContent = `${veh.e} ${veh.n} · ${Math.round(curSpeed()*3.6).toLocaleString()} km/h`;
   }
 }
 
@@ -199,11 +236,28 @@ function syncBtns(){
   btnTour.classList.toggle("on", mode==="tour");
   btnFree.classList.toggle("on", mode==="free");
   btnSpace.classList.toggle("on", mode==="space");
+  vehHud.style.display = mode==="free" ? "block" : "none";
   document.getElementById("hint").innerHTML = mode==="free"
-    ? "W/A/S/D 이동 · Q/E 고도 · 방향키 시선 · Shift 가속<br>마우스 드래그로도 회전"
+    ? "W/A/S/D 이동 · Q/E 고도 · 방향키 시선 · Shift 부스터<br>높이 날수록 빨라짐 · 마우스 드래그 회전"
     : (mode==="tour" ? "명소 카드를 눌러 이동 · 자동 선회 중" : "지구를 드래그해 회전 · 휠로 접근");
 }
+
+function pickVeh(i){
+  veh = VEHICLES[i];
+  document.querySelectorAll(".vcard").forEach((c,j)=>c.classList.toggle("on", j===i));
+  custWrap.style.display = veh.custom ? "flex" : "none";
+  if (veh.custom){ veh.sp=parseFloat(custSp.value); veh.ag=parseFloat(custAg.value); }
+  goFree();
+}
+
 function buildUI(){
+  const vw = document.getElementById("vehs");
+  VEHICLES.forEach((v,i)=>{
+    const el = document.createElement("div");
+    el.className = "vcard"; el.textContent = v.e+" "+v.n;
+    el.onclick = ()=>pickVeh(i);
+    vw.appendChild(el);
+  });
   const wrap = document.getElementById("dests");
   DESTS.forEach((d,i)=>{
     const el = document.createElement("div");
@@ -215,9 +269,14 @@ function buildUI(){
   btnFree.onclick = goFree;
   btnSpace.onclick = ()=>goSpace(false);
   timeSlider.oninput = e=>setLocalTime(parseFloat(e.target.value));
+  custSp.oninput = e=>{ custSpv.textContent=(+e.target.value).toFixed(1)+"×"; if(veh.custom) veh.sp=parseFloat(e.target.value); };
+  custAg.oninput = e=>{ custAgv.textContent=(+e.target.value).toFixed(1)+"×"; if(veh.custom) veh.ag=parseFloat(e.target.value); };
 }
 const btnTour=document.getElementById("btnTour"), btnFree=document.getElementById("btnFree"),
-      btnSpace=document.getElementById("btnSpace"), timeSlider=document.getElementById("timeSlider");
+      btnSpace=document.getElementById("btnSpace"), timeSlider=document.getElementById("timeSlider"),
+      vehHud=document.getElementById("vehHud"), custWrap=document.getElementById("custWrap"),
+      custSp=document.getElementById("custSp"), custAg=document.getElementById("custAg"),
+      custSpv=document.getElementById("custSpv"), custAgv=document.getElementById("custAgv");
 
 init();
 </script>
