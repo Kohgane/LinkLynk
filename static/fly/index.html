@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Earthflight — 지구비행</title>
+<script src="https://cesium.com/downloads/cesiumjs/releases/1.119/Build/Cesium/Cesium.js"></script>
+<link href="https://cesium.com/downloads/cesiumjs/releases/1.119/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+<style>
+  html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:-apple-system,'Noto Sans KR',sans-serif}
+  #cesiumContainer{width:100%;height:100%}
+  .hud{position:fixed;z-index:10;color:#fff;user-select:none;-webkit-user-select:none}
+  #title{top:14px;left:16px;font-size:15px;letter-spacing:.14em;opacity:.85;font-weight:600;text-shadow:0 1px 6px #000}
+  #vehHud{top:12px;left:50%;transform:translateX(-50%);font-size:13px;font-weight:600;
+    background:rgba(0,0,0,.38);padding:7px 16px;border-radius:18px;backdrop-filter:blur(6px);display:none}
+  #panel{bottom:0;left:0;right:0;padding:10px 12px calc(10px + env(safe-area-inset-bottom));
+    background:linear-gradient(transparent,rgba(0,0,0,.72));display:flex;flex-direction:column;gap:8px}
+  #vehs,#dests{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+  #vehs::-webkit-scrollbar,#dests::-webkit-scrollbar{display:none}
+  .dcard,.vcard{flex:0 0 auto;padding:8px 14px;border-radius:20px;background:rgba(255,255,255,.12);
+    backdrop-filter:blur(8px);font-size:13px;white-space:nowrap;cursor:pointer;border:1px solid rgba(255,255,255,.15);color:#fff}
+  .dcard.on{background:rgba(255,180,80,.85);color:#1a0f00;font-weight:700;border-color:transparent}
+  .vcard.on{background:rgba(150,240,170,.88);color:#02240c;font-weight:700;border-color:transparent}
+  #row2{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+  .btn{padding:8px 14px;border-radius:10px;background:rgba(255,255,255,.14);border:1px solid rgba(255,255,255,.2);
+    color:#fff;font-size:13px;cursor:pointer}
+  .btn.on{background:rgba(120,200,255,.8);color:#00121f;font-weight:700}
+  #timeWrap{display:flex;align-items:center;gap:8px;flex:1;min-width:180px}
+  #timeSlider{flex:1;accent-color:#ffb450}
+  #timeLabel{font-size:12px;width:70px;text-align:right;opacity:.9}
+  #custWrap{display:none;align-items:center;gap:10px;font-size:12px;color:#dfd}
+  #custWrap input{accent-color:#9fe6a0;width:110px}
+  #hint{top:14px;right:16px;font-size:11px;text-align:right;opacity:.6;line-height:1.7;text-shadow:0 1px 4px #000}
+  #tier{position:fixed;top:44px;left:16px;font-size:11px;opacity:.55;color:#ffd9a0;z-index:10}
+  .cesium-viewer-bottom{opacity:.4}
+</style>
+</head>
+<body>
+<div id="cesiumContainer"></div>
+<div class="hud" id="title">EARTHFLIGHT</div>
+<div class="hud" id="vehHud"></div>
+<div class="hud" id="hint"></div>
+<div id="tier"></div>
+<div class="hud" id="panel">
+  <div id="vehs"></div>
+  <div id="dests"></div>
+  <div id="custWrap">
+    <span>⚙️ 속도 <output id="custSpv">1.0×</output></span>
+    <input type="range" id="custSp" min="0.1" max="8" step="0.1" value="1">
+    <span>민첩 <output id="custAgv">1.0×</output></span>
+    <input type="range" id="custAg" min="0.3" max="3" step="0.1" value="1">
+  </div>
+  <div id="row2">
+    <button class="btn" id="btnTour">투어</button>
+    <button class="btn" id="btnFree">자유비행</button>
+    <button class="btn" id="btnSpace">우주</button>
+    <div id="timeWrap">
+      <span style="font-size:16px">☀️</span>
+      <input type="range" id="timeSlider" min="0" max="24" step="0.1" value="17.5">
+      <span id="timeLabel">17:30</span>
+    </div>
+  </div>
+</div>
+<script>
+/* ===================== CONFIG ===================== */
+const CESIUM_ION_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1MDI1ZGE2NC0wOGIyLTRlZWMtOWQ4OS05NWY4ZjMxNjg0ZmIiLCJpZCI6NDA1NTcyLCJpYXQiOjE3NzM4MzA1Mjl9.FCi-lCnBVst8VYPqaiKmOrYnOVD9SLQG6767GTfohH0";
+const GOOGLE_KEY       = "";
+/* ================================================== */
+
+const DESTS = [
+  {n:"에베레스트",   lon:86.925,  lat:27.988,  h:9200,  r:14000, p:-12},
+  {n:"그랜드캐니언", lon:-112.11, lat:36.10,   h:2900,  r:9000,  p:-22},
+  {n:"마터호른",     lon:7.658,   lat:45.976,  h:4900,  r:9000,  p:-14},
+  {n:"성산일출봉",   lon:126.942, lat:33.462,  h:600,   r:3200,  p:-24},
+  {n:"후지산",       lon:138.731, lat:35.363,  h:4200,  r:16000, p:-14},
+  {n:"산토리니",     lon:25.423,  lat:36.404,  h:700,   r:5200,  p:-22},
+  {n:"보라보라",     lon:-151.74, lat:-16.50,  h:900,   r:9000,  p:-26},
+  {n:"이구아수폭포", lon:-54.443, lat:-25.688, h:600,   r:3800,  p:-24},
+  {n:"리우",         lon:-43.211, lat:-22.952, h:1100,  r:5200,  p:-20},
+  {n:"게이랑에르피오르",lon:7.09, lat:62.103,  h:1400,  r:6500,  p:-22},
+  {n:"키르큐펠(아이슬란드)",lon:-23.307,lat:64.942,h:700,r:4200, p:-20},
+  {n:"울루루",       lon:131.036, lat:-25.345, h:900,   r:6500,  p:-18},
+  {n:"기자 피라미드", lon:31.134,  lat:29.979,  h:500,   r:3200,  p:-26},
+  {n:"페트라",       lon:35.444,  lat:30.322,  h:1200,  r:3600,  p:-24},
+  {n:"카파도키아",   lon:34.831,  lat:38.643,  h:1600,  r:5200,  p:-20},
+  {n:"하롱베이",     lon:107.04,  lat:20.91,   h:600,   r:6500,  p:-22},
+  {n:"그레이트배리어리프",lon:148.95,lat:-20.28,h:1500, r:12000, p:-30},
+  {n:"레이크루이스(밴프)",lon:-116.217,lat:51.417,h:2300,r:6000, p:-18},
+  {n:"나이아가라",   lon:-79.075, lat:43.078,  h:400,   r:2800,  p:-24},
+];
+
+const VEHICLES = [
+  {n:"제트기",e:"\u2708\uFE0F",sp:2.2,ag:0.9},
+  {n:"전투기",e:"\uD83D\uDEE9\uFE0F",sp:3.0,ag:1.5},
+  {n:"여객기",e:"\uD83D\uDEEB",sp:1.8,ag:0.5},
+  {n:"헬리콥터",e:"\uD83D\uDE81",sp:0.6,ag:1.8},
+  {n:"글라이더",e:"\uD83E\uDE82",sp:0.45,ag:1.2},
+  {n:"패러글라이더",e:"\uD83C\uDFCB\uFE0F",sp:0.3,ag:1.5},
+  {n:"열기구",e:"\uD83C\uDF88",sp:0.15,ag:0.5},
+  {n:"드론",e:"\uD83D\uDEF8",sp:0.5,ag:2.5},
+  {n:"복엽기",e:"\uD83D\uDEE9",sp:0.8,ag:1.1},
+  {n:"로켓",e:"\uD83D\uDE80",sp:6.0,ag:0.5,cat:"space"},
+  {n:"우주왕복선",e:"\uD83D\uDEF0\uFE0F",sp:5.0,ag:0.8,cat:"space"},
+  {n:"UFO",e:"\uD83D\uDEF8",sp:4.5,ag:3.0,cat:"space"},
+  {n:"스포츠카",e:"\uD83C\uDFCE\uFE0F",sp:1.2,ag:1.5,cat:"ground",off:2},
+  {n:"오토바이",e:"\uD83C\uDFCD\uFE0F",sp:1.0,ag:2.0,cat:"ground",off:2},
+  {n:"오프로드",e:"\uD83D\uDEFB",sp:0.8,ag:1.6,cat:"ground",off:3},
+  {n:"기차",e:"\uD83D\uDE84",sp:1.5,ag:0.3,cat:"ground",off:4},
+  {n:"탱크",e:"\uD83D\uDEE1\uFE0F",sp:0.5,ag:0.8,cat:"ground",off:3},
+  {n:"말",e:"\uD83D\uDC0E",sp:0.3,ag:1.8,cat:"ground",off:2},
+  {n:"치타",e:"\uD83D\uDC06",sp:0.6,ag:2.5,cat:"ground",off:1},
+  {n:"자전거",e:"\uD83D\uDEB2",sp:0.15,ag:1.5,cat:"ground",off:2},
+  {n:"쾌속정",e:"\uD83D\uDEA4",sp:0.9,ag:1.5,cat:"sea",off:2},
+  {n:"요트",e:"\u26F5",sp:0.4,ag:0.8,cat:"sea",off:3},
+  {n:"항공모함",e:"\uD83D\uDEA2",sp:0.6,ag:0.2,cat:"sea",off:15},
+  {n:"서핑보드",e:"\uD83C\uDFC4",sp:0.3,ag:2.0,cat:"sea",off:1},
+  {n:"잠수함",e:"\uD83E\uDD3F",sp:0.5,ag:0.8,cat:"sub"},
+  {n:"고래",e:"\uD83D\uDC33",sp:0.4,ag:1.2,cat:"sub"},
+  {n:"인어",e:"\uD83E\uDDDC",sp:0.3,ag:2.0,cat:"sub"},
+  {n:"드릴머신",e:"\uD83D\uDEE0\uFE0F",sp:0.4,ag:0.8,cat:"tunnel"},
+  {n:"두더지",e:"\uD83D\uDC00",sp:0.3,ag:1.5,cat:"tunnel"},
+  {n:"모래벌레",e:"\uD83E\uDEB1",sp:1.2,ag:1.0,cat:"tunnel"},
+  {n:"용",e:"\uD83D\uDC09",sp:1.6,ag:1.6},
+  {n:"그리핀",e:"\uD83E\uDD85",sp:1.2,ag:2.0},
+  {n:"페가수스",e:"\uD83E\uDD84",sp:1.4,ag:1.8},
+  {n:"불사조",e:"\uD83D\uDD25",sp:2.5,ag:2.0},
+  {n:"마법양탄자",e:"\uD83E\uDDDE",sp:1.0,ag:2.0},
+  {n:"빗자루",e:"\uD83E\uDDF9",sp:1.3,ag:2.4},
+  {n:"근두운",e:"\u2601\uFE0F",sp:3.2,ag:1.4},
+  {n:"산타썰매",e:"\uD83E\uDD8C",sp:2.0,ag:1.2},
+  {n:"종이비행기",e:"\uD83D\uDCC4",sp:0.4,ag:2.2},
+  {n:"커스텀",e:"\u2699\uFE0F",sp:1.0,ag:1.0,custom:true},
+];
+
+let viewer, tier = "BASIC (키 없음: 평면지형)";
+let mode = "tour", veh = VEHICLES[0];
+let curIdx = -1, orbiting = false, orbitHeading = 0, orbitCenter = null, orbitR = 0, orbitP = 0;
+let lastT = 0;
+const keys = {};
+
+async function init(){
+  const opts = {
+    animation:false, timeline:false, baseLayerPicker:false, geocoder:false,
+    homeButton:false, sceneModePicker:false, navigationHelpButton:false,
+    fullscreenButton:false, infoBox:false, selectionIndicator:false,
+    requestRenderMode:false,
+  };
+  if (CESIUM_ION_TOKEN){
+    Cesium.Ion.defaultAccessToken = CESIUM_ION_TOKEN;
+    opts.terrain = Cesium.Terrain.fromWorldTerrain();
+    viewer = new Cesium.Viewer("cesiumContainer", opts);
+    tier = "TERRAIN (Cesium World Terrain)";
+  } else {
+    opts.baseLayer = new Cesium.ImageryLayer(new Cesium.UrlTemplateImageryProvider({
+      url:"https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+      credit:"Esri World Imagery", maximumLevel:18
+    }));
+    viewer = new Cesium.Viewer("cesiumContainer", opts);
+  }
+  if (GOOGLE_KEY){
+    try{
+      Cesium.GoogleMaps.defaultApiKey = GOOGLE_KEY;
+      const g = await Cesium.createGooglePhotorealistic3DTileset();
+      viewer.scene.primitives.add(g);
+      viewer.scene.globe.show = false;
+      tier = "PHOTOREAL (Google 3D Tiles)";
+    }catch(e){ console.warn("Google tiles 실패", e); }
+  }
+  const sc = viewer.scene;
+  sc.globe.enableLighting = true;
+  sc.globe.atmosphereLightIntensity = 22;
+  sc.skyAtmosphere.show = true;
+  sc.fog.enabled = true;
+  sc.globe.depthTestAgainstTerrain = true;
+  sc.screenSpaceCameraController.enableCollisionDetection = true;
+  viewer.clock.shouldAnimate = true;
+
+  document.getElementById("tier").textContent = tier;
+  buildUI();
+  setLocalTime(17.5);
+  goSpace(true);
+  setTimeout(()=>flyToDest(0), 2500);
+  viewer.clock.onTick.addEventListener(tick);
+  setupInput();
+}
+
+function setLocalTime(h){
+  const lon = Cesium.Math.toDegrees(viewer.camera.positionCartographic.longitude) || 0;
+  let utc = h - lon/15;
+  const d = new Date();
+  const base = Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()) + utc*3600*1000;
+  viewer.clock.currentTime = Cesium.JulianDate.fromDate(new Date(base));
+  const hh = String(Math.floor(h)%24).padStart(2,"0"), mm = String(Math.round((h%1)*60)).padStart(2,"0");
+  document.getElementById("timeLabel").textContent = hh+":"+mm;
+}
+
+function flyToDest(i){
+  const d = DESTS[i]; curIdx = i; mode = "tour"; orbiting = false; syncBtns();
+  document.querySelectorAll(".dcard").forEach((c,j)=>c.classList.toggle("on", j===i));
+  viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
+  orbitCenter = Cesium.Cartesian3.fromDegrees(d.lon, d.lat, d.h*0.35);
+  orbitR = d.r; orbitP = Cesium.Math.toRadians(d.p); orbitHeading = Cesium.Math.toRadians(20);
+  viewer.camera.flyToBoundingSphere(new Cesium.BoundingSphere(orbitCenter, d.r), {
+    duration: 5,
+    offset: new Cesium.HeadingPitchRange(orbitHeading, orbitP, d.r),
+    complete: ()=>{ orbiting = true; setLocalTime(parseFloat(timeSlider.value)); }
+  });
+}
+
+function goSpace(instant){
+  mode = "space"; orbiting = false; curIdx = -1; syncBtns();
+  document.querySelectorAll(".dcard").forEach(c=>c.classList.remove("on"));
+  viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
+  const dst = Cesium.Cartesian3.fromDegrees(127, 20, 22000000);
+  if (instant) viewer.camera.setView({destination:dst});
+  else viewer.camera.flyTo({destination:dst, duration:5});
+}
+
+function goFree(){
+  mode = "free"; orbiting = false; syncBtns();
+  viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
+  document.querySelectorAll(".dcard").forEach(c=>c.classList.remove("on"));
+}
+
+function curSpeed(){
+  const h = Math.max(viewer.camera.positionCartographic.height, 1);
+  const base = Math.min(Math.max(h*0.25, 25), 30000);
+  return base * veh.sp * (keys.shift ? 4 : 1);
+}
+function tick(){
+  const now = performance.now();
+  const dt = lastT ? Math.min((now-lastT)/1000, 0.1) : 1/60;
+  lastT = now;
+  if (mode === "tour" && orbiting && orbitCenter){
+    orbitHeading += 0.1*dt;
+    viewer.camera.lookAt(orbitCenter, new Cesium.HeadingPitchRange(orbitHeading, orbitP, orbitR));
+  }
+  if (mode === "free"){
+    const c = viewer.camera, sp = curSpeed()*dt, tr = 1.4*veh.ag*dt, tp = 0.8*veh.ag*dt;
+    if (keys.w) c.moveForward(sp);
+    if (keys.s) c.moveBackward(sp);
+    if (keys.a) c.moveLeft(sp*0.7);
+    if (keys.d) c.moveRight(sp*0.7);
+    if (keys.q) c.moveDown(sp*0.5);
+    if (keys.e) c.moveUp(sp*0.5);
+    if (keys.arrowleft)  c.lookLeft(tr);
+    if (keys.arrowright) c.lookRight(tr);
+    if (keys.arrowup)    c.lookUp(tp);
+    if (keys.arrowdown)  c.lookDown(tp);
+    clampToLayer(c);
+    vehHud.textContent = `${veh.e} ${veh.n} \u00B7 ${Math.round(curSpeed()*3.6).toLocaleString()} km/h`;
+  }
+}
+
+function clampToLayer(c){
+  const cat = veh.cat || "air";
+  if (cat==="air" || cat==="space") return;
+  const cart = c.positionCartographic;
+  let target = null;
+  const g = viewer.scene.globe.getHeight(cart);
+  if (cat==="ground"){
+    if (g !== undefined) target = g + (veh.off||3);
+  } else if (cat==="sea"){
+    target = (veh.off||2);
+  } else if (cat==="sub"){
+    target = Math.min(cart.height, -3);
+    if (g !== undefined && g < -10) target = Math.max(target, g+5);
+  } else if (cat==="tunnel"){
+    target = Math.min(cart.height, (g===undefined?0:g) - 10);
+  }
+  if (target === null) return;
+  const h = cart.height + (target - cart.height)*0.12;
+  c.setView({
+    destination: Cesium.Cartesian3.fromRadians(cart.longitude, cart.latitude, h),
+    orientation: { heading: c.heading, pitch: c.pitch, roll: 0 }
+  });
+}
+
+
+function setupInput(){
+  const map={KeyW:"w",KeyA:"a",KeyS:"s",KeyD:"d",KeyQ:"q",KeyE:"e",
+    ShiftLeft:"shift",ShiftRight:"shift",ArrowLeft:"arrowleft",
+    ArrowRight:"arrowright",ArrowUp:"arrowup",ArrowDown:"arrowdown"};
+  addEventListener("keydown", e=>{ const k=map[e.code];
+    if(k){ keys[k]=true; e.preventDefault(); } });
+  addEventListener("keyup", e=>{ const k=map[e.code]; if(k) keys[k]=false; });
+}
+
+function syncBtns(){
+  btnTour.classList.toggle("on", mode==="tour");
+  btnFree.classList.toggle("on", mode==="free");
+  btnSpace.classList.toggle("on", mode==="space");
+  vehHud.style.display = mode==="free" ? "block" : "none";
+  document.getElementById("hint").innerHTML = mode==="free"
+    ? "W/A/S/D 이동 · Q/E 고도 · 방향키 시선 · Shift 부스터<br>높이 날수록 빨라짐 · 마우스 드래그 회전"
+    : (mode==="tour" ? "명소 카드를 눌러 이동 · 자동 선회 중" : "지구를 드래그해 회전 · 휠로 접근");
+}
+
+function pickVeh(i){
+  veh = VEHICLES[i];
+  document.querySelectorAll(".vcard").forEach((c,j)=>c.classList.toggle("on", j===i));
+  custWrap.style.display = veh.custom ? "flex" : "none";
+  if (veh.custom){ veh.sp=parseFloat(custSp.value); veh.ag=parseFloat(custAg.value); }
+  const under = veh.cat==="sub" || veh.cat==="tunnel";
+  const gl = viewer.scene.globe;
+  gl.translucency.enabled = under;
+  gl.translucency.frontFaceAlpha = under ? 0.45 : 1.0;
+  viewer.scene.screenSpaceCameraController.enableCollisionDetection = !under && veh.cat!=="ground";
+  goFree();
+}
+
+
+function buildUI(){
+  const vw = document.getElementById("vehs");
+  VEHICLES.forEach((v,i)=>{
+    const el = document.createElement("div");
+    el.className = "vcard"; el.textContent = v.e+" "+v.n;
+    el.onclick = ()=>pickVeh(i);
+    vw.appendChild(el);
+  });
+  const wrap = document.getElementById("dests");
+  DESTS.forEach((d,i)=>{
+    const el = document.createElement("div");
+    el.className = "dcard"; el.textContent = d.n;
+    el.onclick = ()=>flyToDest(i);
+    wrap.appendChild(el);
+  });
+  btnTour.onclick = ()=>flyToDest(Math.max(curIdx,0));
+  btnFree.onclick = goFree;
+  btnSpace.onclick = ()=>goSpace(false);
+  timeSlider.oninput = e=>setLocalTime(parseFloat(e.target.value));
+  custSp.oninput = e=>{ custSpv.textContent=(+e.target.value).toFixed(1)+"×"; if(veh.custom) veh.sp=parseFloat(e.target.value); };
+  custAg.oninput = e=>{ custAgv.textContent=(+e.target.value).toFixed(1)+"×"; if(veh.custom) veh.ag=parseFloat(e.target.value); };
+}
+const btnTour=document.getElementById("btnTour"), btnFree=document.getElementById("btnFree"),
+      btnSpace=document.getElementById("btnSpace"), timeSlider=document.getElementById("timeSlider"),
+      vehHud=document.getElementById("vehHud"), custWrap=document.getElementById("custWrap"),
+      custSp=document.getElementById("custSp"), custAg=document.getElementById("custAg"),
+      custSpv=document.getElementById("custSpv"), custAgv=document.getElementById("custAgv");
+
+init();
+</script>
+</body>
+</html>
