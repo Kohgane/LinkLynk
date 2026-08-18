@@ -316,8 +316,15 @@ function writeWithSettings(){
   const deeplink = typed || (d && d.deeplink);
   if(!deeplink){ toast('쿠팡파트너스 링크를 넣거나 먼저 링크를 만들어주세요'); return; }
   const _pl = window.__pickedProducts || [];
+  // ★상품명은 '지금 이 링크'에 딸린 것만 쓴다.
+  //  __lastResult의 이름은 그 결과의 deeplink와 일치할 때만 유효하다.
+  //  (안 그러면 이전 글의 상품명이 새 링크에 붙는다)
+  const _resName = (d && d.deeplink && deeplink && d.deeplink === deeplink)
+                   ? (d.productName || '') : '';
+  const _inputName = (document.getElementById('pname')?.value || '').trim();
+  const _pickName  = (document.getElementById('pickedName')?.textContent || '').trim();
   const pname = _pl.length ? _pl.map(x=>x.name).join(' / ')
-              : ((document.getElementById('pickedName')?.textContent || '').trim() || (d && d.productName) || '');
+              : (_inputName || _pickName || _resName || '');
   window.__extraLinks = _pl.slice(1).map(x=>x.deeplink);
   window.__writing = true;
   const b = document.getElementById('writeGo');
