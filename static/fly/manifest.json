@@ -1,0 +1,15 @@
+{
+  "name": "Earthflight — 지구비행",
+  "short_name": "Earthflight",
+  "start_url": "/fly",
+  "scope": "/fly",
+  "display": "fullscreen",
+  "orientation": "landscape",
+  "background_color": "#000000",
+  "theme_color": "#000000",
+  "description": "지구의 모든 절경을 나는 비행. 일몰, 우주, 40가지 탈것.",
+  "icons": [
+    { "src": "/static/fly/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/static/fly/icon-512.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
