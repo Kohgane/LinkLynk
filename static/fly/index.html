@@ -54,6 +54,7 @@
     <button class="btn" id="btnTour">투어</button>
     <button class="btn" id="btnFree">자유비행</button>
     <button class="btn" id="btnSpace">우주</button>
+    <button class="btn" id="btnLayer">&#127757; 레이어</button>
     <div id="timeWrap">
       <span style="font-size:16px">☀️</span>
       <input type="range" id="timeSlider" min="0" max="24" step="0.1" value="17.5">
@@ -134,6 +135,7 @@ const VEHICLES = [
 
 let viewer, tier = "BASIC (키 없음: 평면지형)";
 let mode = "tour", veh = VEHICLES[0];
+let layerMode = false;
 let curIdx = -1, orbiting = false, orbitHeading = 0, orbitCenter = null, orbitR = 0, orbitP = 0;
 let lastT = 0;
 const keys = {};
@@ -253,6 +255,7 @@ function tick(){
 }
 
 function clampToLayer(c){
+  if (!layerMode) return;
   const cat = veh.cat || "air";
   if (cat==="air" || cat==="space") return;
   const cart = c.positionCartographic;
@@ -301,11 +304,11 @@ function pickVeh(i){
   document.querySelectorAll(".vcard").forEach((c,j)=>c.classList.toggle("on", j===i));
   custWrap.style.display = veh.custom ? "flex" : "none";
   if (veh.custom){ veh.sp=parseFloat(custSp.value); veh.ag=parseFloat(custAg.value); }
-  const under = veh.cat==="sub" || veh.cat==="tunnel";
+  const under = layerMode && (veh.cat==="sub" || veh.cat==="tunnel");
   const gl = viewer.scene.globe;
   gl.translucency.enabled = under;
   gl.translucency.frontFaceAlpha = under ? 0.45 : 1.0;
-  viewer.scene.screenSpaceCameraController.enableCollisionDetection = !under && veh.cat!=="ground";
+  viewer.scene.screenSpaceCameraController.enableCollisionDetection = !under && !(layerMode && veh.cat==="ground");
   goFree();
 }
 
@@ -328,6 +331,15 @@ function buildUI(){
   btnTour.onclick = ()=>flyToDest(Math.max(curIdx,0));
   btnFree.onclick = goFree;
   btnSpace.onclick = ()=>goSpace(false);
+  document.getElementById("btnLayer").onclick = ()=>{
+    layerMode = !layerMode;
+    document.getElementById("btnLayer").classList.toggle("on", layerMode);
+    const under = layerMode && (veh.cat==="sub"||veh.cat==="tunnel");
+    const gl = viewer.scene.globe;
+    gl.translucency.enabled = under;
+    gl.translucency.frontFaceAlpha = under?0.45:1.0;
+    viewer.scene.screenSpaceCameraController.enableCollisionDetection = !under && !(layerMode && veh.cat==="ground");
+  };
   timeSlider.oninput = e=>setLocalTime(parseFloat(e.target.value));
   custSp.oninput = e=>{ custSpv.textContent=(+e.target.value).toFixed(1)+"×"; if(veh.custom) veh.sp=parseFloat(e.target.value); };
   custAg.oninput = e=>{ custAgv.textContent=(+e.target.value).toFixed(1)+"×"; if(veh.custom) veh.ag=parseFloat(e.target.value); };
