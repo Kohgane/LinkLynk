@@ -3,9 +3,10 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
-<link rel="manifest" href="/static/fly/manifest.json">
+<link rel="manifest" href="/fly/manifest.json">
 <meta name="theme-color" content="#000000">
-<link rel="icon" href="/static/fly/icon-192.png">
+<link rel="apple-touch-icon" href="/fly/icon-192.png">
+<link rel="icon" href="/fly/icon-192.png">
 <title>Earthflight — 지구비행</title>
 <script src="https://cesium.com/downloads/cesiumjs/releases/1.119/Build/Cesium/Cesium.js"></script>
 <link href="https://cesium.com/downloads/cesiumjs/releases/1.119/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
@@ -229,8 +230,8 @@ function goFree(){
 
 function curSpeed(){
   const h = Math.max(viewer.camera.positionCartographic.height, 1);
-  const base = Math.min(Math.max(h*0.5, 60), 60000);
-  return base * veh.sp * (keys.shift ? 6 : 1);
+  const base = Math.min(Math.max(h*0.8, 100), 200000);
+  return base * veh.sp * (keys.shift ? 10 : 1);
 }
 function tick(){
   const now = performance.now();
@@ -354,7 +355,7 @@ const btnTour=document.getElementById("btnTour"), btnFree=document.getElementByI
       custSpv=document.getElementById("custSpv"), custAgv=document.getElementById("custAgv");
 
 init();
-if("serviceWorker" in navigator) navigator.serviceWorker.register("/static/fly/sw.js");
+if("serviceWorker" in navigator) navigator.serviceWorker.register("/fly/sw.js");
 </script>
 </body>
 </html>

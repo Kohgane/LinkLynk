@@ -2938,3 +2938,11 @@ if __name__ == "__main__":
 @app.route("/fly")
 def fly():
     return send_from_directory("static/fly", "index.html")
+
+@app.route("/fly/")
+def fly_slash():
+    return send_from_directory("static/fly", "index.html")
+
+@app.route("/fly/<path:fname>")
+def fly_assets(fname):
+    return send_from_directory("static/fly", fname)
