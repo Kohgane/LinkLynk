@@ -187,8 +187,12 @@ function tick(clock){
 }
 
 function setupInput(){
-  addEventListener("keydown", e=>{ keys[e.key.toLowerCase()] = true; });
-  addEventListener("keyup",   e=>{ keys[e.key.toLowerCase()] = false; });
+  const map={KeyW:"w",KeyA:"a",KeyS:"s",KeyD:"d",KeyQ:"q",KeyE:"e",
+    ShiftLeft:"shift",ShiftRight:"shift",ArrowLeft:"arrowleft",
+    ArrowRight:"arrowright",ArrowUp:"arrowup",ArrowDown:"arrowdown"};
+  addEventListener("keydown", e=>{ const k=map[e.code];
+    if(k){ keys[k]=true; e.preventDefault(); } });
+  addEventListener("keyup", e=>{ const k=map[e.code]; if(k) keys[k]=false; });
 }
 
 function syncBtns(){
