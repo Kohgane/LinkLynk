@@ -181,9 +181,47 @@ def spinads_stats():
             rows = cur.fetchall()
     return jsonify(days=[dict(r) for r in rows])
 
+@spinads_bp.get("/api/spinads/brief")
+def spinads_brief():
+    """아침 돈 브리핑: 지표 + 대기 업무 + 규칙 기반 액션"""
+    with _db() as conn:
+        with conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+            cur.execute("select d::text, sessions, clicks, publisher_earn_krw from dw.spinads_daily order by d desc limit 7")
+            days = [dict(r) for r in cur.fetchall()]
+            cur.execute("""select c.advertiser, count(k.id) n from spinads.clicks k
+                           join spinads.campaigns c on c.id=k.campaign_id
+                           where k.clicked_at > now() - interval '7 days'
+                           group by 1 order by n desc limit 5""")
+            top_clicks = [dict(r) for r in cur.fetchall()]
+            cur.execute("""select count(*) n, coalesce(sum(budget_krw),0) budget from spinads.campaigns
+                           where kind='direct' and not active""")
+            pending = cur.fetchone()
+            cur.execute("select count(*) n from spinads.suggestions where status='pending'")
+            sugg = cur.fetchone()["n"]
+            cur.execute("select count(*) n from spinads.publishers where active")
+            pubs = cur.fetchone()["n"]
+    s7 = sum(d["sessions"] for d in days)
+    c7 = sum(d["clicks"] for d in days)
+    actions = []
+    if pending["n"] > 0:
+        actions.append(f"광고주 신청 {pending['n']}건 대기(예산 합계 ₩{pending['budget']:,}) — 검토·입금 확인 후 활성화. 이게 오늘 가장 빠른 돈")
+    if pubs <= 1:
+        actions.append("퍼블리셔 아직 1명(본인) — 쓰레드 발사/크몽 등록이 최우선. 네트워크는 두 번째 설치자부터 시작")
+    if s7 > 0 and c7 == 0:
+        actions.append(f"7일 세션 {s7}건인데 클릭 0 — 노출은 도는데 손이 안 감. 카피 점검 또는 replace 모드 검토")
+    if c7 > 0:
+        actions.append(f"7일 클릭 {c7}건 — 쿠파스 대시보드 subId=spinads 수익 확인")
+    if sugg > 0:
+        actions.append(f"문구 공모 {sugg}건 대기 — 채택은 공짜 콘텐츠이자 첫 커뮤니티")
+    if not actions:
+        actions.append("대기 업무 없음 — 오늘은 파는 날: 후원 DM 1통")
+    return jsonify(days=days, top_clicks=top_clicks,
+                   pending_applications=pending["n"], pending_budget_krw=int(pending["budget"]),
+                   suggestions_pending=sugg, publishers=pubs, actions=actions)
+
 @spinads_bp.get("/api/spinads/health")
 def spinads_health():
-    return jsonify(ok=True, service="spinads", version="v4.2")
+    return jsonify(ok=True, service="spinads", version="v4.3")
 
 # ---- 퍼블리셔 온보딩 (v2.1) ----
 from flask import Response
