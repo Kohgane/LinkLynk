@@ -159,7 +159,7 @@ let layerMode = false;
 let curIdx = -1, orbiting = false, orbitHeading = 0, orbitCenter = null, orbitR = 0, orbitP = 0;
 let lastT = 0;
 const keys = {};
-const touch={jx:0,jy:0,lx:0,ly:0,up:0,boost:false};
+const touch={jx:0,jy:0,sjx:0,sjy:0,lx:0,ly:0,up:0,boost:false};
 const IS_TOUCH=('ontouchstart' in window);
 
 async function init(){
@@ -198,6 +198,14 @@ async function init(){
   sc.globe.depthTestAgainstTerrain = true;
   sc.screenSpaceCameraController.enableCollisionDetection = true;
   viewer.clock.shouldAnimate = true;
+  if (IS_TOUCH){
+    viewer.resolutionScale = 0.85;
+    sc.globe.maximumScreenSpaceError = 3;
+    sc.postProcessStages.fxaa.enabled = false;
+    sc.highDynamicRange = false;
+    sc.msaaSamples = 1;
+    sc.globe.tileCacheSize = 300;
+  }
 
   document.getElementById("tier").textContent = tier;
   buildUI();
@@ -225,7 +233,7 @@ function setupTouch(){
   let lid=null,px=0,py=0;
   pad.addEventListener("touchstart",e=>{const t=e.changedTouches[0];lid=t.identifier;px=t.clientX;py=t.clientY;e.preventDefault();},{passive:false});
   pad.addEventListener("touchmove",e=>{for(const t of e.changedTouches){if(t.identifier===lid){
-    touch.lx+=(t.clientX-px)*0.003; touch.ly+=(t.clientY-py)*0.003; px=t.clientX;py=t.clientY;}}e.preventDefault();},{passive:false});
+    touch.lx+=(t.clientX-px)*0.0022; touch.ly+=(t.clientY-py)*0.0022; px=t.clientX;py=t.clientY;}}e.preventDefault();},{passive:false});
   const lend=e=>{for(const t of e.changedTouches){if(t.identifier===lid)lid=null;}};
   pad.addEventListener("touchend",lend); pad.addEventListener("touchcancel",lend);
   const hold=(id,prop,val)=>{const el=document.getElementById(id);
@@ -298,11 +306,16 @@ function tick(){
     if (keys.arrowright) c.lookRight(tr);
     if (keys.arrowup)    c.lookUp(tp);
     if (keys.arrowdown)  c.lookDown(tp);
-    if (touch.jy){ touch.jy<0 ? c.moveForward(sp*-touch.jy) : c.moveBackward(sp*touch.jy); }
-    if (touch.jx){ touch.jx>0 ? c.moveRight(sp*0.7*touch.jx) : c.moveLeft(sp*0.7*-touch.jx); }
+    touch.sjx+=(touch.jx-touch.sjx)*0.18; touch.sjy+=(touch.jy-touch.sjy)*0.18;
+    if (Math.abs(touch.sjy)>0.01){ touch.sjy<0 ? c.moveForward(sp*-touch.sjy) : c.moveBackward(sp*touch.sjy); }
+    if (Math.abs(touch.sjx)>0.01){ touch.sjx>0 ? c.moveRight(sp*0.7*touch.sjx) : c.moveLeft(sp*0.7*-touch.sjx); }
     if (touch.up){ touch.up>0 ? c.moveUp(sp*0.5) : c.moveDown(sp*0.5); }
-    if (touch.lx){ c.lookRight(touch.lx); touch.lx=0; }
-    if (touch.ly){ c.lookUp(-touch.ly); touch.ly=0; }
+    if (touch.lx||touch.ly){
+      c.lookRight(touch.lx*0.35); c.lookUp(-touch.ly*0.35);
+      touch.lx*=0.62; touch.ly*=0.62;
+      if(Math.abs(touch.lx)<0.0001)touch.lx=0;
+      if(Math.abs(touch.ly)<0.0001)touch.ly=0;
+    }
     clampToLayer(c);
     vehHud.textContent = `${veh.e} ${veh.n} \u00B7 ${Math.round(curSpeed()*3.6).toLocaleString()} km/h`;
   }
