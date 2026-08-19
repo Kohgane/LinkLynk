@@ -440,7 +440,8 @@ function raceTick(dt){
   }
   raceHud.innerHTML="⏱ "+el.toFixed(1)+"s<br><small>게이트 "+race.gi+"/"+T.gates.length+" · 주황 구체로!</small>";
 }
-\nfunction setupInput(){
+
+function setupInput(){
   const map={KeyW:"w",KeyA:"a",KeyS:"s",KeyD:"d",KeyQ:"q",KeyE:"e",
     ShiftLeft:"shift",ShiftRight:"shift",ArrowLeft:"arrowleft",
     ArrowRight:"arrowright",ArrowUp:"arrowup",ArrowDown:"arrowdown"};
