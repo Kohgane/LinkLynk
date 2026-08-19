@@ -84,6 +84,7 @@
     <button class="btn" id="btnFree">자유비행</button>
     <button class="btn" id="btnSpace">우주</button>
     <button class="btn" id="btnRace">🏁 레이스</button>
+    <button class="btn" id="btnPhoto">📷</button>
     <button class="btn" id="btnLayer">&#127757; 레이어</button>
     <div id="timeWrap">
       <span style="font-size:16px">☀️</span>
@@ -178,6 +179,7 @@ async function init(){
     homeButton:false, sceneModePicker:false, navigationHelpButton:false,
     fullscreenButton:false, infoBox:false, selectionIndicator:false,
     requestRenderMode:false,
+    contextOptions:{webgl:{preserveDrawingBuffer:true}},
   };
   if (CESIUM_ION_TOKEN){
     Cesium.Ion.defaultAccessToken = CESIUM_ION_TOKEN;
@@ -219,9 +221,18 @@ async function init(){
 
   document.getElementById("tier").textContent = tier;
   buildUI();
-  setLocalTime(17.5);
-  goSpace(true);
-  setTimeout(()=>flyToDest(0), 2500);
+  const q=new URLSearchParams(location.search);
+  if(q.has("lon")){
+    timeSlider.value=q.get("t")||"17.5";
+    viewer.camera.setView({destination:Cesium.Cartesian3.fromDegrees(+q.get("lon"),+q.get("lat"),+q.get("h")||3000),
+      orientation:{heading:+q.get("hd")||0,pitch:+q.get("pt")||-0.3,roll:0}});
+    setLocalTime(parseFloat(timeSlider.value));
+    goFree();
+  } else {
+    setLocalTime(17.5);
+    goSpace(true);
+    setTimeout(()=>flyToDest(0), 2500);
+  }
   viewer.clock.onTick.addEventListener(tick);
   setupInput();
   setupTouch();
@@ -363,10 +374,49 @@ function clampToLayer(c){
 const TRACKS=[
  {n:"🏜️ 협곡런 (그랜드캐니언)",r:420,gates:[[-112.155,36.093,2100],[-112.135,36.083,2000],[-112.113,36.079,1950],[-112.094,36.088,2050],[-112.078,36.101,2150],[-112.096,36.113,2250],[-112.121,36.117,2200],[-112.145,36.106,2150]]},
  {n:"🏔️ 마터호른 서킷",r:620,gates:[[7.62,45.99,4700],[7.645,46.005,4900],[7.678,46.0,5100],[7.695,45.978,5200],[7.678,45.955,5000],[7.645,45.95,4800],[7.62,45.965,4700]]},
- {n:"🚀 성층권 강하",r:1600,gates:[[138.731,35.363,42000],[138.74,35.37,30000],[138.75,35.36,20000],[138.74,35.35,12000],[138.735,35.358,6500],[138.731,35.363,4600]]}
+ {n:"🚀 성층권 강하",r:1600,gates:[[138.731,35.363,42000],[138.74,35.37,30000],[138.75,35.36,20000],[138.74,35.35,12000],[138.735,35.358,6500],[138.731,35.363,4600]]},
+ {n:"\uD83C\uDFDD\uFE0F \uD558\uB871\uBCA0\uC774 \uC2AC\uB7EC\uB86C".replace(/\\u/g,"").length?"\uD83C\uDFDD\uFE0F \uD558\uB871\uBCA0\uC774 \uC2AC\uB7EC\uB86C":"",r:380,gates:[[107.00,20.95,350],[107.02,20.93,300],[107.045,20.915,260],[107.07,20.90,300],[107.09,20.885,340],[107.07,20.865,300],[107.045,20.87,280],[107.02,20.885,320]]},
+ {n:"\uD83C\uDF06 \uB9AC\uC6B0 \uD574\uC548 \uC11C\uD0B7",r:450,gates:[[-43.21,-22.94,600],[-43.19,-22.955,450],[-43.165,-22.95,380],[-43.155,-22.935,500],[-43.17,-22.92,650],[-43.195,-22.925,700],[-43.21,-22.94,600]]}
 ];
 let race={on:false,ti:-1,gi:0,t0:0,samples:[],ents:[],ghostEnt:null,best:null,countdown:0};
 const raceHud=document.getElementById("raceHud");
+
+let AC=null;
+function snd(f,d,t,v){try{AC=AC||new (window.AudioContext||window.webkitAudioContext)();
+ const o=AC.createOscillator(),g=AC.createGain();o.type=t||"sine";o.frequency.value=f;
+ g.gain.setValueAtTime(v||0.15,AC.currentTime);g.gain.exponentialRampToValueAtTime(0.001,AC.currentTime+d);
+ o.connect(g).connect(AC.destination);o.start();o.stop(AC.currentTime+d);}catch(e){}}
+function sndGate(){snd(880,0.12,"sine",0.2);snd(1320,0.18,"sine",0.1);}
+function sndTick(){snd(440,0.1,"square",0.12);}
+function sndGo(){snd(660,0.3,"square",0.15);}
+function sndWin(){[523,659,784,1046].forEach((f,i)=>setTimeout(()=>snd(f,0.25,"triangle",0.18),i*140));}
+
+function shareLink(){
+  const c=viewer.camera,pc=c.positionCartographic;
+  return location.origin+"/fly/?lon="+Cesium.Math.toDegrees(pc.longitude).toFixed(5)
+    +"&lat="+Cesium.Math.toDegrees(pc.latitude).toFixed(5)+"&h="+Math.round(pc.height)
+    +"&hd="+c.heading.toFixed(3)+"&pt="+c.pitch.toFixed(3)+"&t="+timeSlider.value;
+}
+async function photo(){
+  viewer.scene.render();
+  const src=viewer.canvas, c=document.createElement("canvas");
+  c.width=src.width; c.height=src.height;
+  const x=c.getContext("2d"); x.drawImage(src,0,0);
+  x.fillStyle="rgba(0,0,0,.45)"; x.fillRect(0,c.height-64,c.width,64);
+  x.fillStyle="#fff"; x.font="bold "+Math.round(c.height*0.028)+"px sans-serif";
+  const d=curIdx>=0?DESTS[curIdx].n+" \u00B7 ":"";
+  x.fillText("EARTHFLIGHT  "+d+document.getElementById("timeLabel").textContent, 24, c.height-24);
+  const url=c.toDataURL("image/jpeg",0.92);
+  const link=shareLink();
+  try{ await navigator.clipboard.writeText(link);}catch(e){}
+  if(navigator.share){
+    try{const blob=await (await fetch(url)).blob();
+      await navigator.share({files:[new File([blob],"earthflight.jpg",{type:"image/jpeg"})],
+        title:"Earthflight", text:"\uB0B4 \uC9C0\uAD6C\uBE44\uD589 \u2708\uFE0F "+link});
+      return;}catch(e){}
+  }
+  const aa=document.createElement("a"); aa.href=url; aa.download="earthflight.jpg"; aa.click();
+}
 
 function gatePos(g){return Cesium.Cartesian3.fromDegrees(g[0],g[1],g[2]);}
 
@@ -380,8 +430,14 @@ function startRace(i){
   goFree(); race.on=true; race.ti=i; race.gi=0; race.samples=[]; clearRaceEnts();
   race.best=JSON.parse(localStorage.getItem("ef_best_"+i)||"null");
   T.gates.forEach((g,j)=>{
-    race.ents.push(viewer.entities.add({position:gatePos(g),
-      ellipsoid:{radii:new Cesium.Cartesian3(T.r,T.r,T.r),
+    const pos=gatePos(g);
+    const tgt=j<T.gates.length-1?gatePos(T.gates[j+1]):gatePos(T.gates[j-1]);
+    const dir=Cesium.Cartesian3.subtract(tgt,pos,new Cesium.Cartesian3());
+    const inv=Cesium.Matrix4.inverseTransformation(Cesium.Transforms.eastNorthUpToFixedFrame(pos),new Cesium.Matrix4());
+    const loc=Cesium.Matrix4.multiplyByPointAsVector(inv,dir,new Cesium.Cartesian3());
+    const ori=Cesium.Transforms.headingPitchRollQuaternion(pos,new Cesium.HeadingPitchRoll(Math.atan2(loc.x,loc.y),0,0));
+    race.ents.push(viewer.entities.add({position:pos,orientation:ori,
+      ellipsoid:{radii:new Cesium.Cartesian3(T.r,T.r*0.22,T.r),
         material:Cesium.Color.CYAN.withAlpha(0.22),
         outline:true,outlineColor:Cesium.Color.CYAN.withAlpha(0.7)}}));
   });
@@ -395,7 +451,7 @@ function startRace(i){
     orientation:{heading:0,pitch:Cesium.Math.toRadians(-5),roll:0}});
   viewer.camera.lookAt(gatePos(s0), new Cesium.HeadingPitchRange(0,Cesium.Math.toRadians(-4),3000));
   viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
-  race.countdown=3.999; raceHud.style.display="block";
+  race.countdown=3.999; race.cdl=99; raceHud.style.display="block";
 }
 
 function highlightGate(){
@@ -414,6 +470,7 @@ function endRace(finished){
     if(t<prev){ localStorage.setItem("ef_best_"+race.ti,JSON.stringify({time:t,path:race.samples}));
       msg+="<br><small>🏆 신기록!"+(isFinite(prev)?" (이전 "+prev.toFixed(2)+"s)":"")+"</small>"; }
     else msg+="<br><small>베스트 "+prev.toFixed(2)+"s</small>";
+    sndWin();
     raceHud.innerHTML=msg;
     setTimeout(()=>{raceHud.style.display="none";},4500);
   } else raceHud.style.display="none";
@@ -424,6 +481,8 @@ function raceTick(dt){
   if(!race.on) return;
   if(race.countdown>0){
     race.countdown-=dt;
+    const fl=Math.floor(race.countdown);
+    if(fl!==race.cdl){race.cdl=fl; fl>=1?sndTick():sndGo();}
     raceHud.innerHTML=race.countdown>1?("🏁 "+Math.floor(race.countdown)):"GO!";
     if(race.countdown<=0){race.t0=performance.now();}
     return;
@@ -434,6 +493,7 @@ function raceTick(dt){
     race.samples.push([cp.x,cp.y,cp.z,el]);
   const d=Cesium.Cartesian3.distance(cp,gatePos(T.gates[race.gi]));
   if(d<T.r){
+    sndGate();
     race.gi++;
     if(race.gi>=T.gates.length){endRace(true);return;}
     highlightGate();
@@ -506,6 +566,7 @@ function buildUI(){
     gl.translucency.frontFaceAlpha = under?0.45:1.0;
     viewer.scene.screenSpaceCameraController.enableCollisionDetection = !under && !(layerMode && veh.cat==="ground");
   };
+  document.getElementById("btnPhoto").onclick=photo;
   timeSlider.oninput = e=>setLocalTime(parseFloat(e.target.value));
   custSp.oninput = e=>{ custSpv.textContent=(+e.target.value).toFixed(1)+"×"; if(veh.custom) veh.sp=parseFloat(e.target.value); };
   custAg.oninput = e=>{ custAgv.textContent=(+e.target.value).toFixed(1)+"×"; if(veh.custom) veh.ag=parseFloat(e.target.value); };
