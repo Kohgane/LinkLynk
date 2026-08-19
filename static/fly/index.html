@@ -43,6 +43,13 @@
     border:1px solid rgba(255,255,255,.3);color:#fff;font-size:17px;z-index:11;touch-action:none}
   #btnUp{bottom:300px}#btnDn{bottom:236px}
   #btnBoost{bottom:172px;background:rgba(255,180,80,.35);font-size:11px;font-weight:700}
+  #tracks{display:none;gap:8px;overflow-x:auto;padding-bottom:4px}
+  #tracks.show{display:flex}
+  .tcard{flex:0 0 auto;padding:8px 14px;border-radius:20px;background:rgba(255,120,180,.18);
+    border:1px solid rgba(255,150,200,.4);font-size:13px;white-space:nowrap;cursor:pointer;color:#fff}
+  #raceHud{position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:12;color:#fff;
+    font-size:20px;font-weight:800;text-shadow:0 2px 8px #000;display:none;text-align:center;line-height:1.5}
+  #raceHud small{font-size:12px;font-weight:400;opacity:.85}
   #hint{top:14px;right:16px;font-size:11px;text-align:right;opacity:.6;line-height:1.7;text-shadow:0 1px 4px #000}
   #tier{position:fixed;top:44px;left:16px;font-size:11px;opacity:.55;color:#ffd9a0;z-index:10}
   .cesium-viewer-bottom{opacity:.4}
@@ -52,6 +59,7 @@
 <div id="cesiumContainer"></div>
 <div class="hud" id="title">EARTHFLIGHT</div>
 <div class="hud" id="vehHud"></div>
+<div id="raceHud"></div>
 <div class="hud" id="hint"></div>
 <div id="tier"></div>
 <div id="joyWrap">
@@ -64,6 +72,7 @@
 <div class="hud" id="panel">
   <div id="vehs"></div>
   <div id="dests"></div>
+  <div id="tracks"></div>
   <div id="custWrap">
     <span>⚙️ 속도 <output id="custSpv">1.0×</output></span>
     <input type="range" id="custSp" min="0.1" max="8" step="0.1" value="1">
@@ -74,6 +83,7 @@
     <button class="btn" id="btnTour">투어</button>
     <button class="btn" id="btnFree">자유비행</button>
     <button class="btn" id="btnSpace">우주</button>
+    <button class="btn" id="btnRace">🏁 레이스</button>
     <button class="btn" id="btnLayer">&#127757; 레이어</button>
     <div id="timeWrap">
       <span style="font-size:16px">☀️</span>
@@ -199,12 +209,12 @@ async function init(){
   sc.screenSpaceCameraController.enableCollisionDetection = true;
   viewer.clock.shouldAnimate = true;
   if (IS_TOUCH){
-    viewer.resolutionScale = 0.85;
-    sc.globe.maximumScreenSpaceError = 3;
+    viewer.resolutionScale = 0.7;
+    sc.globe.maximumScreenSpaceError = 4;
     sc.postProcessStages.fxaa.enabled = false;
     sc.highDynamicRange = false;
     sc.msaaSamples = 1;
-    sc.globe.tileCacheSize = 300;
+    sc.globe.tileCacheSize = 200;
   }
 
   document.getElementById("tier").textContent = tier;
@@ -290,6 +300,7 @@ function tick(){
   const now = performance.now();
   const dt = lastT ? Math.min((now-lastT)/1000, 0.1) : 1/60;
   lastT = now;
+  raceTick(dt);
   if (mode === "tour" && orbiting && orbitCenter){
     orbitHeading += 0.1*dt;
     viewer.camera.lookAt(orbitCenter, new Cesium.HeadingPitchRange(orbitHeading, orbitP, orbitR));
@@ -347,7 +358,89 @@ function clampToLayer(c){
 }
 
 
-function setupInput(){
+
+/* ---------------- RACING ---------------- */
+const TRACKS=[
+ {n:"🏜️ 협곡런 (그랜드캐니언)",r:420,gates:[[-112.155,36.093,2100],[-112.135,36.083,2000],[-112.113,36.079,1950],[-112.094,36.088,2050],[-112.078,36.101,2150],[-112.096,36.113,2250],[-112.121,36.117,2200],[-112.145,36.106,2150]]},
+ {n:"🏔️ 마터호른 서킷",r:620,gates:[[7.62,45.99,4700],[7.645,46.005,4900],[7.678,46.0,5100],[7.695,45.978,5200],[7.678,45.955,5000],[7.645,45.95,4800],[7.62,45.965,4700]]},
+ {n:"🚀 성층권 강하",r:1600,gates:[[138.731,35.363,42000],[138.74,35.37,30000],[138.75,35.36,20000],[138.74,35.35,12000],[138.735,35.358,6500],[138.731,35.363,4600]]}
+];
+let race={on:false,ti:-1,gi:0,t0:0,samples:[],ents:[],ghostEnt:null,best:null,countdown:0};
+const raceHud=document.getElementById("raceHud");
+
+function gatePos(g){return Cesium.Cartesian3.fromDegrees(g[0],g[1],g[2]);}
+
+function clearRaceEnts(){
+  race.ents.forEach(e=>viewer.entities.remove(e)); race.ents=[];
+  if(race.ghostEnt){viewer.entities.remove(race.ghostEnt);race.ghostEnt=null;}
+}
+
+function startRace(i){
+  const T=TRACKS[i];
+  goFree(); race.on=true; race.ti=i; race.gi=0; race.samples=[]; clearRaceEnts();
+  race.best=JSON.parse(localStorage.getItem("ef_best_"+i)||"null");
+  T.gates.forEach((g,j)=>{
+    race.ents.push(viewer.entities.add({position:gatePos(g),
+      ellipsoid:{radii:new Cesium.Cartesian3(T.r,T.r,T.r),
+        material:Cesium.Color.CYAN.withAlpha(0.22),
+        outline:true,outlineColor:Cesium.Color.CYAN.withAlpha(0.7)}}));
+  });
+  highlightGate();
+  if(race.best&&race.best.path&&race.best.path.length>1){
+    race.ghostEnt=viewer.entities.add({polyline:{positions:race.best.path.map(q=>new Cesium.Cartesian3(q[0],q[1],q[2])),
+      width:3,material:Cesium.Color.GOLD.withAlpha(0.55)}});
+  }
+  const s0=T.gates[0];
+  viewer.camera.setView({destination:Cesium.Cartesian3.fromDegrees(s0[0],s0[1]-0.03,s0[2]+300),
+    orientation:{heading:0,pitch:Cesium.Math.toRadians(-5),roll:0}});
+  viewer.camera.lookAt(gatePos(s0), new Cesium.HeadingPitchRange(0,Cesium.Math.toRadians(-4),3000));
+  viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
+  race.countdown=3.999; raceHud.style.display="block";
+}
+
+function highlightGate(){
+  race.ents.forEach((e,j)=>{
+    const cur=j===race.gi;
+    e.ellipsoid.material=(j<race.gi?Cesium.Color.LIME:cur?Cesium.Color.ORANGE:Cesium.Color.CYAN).withAlpha(cur?0.35:0.18);
+    e.ellipsoid.outlineColor=(cur?Cesium.Color.ORANGE:Cesium.Color.CYAN).withAlpha(0.8);
+  });
+}
+
+function endRace(finished){
+  if(finished){
+    const t=(performance.now()-race.t0)/1000;
+    const prev=race.best?race.best.time:Infinity;
+    let msg="⏱ "+t.toFixed(2)+"s";
+    if(t<prev){ localStorage.setItem("ef_best_"+race.ti,JSON.stringify({time:t,path:race.samples}));
+      msg+="<br><small>🏆 신기록!"+(isFinite(prev)?" (이전 "+prev.toFixed(2)+"s)":"")+"</small>"; }
+    else msg+="<br><small>베스트 "+prev.toFixed(2)+"s</small>";
+    raceHud.innerHTML=msg;
+    setTimeout(()=>{raceHud.style.display="none";},4500);
+  } else raceHud.style.display="none";
+  race.on=false; clearRaceEnts();
+}
+
+function raceTick(dt){
+  if(!race.on) return;
+  if(race.countdown>0){
+    race.countdown-=dt;
+    raceHud.innerHTML=race.countdown>1?("🏁 "+Math.floor(race.countdown)):"GO!";
+    if(race.countdown<=0){race.t0=performance.now();}
+    return;
+  }
+  const T=TRACKS[race.ti], el=(performance.now()-race.t0)/1000;
+  const cp=viewer.camera.position;
+  if(race.samples.length===0||el-race.samples[race.samples.length-1][3]>0.25)
+    race.samples.push([cp.x,cp.y,cp.z,el]);
+  const d=Cesium.Cartesian3.distance(cp,gatePos(T.gates[race.gi]));
+  if(d<T.r){
+    race.gi++;
+    if(race.gi>=T.gates.length){endRace(true);return;}
+    highlightGate();
+  }
+  raceHud.innerHTML="⏱ "+el.toFixed(1)+"s<br><small>게이트 "+race.gi+"/"+T.gates.length+" · 주황 구체로!</small>";
+}
+\nfunction setupInput(){
   const map={KeyW:"w",KeyA:"a",KeyS:"s",KeyD:"d",KeyQ:"q",KeyE:"e",
     ShiftLeft:"shift",ShiftRight:"shift",ArrowLeft:"arrowleft",
     ArrowRight:"arrowright",ArrowUp:"arrowup",ArrowDown:"arrowdown"};
@@ -396,7 +489,11 @@ function buildUI(){
     el.onclick = ()=>flyToDest(i);
     wrap.appendChild(el);
   });
-  btnTour.onclick = ()=>flyToDest(Math.max(curIdx,0));
+  btnTour.onclick = ()=>{ if(race.on)endRace(false); flyToDest(Math.max(curIdx,0)); };
+  const tw=document.getElementById("tracks");
+  TRACKS.forEach((t,i)=>{const el=document.createElement("div");el.className="tcard";
+    el.textContent=t.n;el.onclick=()=>{tw.classList.remove("show");startRace(i);};tw.appendChild(el);});
+  document.getElementById("btnRace").onclick=()=>{ if(race.on){endRace(false);return;} tw.classList.toggle("show"); };
   btnFree.onclick = goFree;
   btnSpace.onclick = ()=>goSpace(false);
   document.getElementById("btnLayer").onclick = ()=>{
