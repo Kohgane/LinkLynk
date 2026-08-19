@@ -1,0 +1,14 @@
+{
+  "name": "저승마작 — 차사의 패방",
+  "short_name": "저승마작",
+  "start_url": "/majak",
+  "scope": "/majak",
+  "display": "standalone",
+  "orientation": "portrait",
+  "theme_color": "#0a080d",
+  "background_color": "#0a080d",
+  "icons": [
+    {"src": "/majak/icon-192.png", "sizes": "192x192", "type": "image/png"},
+    {"src": "/majak/icon-512.png", "sizes": "512x512", "type": "image/png"}
+  ]
+}
