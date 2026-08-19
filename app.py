@@ -1615,6 +1615,19 @@ def hwatu_asset(fn):
     return send_from_directory("static/hwatu", fn)
 
 
+@app.route("/majak")
+@app.route("/majak/")
+def majak_page():
+    from flask import send_from_directory
+    return send_from_directory("static/majak", "index.html")
+
+
+@app.route("/majak/<path:fn>")
+def majak_asset(fn):
+    from flask import send_from_directory
+    return send_from_directory("static/majak", fn)
+
+
 @app.route("/sky")
 @app.route("/sky/")
 def sky_page():
