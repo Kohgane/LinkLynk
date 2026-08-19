@@ -1586,6 +1586,17 @@ def assetlinks():
                      "target": {"namespace": "android_app",
                                 "package_name": os.environ.get("HWATU_ANDROID_PKG", "app.jeoseunghwatu.twa"),
                                 "sha256_cert_fingerprints": _hw_fps}})
+    _ef_default = (
+        "6E:0C:D2:0F:64:52:C2:26:C3:AD:B7:0D:5E:6A:AD:E2:EF:9A:AC:E7:1D:CD:72:EB:77:93:50:38:12:CA:97:2C,"  # Play 앱 서명 키
+        "63:95:54:19:70:D9:9A:7A:97:AD:40:28:5C:0E:A4:DA:81:14:0D:81:C7:02:04:AF:3C:22:EB:8F:A8:5F:5F:AC,"  # 업로드 키(keytool)
+        "49:6F:4E:F8:74:9C:FF:65:88:4C:73:0F:39:93:C5:24:FC:4B:A5:4D:E4:0C:C1:E9:C4:02:1D:1F:2D:3E:B4:93,"  # 콘솔 기존 키
+        "4D:41:2A:1D:7F:FE:9F:27:99:B2:19:75:89:ED:32:A3:AC:02:B0:25:C6:97:AA:38:06:5A:6E:E7:A9:0A:7C:B1")  # 양자 내성 키
+    _ef_fps = [x.strip() for x in os.environ.get("EF_ANDROID_SHA256", _ef_default).split(",") if x.strip()]
+    if _ef_fps:
+        body.append({"relation": ["delegate_permission/common.handle_all_urls"],
+                     "target": {"namespace": "android_app",
+                                "package_name": os.environ.get("EF_ANDROID_PKG", "com.kohgane.earthflight"),
+                                "sha256_cert_fingerprints": _ef_fps}})
     r = jsonify(body)
     r.headers["Content-Type"] = "application/json"
     return r
