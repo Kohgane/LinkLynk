@@ -2946,3 +2946,7 @@ def fly_slash():
 @app.route("/fly/<path:fname>")
 def fly_assets(fname):
     return send_from_directory("static/fly", fname)
+
+@app.route("/.well-known/assetlinks.json")
+def assetlinks():
+    return send_from_directory("static/wellknown", "assetlinks.json")

@@ -1,0 +1,8 @@
+[{
+  "relation": ["delegate_permission/common.handle_all_urls"],
+  "target": {
+    "namespace": "android_app",
+    "package_name": "com.kohgane.earthflight",
+    "sha256_cert_fingerprints": ["63:95:54:19:70:D9:9A:7A:97:AD:40:28:5C:0E:A4:DA:81:14:0D:81:C7:02:04:AF:3C:22:EB:8F:A8:5F:5F:AC"]
+  }
+}]
