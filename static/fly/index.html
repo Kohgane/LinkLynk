@@ -103,69 +103,84 @@ const CESIUM_ION_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1MDI1Z
 const GOOGLE_KEY       = "";
 /* ================================================== */
 
+const KO=(navigator.language||"ko").toLowerCase().startsWith("ko");
+const dn=o=>KO?o.n:(o.en||o.n);
+const tn=o=>KO?o.n:(o.tren?o.n.split(" ")[0]+" "+o.tren:o.n);
 const DESTS = [
-  {n:"에베레스트",   lon:86.925,  lat:27.988,  h:9200,  r:14000, p:-12},
-  {n:"그랜드캐니언", lon:-112.11, lat:36.10,   h:2900,  r:9000,  p:-22},
-  {n:"마터호른",     lon:7.658,   lat:45.976,  h:4900,  r:9000,  p:-14},
-  {n:"성산일출봉",   lon:126.942, lat:33.462,  h:600,   r:3200,  p:-24},
-  {n:"후지산",       lon:138.731, lat:35.363,  h:4200,  r:16000, p:-14},
-  {n:"산토리니",     lon:25.423,  lat:36.404,  h:700,   r:5200,  p:-22},
-  {n:"보라보라",     lon:-151.74, lat:-16.50,  h:900,   r:9000,  p:-26},
-  {n:"이구아수폭포", lon:-54.443, lat:-25.688, h:600,   r:3800,  p:-24},
-  {n:"리우",         lon:-43.211, lat:-22.952, h:1100,  r:5200,  p:-20},
-  {n:"게이랑에르피오르",lon:7.09, lat:62.103,  h:1400,  r:6500,  p:-22},
-  {n:"키르큐펠(아이슬란드)",lon:-23.307,lat:64.942,h:700,r:4200, p:-20},
-  {n:"울루루",       lon:131.036, lat:-25.345, h:900,   r:6500,  p:-18},
-  {n:"기자 피라미드", lon:31.134,  lat:29.979,  h:500,   r:3200,  p:-26},
-  {n:"페트라",       lon:35.444,  lat:30.322,  h:1200,  r:3600,  p:-24},
-  {n:"카파도키아",   lon:34.831,  lat:38.643,  h:1600,  r:5200,  p:-20},
-  {n:"하롱베이",     lon:107.04,  lat:20.91,   h:600,   r:6500,  p:-22},
-  {n:"그레이트배리어리프",lon:148.95,lat:-20.28,h:1500, r:12000, p:-30},
-  {n:"레이크루이스(밴프)",lon:-116.217,lat:51.417,h:2300,r:6000, p:-18},
-  {n:"나이아가라",   lon:-79.075, lat:43.078,  h:400,   r:2800,  p:-24},
+  {n:"에베레스트",en:"Everest",lon:86.925,lat:27.988,h:9200,r:14000,p:-12},
+  {n:"그랜드캐니언",en:"Grand Canyon",lon:-112.11,lat:36.10,h:2900,r:9000,p:-22},
+  {n:"마터호른",en:"Matterhorn",lon:7.658,lat:45.976,h:4900,r:9000,p:-14},
+  {n:"성산일출봉",en:"Seongsan Ilchulbong",lon:126.942,lat:33.462,h:600,r:3200,p:-24},
+  {n:"후지산",en:"Mt. Fuji",lon:138.731,lat:35.363,h:4200,r:16000,p:-14},
+  {n:"산토리니",en:"Santorini",lon:25.423,lat:36.404,h:700,r:5200,p:-22},
+  {n:"보라보라",en:"Bora Bora",lon:-151.74,lat:-16.50,h:900,r:9000,p:-26},
+  {n:"이구아수폭포",en:"Iguazu Falls",lon:-54.443,lat:-25.688,h:600,r:3800,p:-24},
+  {n:"리우",en:"Rio",lon:-43.211,lat:-22.952,h:1100,r:5200,p:-20},
+  {n:"게이랑에르피오르",en:"Geiranger Fjord",lon:7.09,lat:62.103,h:1400,r:6500,p:-22},
+  {n:"키르큐펠",en:"Kirkjufell",lon:-23.307,lat:64.942,h:700,r:4200,p:-20},
+  {n:"울루루",en:"Uluru",lon:131.036,lat:-25.345,h:900,r:6500,p:-18},
+  {n:"기자 피라미드",en:"Pyramids of Giza",lon:31.134,lat:29.979,h:500,r:3200,p:-26},
+  {n:"페트라",en:"Petra",lon:35.444,lat:30.322,h:1200,r:3600,p:-24},
+  {n:"카파도키아",en:"Cappadocia",lon:34.831,lat:38.643,h:1600,r:5200,p:-20},
+  {n:"하롱베이",en:"Ha Long Bay",lon:107.04,lat:20.91,h:600,r:6500,p:-22},
+  {n:"그레이트배리어리프",en:"Great Barrier Reef",lon:148.95,lat:-20.28,h:1500,r:12000,p:-30},
+  {n:"레이크루이스",en:"Lake Louise",lon:-116.217,lat:51.417,h:2300,r:6000,p:-18},
+  {n:"나이아가라",en:"Niagara Falls",lon:-79.075,lat:43.078,h:400,r:2800,p:-24},
+  {n:"마추픽추",en:"Machu Picchu",lon:-72.545,lat:-13.163,h:2800,r:4200,p:-20},
+  {n:"앙코르와트",en:"Angkor Wat",lon:103.867,lat:13.412,h:300,r:3200,p:-26},
+  {n:"만리장성",en:"Great Wall",lon:116.570,lat:40.432,h:900,r:4200,p:-20},
+  {n:"교토",en:"Kyoto",lon:135.729,lat:34.994,h:400,r:3600,p:-22},
+  {n:"베네치아",en:"Venice",lon:12.339,lat:45.434,h:300,r:3600,p:-24},
+  {n:"파리",en:"Paris",lon:2.294,lat:48.858,h:500,r:3200,p:-22},
+  {n:"뉴욕",en:"New York",lon:-74.013,lat:40.712,h:800,r:4200,p:-20},
+  {n:"두바이",en:"Dubai",lon:55.274,lat:25.197,h:1000,r:4200,p:-20},
+  {n:"세렝게티",en:"Serengeti",lon:34.833,lat:-2.333,h:1800,r:9000,p:-18},
+  {n:"킬리만자로",en:"Kilimanjaro",lon:37.355,lat:-3.067,h:6200,r:12000,p:-14},
+  {n:"앙헬폭포",en:"Angel Falls",lon:-62.536,lat:5.968,h:1500,r:4200,p:-18},
+  {n:"아마존",en:"Amazon",lon:-60.025,lat:-3.119,h:1200,r:9000,p:-22},
 ];
 
 const VEHICLES = [
-  {n:"제트기",e:"\u2708\uFE0F",sp:2.2,ag:0.9},
-  {n:"전투기",e:"\uD83D\uDEE9\uFE0F",sp:3.0,ag:1.5},
-  {n:"여객기",e:"\uD83D\uDEEB",sp:1.8,ag:0.5},
-  {n:"헬리콥터",e:"\uD83D\uDE81",sp:0.6,ag:1.8},
-  {n:"글라이더",e:"\uD83E\uDE82",sp:0.45,ag:1.2},
-  {n:"패러글라이더",e:"\uD83C\uDFCB\uFE0F",sp:0.3,ag:1.5},
-  {n:"열기구",e:"\uD83C\uDF88",sp:0.15,ag:0.5},
-  {n:"드론",e:"\uD83D\uDEF8",sp:0.5,ag:2.5},
-  {n:"복엽기",e:"\uD83D\uDEE9",sp:0.8,ag:1.1},
-  {n:"로켓",e:"\uD83D\uDE80",sp:6.0,ag:0.5,cat:"space"},
-  {n:"우주왕복선",e:"\uD83D\uDEF0\uFE0F",sp:5.0,ag:0.8,cat:"space"},
-  {n:"UFO",e:"\uD83D\uDEF8",sp:4.5,ag:3.0,cat:"space"},
-  {n:"스포츠카",e:"\uD83C\uDFCE\uFE0F",sp:1.2,ag:1.5,cat:"ground",off:2},
-  {n:"오토바이",e:"\uD83C\uDFCD\uFE0F",sp:1.0,ag:2.0,cat:"ground",off:2},
-  {n:"오프로드",e:"\uD83D\uDEFB",sp:0.8,ag:1.6,cat:"ground",off:3},
-  {n:"기차",e:"\uD83D\uDE84",sp:1.5,ag:0.3,cat:"ground",off:4},
-  {n:"탱크",e:"\uD83D\uDEE1\uFE0F",sp:0.5,ag:0.8,cat:"ground",off:3},
-  {n:"말",e:"\uD83D\uDC0E",sp:0.3,ag:1.8,cat:"ground",off:2},
-  {n:"치타",e:"\uD83D\uDC06",sp:0.6,ag:2.5,cat:"ground",off:1},
-  {n:"자전거",e:"\uD83D\uDEB2",sp:0.15,ag:1.5,cat:"ground",off:2},
-  {n:"쾌속정",e:"\uD83D\uDEA4",sp:0.9,ag:1.5,cat:"sea",off:2},
-  {n:"요트",e:"\u26F5",sp:0.4,ag:0.8,cat:"sea",off:3},
-  {n:"항공모함",e:"\uD83D\uDEA2",sp:0.6,ag:0.2,cat:"sea",off:15},
-  {n:"서핑보드",e:"\uD83C\uDFC4",sp:0.3,ag:2.0,cat:"sea",off:1},
-  {n:"잠수함",e:"\uD83E\uDD3F",sp:0.5,ag:0.8,cat:"sub"},
-  {n:"고래",e:"\uD83D\uDC33",sp:0.4,ag:1.2,cat:"sub"},
-  {n:"인어",e:"\uD83E\uDDDC",sp:0.3,ag:2.0,cat:"sub"},
-  {n:"드릴머신",e:"\uD83D\uDEE0\uFE0F",sp:0.4,ag:0.8,cat:"tunnel"},
-  {n:"두더지",e:"\uD83D\uDC00",sp:0.3,ag:1.5,cat:"tunnel"},
-  {n:"모래벌레",e:"\uD83E\uDEB1",sp:1.2,ag:1.0,cat:"tunnel"},
-  {n:"용",e:"\uD83D\uDC09",sp:1.6,ag:1.6},
-  {n:"그리핀",e:"\uD83E\uDD85",sp:1.2,ag:2.0},
-  {n:"페가수스",e:"\uD83E\uDD84",sp:1.4,ag:1.8},
-  {n:"불사조",e:"\uD83D\uDD25",sp:2.5,ag:2.0},
-  {n:"마법양탄자",e:"\uD83E\uDDDE",sp:1.0,ag:2.0},
-  {n:"빗자루",e:"\uD83E\uDDF9",sp:1.3,ag:2.4},
-  {n:"근두운",e:"\u2601\uFE0F",sp:3.2,ag:1.4},
-  {n:"산타썰매",e:"\uD83E\uDD8C",sp:2.0,ag:1.2},
-  {n:"종이비행기",e:"\uD83D\uDCC4",sp:0.4,ag:2.2},
-  {n:"커스텀",e:"\u2699\uFE0F",sp:1.0,ag:1.0,custom:true},
+  {n:"제트기",en:"Jet",e:"\u2708\uFE0F",sp:2.2,ag:0.9},
+  {n:"전투기",en:"Fighter",e:"\uD83D\uDEE9\uFE0F",sp:3.0,ag:1.5},
+  {n:"여객기",en:"Airliner",e:"\uD83D\uDEEB",sp:1.8,ag:0.5},
+  {n:"헬리콥터",en:"Helicopter",e:"\uD83D\uDE81",sp:0.6,ag:1.8},
+  {n:"글라이더",en:"Glider",e:"\uD83E\uDE82",sp:0.45,ag:1.2},
+  {n:"패러글라이더",en:"Paraglider",e:"\uD83C\uDFCB\uFE0F",sp:0.3,ag:1.5},
+  {n:"열기구",en:"Balloon",e:"\uD83C\uDF88",sp:0.15,ag:0.5},
+  {n:"드론",en:"Drone",e:"\uD83D\uDEF8",sp:0.5,ag:2.5},
+  {n:"복엽기",en:"Biplane",e:"\uD83D\uDEE9",sp:0.8,ag:1.1},
+  {n:"로켓",en:"Rocket",e:"\uD83D\uDE80",sp:6.0,ag:0.5,cat:"space"},
+  {n:"우주왕복선",en:"Shuttle",e:"\uD83D\uDEF0\uFE0F",sp:5.0,ag:0.8,cat:"space"},
+  {n:"UFO",en:"UFO",e:"\uD83D\uDEF8",sp:4.5,ag:3.0,cat:"space"},
+  {n:"스포츠카",en:"Sports Car",e:"\uD83C\uDFCE\uFE0F",sp:1.2,ag:1.5,cat:"ground",off:2},
+  {n:"오토바이",en:"Motorbike",e:"\uD83C\uDFCD\uFE0F",sp:1.0,ag:2.0,cat:"ground",off:2},
+  {n:"오프로드",en:"Offroad",e:"\uD83D\uDEFB",sp:0.8,ag:1.6,cat:"ground",off:3},
+  {n:"기차",en:"Train",e:"\uD83D\uDE84",sp:1.5,ag:0.3,cat:"ground",off:4},
+  {n:"탱크",en:"Tank",e:"\uD83D\uDEE1\uFE0F",sp:0.5,ag:0.8,cat:"ground",off:3},
+  {n:"말",en:"Horse",e:"\uD83D\uDC0E",sp:0.3,ag:1.8,cat:"ground",off:2},
+  {n:"치타",en:"Cheetah",e:"\uD83D\uDC06",sp:0.6,ag:2.5,cat:"ground",off:1},
+  {n:"자전거",en:"Bicycle",e:"\uD83D\uDEB2",sp:0.15,ag:1.5,cat:"ground",off:2},
+  {n:"쾌속정",en:"Speedboat",e:"\uD83D\uDEA4",sp:0.9,ag:1.5,cat:"sea",off:2},
+  {n:"요트",en:"Yacht",e:"\u26F5",sp:0.4,ag:0.8,cat:"sea",off:3},
+  {n:"항공모함",en:"Carrier",e:"\uD83D\uDEA2",sp:0.6,ag:0.2,cat:"sea",off:15},
+  {n:"서핑보드",en:"Surfboard",e:"\uD83C\uDFC4",sp:0.3,ag:2.0,cat:"sea",off:1},
+  {n:"잠수함",en:"Submarine",e:"\uD83E\uDD3F",sp:0.5,ag:0.8,cat:"sub"},
+  {n:"고래",en:"Whale",e:"\uD83D\uDC33",sp:0.4,ag:1.2,cat:"sub"},
+  {n:"인어",en:"Mermaid",e:"\uD83E\uDDDC",sp:0.3,ag:2.0,cat:"sub"},
+  {n:"드릴머신",en:"Drill",e:"\uD83D\uDEE0\uFE0F",sp:0.4,ag:0.8,cat:"tunnel"},
+  {n:"두더지",en:"Mole",e:"\uD83D\uDC00",sp:0.3,ag:1.5,cat:"tunnel"},
+  {n:"모래벌레",en:"Sandworm",e:"\uD83E\uDEB1",sp:1.2,ag:1.0,cat:"tunnel"},
+  {n:"용",en:"Dragon",e:"\uD83D\uDC09",sp:1.6,ag:1.6},
+  {n:"그리핀",en:"Griffin",e:"\uD83E\uDD85",sp:1.2,ag:2.0},
+  {n:"페가수스",en:"Pegasus",e:"\uD83E\uDD84",sp:1.4,ag:1.8},
+  {n:"불사조",en:"Phoenix",e:"\uD83D\uDD25",sp:2.5,ag:2.0},
+  {n:"마법양탄자",en:"Magic Carpet",e:"\uD83E\uDDDE",sp:1.0,ag:2.0},
+  {n:"빗자루",en:"Broomstick",e:"\uD83E\uDDF9",sp:1.3,ag:2.4},
+  {n:"근두운",en:"Cloud",e:"\u2601\uFE0F",sp:3.2,ag:1.4},
+  {n:"산타썰매",en:"Santa Sleigh",e:"\uD83E\uDD8C",sp:2.0,ag:1.2},
+  {n:"종이비행기",en:"Paper Plane",e:"\uD83D\uDCC4",sp:0.4,ag:2.2},
+  {n:"커스텀",en:"Custom",e:"\u2699\uFE0F",sp:1.0,ag:1.0,custom:true},
 ];
 
 let viewer, tier = "BASIC (키 없음: 평면지형)";
@@ -353,7 +368,7 @@ function tick(){
       if(Math.abs(touch.ly)<0.0001)touch.ly=0;
     }
     clampToLayer(c);
-    vehHud.textContent = `${veh.e} ${veh.n} \u00B7 ${Math.round(curSpeed()*3.6).toLocaleString()} km/h`;
+    vehHud.textContent = `${veh.e} ${dn(veh)} \u00B7 ${Math.round(curSpeed()*3.6).toLocaleString()} km/h`;
   }
 }
 
@@ -386,8 +401,8 @@ function clampToLayer(c){
 
 /* ---------------- RACING ---------------- */
 const TRACKS=[
- {n:"🏜️ 협곡런 (그랜드캐니언)",r:420,gates:[[-112.155,36.093,2100],[-112.135,36.083,2000],[-112.113,36.079,1950],[-112.094,36.088,2050],[-112.078,36.101,2150],[-112.096,36.113,2250],[-112.121,36.117,2200],[-112.145,36.106,2150]]},
- {n:"🏔️ 마터호른 서킷",r:620,gates:[[7.62,45.99,4700],[7.645,46.005,4900],[7.678,46.0,5100],[7.695,45.978,5200],[7.678,45.955,5000],[7.645,45.95,4800],[7.62,45.965,4700]]},
+ {n:"🏜️ 협곡런 (그랜드캐니언)",tren:"Canyon Run",r:420,gates:[[-112.155,36.093,2100],[-112.135,36.083,2000],[-112.113,36.079,1950],[-112.094,36.088,2050],[-112.078,36.101,2150],[-112.096,36.113,2250],[-112.121,36.117,2200],[-112.145,36.106,2150]]},
+ {n:"🏔️ 마터호른 서킷",tren:"Matterhorn Circuit",r:620,gates:[[7.62,45.99,4700],[7.645,46.005,4900],[7.678,46.0,5100],[7.695,45.978,5200],[7.678,45.955,5000],[7.645,45.95,4800],[7.62,45.965,4700]]},
  {n:"🚀 성층권 강하",r:1600,gates:[[138.731,35.363,42000],[138.74,35.37,30000],[138.75,35.36,20000],[138.74,35.35,12000],[138.735,35.358,6500],[138.731,35.363,4600]]},
  {n:"\uD83C\uDFDD\uFE0F \uD558\uB871\uBCA0\uC774 \uC2AC\uB7EC\uB86C".replace(/\\u/g,"").length?"\uD83C\uDFDD\uFE0F \uD558\uB871\uBCA0\uC774 \uC2AC\uB7EC\uB86C":"",r:380,gates:[[107.00,20.95,350],[107.02,20.93,300],[107.045,20.915,260],[107.07,20.90,300],[107.09,20.885,340],[107.07,20.865,300],[107.045,20.87,280],[107.02,20.885,320]]},
  {n:"\uD83C\uDF06 \uB9AC\uC6B0 \uD574\uC548 \uC11C\uD0B7",r:450,gates:[[-43.21,-22.94,600],[-43.19,-22.955,450],[-43.165,-22.95,380],[-43.155,-22.935,500],[-43.17,-22.92,650],[-43.195,-22.925,700],[-43.21,-22.94,600]]}
@@ -418,7 +433,7 @@ async function photo(){
   const x=c.getContext("2d"); x.drawImage(src,0,0);
   x.fillStyle="rgba(0,0,0,.45)"; x.fillRect(0,c.height-64,c.width,64);
   x.fillStyle="#fff"; x.font="bold "+Math.round(c.height*0.028)+"px sans-serif";
-  const d=curIdx>=0?DESTS[curIdx].n+" \u00B7 ":"";
+  const d=curIdx>=0?dn(DESTS[curIdx])+" \u00B7 ":"";
   x.fillText("EARTHFLIGHT  "+d+document.getElementById("timeLabel").textContent, 24, c.height-24);
   const url=c.toDataURL("image/jpeg",0.92);
   const link=shareLink();
@@ -482,8 +497,8 @@ function endRace(finished){
     const prev=race.best?race.best.time:Infinity;
     let msg="⏱ "+t.toFixed(2)+"s";
     if(t<prev){ localStorage.setItem("ef_best_"+race.ti,JSON.stringify({time:t,path:race.samples}));
-      msg+="<br><small>🏆 신기록!"+(isFinite(prev)?" (이전 "+prev.toFixed(2)+"s)":"")+"</small>"; }
-    else msg+="<br><small>베스트 "+prev.toFixed(2)+"s</small>";
+      msg+="<br><small>🏆 "+(KO?"신기록!":"New record!")+(isFinite(prev)?" ("+(KO?"이전 ":"prev ")+prev.toFixed(2)+"s)":"")+"</small>"; }
+    else msg+="<br><small>"+(KO?"베스트 ":"Best ")+prev.toFixed(2)+"s</small>";
     sndWin();
     raceHud.innerHTML=msg;
     setTimeout(()=>{raceHud.style.display="none";},4500);
@@ -512,7 +527,7 @@ function raceTick(dt){
     if(race.gi>=T.gates.length){endRace(true);return;}
     highlightGate();
   }
-  raceHud.innerHTML="⏱ "+el.toFixed(1)+"s<br><small>게이트 "+race.gi+"/"+T.gates.length+" · 주황 구체로!</small>";
+  raceHud.innerHTML="⏱ "+el.toFixed(1)+"s<br><small>"+(KO?"게이트 ":"Gate ")+race.gi+"/"+T.gates.length+(KO?" · 주황 구체로!":" · to the orange ring!")+"</small>";
 }
 
 function setupInput(){
@@ -530,7 +545,9 @@ function syncBtns(){
   btnSpace.classList.toggle("on", mode==="space");
   vehHud.style.display = mode==="free" ? "block" : "none";
   document.getElementById("joyWrap").style.display = (IS_TOUCH && mode==="free") ? "block" : "none";
-  document.getElementById("hint").innerHTML = mode==="free"
+  document.getElementById("hint").innerHTML = !KO ? (mode==="free"
+    ? "W/A/S/D move \u00B7 Q/E altitude \u00B7 arrows look \u00B7 Shift boost<br>Faster at higher altitude \u00B7 drag to rotate"
+    : (mode==="tour" ? "Tap a landmark card \u00B7 auto-orbiting" : "Drag the globe \u00B7 scroll to zoom")) : mode==="free"
     ? "W/A/S/D 이동 · Q/E 고도 · 방향키 시선 · Shift 부스터<br>높이 날수록 빨라짐 · 마우스 드래그 회전"
     : (mode==="tour" ? "명소 카드를 눌러 이동 · 자동 선회 중" : "지구를 드래그해 회전 · 휠로 접근");
 }
@@ -553,21 +570,26 @@ function buildUI(){
   const vw = document.getElementById("vehs");
   VEHICLES.forEach((v,i)=>{
     const el = document.createElement("div");
-    el.className = "vcard"; el.textContent = v.e+" "+v.n;
+    el.className = "vcard"; el.textContent = v.e+" "+dn(v);
     el.onclick = ()=>pickVeh(i);
     vw.appendChild(el);
   });
   const wrap = document.getElementById("dests");
   DESTS.forEach((d,i)=>{
     const el = document.createElement("div");
-    el.className = "dcard"; el.textContent = d.n;
+    el.className = "dcard"; el.textContent = dn(d);
     el.onclick = ()=>flyToDest(i);
     wrap.appendChild(el);
   });
+  if(!KO){
+    btnTour.textContent="Tour"; btnFree.textContent="Free Flight"; btnSpace.textContent="Space";
+    document.getElementById("btnRace").textContent="🏁 Race";
+    document.getElementById("btnLayer").textContent="🌍 Layers";
+  }
   btnTour.onclick = ()=>{ if(race.on)endRace(false); flyToDest(Math.max(curIdx,0)); };
   const tw=document.getElementById("tracks");
   TRACKS.forEach((t,i)=>{const el=document.createElement("div");el.className="tcard";
-    el.textContent=t.n;el.onclick=()=>{tw.classList.remove("show");startRace(i);};tw.appendChild(el);});
+    el.textContent=tn(t);el.onclick=()=>{tw.classList.remove("show");startRace(i);};tw.appendChild(el);});
   document.getElementById("btnRace").onclick=()=>{ if(race.on){endRace(false);return;} tw.classList.toggle("show"); };
   btnFree.onclick = goFree;
   btnSpace.onclick = ()=>goSpace(false);
@@ -587,7 +609,7 @@ function buildUI(){
     const v=Object.keys(stats.visits).length;
     let bests="";
     TRACKS.forEach((t,i)=>{const r=JSON.parse(localStorage.getItem("ef_best_"+i)||"null");
-      if(r)bests+="<br>"+t.n+" \u2014 <b>"+r.time.toFixed(2)+"s</b>";});
+      if(r)bests+="<br>"+tn(t)+" \u2014 <b>"+r.time.toFixed(2)+"s</b>";});
     b.innerHTML="<b style=\"font-size:16px\">\uD83C\uDF0D \uBE44\uD589\uC77C\uC9C0</b><br>"
       +"\uBC29\uBB38 \uBA85\uC18C: <b>"+v+"</b> / "+DESTS.length
       +"<br>\uCD1D \uBE44\uD589\uAC70\uB9AC: <b>"+(stats.dist/1000).toFixed(1)+" km</b>"
