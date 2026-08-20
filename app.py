@@ -1051,6 +1051,11 @@ def penaltyradar_og():
     return send_from_directory(".", "penaltyradar-og.png", mimetype="image/png")
 
 
+@app.route("/dwaeji-og.png")
+def dwaeji_og():
+    return send_from_directory(".", "dwaeji-og.png", mimetype="image/png")
+
+
 @app.route("/giftradar-og.png")
 def giftradar_og():
     return send_from_directory(".", "giftradar-og.png", mimetype="image/png")
