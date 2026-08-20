@@ -35,6 +35,8 @@ input::placeholder{color:#6a5a58}
 .pick .dish{display:inline-block;background:#160f11;border:1px solid var(--line);color:var(--pink);font-size:12px;font-weight:700;padding:4px 10px;border-radius:8px;margin:8px 0 6px}
 .pick .why{font-size:13px;line-height:1.6;color:#e8d8d2}
 .pick .tip{font-size:12px;color:var(--sub);margin-top:5px}
+.pick .diary{font-size:13px;color:#f5c6b8;font-style:italic;margin-top:8px;padding:8px 10px;background:#1c1316;border-left:3px solid var(--pink);border-radius:0 8px 8px 0;line-height:1.5}
+.pick .cons{font-size:12px;color:#c9a086;margin-top:6px}
 .pick .maps{display:flex;gap:8px;margin-top:10px}
 .pick .maps a{flex:1;text-align:center;text-decoration:none;font-size:12.5px;font-weight:700;padding:9px;border-radius:9px;background:#160f11;border:1.5px solid var(--line);color:var(--cream)}
 .pick .maps a.nv{border-color:#2c5a3f;color:#7ee2a8}
@@ -50,7 +52,7 @@ input::placeholder{color:#6a5a58}
 <div id="wrap">
   <header>
     <h1><span class="pig">🐷</span> 돼지레이다</h1>
-    <p>프랜차이즈·백화점 입점·관광 호객집은 냄새도 안 맡습니다.<br>현지인 단골 노포·시장통 찐집만 킁킁.</p>
+    <p>노포든 백화점 지점이든 — 기준은 하나, 진짜 맛.<br>주문 공식부터 솔직한 단점까지, 세세히 킁킁.</p>
   </header>
 
   <div id="wizard">
@@ -122,6 +124,8 @@ $('go').onclick=async()=>{
         <h3>${esc(p.name)}</h3><div class="area">📍 ${esc(p.area)}</div>
         <div class="dish">🍽 ${esc(p.dish)}</div>
         <div class="why">${esc(p.why)}</div>
+        ${p.diary?`<div class="diary">"${esc(p.diary)}"</div>`:''}
+        ${p.cons&&p.cons!=='딱히 없음'?`<div class="cons">😥 ${esc(p.cons)}</div>`:''}
         <div class="tip">💡 ${esc(p.tip)}</div>
         <div class="maps">
           <a class="nv" target="_blank" href="https://map.naver.com/p/search/${q}">네이버지도</a>
