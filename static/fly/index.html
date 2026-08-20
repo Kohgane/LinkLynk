@@ -25,6 +25,7 @@
   .ccard.on{background:rgba(120,180,255,.85);color:#001a33;font-weight:700}
   .dcard,.vcard{flex:0 0 auto;padding:8px 14px;border-radius:20px;background:rgba(255,255,255,.12);
     backdrop-filter:blur(8px);font-size:13px;white-space:nowrap;cursor:pointer;border:1px solid rgba(255,255,255,.15);color:#fff}
+  .fcard{flex:0 0 auto;padding:8px 14px;border-radius:20px;background:linear-gradient(135deg,rgba(255,200,80,.9),rgba(255,150,60,.9));color:#331a00;font-weight:800;font-size:13px;white-space:nowrap;cursor:pointer;border:1px solid rgba(255,220,150,.9);box-shadow:0 0 12px rgba(255,180,80,.35)}
   .dcard.on{background:rgba(255,180,80,.85);color:#1a0f00;font-weight:700;border-color:transparent}
   .vcard.on{background:rgba(150,240,170,.88);color:#02240c;font-weight:700;border-color:transparent}
   #row2{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
@@ -746,8 +747,16 @@ function buildUI(){
   const CATS=[["all",KO?"전체":"All"],["s",KO?"절경":"Nature"],["w",KO?"유적":"Wonders"],["c",KO?"도시":"Cities"],["h",KO?"비경":"Hidden"],["x",KO?"극한":"Extreme"]];
   let curCat="all";
   const wrap = document.getElementById("dests");
+  const _d=new Date();
+  const _seed=_d.getFullYear()*10000+(_d.getMonth()+1)*100+_d.getDate();
+  const FEAT=((_seed*9301+49297)%233280)%DESTS.length;
   function renderDests(){
     wrap.innerHTML="";
+    const f=document.createElement("div");
+    f.className="fcard";
+    f.textContent="\u2B50 "+(KO?"\uC624\uB298\uC758 \uBA85\uC18C: ":"Today: ")+dn(DESTS[FEAT]);
+    f.onclick=()=>{ timeSlider.value=18.2; flyToDest(FEAT); };
+    wrap.appendChild(f);
     DESTS.forEach((d,i)=>{
       if(curCat!=="all" && d.c!==curCat) return;
       const el = document.createElement("div");
