@@ -90,6 +90,8 @@
     <button class="btn" id="btnFree">자유비행</button>
     <button class="btn" id="btnSpace">우주</button>
     <button class="btn" id="btnRace">🏁 레이스</button>
+    <button class="btn" id="btnFilm">🎨</button>
+    <button class="btn" id="btnCity">🏙️</button>
     <button class="btn" id="btnStats">📊</button>
     <button class="btn" id="btnPhoto">📷</button>
     <button class="btn" id="btnLayer">&#127757; 레이어</button>
@@ -382,6 +384,48 @@ function setupTouch(){
     const off=()=>{touch[prop]=(prop==="boost")?false:0;};
     el.addEventListener("touchend",off); el.addEventListener("touchcancel",off);};
   hold("btnUp","up",1); hold("btnDn","up",-1); hold("btnBoost","boost",true);
+}
+
+const FILMS=[["\uC6D0\uBCF8","Natural"],["\uBE44\uBE44\uB4DC","Vivid"],["\uACE8\uB4E0\uC544\uC6CC","Golden"],["\uC218\uBB35","Ink"],["\uB4DC\uB9BC","Dream"]];
+let filmIdx=0, filmStage=null, cityTiles=null, cityLoading=false;
+function initFilm(){
+  const fs=`uniform sampler2D colorTexture; varying vec2 v_textureCoordinates; uniform float u_mode;
+  vec3 sat(vec3 c,float s){float l=dot(c,vec3(0.299,0.587,0.114));return mix(vec3(l),c,s);}
+  void main(){ vec4 col=texture2D(colorTexture,v_textureCoordinates); vec3 c=col.rgb;
+    if(u_mode<1.5){ c=sat(c,1.45); c=pow(c,vec3(0.92)); c*=vec3(1.05,1.0,0.97); }
+    else if(u_mode<2.5){ c=sat(c,1.25); c*=vec3(1.18,0.96,0.78); c=pow(c,vec3(0.88)); }
+    else if(u_mode<3.5){ c=sat(c,0.12); c=pow(c,vec3(1.3)); c+=vec3(0.02,0.03,0.06); }
+    else { c=sat(c,1.15); c=c*0.82+0.16; vec2 d=v_textureCoordinates-0.5; c*=1.0-dot(d,d)*0.8; }
+    gl_FragColor=vec4(c,col.a); }`;
+  filmStage=viewer.scene.postProcessStages.add(new Cesium.PostProcessStage({
+    fragmentShader:fs, uniforms:{u_mode:()=>filmIdx}}));
+  filmStage.enabled=false;
+}
+function cycleFilm(){
+  filmIdx=(filmIdx+1)%FILMS.length;
+  if(!filmStage) initFilm();
+  filmStage.enabled = filmIdx>0;
+  const b=document.getElementById("btnFilm");
+  b.textContent="\uD83C\uDFA8 "+(KO?FILMS[filmIdx][0]:FILMS[filmIdx][1]);
+  b.classList.toggle("on", filmIdx>0);
+}
+async function toggleCity(){
+  const b=document.getElementById("btnCity");
+  if(cityLoading) return;
+  if(cityTiles){ cityTiles.show=!cityTiles.show; b.classList.toggle("on",cityTiles.show); return; }
+  if(!CESIUM_ION_TOKEN){ b.textContent="\uD83C\uDFD9\uFE0F X"; return; }
+  cityLoading=true; b.textContent="\uD83C\uDFD9\uFE0F \u23F3";
+  try{
+    cityTiles=await Cesium.createOsmBuildingsAsync({
+      style:new Cesium.Cesium3DTileStyle({color:{conditions:[
+        ["${feature['cesium#estimatedHeight']} > 150","color('#ff8f6b')"],
+        ["${feature['cesium#estimatedHeight']} > 60","color('#ffc98a')"],
+        ["${feature['cesium#estimatedHeight']} > 20","color('#f2e2c4')"],
+        ["true","color('#e8e0d2')"]]}})});
+    viewer.scene.primitives.add(cityTiles);
+    b.textContent="\uD83C\uDFD9\uFE0F"; b.classList.add("on");
+  }catch(e){ b.textContent="\uD83C\uDFD9\uFE0F !"; console.warn(e); }
+  cityLoading=false;
 }
 
 function setLocalTime(h){
@@ -729,6 +773,8 @@ function buildUI(){
     gl.translucency.frontFaceAlpha = under?0.45:1.0;
     viewer.scene.screenSpaceCameraController.enableCollisionDetection = !under && !(layerMode && veh.cat==="ground");
   };
+  document.getElementById("btnFilm").onclick=cycleFilm;
+  document.getElementById("btnCity").onclick=toggleCity;
   document.getElementById("btnPhoto").onclick=photo;
   document.getElementById("btnStats").onclick=()=>{
     const b=document.getElementById("statsBox");
