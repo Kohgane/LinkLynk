@@ -1756,7 +1756,10 @@ def assetlinks():
                      "target": {"namespace": "android_app",
                                 "package_name": os.environ.get("HWATU_ANDROID_PKG", "app.jeoseunghwatu.twa"),
                                 "sha256_cert_fingerprints": _hw_fps}})
-    _mj_default = "8E:6F:90:36:2D:D4:5B:BB:9B:09:54:60:53:4D:30:F2:38:42:5F:7B:E2:05:48:C8:E0:FB:69:E9:00:AD:7E:B9"  # 업로드 키(자체 생성)
+    _mj_default = (
+        "91:59:BE:7E:D8:1F:59:8F:3E:9E:45:E7:88:4C:D7:39:25:57:82:95:68:42:30:F2:C7:9B:05:F3:EF:23:18:E5,"  # Play 앱 서명 키
+        "9D:D6:0B:2F:E9:52:EA:97:96:CB:2D:1F:0E:35:FF:46:7E:F4:F3:CF:9D:64:EF:75:E9:0E:01:1F:DE:D0:88:51,"  # 업로드 키(콘솔 표기)
+        "8E:6F:90:36:2D:D4:5B:BB:9B:09:54:60:53:4D:30:F2:38:42:5F:7B:E2:05:48:C8:E0:FB:69:E9:00:AD:7E:B9")  # 빌드 키(자체 키스토어)
     _mj_fps = [x.strip() for x in os.environ.get("MAJAK_ANDROID_SHA256", _mj_default).split(",") if x.strip()]
     if _mj_fps:
         body.append({"relation": ["delegate_permission/common.handle_all_urls"],
