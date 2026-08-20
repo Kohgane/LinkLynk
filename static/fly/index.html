@@ -60,6 +60,9 @@
 <div class="hud" id="title">EARTHFLIGHT</div>
 <div class="hud" id="vehHud"></div>
 <div id="raceHud"></div>
+<div id="statsBox" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
+ z-index:20;background:rgba(10,12,30,.92);border:1px solid rgba(255,255,255,.25);border-radius:16px;
+ padding:22px 26px;color:#fff;font-size:14px;line-height:2;min-width:250px;backdrop-filter:blur(8px)"></div>
 <div class="hud" id="hint"></div>
 <div id="tier"></div>
 <div id="joyWrap">
@@ -84,6 +87,7 @@
     <button class="btn" id="btnFree">자유비행</button>
     <button class="btn" id="btnSpace">우주</button>
     <button class="btn" id="btnRace">🏁 레이스</button>
+    <button class="btn" id="btnStats">📊</button>
     <button class="btn" id="btnPhoto">📷</button>
     <button class="btn" id="btnLayer">&#127757; 레이어</button>
     <div id="timeWrap">
@@ -274,7 +278,12 @@ function setLocalTime(h){
   document.getElementById("timeLabel").textContent = hh+":"+mm;
 }
 
+const stats=JSON.parse(localStorage.getItem("ef_stats")||'{"visits":{},"dist":0}');
+function saveStats(){localStorage.setItem("ef_stats",JSON.stringify(stats));}
+let statTimer=0;
+
 function flyToDest(i){
+  stats.visits[DESTS[i].n]=(stats.visits[DESTS[i].n]||0)+1; saveStats();
   const d = DESTS[i]; curIdx = i; mode = "tour"; orbiting = false; syncBtns();
   document.querySelectorAll(".dcard").forEach((c,j)=>c.classList.toggle("on", j===i));
   viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
@@ -317,6 +326,11 @@ function tick(){
     viewer.camera.lookAt(orbitCenter, new Cesium.HeadingPitchRange(orbitHeading, orbitP, orbitR));
   }
   if (mode === "free"){
+    if(!tick._pp) tick._pp=viewer.camera.position.clone();
+    const _mv=Cesium.Cartesian3.distance(tick._pp,viewer.camera.position);
+    if(_mv>0.5&&_mv<500000){stats.dist+=_mv; statTimer+=dt;
+      if(statTimer>5){saveStats();statTimer=0;}}
+    tick._pp=viewer.camera.position.clone();
     const c = viewer.camera, sp = curSpeed()*dt, tr = 1.4*veh.ag*dt, tp = 0.8*veh.ag*dt;
     if (keys.w) c.moveForward(sp);
     if (keys.s) c.moveBackward(sp);
@@ -567,6 +581,21 @@ function buildUI(){
     viewer.scene.screenSpaceCameraController.enableCollisionDetection = !under && !(layerMode && veh.cat==="ground");
   };
   document.getElementById("btnPhoto").onclick=photo;
+  document.getElementById("btnStats").onclick=()=>{
+    const b=document.getElementById("statsBox");
+    if(b.style.display==="block"){b.style.display="none";return;}
+    const v=Object.keys(stats.visits).length;
+    let bests="";
+    TRACKS.forEach((t,i)=>{const r=JSON.parse(localStorage.getItem("ef_best_"+i)||"null");
+      if(r)bests+="<br>"+t.n+" \u2014 <b>"+r.time.toFixed(2)+"s</b>";});
+    b.innerHTML="<b style=\"font-size:16px\">\uD83C\uDF0D \uBE44\uD589\uC77C\uC9C0</b><br>"
+      +"\uBC29\uBB38 \uBA85\uC18C: <b>"+v+"</b> / "+DESTS.length
+      +"<br>\uCD1D \uBE44\uD589\uAC70\uB9AC: <b>"+(stats.dist/1000).toFixed(1)+" km</b>"
+      +(bests?"<br><br><b>\uD83C\uDFC1 \uBCA0\uC2A4\uD2B8</b>"+bests:"")
+      +"<br><br><span style=\"opacity:.6;font-size:12px\">\uD0ED\uD558\uBA74 \uB2EB\uD798</span>";
+    b.style.display="block";
+    b.onclick=()=>b.style.display="none";
+  };
   timeSlider.oninput = e=>setLocalTime(parseFloat(e.target.value));
   custSp.oninput = e=>{ custSpv.textContent=(+e.target.value).toFixed(1)+"×"; if(veh.custom) veh.sp=parseFloat(e.target.value); };
   custAg.oninput = e=>{ custAgv.textContent=(+e.target.value).toFixed(1)+"×"; if(veh.custom) veh.ag=parseFloat(e.target.value); };
