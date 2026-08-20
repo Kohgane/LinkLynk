@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>돼지레이다 🐷 — 로컬 찐맛집 탐지기</title>
+<meta property="og:title" content="돼지레이다 🐷 로컬 찐맛집 탐지기">
+<meta property="og:description" content="프랜차이즈·관광 호객집 빼고, 현지인 단골 노포만 킁킁.">
+<style>
+:root{--bg:#1a1214;--card:#241a1d;--pink:#ff8fa3;--deep:#e05572;--cream:#fff3ec;--sub:#a08a86;--line:#3a2c30}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{background:var(--bg);color:var(--cream);font-family:'Noto Sans KR',sans-serif;min-height:100dvh}
+#wrap{max-width:520px;margin:0 auto;padding:22px 18px calc(30px + env(safe-area-inset-bottom))}
+header{text-align:center;margin-bottom:20px}
+header h1{font-size:26px;font-weight:900}
+header h1 .pig{display:inline-block;animation:sniff 2.4s ease-in-out infinite}
+@keyframes sniff{0%,100%{transform:rotate(0)}20%{transform:rotate(-12deg) translateX(-2px)}40%{transform:rotate(10deg) translateX(2px)}60%{transform:rotate(-6deg)}}
+header p{font-size:12.5px;color:var(--sub);margin-top:6px;line-height:1.6}
+.step{background:var(--card);border:1.5px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px}
+.step h2{font-size:14px;font-weight:800;margin-bottom:10px;color:var(--pink)}
+input[type=text]{width:100%;background:#160f11;border:1.5px solid var(--line);border-radius:10px;padding:12px;color:var(--cream);font-size:15px}
+input::placeholder{color:#6a5a58}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{background:#160f11;border:1.5px solid var(--line);color:var(--sub);border-radius:20px;padding:8px 14px;font-size:13px;cursor:pointer}
+.chip.on{background:var(--deep);border-color:var(--deep);color:#fff;font-weight:700}
+#go{width:100%;background:linear-gradient(#ff8fa3,#e05572);border:none;color:#fff;font-size:17px;font-weight:900;padding:15px;border-radius:14px;box-shadow:0 4px 0 #a03a52;margin-top:4px}
+#go:active{transform:translateY(2px);box-shadow:0 2px 0 #a03a52}
+#go:disabled{opacity:.5}
+/* 결과 */
+#res{margin-top:16px}
+.pick{background:var(--card);border:1.5px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;position:relative}
+.pick .no{position:absolute;top:-9px;left:14px;background:var(--deep);color:#fff;font-size:11px;font-weight:900;padding:3px 10px;border-radius:10px}
+.pick h3{font-size:17px;font-weight:900;margin:4px 0 2px}
+.pick .area{font-size:12px;color:var(--sub)}
+.pick .dish{display:inline-block;background:#160f11;border:1px solid var(--line);color:var(--pink);font-size:12px;font-weight:700;padding:4px 10px;border-radius:8px;margin:8px 0 6px}
+.pick .why{font-size:13px;line-height:1.6;color:#e8d8d2}
+.pick .tip{font-size:12px;color:var(--sub);margin-top:5px}
+.pick .maps{display:flex;gap:8px;margin-top:10px}
+.pick .maps a{flex:1;text-align:center;text-decoration:none;font-size:12.5px;font-weight:700;padding:9px;border-radius:9px;background:#160f11;border:1.5px solid var(--line);color:var(--cream)}
+.pick .maps a.nv{border-color:#2c5a3f;color:#7ee2a8}
+.pick .maps a.kk{border-color:#5a4c1e;color:#f5d97a}
+#notice{font-size:11.5px;color:#7a6a66;line-height:1.7;margin-top:10px;text-align:center}
+#loading{display:none;text-align:center;padding:30px 0;font-size:14px;color:var(--sub)}
+#loading .pig{font-size:40px;display:inline-block;animation:sniff .8s ease-in-out infinite}
+#err{display:none;background:#3a1a22;border:1.5px solid var(--deep);border-radius:12px;padding:12px;font-size:13px;margin-top:12px;text-align:center}
+#again{display:none;width:100%;background:#241a1d;border:1.5px solid var(--line);color:var(--cream);padding:12px;border-radius:12px;font-size:14px;font-weight:700;margin-top:4px}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <header>
+    <h1><span class="pig">🐷</span> 돼지레이다</h1>
+    <p>프랜차이즈·백화점 입점·관광 호객집은 냄새도 안 맡습니다.<br>현지인 단골 노포·시장통 찐집만 킁킁.</p>
+  </header>
+
+  <div id="wizard">
+    <div class="step">
+      <h2>① 어디로 갑니까?</h2>
+      <input type="text" id="region" placeholder="예: 부산 남포동 / 전주 한옥마을 근처 / 서울 을지로">
+    </div>
+    <div class="step">
+      <h2>② 뭐가 당깁니까?</h2>
+      <div class="chips" id="foodChips">
+        <span class="chip">국밥·해장</span><span class="chip">고기·구이</span><span class="chip">회·해산물</span>
+        <span class="chip">면·칼국수</span><span class="chip">백반·한정식</span><span class="chip">분식·시장</span>
+        <span class="chip">중식 노포</span><span class="chip">빵·디저트</span><span class="chip">아무거나</span>
+      </div>
+    </div>
+    <div class="step">
+      <h2>③ 어떤 자리?</h2>
+      <div class="chips" id="moodChips">
+        <span class="chip">혼밥</span><span class="chip">술 한잔 곁들여</span><span class="chip">부모님 모시고</span>
+        <span class="chip">데이트</span><span class="chip">단체·회식</span><span class="chip">아침·해장</span>
+        <span class="chip">웨이팅 싫음</span>
+      </div>
+    </div>
+    <div class="step">
+      <h2>④ 몇 명 · 예산은?</h2>
+      <div class="chips" id="partyChips">
+        <span class="chip">1~2명 가볍게</span><span class="chip">1~2명 제대로</span>
+        <span class="chip">3~4명</span><span class="chip">5명 이상</span><span class="chip">가격 상관없음</span>
+      </div>
+    </div>
+    <button id="go">🐽 킁킁 — 찐맛집 탐지</button>
+  </div>
+
+  <div id="loading"><span class="pig">🐷</span><br>골목골목 냄새 맡는 중…</div>
+  <div id="err"></div>
+  <div id="res"></div>
+  <button id="again">🐽 조건 바꿔 다시 킁킁</button>
+  <div id="notice">AI가 아는 로컬 정보 기반이라 폐업·이전이 있을 수 있어요.<br>방문 전 지도 링크에서 영업 여부를 꼭 확인!</div>
+</div>
+
+<script>
+"use strict";
+const $=id=>document.getElementById(id);
+function chipify(box, single){
+  box.addEventListener('click',e=>{
+    const c=e.target.closest('.chip'); if(!c) return;
+    if(single){[...box.children].forEach(x=>x.classList.remove('on'));c.classList.add('on');}
+    else c.classList.toggle('on');
+  });
+}
+chipify($('foodChips'),true);chipify($('moodChips'),true);chipify($('partyChips'),true);
+const val=box=>{const c=box.querySelector('.chip.on');return c?c.textContent:'';};
+
+$('go').onclick=async()=>{
+  const region=$('region').value.trim();
+  if(region.length<2){$('region').focus();$('region').style.borderColor='#e05572';return;}
+  $('wizard').style.display='none';$('err').style.display='none';$('res').innerHTML='';
+  $('loading').style.display='block';$('again').style.display='none';
+  try{
+    const r=await fetch('/api/dwaeji/reco',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({region,food:val($('foodChips')),mood:val($('moodChips')),party:val($('partyChips'))})});
+    const d=await r.json();
+    $('loading').style.display='none';
+    if(!d.ok){showErr(d.error||'탐지 실패');return;}
+    d.picks.forEach((p,i)=>{
+      const el=document.createElement('div');el.className='pick';
+      const q=encodeURIComponent(p.q||region+' '+p.name);
+      el.innerHTML=`<span class="no">🐷 ${i+1}번 냄새</span>
+        <h3>${esc(p.name)}</h3><div class="area">📍 ${esc(p.area)}</div>
+        <div class="dish">🍽 ${esc(p.dish)}</div>
+        <div class="why">${esc(p.why)}</div>
+        <div class="tip">💡 ${esc(p.tip)}</div>
+        <div class="maps">
+          <a class="nv" target="_blank" href="https://map.naver.com/p/search/${q}">네이버지도</a>
+          <a class="kk" target="_blank" href="https://map.kakao.com/?q=${q}">카카오맵</a>
+        </div>`;
+      $('res').appendChild(el);
+    });
+    $('again').style.display='block';
+  }catch(e){$('loading').style.display='none';showErr('연결이 잠시 불안정 — 다시 눌러주세요');}
+};
+function showErr(m){$('err').textContent='🐷 '+m;$('err').style.display='block';$('wizard').style.display='block';}
+$('again').onclick=()=>{$('wizard').style.display='block';$('res').innerHTML='';$('again').style.display='none';window.scrollTo({top:0,behavior:'smooth'});};
+function esc(s){return String(s||'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));}
+</script>
+</body>
+</html>

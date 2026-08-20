@@ -1325,6 +1325,146 @@ def gov_prep_api():
     return resp
 
 
+_PENQ_IP = {}
+
+
+@app.route("/api/penalty/ask", methods=["POST", "OPTIONS"])
+def penalty_ask_api():
+    """과태료레이더 — AI 과태료 상담. 자연어 질문 → 금액·기한·감경 팁. IP당 하루 10회."""
+    if request.method == "OPTIONS":
+        resp = make_response("", 204)
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return resp
+    ip = (request.headers.get("X-Forwarded-For", request.remote_addr) or "?").split(",")[0].strip()
+    import time as _t
+    now = int(_t.time())
+    hist = [t for t in _PENQ_IP.get(ip, []) if now - t < 86400]
+    if len(hist) >= 10:
+        return jsonify({"ok": False, "error": "오늘 상담 한도에 닿았어요 — 내일 다시!"}), 429
+    d = request.get_json(force=True, silent=True) or {}
+    q = (d.get("q") or "").strip()[:200]
+    if len(q) < 4:
+        return jsonify({"ok": False, "error": "궁금한 상황을 조금만 더 적어주세요"}), 400
+    from core import llm_chat, _parse_json_out, scrub_garbled
+    sysp = (
+        "너는 한국 과태료·범칙금 안내 도우미다. 2026년 기준으로 답하되 금액·제도는 바뀔 수 "
+        "있으니 보수적으로, 확실하지 않으면 범위로 쓰고 '관할 기관 확인 필요'를 명시하라. "
+        "법률 자문이 아님을 전제로 실무 정보만.\n"
+        "출력 JSON: {\"answer\":\"핵심 답 두 문장 이내\",\"amount\":\"예상 금액 또는 범위\","
+        "\"deadline\":\"납부·이의신청 기한\",\"reduce\":\"감경 방법(자진납부 20% 등, 해당 없으면 '해당 없음')\","
+        "\"caution\":\"미납 시 불이익 한 줄\"}"
+    )
+    key = os.environ.get("BOIM_LLM_KEY", "").strip() or "__free__"
+    r = llm_chat(key, sysp, "질문: " + q, max_tokens=700)
+    if not r.get("ok") and key != "__free__":
+        r = llm_chat("__free__", sysp, "질문: " + q, max_tokens=700)
+    if not r.get("ok"):
+        return jsonify({"ok": False, "error": "상담 생성 실패 — 잠시 뒤 다시"})
+    try:
+        out = _parse_json_out(r["text"])
+    except Exception:
+        return jsonify({"ok": False, "error": "형식 오류 — 다시 물어봐주세요"})
+    hist.append(now); _PENQ_IP[ip] = hist
+    resp = jsonify({"ok": True,
+                    "answer": scrub_garbled(str(out.get("answer") or ""))[:240],
+                    "amount": scrub_garbled(str(out.get("amount") or ""))[:80],
+                    "deadline": scrub_garbled(str(out.get("deadline") or ""))[:100],
+                    "reduce": scrub_garbled(str(out.get("reduce") or ""))[:120],
+                    "caution": scrub_garbled(str(out.get("caution") or ""))[:120],
+                    "left": 10 - len(hist)})
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
+
+_PIG_IP = {}
+_PIG_LAST = {}
+
+
+@app.route("/dwaeji")
+@app.route("/dwaeji/")
+def dwaeji_page():
+    from flask import send_from_directory
+    return send_from_directory("static/dwaeji", "index.html")
+
+
+@app.route("/dwaeji/<path:fn>")
+def dwaeji_asset(fn):
+    from flask import send_from_directory
+    return send_from_directory("static/dwaeji", fn)
+
+
+@app.route("/api/dwaeji/reco", methods=["POST", "OPTIONS"])
+def dwaeji_reco_api():
+    """돼지레이다 — 로컬 찐맛집 추천. 프랜차이즈·관광 호객집 배제. IP당 하루 10회."""
+    if request.method == "OPTIONS":
+        resp = make_response("", 204)
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return resp
+    ip = (request.headers.get("X-Forwarded-For", request.remote_addr) or "?").split(",")[0].strip()
+    import time as _t
+    now = int(_t.time())
+    if now - _PIG_LAST.get(ip, 0) < 5:
+        r0 = jsonify({"ok": False, "error": "숨 고르는 중 — 5초 뒤 다시"})
+        r0.headers["Access-Control-Allow-Origin"] = "*"
+        return r0, 429
+    _PIG_LAST[ip] = now
+    hist = [t for t in _PIG_IP.get(ip, []) if now - t < 86400]
+    if len(hist) >= 10:
+        return jsonify({"ok": False, "error": "오늘 추천 한도에 닿았어요 — 내일 또 킁킁!"}), 429
+    d = request.get_json(force=True, silent=True) or {}
+    region = (d.get("region") or "").strip()[:40]
+    food = (d.get("food") or "").strip()[:30]
+    mood = (d.get("mood") or "").strip()[:40]
+    party = (d.get("party") or "").strip()[:20]
+    if len(region) < 2:
+        return jsonify({"ok": False, "error": "지역을 알려주세요 (예: 부산 남포동)"}), 400
+    from core import llm_chat, _parse_json_out, scrub_garbled
+    sysp = (
+        "너는 전국 로컬 맛집을 꿰고 있는 한국 미식 큐레이터 '돼지레이다'다.\n"
+        "★절대 배제: 전국 프랜차이즈, 백화점·몰 입점 매장, TV 출연 홍보로 큰 집, "
+        "관광지 호객 골목의 뜨내기집, 배달 전문 브랜드.\n"
+        "★우선 추천: 현지인 단골 노포, 재래시장 안 오래된 집, 간판 허름해도 한 메뉴로 "
+        "수십 년 버틴 집, 그 동네 사람만 아는 골목집.\n"
+        "★정직성: 실존을 확신하는 가게만 이름을 대라. 확신이 약하면 name에 '(방문 전 확인)'을 "
+        "붙이거나, 실존하는 '류'로 안내하라(예: '부평깡통시장 유부주머니 골목'). "
+        "없는 가게를 지어내는 것 절대 금지 — 지어내느니 4곳만 내라.\n"
+        "출력 JSON: {\"picks\":[{\"name\":\"상호\",\"area\":\"동네·랜드마크 기준 위치\","
+        "\"dish\":\"시켜야 할 메뉴 1~2개\",\"why\":\"찐인 이유 한 줄(연차·단골·비결)\","
+        "\"tip\":\"주문·타이밍 팁 한 줄\",\"q\":\"네이버지도 검색어(지역+상호)\"}x5]}"
+    )
+    user = (f"지역: {region}\n음식 종류: {food or '무엇이든 — 그 동네 최고 시그니처로'}\n"
+            f"분위기·상황: {mood or '상관없음'}\n인원·예산: {party or '보통'}\n"
+            "위 조건으로 로컬 찐맛집 5곳.")
+    key = os.environ.get("BOIM_LLM_KEY", "").strip() or "__free__"
+    r = llm_chat(key, sysp, user, max_tokens=1200)
+    if not r.get("ok") and key != "__free__":
+        r = llm_chat("__free__", sysp, user, max_tokens=1200)
+    if not r.get("ok"):
+        return jsonify({"ok": False, "error": "레이다가 지금 붐벼요 — 잠시 뒤 다시"})
+    try:
+        picks = _parse_json_out(r["text"]).get("picks", [])[:5]
+    except Exception:
+        return jsonify({"ok": False, "error": "형식 오류 — 다시 눌러주세요"})
+    if not picks:
+        return jsonify({"ok": False, "error": "이 조건엔 확신 있는 집이 없대요 — 지역을 넓혀보세요"})
+    out = []
+    for p in picks:
+        out.append({"name": scrub_garbled(str(p.get("name") or ""))[:40],
+                    "area": scrub_garbled(str(p.get("area") or ""))[:50],
+                    "dish": scrub_garbled(str(p.get("dish") or ""))[:40],
+                    "why": scrub_garbled(str(p.get("why") or ""))[:100],
+                    "tip": scrub_garbled(str(p.get("tip") or ""))[:80],
+                    "q": scrub_garbled(str(p.get("q") or ""))[:60]})
+    hist.append(now); _PIG_IP[ip] = hist
+    resp = jsonify({"ok": True, "picks": out, "left": 10 - len(hist)})
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
+
 @app.route("/api/gift/config")
 def gift_config_api():
     """미니앱 런타임 설정 — 광고 그룹 ID(콘솔 발급 후 Render 환경변수로).
@@ -1336,7 +1476,21 @@ def gift_config_api():
                     "ad_group_id": _ad,
                     "viral_module_id": os.environ.get("GIFT_VIRAL_MODULE_ID", "").strip(),
                     "daily_limit": _GIFT_BASE_LIMIT,
-                    "bonus_limit": _GIFT_BONUS_LIMIT})
+                    "bonus_limit": _GIFT_BONUS_LIMIT,
+                    # ★v8 질문 위저드 정의 — 클라는 이 스펙을 렌더만 한다 (재배포 없이 질문 교체 가능)
+                    "questions": [
+                        {"id": "rel", "t": "누구에게 주나요?", "type": "single",
+                         "opts": ["부모님", "연인", "친구", "직장 동료·상사", "형제·자매", "아이·조카", "선생님·은사", "나 자신"]},
+                        {"id": "occ", "t": "어떤 자리인가요?", "type": "single",
+                         "opts": ["생일", "기념일", "집들이", "감사 인사", "승진·취업 축하", "결혼·출산", "명절", "그냥, 문득"]},
+                        {"id": "vibe", "t": "받는 분은 어떤 사람?", "type": "single",
+                         "opts": ["실용파 — 쓸모가 최고", "감성파 — 예쁜 게 최고", "미니멀 — 물건 적은 편", "맥시멀 — 모으는 재미", "트렌디 — 요즘 것", "클래식 — 오래 가는 것"]},
+                        {"id": "cats", "t": "끌릴 만한 분야는? (복수 선택)", "type": "multi", "max": 3,
+                         "opts": ["홈카페·차", "향·캔들", "주방·리빙", "문구·데스크", "술·잔", "패션잡화", "바디·그루밍", "오디오·아날로그", "아웃도어·운동", "게임·취미"]},
+                        {"id": "nocats", "t": "이건 피할까요? (복수 선택)", "type": "multi", "max": 3,
+                         "opts": ["먹는 것", "향 나는 것", "몸에 닿는 것", "전자기기", "장식품", "없음 — 다 좋아요"]},
+                        {"id": "own", "t": "이미 갖고 있거나 최근에 산 물건이 있다면?", "type": "text", "ph": "예: 스탠리 텀블러, 에어팟 (선택)"}
+                    ]})
     resp.headers["Access-Control-Allow-Origin"] = "*"
     return resp
 
@@ -1895,6 +2049,22 @@ def gift_reco_api():
         who = (who + f" ({demo.strip()})").strip() if who else demo.strip()
     budget = (d.get("budget") or "").strip()[:20]
     taste = (d.get("taste") or "").strip()[:300]   # 상황·스타일 칩+자유입력 동승
+    # ★v8 세분화 프로필: 구조화 응답을 취향 문맥으로 합성 (구클라는 안 보내도 무해)
+    _rel = (d.get("rel") or "").strip()[:20]       # 관계(부모님/연인/동료…)
+    _occ = (d.get("occ") or "").strip()[:30]       # 상황(생일/집들이/승진…)
+    _vibe = (d.get("vibe") or "").strip()[:40]     # 성향(실용파/감성파/미니멀…)
+    _cats = [str(x).strip()[:16] for x in (d.get("cats") or []) if str(x).strip()][:5]
+    _nocat = [str(x).strip()[:16] for x in (d.get("nocats") or []) if str(x).strip()][:5]
+    _own = (d.get("own") or "").strip()[:120]      # 이미 가진 것
+    _prof = []
+    if _rel: _prof.append("관계: " + _rel)
+    if _occ: _prof.append("상황: " + _occ)
+    if _vibe: _prof.append("성향: " + _vibe)
+    if _cats: _prof.append("관심 분야: " + ", ".join(_cats) + " (이 안에서 우선 탐색)")
+    if _nocat: _prof.append("피할 분야: " + ", ".join(_nocat) + " (이 계열 절대 금지)")
+    if _own: _prof.append("이미 갖고 있어 중복 금지: " + _own)
+    if _prof:
+        taste = ("[프로필] " + " / ".join(_prof) + ((" · 추가 힌트: " + taste) if taste else ""))[:460]
     exclude = [x.strip()[:30] for x in (d.get("exclude") or []) if x.strip()][:20]
     # ★재뽑기 누적 배제: 클라는 직전 라운드 키워드만 보낸다 — 같은 조건(기기+대상+예산+취향)의
     # 이전 라운드 전부를 서버가 기억해 합쳐야 3번째 뽑기가 1라운드로 회귀하지 않는다.
