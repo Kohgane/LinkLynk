@@ -19,8 +19,10 @@
     background:rgba(0,0,0,.38);padding:7px 16px;border-radius:18px;backdrop-filter:blur(6px);display:none}
   #panel{bottom:0;left:0;right:0;padding:10px 12px calc(10px + env(safe-area-inset-bottom));
     background:linear-gradient(transparent,rgba(0,0,0,.72));display:flex;flex-direction:column;gap:8px}
-  #vehs,#dests{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+  #vehs,#dests,#cats{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
   #vehs::-webkit-scrollbar,#dests::-webkit-scrollbar{display:none}
+  .ccard{flex:0 0 auto;padding:6px 12px;border-radius:16px;background:rgba(120,160,255,.15);border:1px solid rgba(150,180,255,.35);font-size:12px;cursor:pointer;color:#cdf}
+  .ccard.on{background:rgba(120,180,255,.85);color:#001a33;font-weight:700}
   .dcard,.vcard{flex:0 0 auto;padding:8px 14px;border-radius:20px;background:rgba(255,255,255,.12);
     backdrop-filter:blur(8px);font-size:13px;white-space:nowrap;cursor:pointer;border:1px solid rgba(255,255,255,.15);color:#fff}
   .dcard.on{background:rgba(255,180,80,.85);color:#1a0f00;font-weight:700;border-color:transparent}
@@ -74,6 +76,7 @@
 </div>
 <div class="hud" id="panel">
   <div id="vehs"></div>
+  <div id="cats"></div>
   <div id="dests"></div>
   <div id="tracks"></div>
   <div id="custWrap">
@@ -107,37 +110,132 @@ const KO=(navigator.language||"ko").toLowerCase().startsWith("ko");
 const dn=o=>KO?o.n:(o.en||o.n);
 const tn=o=>KO?o.n:(o.tren?o.n.split(" ")[0]+" "+o.tren:o.n);
 const DESTS = [
-  {n:"에베레스트",en:"Everest",lon:86.925,lat:27.988,h:9200,r:14000,p:-12},
-  {n:"그랜드캐니언",en:"Grand Canyon",lon:-112.11,lat:36.10,h:2900,r:9000,p:-22},
-  {n:"마터호른",en:"Matterhorn",lon:7.658,lat:45.976,h:4900,r:9000,p:-14},
-  {n:"성산일출봉",en:"Seongsan Ilchulbong",lon:126.942,lat:33.462,h:600,r:3200,p:-24},
-  {n:"후지산",en:"Mt. Fuji",lon:138.731,lat:35.363,h:4200,r:16000,p:-14},
-  {n:"산토리니",en:"Santorini",lon:25.423,lat:36.404,h:700,r:5200,p:-22},
-  {n:"보라보라",en:"Bora Bora",lon:-151.74,lat:-16.50,h:900,r:9000,p:-26},
-  {n:"이구아수폭포",en:"Iguazu Falls",lon:-54.443,lat:-25.688,h:600,r:3800,p:-24},
-  {n:"리우",en:"Rio",lon:-43.211,lat:-22.952,h:1100,r:5200,p:-20},
-  {n:"게이랑에르피오르",en:"Geiranger Fjord",lon:7.09,lat:62.103,h:1400,r:6500,p:-22},
-  {n:"키르큐펠",en:"Kirkjufell",lon:-23.307,lat:64.942,h:700,r:4200,p:-20},
-  {n:"울루루",en:"Uluru",lon:131.036,lat:-25.345,h:900,r:6500,p:-18},
-  {n:"기자 피라미드",en:"Pyramids of Giza",lon:31.134,lat:29.979,h:500,r:3200,p:-26},
-  {n:"페트라",en:"Petra",lon:35.444,lat:30.322,h:1200,r:3600,p:-24},
-  {n:"카파도키아",en:"Cappadocia",lon:34.831,lat:38.643,h:1600,r:5200,p:-20},
-  {n:"하롱베이",en:"Ha Long Bay",lon:107.04,lat:20.91,h:600,r:6500,p:-22},
-  {n:"그레이트배리어리프",en:"Great Barrier Reef",lon:148.95,lat:-20.28,h:1500,r:12000,p:-30},
-  {n:"레이크루이스",en:"Lake Louise",lon:-116.217,lat:51.417,h:2300,r:6000,p:-18},
-  {n:"나이아가라",en:"Niagara Falls",lon:-79.075,lat:43.078,h:400,r:2800,p:-24},
-  {n:"마추픽추",en:"Machu Picchu",lon:-72.545,lat:-13.163,h:2800,r:4200,p:-20},
-  {n:"앙코르와트",en:"Angkor Wat",lon:103.867,lat:13.412,h:300,r:3200,p:-26},
-  {n:"만리장성",en:"Great Wall",lon:116.570,lat:40.432,h:900,r:4200,p:-20},
-  {n:"교토",en:"Kyoto",lon:135.729,lat:34.994,h:400,r:3600,p:-22},
-  {n:"베네치아",en:"Venice",lon:12.339,lat:45.434,h:300,r:3600,p:-24},
-  {n:"파리",en:"Paris",lon:2.294,lat:48.858,h:500,r:3200,p:-22},
-  {n:"뉴욕",en:"New York",lon:-74.013,lat:40.712,h:800,r:4200,p:-20},
-  {n:"두바이",en:"Dubai",lon:55.274,lat:25.197,h:1000,r:4200,p:-20},
-  {n:"세렝게티",en:"Serengeti",lon:34.833,lat:-2.333,h:1800,r:9000,p:-18},
-  {n:"킬리만자로",en:"Kilimanjaro",lon:37.355,lat:-3.067,h:6200,r:12000,p:-14},
-  {n:"앙헬폭포",en:"Angel Falls",lon:-62.536,lat:5.968,h:1500,r:4200,p:-18},
-  {n:"아마존",en:"Amazon",lon:-60.025,lat:-3.119,h:1200,r:9000,p:-22},
+  {n:"에베레스트",c:"s",en:"Everest",lon:86.925,lat:27.988,h:9200,r:14000,p:-12},
+  {n:"그랜드캐니언",c:"s",en:"Grand Canyon",lon:-112.11,lat:36.10,h:2900,r:9000,p:-22},
+  {n:"마터호른",c:"s",en:"Matterhorn",lon:7.658,lat:45.976,h:4900,r:9000,p:-14},
+  {n:"성산일출봉",c:"s",en:"Seongsan Ilchulbong",lon:126.942,lat:33.462,h:600,r:3200,p:-24},
+  {n:"후지산",c:"s",en:"Mt. Fuji",lon:138.731,lat:35.363,h:4200,r:16000,p:-14},
+  {n:"산토리니",c:"c",en:"Santorini",lon:25.423,lat:36.404,h:700,r:5200,p:-22},
+  {n:"보라보라",c:"h",en:"Bora Bora",lon:-151.74,lat:-16.50,h:900,r:9000,p:-26},
+  {n:"이구아수폭포",c:"s",en:"Iguazu Falls",lon:-54.443,lat:-25.688,h:600,r:3800,p:-24},
+  {n:"리우",c:"c",en:"Rio",lon:-43.211,lat:-22.952,h:1100,r:5200,p:-20},
+  {n:"게이랑에르피오르",c:"s",en:"Geiranger Fjord",lon:7.09,lat:62.103,h:1400,r:6500,p:-22},
+  {n:"키르큐펠",c:"h",en:"Kirkjufell",lon:-23.307,lat:64.942,h:700,r:4200,p:-20},
+  {n:"울루루",c:"s",en:"Uluru",lon:131.036,lat:-25.345,h:900,r:6500,p:-18},
+  {n:"기자 피라미드",c:"w",en:"Pyramids of Giza",lon:31.134,lat:29.979,h:500,r:3200,p:-26},
+  {n:"페트라",c:"w",en:"Petra",lon:35.444,lat:30.322,h:1200,r:3600,p:-24},
+  {n:"카파도키아",c:"s",en:"Cappadocia",lon:34.831,lat:38.643,h:1600,r:5200,p:-20},
+  {n:"하롱베이",c:"s",en:"Ha Long Bay",lon:107.04,lat:20.91,h:600,r:6500,p:-22},
+  {n:"그레이트배리어리프",c:"h",en:"Great Barrier Reef",lon:148.95,lat:-20.28,h:1500,r:12000,p:-30},
+  {n:"레이크루이스",c:"s",en:"Lake Louise",lon:-116.217,lat:51.417,h:2300,r:6000,p:-18},
+  {n:"나이아가라",c:"s",en:"Niagara Falls",lon:-79.075,lat:43.078,h:400,r:2800,p:-24},
+  {n:"마추픽추",c:"w",en:"Machu Picchu",lon:-72.545,lat:-13.163,h:2800,r:4200,p:-20},
+  {n:"앙코르와트",c:"w",en:"Angkor Wat",lon:103.867,lat:13.412,h:300,r:3200,p:-26},
+  {n:"만리장성",c:"w",en:"Great Wall",lon:116.570,lat:40.432,h:900,r:4200,p:-20},
+  {n:"교토",c:"c",en:"Kyoto",lon:135.729,lat:34.994,h:400,r:3600,p:-22},
+  {n:"베네치아",c:"c",en:"Venice",lon:12.339,lat:45.434,h:300,r:3600,p:-24},
+  {n:"파리",c:"c",en:"Paris",lon:2.294,lat:48.858,h:500,r:3200,p:-22},
+  {n:"뉴욕",c:"c",en:"New York",lon:-74.013,lat:40.712,h:800,r:4200,p:-20},
+  {n:"두바이",c:"c",en:"Dubai",lon:55.274,lat:25.197,h:1000,r:4200,p:-20},
+  {n:"세렝게티",c:"h",en:"Serengeti",lon:34.833,lat:-2.333,h:1800,r:9000,p:-18},
+  {n:"킬리만자로",c:"s",en:"Kilimanjaro",lon:37.355,lat:-3.067,h:6200,r:12000,p:-14},
+  {n:"앙헬폭포",c:"x",en:"Angel Falls",lon:-62.536,lat:5.968,h:1500,r:4200,p:-18},
+  {n:"아마존",c:"h",en:"Amazon",lon:-60.025,lat:-3.119,h:1200,r:9000,p:-22},
+,
+  {n:"소코트라섬",c:"x",en:"Socotra",lon:53.82,lat:12.51,h:900,r:9000,p:-18},
+  {n:"다르바자 불구덩이",c:"x",en:"Darvaza Crater",lon:58.444,lat:40.253,h:400,r:2200,p:-30},
+  {n:"레나 석주",c:"x",en:"Lena Pillars",lon:127.4,lat:61.1,h:500,r:5200,p:-20},
+  {n:"우유니 소금사막",c:"h",en:"Salar de Uyuni",lon:-67.55,lat:-20.13,h:4200,r:12000,p:-16},
+  {n:"트롤퉁가",c:"h",en:"Trolltunga",lon:6.74,lat:60.124,h:1400,r:4200,p:-18},
+  {n:"테이블마운틴",c:"s",en:"Table Mountain",lon:18.403,lat:-33.957,h:1300,r:5200,p:-18},
+  {n:"백두산 천지",c:"h",en:"Heaven Lake, Baekdu",lon:128.056,lat:41.993,h:3000,r:6500,p:-16},
+  {n:"남극 드라이밸리",c:"x",en:"Dry Valleys",lon:161.5,lat:-77.5,h:1500,r:12000,p:-16},
+  {n:"마리아나 해구",c:"x",en:"Mariana Trench",lon:142.2,lat:11.35,h:2000,r:16000,p:-30},
+  {n:"스발바르",c:"x",en:"Svalbard",lon:15.6,lat:78.22,h:1200,r:9000,p:-16},
+  {n:"나스카 지상화",c:"w",en:"Nazca Lines",lon:-75.13,lat:-14.71,h:1500,r:4200,p:-40},
+  {n:"장자제",c:"s",en:"Zhangjiajie",lon:110.43,lat:29.32,h:1200,r:5200,p:-16},
+  {n:"구이린",c:"s",en:"Guilin",lon:110.29,lat:25.27,h:800,r:6500,p:-18},
+  {n:"파묵칼레",c:"s",en:"Pamukkale",lon:29.12,lat:37.92,h:500,r:3200,p:-24},
+  {n:"메테오라",c:"w",en:"Meteora",lon:21.63,lat:39.72,h:800,r:3600,p:-18},
+  {n:"모허 절벽",c:"s",en:"Cliffs of Moher",lon:-9.43,lat:52.97,h:500,r:3600,p:-20},
+  {n:"페로 제도",c:"h",en:"Faroe Islands",lon:-6.9,lat:62.0,h:900,r:9000,p:-18},
+  {n:"로포텐",c:"h",en:"Lofoten",lon:13.6,lat:68.2,h:900,r:9000,p:-18},
+  {n:"플리트비체",c:"s",en:"Plitvice Lakes",lon:15.58,lat:44.88,h:600,r:3600,p:-22},
+  {n:"요세미티",c:"s",en:"Yosemite",lon:-119.53,lat:37.74,h:2200,r:6500,p:-18},
+  {n:"옐로스톤",c:"s",en:"Yellowstone",lon:-110.5,lat:44.6,h:2600,r:9000,p:-20},
+  {n:"모뉴먼트밸리",c:"s",en:"Monument Valley",lon:-110.1,lat:36.98,h:1900,r:5200,p:-16},
+  {n:"앤털로프캐니언",c:"h",en:"Antelope Canyon",lon:-111.37,lat:36.86,h:1400,r:2200,p:-24},
+  {n:"데날리",c:"x",en:"Denali",lon:-151.0,lat:63.07,h:6500,r:16000,p:-12},
+  {n:"토레스 델 파이네",c:"s",en:"Torres del Paine",lon:-73.0,lat:-50.94,h:1500,r:9000,p:-14},
+  {n:"페리토모레노 빙하",c:"s",en:"Perito Moreno",lon:-73.05,lat:-50.47,h:600,r:5200,p:-18},
+  {n:"아타카마 사막",c:"x",en:"Atacama",lon:-68.2,lat:-23.5,h:3000,r:12000,p:-18},
+  {n:"갈라파고스",c:"h",en:"Galapagos",lon:-90.97,lat:-0.83,h:800,r:9000,p:-20},
+  {n:"이스터섬",c:"w",en:"Easter Island",lon:-109.35,lat:-27.11,h:600,r:5200,p:-20},
+  {n:"바간",c:"w",en:"Bagan",lon:94.86,lat:21.17,h:500,r:4200,p:-20},
+  {n:"보로부두르",c:"w",en:"Borobudur",lon:110.20,lat:-7.61,h:400,r:2800,p:-24},
+  {n:"라자암팟",c:"h",en:"Raja Ampat",lon:130.5,lat:-0.5,h:800,r:9000,p:-22},
+  {n:"엘니도",c:"h",en:"El Nido",lon:119.4,lat:11.2,h:600,r:6500,p:-22},
+  {n:"몰디브",c:"h",en:"Maldives",lon:73.5,lat:3.2,h:800,r:9000,p:-26},
+  {n:"타지마할",c:"w",en:"Taj Mahal",lon:78.042,lat:27.175,h:300,r:2200,p:-24},
+  {n:"판공초 (라다크)",c:"x",en:"Pangong Tso",lon:78.9,lat:33.7,h:4800,r:9000,p:-14},
+  {n:"K2",c:"x",en:"K2",lon:76.513,lat:35.881,h:8800,r:12000,p:-12},
+  {n:"안나푸르나",c:"s",en:"Annapurna",lon:83.82,lat:28.6,h:8300,r:12000,p:-12},
+  {n:"탁상사원 (부탄)",c:"h",en:"Tiger's Nest",lon:89.363,lat:27.492,h:3300,r:2800,p:-16},
+  {n:"와디럼",c:"s",en:"Wadi Rum",lon:35.42,lat:29.57,h:1200,r:5200,p:-18},
+  {n:"사해",c:"h",en:"Dead Sea",lon:35.5,lat:31.5,h:200,r:6500,p:-20},
+  {n:"에르그 셰비 (사하라)",c:"x",en:"Erg Chebbi",lon:-4.0,lat:31.15,h:900,r:5200,p:-18},
+  {n:"빅토리아 폭포",c:"s",en:"Victoria Falls",lon:25.857,lat:-17.924,h:1100,r:3600,p:-22},
+  {n:"오카방고 델타",c:"h",en:"Okavango Delta",lon:22.8,lat:-19.3,h:1400,r:9000,p:-24},
+  {n:"소수스블레이",c:"s",en:"Sossusvlei",lon:15.34,lat:-24.73,h:900,r:5200,p:-18},
+  {n:"바오밥 거리",c:"h",en:"Avenue of Baobabs",lon:44.42,lat:-20.25,h:300,r:2200,p:-20},
+  {n:"피통 드 라 푸르네즈",c:"x",en:"Piton de la Fournaise",lon:55.71,lat:-21.24,h:2800,r:5200,p:-16},
+  {n:"아말피 해안",c:"c",en:"Amalfi Coast",lon:14.6,lat:40.63,h:600,r:4200,p:-20},
+  {n:"친퀘테레",c:"c",en:"Cinque Terre",lon:9.7,lat:44.1,h:500,r:3600,p:-20},
+  {n:"노이슈반슈타인",c:"w",en:"Neuschwanstein",lon:10.75,lat:47.557,h:1100,r:2800,p:-18},
+  {n:"할슈타트",c:"h",en:"Hallstatt",lon:13.65,lat:47.56,h:800,r:2800,p:-20},
+  {n:"몽블랑",c:"s",en:"Mont Blanc",lon:6.86,lat:45.83,h:5000,r:9000,p:-13},
+  {n:"바트나이외퀴틀",c:"x",en:"Vatnajokull",lon:-16.8,lat:64.4,h:1800,r:12000,p:-16},
+  {n:"일룰리사트 (그린란드)",c:"x",en:"Ilulissat",lon:-51.1,lat:69.22,h:800,r:9000,p:-18},
+  {n:"프레이케스톨렌",c:"h",en:"Preikestolen",lon:6.19,lat:58.99,h:900,r:3600,p:-20},
+  {n:"아소르스",c:"h",en:"Azores",lon:-25.5,lat:37.78,h:900,r:9000,p:-18},
+  {n:"테이데 (테네리페)",c:"s",en:"Mt. Teide",lon:-16.64,lat:28.27,h:3900,r:9000,p:-14},
+  {n:"룩소르",c:"w",en:"Luxor",lon:32.64,lat:25.7,h:400,r:3200,p:-24},
+  {n:"시나이산",c:"w",en:"Mt. Sinai",lon:33.95,lat:28.54,h:2500,r:5200,p:-16},
+  {n:"예루살렘",c:"w",en:"Jerusalem",lon:35.23,lat:31.78,h:900,r:3200,p:-20},
+  {n:"이스탄불",c:"c",en:"Istanbul",lon:28.98,lat:41.01,h:600,r:4200,p:-20},
+  {n:"로마",c:"c",en:"Rome",lon:12.49,lat:41.90,h:500,r:3600,p:-22},
+  {n:"바르셀로나",c:"c",en:"Barcelona",lon:2.17,lat:41.39,h:500,r:3600,p:-22},
+  {n:"런던",c:"c",en:"London",lon:-0.12,lat:51.50,h:600,r:3600,p:-22},
+  {n:"에든버러",c:"c",en:"Edinburgh",lon:-3.19,lat:55.95,h:500,r:3200,p:-20},
+  {n:"모스크바",c:"c",en:"Moscow",lon:37.62,lat:55.75,h:600,r:3600,p:-22},
+  {n:"상트페테르부르크",c:"c",en:"St. Petersburg",lon:30.31,lat:59.94,h:500,r:3600,p:-22},
+  {n:"자금성",c:"w",en:"Forbidden City",lon:116.397,lat:39.918,h:500,r:2800,p:-26},
+  {n:"상하이",c:"c",en:"Shanghai",lon:121.49,lat:31.24,h:700,r:3600,p:-22},
+  {n:"홍콩",c:"c",en:"Hong Kong",lon:114.17,lat:22.30,h:700,r:3600,p:-22},
+  {n:"도쿄",c:"c",en:"Tokyo",lon:139.69,lat:35.68,h:700,r:4200,p:-22},
+  {n:"서울",c:"c",en:"Seoul",lon:126.98,lat:37.57,h:700,r:3600,p:-22},
+  {n:"싱가포르",c:"c",en:"Singapore",lon:103.86,lat:1.28,h:600,r:3600,p:-22},
+  {n:"시드니",c:"c",en:"Sydney",lon:151.21,lat:-33.86,h:600,r:3600,p:-22},
+  {n:"밀퍼드사운드",c:"s",en:"Milford Sound",lon:167.9,lat:-44.67,h:900,r:5200,p:-18},
+  {n:"퀸스타운",c:"s",en:"Queenstown",lon:168.66,lat:-45.03,h:1200,r:5200,p:-18},
+  {n:"킬라우에아",c:"x",en:"Kilauea",lon:-155.28,lat:19.41,h:1500,r:5200,p:-18},
+  {n:"골든게이트",c:"c",en:"Golden Gate",lon:-122.478,lat:37.82,h:500,r:3200,p:-20},
+  {n:"치첸이트사",c:"w",en:"Chichen Itza",lon:-88.568,lat:20.68,h:300,r:2200,p:-24},
+  {n:"테오티우아칸",c:"w",en:"Teotihuacan",lon:-98.844,lat:19.693,h:2400,r:2800,p:-22},
+  {n:"아바나",c:"c",en:"Havana",lon:-82.36,lat:23.13,h:500,r:3600,p:-22},
+  {n:"남극반도",c:"x",en:"Antarctic Peninsula",lon:-63.0,lat:-64.8,h:1500,r:16000,p:-16},
+  {n:"트롬쇠 (오로라)",c:"x",en:"Tromso",lon:18.96,lat:69.65,h:800,r:6500,p:-18},
+  {n:"잔지바르",c:"h",en:"Zanzibar",lon:39.19,lat:-6.16,h:600,r:5200,p:-24},
+  {n:"울릉도·독도",c:"h",en:"Ulleungdo & Dokdo",lon:131.864,lat:37.243,h:600,r:4200,p:-20},
+  {n:"한라산",c:"s",en:"Hallasan",lon:126.53,lat:33.36,h:2200,r:6500,p:-16},
+  {n:"설악산",c:"s",en:"Seoraksan",lon:128.465,lat:38.12,h:1800,r:5200,p:-16},
+  {n:"카노 크리스탈레스",c:"h",en:"Cano Cristales",lon:-73.79,lat:2.27,h:600,r:2800,p:-22},
+  {n:"자이언트 코즈웨이",c:"h",en:"Giant's Causeway",lon:-6.51,lat:55.24,h:400,r:2800,p:-20},
+  {n:"세노테 (유카탄)",c:"h",en:"Cenotes",lon:-87.5,lat:20.5,h:400,r:2800,p:-26},
+  {n:"레이캬비크",c:"c",en:"Reykjavik",lon:-21.94,lat:64.15,h:500,r:3600,p:-20},
+  {n:"부탄 파로계곡",c:"h",en:"Paro Valley",lon:89.41,lat:27.43,h:2800,r:5200,p:-16},
+  {n:"고비사막",c:"x",en:"Gobi Desert",lon:103.0,lat:43.5,h:1800,r:12000,p:-18},
+  {n:"캄차카",c:"x",en:"Kamchatka",lon:158.83,lat:53.0,h:2500,r:12000,p:-16},
 ];
 
 const VEHICLES = [
@@ -229,6 +327,9 @@ async function init(){
   sc.globe.depthTestAgainstTerrain = true;
   sc.screenSpaceCameraController.enableCollisionDetection = true;
   viewer.clock.shouldAnimate = true;
+  sc.fog.density = 0.0004;
+  sc.globe.preloadSiblings = false;
+  Cesium.RequestScheduler.throttleRequests = true;
   if (IS_TOUCH){
     viewer.resolutionScale = 0.7;
     sc.globe.maximumScreenSpaceError = 4;
@@ -300,7 +401,7 @@ let statTimer=0;
 function flyToDest(i){
   stats.visits[DESTS[i].n]=(stats.visits[DESTS[i].n]||0)+1; saveStats();
   const d = DESTS[i]; curIdx = i; mode = "tour"; orbiting = false; syncBtns();
-  document.querySelectorAll(".dcard").forEach((c,j)=>c.classList.toggle("on", j===i));
+  document.querySelectorAll(".dcard").forEach(c=>c.classList.toggle("on", c.textContent===dn(d)));
   viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
   orbitCenter = Cesium.Cartesian3.fromDegrees(d.lon, d.lat, d.h*0.35);
   orbitR = d.r; orbitP = Cesium.Math.toRadians(d.p); orbitHeading = Cesium.Math.toRadians(20);
@@ -330,6 +431,12 @@ function curSpeed(){
   const h = Math.max(viewer.camera.positionCartographic.height, 1);
   const base = Math.min(Math.max(h*0.8, 100), 200000);
   return base * veh.sp * ((keys.shift||touch.boost) ? 10 : 1);
+}
+const RES_BASE=IS_TOUCH?0.7:1.0, RES_MOVE=IS_TOUCH?0.55:0.8;
+let idleT=0;
+function dynRes(moving,dt){
+  if(moving){ idleT=0; if(viewer.resolutionScale!==RES_MOVE) viewer.resolutionScale=RES_MOVE; }
+  else { idleT+=dt; if(idleT>0.5 && viewer.resolutionScale!==RES_BASE) viewer.resolutionScale=RES_BASE; }
 }
 function tick(){
   const now = performance.now();
@@ -367,6 +474,8 @@ function tick(){
       if(Math.abs(touch.lx)<0.0001)touch.lx=0;
       if(Math.abs(touch.ly)<0.0001)touch.ly=0;
     }
+    const moving=keys.w||keys.s||keys.a||keys.d||Math.abs(touch.sjx)>0.05||Math.abs(touch.sjy)>0.05;
+    dynRes(moving,dt);
     clampToLayer(c);
     vehHud.textContent = `${veh.e} ${dn(veh)} \u00B7 ${Math.round(curSpeed()*3.6).toLocaleString()} km/h`;
   }
@@ -574,13 +683,31 @@ function buildUI(){
     el.onclick = ()=>pickVeh(i);
     vw.appendChild(el);
   });
+  const CATS=[["all",KO?"전체":"All"],["s",KO?"절경":"Nature"],["w",KO?"유적":"Wonders"],["c",KO?"도시":"Cities"],["h",KO?"비경":"Hidden"],["x",KO?"극한":"Extreme"]];
+  let curCat="all";
   const wrap = document.getElementById("dests");
-  DESTS.forEach((d,i)=>{
-    const el = document.createElement("div");
-    el.className = "dcard"; el.textContent = dn(d);
-    el.onclick = ()=>flyToDest(i);
-    wrap.appendChild(el);
+  function renderDests(){
+    wrap.innerHTML="";
+    DESTS.forEach((d,i)=>{
+      if(curCat!=="all" && d.c!==curCat) return;
+      const el = document.createElement("div");
+      el.className = "dcard"; el.textContent = dn(d);
+      el.onclick = ()=>flyToDest(i);
+      wrap.appendChild(el);
+    });
+  }
+  const cw=document.getElementById("cats");
+  CATS.forEach(([id,label],ci)=>{
+    const el=document.createElement("div");
+    el.className="ccard"+(ci===0?" on":""); el.textContent=label;
+    el.onclick=()=>{curCat=id;document.querySelectorAll(".ccard").forEach((c,j)=>c.classList.toggle("on",j===ci));renderDests();};
+    cw.appendChild(el);
   });
+  const rnd=document.createElement("div");
+  rnd.className="ccard"; rnd.textContent="\uD83C\uDFB2 "+(KO?"\uB79C\uB364":"Random");
+  rnd.onclick=()=>flyToDest(Math.floor(Math.random()*DESTS.length));
+  cw.appendChild(rnd);
+  renderDests();
   if(!KO){
     btnTour.textContent="Tour"; btnFree.textContent="Free Flight"; btnSpace.textContent="Space";
     document.getElementById("btnRace").textContent="🏁 Race";
