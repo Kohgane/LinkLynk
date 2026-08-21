@@ -1400,6 +1400,16 @@ def dwaeji_asset(fn):
     return send_from_directory("static/dwaeji", fn)
 
 
+@app.route("/api/dwaeji/config")
+def dwaeji_config_api():
+    """돼지레이다 런타임 설정 — 광고그룹ID(재배포 없이 on/off) + 무광고 횟수."""
+    resp = jsonify({"ok": True,
+                    "ad_group_id": os.environ.get("DWAEJI_AD_GROUP_ID", "").strip(),
+                    "free_uses": int(os.environ.get("DWAEJI_AD_FREE_USES", "2"))})
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
+
 @app.route("/api/dwaeji/reco", methods=["POST", "OPTIONS"])
 def dwaeji_reco_api():
     """돼지레이다 — 로컬 찐맛집 추천. 프랜차이즈·관광 호객집 배제. IP당 하루 10회."""
