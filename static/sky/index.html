@@ -66,6 +66,7 @@ input[type=file]{display:none}
 <div class="strip" id="worldStrip"></div>
 <div class="n" id="twinN"></div>
 </div>
+<a id="playBadge" href="https://play.google.com/store/apps/details?id=app.samesky.twa" target="_blank" style="display:none;margin-top:14px;padding:11px 22px;border-radius:24px;background:#141b2b;border:1.5px solid #2a3550;color:#7ee2a8;text-decoration:none;font-weight:700;font-size:14px">▶ Get it on Google Play</a>
 <button class="snap" id="shareBtn" style="width:100%;max-width:430px;margin-top:12px">🌍 Share my month of skies</button>
 <div class="foot">Photos never leave your device — only three colors travel.<br>Same day, same sky, different places.</div>
 
@@ -162,7 +163,9 @@ async function loadWorld(mine){
  }catch{}
 }
 loadWorld();
+if(!matchMedia('(display-mode: standalone)').matches){var pb=document.getElementById('playBadge');if(pb)pb.style.display='inline-block';}
 
+function rr(x,a,b,w,ht,r){x.beginPath();x.moveTo(a+r,b);x.arcTo(a+w,b,a+w,b+ht,r);x.arcTo(a+w,b+ht,a,b+ht,r);x.arcTo(a,b+ht,a,b,r);x.arcTo(a,b,a+w,b,r);x.closePath()}
 document.getElementById('shareBtn').onclick=async()=>{
  const o=store(),days=new Date(Date.UTC(Y,M+1,0)).getUTCDate();
  const c=document.createElement('canvas');c.width=1080;c.height=1350;const x=c.getContext('2d');
@@ -180,10 +183,15 @@ document.getElementById('shareBtn').onclick=async()=>{
  const MN=['January','February','March','April','May','June','July','August','September','October','November','December'];
  x.fillText(MN[M]+' '+Y+' — my skies · '+cnt+' days',540,1130);
  x.fillText('one sky a day · find your sky twin',540,1180);
+ // Play 스토어 배지
+ x.fillStyle='#141b2b';rr(x,340,1225,400,84,42);x.fill();
+ x.strokeStyle='#2a3550';x.lineWidth=2;rr(x,340,1225,400,84,42);x.stroke();
+ x.fillStyle='#7ee2a8';x.font='bold 30px Georgia,serif';
+ x.fillText('▶ GET IT ON Google Play',540,1278);
  c.toBlob(async b=>{
   const f=new File([b],'samesky-'+mkey+'.png',{type:'image/png'});
   if(navigator.canShare&&navigator.canShare({files:[f]}))
-   try{await navigator.share({files:[f],title:'SameSky'})}catch{}
+   try{await navigator.share({files:[f],title:'SameSky',text:'SameSky — one sky a day. https://play.google.com/store/apps/details?id=app.samesky.twa'})}catch{}
   else{const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download=f.name;a.click()}
  },'image/png')};
 </script></body></html>
