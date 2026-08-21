@@ -1404,7 +1404,9 @@ def dwaeji_asset(fn):
 def dwaeji_config_api():
     """돼지레이다 런타임 설정 — 광고그룹ID(재배포 없이 on/off) + 무광고 횟수."""
     resp = jsonify({"ok": True,
-                    "ad_group_id": os.environ.get("DWAEJI_AD_GROUP_ID", "").strip(),
+                    "ad_group_id": os.environ.get("DWAEJI_AD_GROUP_ID", "").strip(),  # (구) 전면 겸용
+                    "banner_id": os.environ.get("DWAEJI_AD_BANNER_ID", "ait.v2.live.9beda965c07b4a2d").strip(),
+                    "fs_id": os.environ.get("DWAEJI_AD_FS_ID", "").strip(),
                     "free_uses": int(os.environ.get("DWAEJI_AD_FREE_USES", "2"))})
     resp.headers["Access-Control-Allow-Origin"] = "*"
     return resp
