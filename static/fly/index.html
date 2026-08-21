@@ -47,13 +47,22 @@
   #btnUp{bottom:300px}#btnDn{bottom:236px}
   #btnDrift{bottom:364px;background:rgba(120,200,255,.3);font-size:11px;font-weight:700}
   #btnBoost{bottom:172px;background:rgba(255,180,80,.35);font-size:11px;font-weight:700}
-  #tracks{display:none;gap:8px;overflow-x:auto;padding-bottom:4px}
-  #tracks.show{display:flex}
-  .tcard{flex:0 0 auto;padding:8px 14px;border-radius:20px;background:rgba(255,120,180,.18);
+  #tracks{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
+    .tcard{flex:0 0 auto;padding:8px 14px;border-radius:20px;background:rgba(255,120,180,.18);
     border:1px solid rgba(255,150,200,.4);font-size:13px;white-space:nowrap;cursor:pointer;color:#fff}
   #raceHud{position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:12;color:#fff;
     font-size:20px;font-weight:800;text-shadow:0 2px 8px #000;display:none;text-align:center;line-height:1.5}
   #raceHud small{font-size:12px;font-weight:400;opacity:.85}
+  .ppanel{display:none;flex-direction:column;gap:8px}
+  .ppanel.show{display:flex}
+  #tabbar{display:flex;gap:6px}
+  .tabb{flex:1;padding:9px 0;border-radius:12px;background:rgba(255,255,255,.09);
+    border:1px solid rgba(255,255,255,.18);color:#cfd6e4;font-size:13px;cursor:pointer}
+  .tabb.on{background:rgba(255,255,255,.88);color:#10131c;font-weight:800}
+  #films,#studioRow{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px}
+  .filmc{flex:0 0 auto;padding:8px 14px;border-radius:18px;background:rgba(200,160,255,.15);
+    border:1px solid rgba(210,180,255,.4);font-size:13px;cursor:pointer;color:#e8ddff;white-space:nowrap}
+  .filmc.on{background:rgba(200,160,255,.9);color:#1d0a33;font-weight:800}
   #hint{top:14px;right:16px;font-size:11px;text-align:right;opacity:.6;line-height:1.7;text-shadow:0 1px 4px #000}
   #tier{position:fixed;top:44px;left:16px;font-size:11px;opacity:.55;color:#ffd9a0;z-index:10}
   .cesium-viewer-bottom{opacity:.4}
@@ -78,26 +87,41 @@
   <button class="tbtn" id="btnBoost">BOOST</button>
 </div>
 <div class="hud" id="panel">
-  <div id="vehs"></div>
-  <div id="cats"></div>
-  <div id="dests"></div>
-  <div id="tracks"></div>
-  <div id="custWrap">
-    <span>⚙️ 속도 <output id="custSpv">1.0×</output></span>
-    <input type="range" id="custSp" min="0.1" max="8" step="0.1" value="1">
-    <span>민첩 <output id="custAgv">1.0×</output></span>
-    <input type="range" id="custAg" min="0.3" max="3" step="0.1" value="1">
+  <div id="px" class="ppanel show">
+    <div id="cats"></div>
+    <div id="dests"></div>
+  </div>
+  <div id="pv" class="ppanel">
+    <div id="vehs"></div>
+    <div id="custWrap">
+      <span>⚙️ 속도 <output id="custSpv">1.0×</output></span>
+      <input type="range" id="custSp" min="0.1" max="8" step="0.1" value="1">
+      <span>민첩 <output id="custAgv">1.0×</output></span>
+      <input type="range" id="custAg" min="0.3" max="3" step="0.1" value="1">
+    </div>
+  </div>
+  <div id="pr" class="ppanel">
+    <div id="tracks"></div>
+  </div>
+  <div id="ps" class="ppanel">
+    <div id="films"></div>
+    <div id="studioRow">
+      <button class="btn" id="btnCity">🏙️ <span id="cityLbl">3D 건물</span></button>
+      <button class="btn" id="btnLayer">🌍 <span id="layerLbl">지상/수중 물리</span></button>
+    </div>
+  </div>
+  <div id="tabbar">
+    <button class="tabb on" id="tabX">🌍 탐험</button>
+    <button class="tabb" id="tabV">🐉 탈것</button>
+    <button class="tabb" id="tabR">🏁 레이스</button>
+    <button class="tabb" id="tabS">🎬 연출</button>
   </div>
   <div id="row2">
     <button class="btn" id="btnTour">투어</button>
     <button class="btn" id="btnFree">자유비행</button>
     <button class="btn" id="btnSpace">우주</button>
-    <button class="btn" id="btnRace">🏁 레이스</button>
-    <button class="btn" id="btnFilm">🎨</button>
-    <button class="btn" id="btnCity">🏙️</button>
-    <button class="btn" id="btnStats">📊</button>
-    <button class="btn" id="btnPhoto">📷</button>
-    <button class="btn" id="btnLayer">&#127757; 레이어</button>
+    <button class="btn" id="btnPhoto">📷 <span id="phLbl">사진</span></button>
+    <button class="btn" id="btnStats">📊 <span id="stLbl">일지</span></button>
     <div id="timeWrap">
       <span style="font-size:16px">☀️</span>
       <input type="range" id="timeSlider" min="0" max="24" step="0.1" value="17.5">
@@ -420,20 +444,23 @@ function initFilm(){
     fragmentShader:fs, uniforms:{u_mode:()=>filmIdx}}));
   filmStage.enabled=false;
 }
+function setFilm(i){
+  filmIdx=i;
+  if(!filmStage) initFilm();
+  filmStage.enabled = filmIdx>0;
+  document.querySelectorAll(".filmc").forEach((c,j)=>c.classList.toggle("on", j===i));
+}
 function cycleFilm(){
   filmIdx=(filmIdx+1)%FILMS.length;
   if(!filmStage) initFilm();
   filmStage.enabled = filmIdx>0;
-  const b=document.getElementById("btnFilm");
-  b.textContent="\uD83C\uDFA8 "+(KO?FILMS[filmIdx][0]:FILMS[filmIdx][1]);
-  b.classList.toggle("on", filmIdx>0);
 }
 async function toggleCity(){
   const b=document.getElementById("btnCity");
   if(cityLoading) return;
   if(cityTiles){ cityTiles.show=!cityTiles.show; b.classList.toggle("on",cityTiles.show); return; }
-  if(!CESIUM_ION_TOKEN){ b.textContent="\uD83C\uDFD9\uFE0F X"; return; }
-  cityLoading=true; b.textContent="\uD83C\uDFD9\uFE0F \u23F3";
+  if(!CESIUM_ION_TOKEN){ document.getElementById("cityLbl").textContent="X"; return; }
+  cityLoading=true; document.getElementById("cityLbl").textContent="\u23F3";
   try{
     cityTiles=await Cesium.createOsmBuildingsAsync({
       style:new Cesium.Cesium3DTileStyle({color:{conditions:[
@@ -442,8 +469,8 @@ async function toggleCity(){
         ["${feature['cesium#estimatedHeight']} > 20","color('#f2e2c4')"],
         ["true","color('#e8e0d2')"]]}})});
     viewer.scene.primitives.add(cityTiles);
-    b.textContent="\uD83C\uDFD9\uFE0F"; b.classList.add("on");
-  }catch(e){ b.textContent="\uD83C\uDFD9\uFE0F !"; console.warn(e); }
+    document.getElementById("cityLbl").textContent=(KO?"3D 건물":"3D Buildings"); b.classList.add("on");
+  }catch(e){ document.getElementById("cityLbl").textContent="!"; console.warn(e); }
   cityLoading=false;
 }
 
@@ -816,14 +843,31 @@ function buildUI(){
   renderDests();
   if(!KO){
     btnTour.textContent="Tour"; btnFree.textContent="Free Flight"; btnSpace.textContent="Space";
-    document.getElementById("btnRace").textContent="🏁 Race";
-    document.getElementById("btnLayer").textContent="🌍 Layers";
   }
   btnTour.onclick = ()=>{ if(race.on)endRace(false); flyToDest(Math.max(curIdx,0)); };
+  const fw=document.getElementById("films");
+  FILMS.forEach((f,i)=>{const el=document.createElement("div");el.className="filmc"+(i===0?" on":"");
+    el.textContent=(KO?f[0]:f[1]);el.onclick=()=>setFilm(i);fw.appendChild(el);});
+  const PANELS={tabX:"px",tabV:"pv",tabR:"pr",tabS:"ps"};
+  Object.keys(PANELS).forEach(tid=>{
+    document.getElementById(tid).onclick=()=>{
+      document.querySelectorAll(".tabb").forEach(b=>b.classList.toggle("on",b.id===tid));
+      document.querySelectorAll(".ppanel").forEach(p=>p.classList.toggle("show",p.id===PANELS[tid]));
+    };
+  });
+  if(!KO){
+    document.getElementById("tabX").innerHTML="&#127757; Explore";
+    document.getElementById("tabV").innerHTML="&#128009; Rides";
+    document.getElementById("tabR").innerHTML="&#127937; Race";
+    document.getElementById("tabS").innerHTML="&#127916; Studio";
+    document.getElementById("cityLbl").textContent="3D Buildings";
+    document.getElementById("layerLbl").textContent="Physics Layers";
+    document.getElementById("phLbl").textContent="Photo";
+    document.getElementById("stLbl").textContent="Log";
+  }
   const tw=document.getElementById("tracks");
   TRACKS.forEach((t,i)=>{const el=document.createElement("div");el.className="tcard";
-    el.textContent=tn(t);el.onclick=()=>{tw.classList.remove("show");startRace(i);};tw.appendChild(el);});
-  document.getElementById("btnRace").onclick=()=>{ if(race.on){endRace(false);return;} tw.classList.toggle("show"); };
+    el.textContent=tn(t);el.onclick=()=>startRace(i);tw.appendChild(el);});
   btnFree.onclick = goFree;
   btnSpace.onclick = ()=>goSpace(false);
   document.getElementById("btnLayer").onclick = ()=>{
@@ -835,7 +879,6 @@ function buildUI(){
     gl.translucency.frontFaceAlpha = under?0.45:1.0;
     viewer.scene.screenSpaceCameraController.enableCollisionDetection = !under && !(layerMode && veh.cat==="ground");
   };
-  document.getElementById("btnFilm").onclick=cycleFilm;
   document.getElementById("btnCity").onclick=toggleCity;
   document.getElementById("btnPhoto").onclick=photo;
   document.getElementById("btnStats").onclick=()=>{
