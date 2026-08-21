@@ -45,6 +45,7 @@
   .tbtn{position:fixed;right:16px;width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,.14);
     border:1px solid rgba(255,255,255,.3);color:#fff;font-size:17px;z-index:11;touch-action:none}
   #btnUp{bottom:300px}#btnDn{bottom:236px}
+  #btnDrift{bottom:364px;background:rgba(120,200,255,.3);font-size:11px;font-weight:700}
   #btnBoost{bottom:172px;background:rgba(255,180,80,.35);font-size:11px;font-weight:700}
   #tracks{display:none;gap:8px;overflow-x:auto;padding-bottom:4px}
   #tracks.show{display:flex}
@@ -71,6 +72,7 @@
 <div id="joyWrap">
   <div id="joy"><div id="joyKnob"></div></div>
   <div id="lookPad"></div>
+  <button class="tbtn" id="btnDrift">DRIFT</button>
   <button class="tbtn" id="btnUp">&#9650;</button>
   <button class="tbtn" id="btnDn">&#9660;</button>
   <button class="tbtn" id="btnBoost">BOOST</button>
@@ -290,7 +292,7 @@ let layerMode = false;
 let curIdx = -1, orbiting = false, orbitHeading = 0, orbitCenter = null, orbitR = 0, orbitP = 0;
 let lastT = 0;
 const keys = {};
-const touch={jx:0,jy:0,sjx:0,sjy:0,lx:0,ly:0,up:0,boost:false};
+const touch={jx:0,jy:0,sjx:0,sjy:0,lx:0,ly:0,up:0,boost:false,drift:false};
 const IS_TOUCH=('ontouchstart' in window);
 
 async function init(){
@@ -384,7 +386,7 @@ function setupTouch(){
     el.addEventListener("touchstart",e=>{touch[prop]=val;e.preventDefault();},{passive:false});
     const off=()=>{touch[prop]=(prop==="boost")?false:0;};
     el.addEventListener("touchend",off); el.addEventListener("touchcancel",off);};
-  hold("btnUp","up",1); hold("btnDn","up",-1); hold("btnBoost","boost",true);
+  hold("btnDrift","drift",true); hold("btnUp","up",1); hold("btnDn","up",-1); hold("btnBoost","boost",true);
 }
 
 const FILMS=[["\uC6D0\uBCF8","Natural"],["\uBE44\uBE44\uB4DC","Vivid"],["\uACE8\uB4E0\uC544\uC6CC","Golden"],["\uC218\uBB35","Ink"],["\uB4DC\uB9BC","Dream"],["\uC544\uBC14\uD0C0","Pandora"],["\uC778\uC149\uC158","Inception"]];
@@ -493,6 +495,15 @@ function curSpeed(){
   const base = Math.min(Math.max(h*0.8, 100), 200000);
   return base * veh.sp * ((keys.shift||touch.boost) ? 10 : 1);
 }
+const driftSt={on:false,vec:null,charge:0,boostT:0};
+const trail=[]; let trailEnt=null;
+function ensureTrail(){
+  if(trailEnt) return;
+  trailEnt=viewer.entities.add({polyline:{
+    positions:new Cesium.CallbackProperty(()=>trail,false), width:5,
+    material:new Cesium.ColorMaterialProperty(new Cesium.CallbackProperty(
+      ()=>driftSt.on?Cesium.Color.ORANGE.withAlpha(0.85):Cesium.Color.CYAN.withAlpha(0.55),false))}});
+}
 const RES_BASE=IS_TOUCH?0.7:1.0, RES_MOVE=IS_TOUCH?0.55:0.8;
 let idleT=0;
 function dynRes(moving,dt){
@@ -514,8 +525,30 @@ function tick(){
     if(_mv>0.5&&_mv<500000){stats.dist+=_mv; statTimer+=dt;
       if(statTimer>5){saveStats();statTimer=0;}}
     tick._pp=viewer.camera.position.clone();
-    const c = viewer.camera, sp = curSpeed()*dt, tr = 1.4*veh.ag*dt, tp = 0.8*veh.ag*dt;
-    if (keys.w) c.moveForward(sp);
+    const c = viewer.camera;
+    const dr = keys.drift||touch.drift;
+    if(dr && !driftSt.on){ driftSt.on=true; driftSt.vec=Cesium.Cartesian3.clone(c.direction); driftSt.charge=0; ensureTrail(); }
+    if(!dr && driftSt.on){ driftSt.on=false; driftSt.boostT=Math.min(driftSt.charge,1.6); }
+    let sp = curSpeed()*dt;
+    if(driftSt.boostT>0){ sp*=1.7; driftSt.boostT-=dt; }
+    const drMul = driftSt.on?1.9:1.0;
+    const tr = 1.4*veh.ag*dt*drMul, tp = 0.8*veh.ag*dt;
+    if(driftSt.on){
+      Cesium.Cartesian3.lerp(driftSt.vec,c.direction,0.05,driftSt.vec);
+      Cesium.Cartesian3.normalize(driftSt.vec,driftSt.vec);
+      const ang=Cesium.Cartesian3.angleBetween(driftSt.vec,c.direction);
+      if(ang>0.12) driftSt.charge+=dt*1.4;
+      if(keys.w||touch.sjy<-0.05){
+        const mv=Cesium.Cartesian3.multiplyByScalar(driftSt.vec,sp,new Cesium.Cartesian3());
+        Cesium.Cartesian3.add(c.position,mv,c.position);
+      }
+    } else {
+      if (keys.w) c.moveForward(sp);
+    }
+    if((driftSt.on||driftSt.boostT>0)){
+      trail.push(Cesium.Cartesian3.clone(c.position));
+      if(trail.length>160) trail.shift();
+    } else if(trail.length>0){ trail.shift(); if(trail.length>0) trail.shift(); }
     if (keys.s) c.moveBackward(sp);
     if (keys.a) c.moveLeft(sp*0.7);
     if (keys.d) c.moveRight(sp*0.7);
@@ -538,7 +571,7 @@ function tick(){
     const moving=keys.w||keys.s||keys.a||keys.d||Math.abs(touch.sjx)>0.05||Math.abs(touch.sjy)>0.05;
     dynRes(moving,dt);
     clampToLayer(c);
-    vehHud.textContent = `${veh.e} ${dn(veh)} \u00B7 ${Math.round(curSpeed()*3.6).toLocaleString()} km/h`;
+    vehHud.textContent = (driftSt.on?"\u26A1 ":driftSt.boostT>0?"\uD83D\uDD25 ":"")+`${veh.e} ${dn(veh)} \u00B7 ${Math.round(curSpeed()*3.6).toLocaleString()} km/h`;
   }
 }
 
@@ -576,6 +609,10 @@ const TRACKS=[
  {n:"🚀 성층권 강하",r:1600,gates:[[138.731,35.363,42000],[138.74,35.37,30000],[138.75,35.36,20000],[138.74,35.35,12000],[138.735,35.358,6500],[138.731,35.363,4600]]},
  {n:"\uD83C\uDFDD\uFE0F \uD558\uB871\uBCA0\uC774 \uC2AC\uB7EC\uB86C".replace(/\\u/g,"").length?"\uD83C\uDFDD\uFE0F \uD558\uB871\uBCA0\uC774 \uC2AC\uB7EC\uB86C":"",r:380,gates:[[107.00,20.95,350],[107.02,20.93,300],[107.045,20.915,260],[107.07,20.90,300],[107.09,20.885,340],[107.07,20.865,300],[107.045,20.87,280],[107.02,20.885,320]]},
  {n:"\uD83C\uDF06 \uB9AC\uC6B0 \uD574\uC548 \uC11C\uD0B7",r:450,gates:[[-43.21,-22.94,600],[-43.19,-22.955,450],[-43.165,-22.95,380],[-43.155,-22.935,500],[-43.17,-22.92,650],[-43.195,-22.925,700],[-43.21,-22.94,600]]}
+,
+ {n:"\uD83C\uDF06 \uB450\uBC14\uC774 \uB9C8\uCC9C\uB8E8 \uC11C\uD0B7".normalize(),tren:"Dubai Skyline",r:420,gates:[[55.26,25.21,700],[55.28,25.20,550],[55.295,25.185,450],[55.285,25.165,600],[55.265,25.16,750],[55.25,25.18,650],[55.26,25.21,700]]},
+ {n:"\uD83C\uDF09 \uD55C\uAC15 \uC2A4\uD504\uB9B0\uD2B8".normalize(),tren:"Han River Sprint",r:380,gates:[[126.90,37.535,350],[126.935,37.525,280],[126.97,37.515,250],[127.005,37.51,280],[127.04,37.52,320],[127.07,37.53,380]]},
+ {n:"\uD83E\uDDD7 \uC5D0\uBCA0\uB808\uC2A4\uD2B8 \uC544\uC774\uC2A4\uD3F4".normalize(),tren:"Everest Icefall",r:750,gates:[[86.85,27.95,5700],[86.87,27.958,6400],[86.888,27.968,7200],[86.906,27.978,8000],[86.925,27.988,8850]]}
 ];
 let race={on:false,ti:-1,gi:0,t0:0,samples:[],ents:[],ghostEnt:null,best:null,countdown:0};
 const raceHud=document.getElementById("raceHud");
@@ -702,7 +739,7 @@ function raceTick(dt){
 
 function setupInput(){
   const map={KeyW:"w",KeyA:"a",KeyS:"s",KeyD:"d",KeyQ:"q",KeyE:"e",
-    ShiftLeft:"shift",ShiftRight:"shift",ArrowLeft:"arrowleft",
+    ShiftLeft:"shift",ShiftRight:"shift",Space:"drift",ArrowLeft:"arrowleft",
     ArrowRight:"arrowright",ArrowUp:"arrowup",ArrowDown:"arrowdown"};
   addEventListener("keydown", e=>{ const k=map[e.code];
     if(k){ keys[k]=true; e.preventDefault(); } });
