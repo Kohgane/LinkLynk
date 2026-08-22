@@ -117,6 +117,7 @@
       <button class="btn" id="btnCity">🏙️ <span id="cityLbl">3D 건물</span></button>
       <button class="btn" id="btnLayer">🌍 <span id="layerLbl">지상/수중 물리</span></button>
       <button class="btn" id="btnRec">📹 <span id="recLbl">녹화</span></button>
+      <button class="btn" id="btnHQ">✨ <span id="hqLbl">고화질</span></button>
     </div>
   </div>
   <div id="tabbar">
@@ -338,7 +339,7 @@ async function init(){
   };
   if (CESIUM_ION_TOKEN){
     Cesium.Ion.defaultAccessToken = CESIUM_ION_TOKEN;
-    opts.terrain = Cesium.Terrain.fromWorldTerrain();
+    opts.terrain = Cesium.Terrain.fromWorldTerrain({requestWaterMask:true, requestVertexNormals:true});
     viewer = new Cesium.Viewer("cesiumContainer", opts);
     tier = "TERRAIN (Cesium World Terrain)";
   } else {
@@ -369,6 +370,23 @@ async function init(){
   sc.fog.density = 0.0004;
   sc.globe.preloadSiblings = false;
   Cesium.RequestScheduler.throttleRequests = true;
+  sc.globe.showGroundAtmosphere = true;
+  sc.skyAtmosphere.saturationShift = 0.15;
+  sc.skyAtmosphere.brightnessShift = 0.02;
+  if (!IS_TOUCH){
+    sc.highDynamicRange = true;
+    sc.msaaSamples = 4;
+    sc.globe.maximumScreenSpaceError = 1.6;
+    const bl = sc.postProcessStages.bloom;
+    bl.enabled = true;
+    bl.uniforms.brightness = -0.3; bl.uniforms.sigma = 3.0;
+    bl.uniforms.delta = 1.0; bl.uniforms.stepSize = 1.2; bl.uniforms.contrast = 119;
+    try{
+      const lf = Cesium.PostProcessStageLibrary.createLensFlareStage();
+      lf.uniforms.intensity = 2.0; lf.uniforms.dirtAmount = 0.2;
+      sc.postProcessStages.add(lf);
+    }catch(e){}
+  }
   if (IS_TOUCH){
     viewer.resolutionScale = 0.7;
     sc.globe.maximumScreenSpaceError = 4;
@@ -515,6 +533,21 @@ function momentTick(dt){
   if(moment.t>30) stopMoment();
 }
 
+let hq=false;
+function toggleHQ(){
+  hq=!hq;
+  document.getElementById("btnHQ").classList.toggle("on",hq);
+  const g=viewer.scene.globe;
+  if(IS_TOUCH){
+    g.maximumScreenSpaceError = hq?2.2:4;
+    RES_BASE = hq?0.9:0.7; RES_MOVE = hq?0.7:0.55;
+    viewer.scene.highDynamicRange = hq;
+    viewer.scene.postProcessStages.fxaa.enabled = hq;
+    viewer.scene.postProcessStages.bloom.enabled = hq;
+  } else {
+    g.maximumScreenSpaceError = hq?1.1:1.6;
+  }
+}
 let rec=null, recChunks=[], recT0=0, recTimer=null;
 function toggleRec(){
   const lbl=document.getElementById("recLbl");
@@ -597,7 +630,7 @@ function ensureTrail(){
     material:new Cesium.ColorMaterialProperty(new Cesium.CallbackProperty(
       ()=>driftSt.on?Cesium.Color.ORANGE.withAlpha(0.85):Cesium.Color.CYAN.withAlpha(0.55),false))}});
 }
-const RES_BASE=IS_TOUCH?0.7:1.0, RES_MOVE=IS_TOUCH?0.55:0.8;
+let RES_BASE=IS_TOUCH?0.7:1.0, RES_MOVE=IS_TOUCH?0.55:0.8;
 let idleT=0;
 function dynRes(moving,dt){
   if(moving){ idleT=0; if(viewer.resolutionScale!==RES_MOVE) viewer.resolutionScale=RES_MOVE; }
@@ -917,6 +950,7 @@ function buildUI(){
   MOMENTS.forEach((m,i)=>{const el=document.createElement("div");el.className="momc";
     el.textContent=(KO?m.n:m.en);el.onclick=()=>playMoment(i);mw.appendChild(el);});
   document.getElementById("btnRec").onclick=toggleRec;
+  document.getElementById("btnHQ").onclick=toggleHQ;
   const fw=document.getElementById("films");
   FILMS.forEach((f,i)=>{const el=document.createElement("div");el.className="filmc"+(i===0?" on":"");
     el.textContent=(KO?f[0]:f[1]);el.onclick=()=>setFilm(i);fw.appendChild(el);});
@@ -937,6 +971,7 @@ function buildUI(){
     document.getElementById("phLbl").textContent="Photo";
     document.getElementById("stLbl").textContent="Log";
     document.getElementById("recLbl").textContent="Record";
+    document.getElementById("hqLbl").textContent="Ultra";
   }
   const tw=document.getElementById("tracks");
   TRACKS.forEach((t,i)=>{const el=document.createElement("div");el.className="tcard";
