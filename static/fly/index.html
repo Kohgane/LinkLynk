@@ -38,15 +38,17 @@
   #custWrap{display:none;align-items:center;gap:10px;font-size:12px;color:#dfd}
   #custWrap input{accent-color:#9fe6a0;width:110px}
     #joyWrap{display:none}
-  #joy{position:fixed;left:18px;bottom:170px;width:120px;height:120px;border-radius:50%;
-    background:rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.25);z-index:11;touch-action:none}
-  #joyKnob{position:absolute;left:35px;top:35px;width:50px;height:50px;border-radius:50%;background:rgba(255,255,255,.35)}
+  .steer{width:74px !important;height:74px !important;font-size:24px !important}
+  #btnL{left:16px;bottom:172px;right:auto}
+  #btnR{left:100px;bottom:172px;right:auto}
+  #btnHov{left:16px;bottom:262px;right:auto;width:48px;height:48px;font-size:15px}
+  .big{width:78px !important;height:78px !important;font-size:14px !important;font-weight:800;background:rgba(255,170,80,.4) !important}
   #lookPad{position:fixed;right:0;bottom:160px;width:46%;height:52%;z-index:10;touch-action:none}
   .tbtn{position:fixed;right:16px;width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,.14);
     border:1px solid rgba(255,255,255,.3);color:#fff;font-size:17px;z-index:11;touch-action:none}
-  #btnUp{bottom:300px}#btnDn{bottom:236px}
-  #btnDrift{bottom:364px;background:rgba(120,200,255,.3);font-size:11px;font-weight:700}
-  #btnBoost{bottom:172px;background:rgba(255,180,80,.35);font-size:11px;font-weight:700}
+  #btnUp{bottom:338px;width:48px;height:48px}#btnDn{bottom:274px;width:48px;height:48px}
+  #btnDrift{bottom:168px;right:14px}
+  #btnBoost{bottom:186px;right:102px;background:rgba(255,180,80,.35);font-size:11px;font-weight:700}
   #tracks{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
     .tcard{flex:0 0 auto;padding:8px 14px;border-radius:20px;background:rgba(255,120,180,.18);
     border:1px solid rgba(255,150,200,.4);font-size:13px;white-space:nowrap;cursor:pointer;color:#fff}
@@ -82,12 +84,14 @@
 <div class="hud" id="hint"></div>
 <div id="tier"></div>
 <div id="joyWrap">
-  <div id="joy"><div id="joyKnob"></div></div>
   <div id="lookPad"></div>
-  <button class="tbtn" id="btnDrift">DRIFT</button>
+  <button class="tbtn steer" id="btnL">&#9664;</button>
+  <button class="tbtn steer" id="btnR">&#9654;</button>
+  <button class="tbtn" id="btnHov">&#9208;</button>
+  <button class="tbtn big" id="btnDrift">DRIFT</button>
+  <button class="tbtn" id="btnBoost">BOOST</button>
   <button class="tbtn" id="btnUp">&#9650;</button>
   <button class="tbtn" id="btnDn">&#9660;</button>
-  <button class="tbtn" id="btnBoost">BOOST</button>
 </div>
 <div class="hud" id="panel">
   <div id="px" class="ppanel show">
@@ -321,7 +325,7 @@ let layerMode = false;
 let curIdx = -1, orbiting = false, orbitHeading = 0, orbitCenter = null, orbitR = 0, orbitP = 0;
 let lastT = 0;
 const keys = {};
-const touch={jx:0,jy:0,sjx:0,sjy:0,lx:0,ly:0,up:0,boost:false,drift:false};
+const touch={jx:0,jy:0,sjx:0,sjy:0,lx:0,ly:0,up:0,boost:false,drift:false,steer:0,hover:false};
 const IS_TOUCH=('ontouchstart' in window);
 
 async function init(){
@@ -395,16 +399,6 @@ async function init(){
 
 function setupTouch(){
   if(!IS_TOUCH) return;
-  const joy=document.getElementById("joy"), knob=document.getElementById("joyKnob");
-  let jid=null,cx=0,cy=0;
-  joy.addEventListener("touchstart",e=>{const t=e.changedTouches[0];jid=t.identifier;
-    const r=joy.getBoundingClientRect();cx=r.left+r.width/2;cy=r.top+r.height/2;e.preventDefault();},{passive:false});
-  joy.addEventListener("touchmove",e=>{for(const t of e.changedTouches){if(t.identifier===jid){
-    let dx=(t.clientX-cx)/50, dy=(t.clientY-cy)/50;const m=Math.hypot(dx,dy);
-    if(m>1){dx/=m;dy/=m;} touch.jx=dx;touch.jy=dy;
-    knob.style.transform="translate("+(dx*40)+"px,"+(dy*40)+"px)";}}e.preventDefault();},{passive:false});
-  const jend=e=>{for(const t of e.changedTouches){if(t.identifier===jid){jid=null;touch.jx=touch.jy=0;knob.style.transform="";}}};
-  joy.addEventListener("touchend",jend); joy.addEventListener("touchcancel",jend);
   const pad=document.getElementById("lookPad");
   let lid=null,px=0,py=0;
   pad.addEventListener("touchstart",e=>{const t=e.changedTouches[0];lid=t.identifier;px=t.clientX;py=t.clientY;e.preventDefault();},{passive:false});
@@ -416,6 +410,11 @@ function setupTouch(){
     el.addEventListener("touchstart",e=>{touch[prop]=val;e.preventDefault();},{passive:false});
     const off=()=>{touch[prop]=(prop==="boost")?false:0;};
     el.addEventListener("touchend",off); el.addEventListener("touchcancel",off);};
+  hold("btnL","steer",-1); hold("btnR","steer",1);
+  document.getElementById("btnHov").addEventListener("touchstart",e=>{
+    touch.hover=!touch.hover;
+    document.getElementById("btnHov").classList.toggle("on",touch.hover);
+    e.preventDefault();},{passive:false});
   hold("btnDrift","drift",true); hold("btnUp","up",1); hold("btnDn","up",-1); hold("btnBoost","boost",true);
 }
 
@@ -633,12 +632,12 @@ function tick(){
       Cesium.Cartesian3.normalize(driftSt.vec,driftSt.vec);
       const ang=Cesium.Cartesian3.angleBetween(driftSt.vec,c.direction);
       if(ang>0.12) driftSt.charge+=dt*1.4;
-      if(keys.w||touch.sjy<-0.05){
+      if(keys.w||touch.sjy<-0.05||(IS_TOUCH&&!touch.hover)){
         const mv=Cesium.Cartesian3.multiplyByScalar(driftSt.vec,sp,new Cesium.Cartesian3());
         Cesium.Cartesian3.add(c.position,mv,c.position);
       }
     } else {
-      if (keys.w) c.moveForward(sp);
+      if (keys.w||(IS_TOUCH&&!touch.hover)) c.moveForward(sp);
     }
     if((driftSt.on||driftSt.boostT>0)){
       trail.push(Cesium.Cartesian3.clone(c.position));
@@ -649,6 +648,7 @@ function tick(){
     if (keys.d) c.moveRight(sp*0.7);
     if (keys.q) c.moveDown(sp*0.5);
     if (keys.e) c.moveUp(sp*0.5);
+    if (touch.steer) (touch.steer<0?c.lookLeft(tr):c.lookRight(tr));
     if (keys.arrowleft)  c.lookLeft(tr);
     if (keys.arrowright) c.lookRight(tr);
     if (keys.arrowup)    c.lookUp(tp);
@@ -850,7 +850,7 @@ function syncBtns(){
   document.getElementById("hint").innerHTML = !KO ? (mode==="free"
     ? "W/A/S/D move \u00B7 Q/E altitude \u00B7 arrows look \u00B7 Shift boost<br>Faster at higher altitude \u00B7 drag to rotate"
     : (mode==="tour" ? "Tap a landmark card \u00B7 auto-orbiting" : "Drag the globe \u00B7 scroll to zoom")) : mode==="free"
-    ? "W/A/S/D 이동 · Q/E 고도 · 방향키 시선 · Shift 부스터<br>높이 날수록 빨라짐 · 마우스 드래그 회전"
+    ? (IS_TOUCH?"◀▶ 조향 · DRIFT 꾹→놓기 부스터 · ⏸ 멈춤<br>▲▼ 고도 · 화면 드래그 시선":"W/A/S/D 이동 · Space 드리프트 · Q/E 고도 · Shift 부스터<br>높이 날수록 빨라짐")
     : (mode==="tour" ? "명소 카드를 눌러 이동 · 자동 선회 중" : "지구를 드래그해 회전 · 휠로 접근");
 }
 
