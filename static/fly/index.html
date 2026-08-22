@@ -61,6 +61,10 @@
   .tabb{flex:1;padding:9px 0;border-radius:12px;background:rgba(255,255,255,.09);
     border:1px solid rgba(255,255,255,.18);color:#cfd6e4;font-size:13px;cursor:pointer}
   .tabb.on{background:rgba(255,255,255,.88);color:#10131c;font-weight:800}
+  #searchRow{display:flex;gap:8px}
+  #searchRow input{flex:1;padding:10px 14px;border-radius:14px;border:1px solid rgba(255,255,255,.25);
+    background:rgba(255,255,255,.1);color:#fff;font-size:14px;outline:none}
+  #searchRow input::placeholder{color:rgba(255,255,255,.45)}
   #films,#studioRow{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px}
   .filmc{flex:0 0 auto;padding:8px 14px;border-radius:18px;background:rgba(200,160,255,.15);
     border:1px solid rgba(210,180,255,.4);font-size:13px;cursor:pointer;color:#e8ddff;white-space:nowrap}
@@ -95,6 +99,10 @@
 </div>
 <div class="hud" id="panel">
   <div id="px" class="ppanel show">
+    <div id="searchRow">
+      <input id="searchBox" placeholder="장소 검색 — 어디든 (예: 오사카, Uluru)" autocomplete="off">
+      <button class="btn" id="btnGo">🔍</button>
+    </div>
     <div id="cats"></div>
     <div id="dests"></div>
   </div>
@@ -442,12 +450,12 @@ function initFilm(){
   const fs=`uniform sampler2D colorTexture; varying vec2 v_textureCoordinates; uniform float u_mode;
   vec3 sat(vec3 c,float s){float l=dot(c,vec3(0.299,0.587,0.114));return mix(vec3(l),c,s);}
   void main(){ vec2 uv=v_textureCoordinates;
-    if(u_mode>5.5 && uv.y>0.52){
-      float t=smoothstep(0.52,1.0,uv.y);
-      vec2 muv=vec2(uv.x,1.04-uv.y);
+    if(u_mode>5.5 && uv.y>0.45){
+      float t=smoothstep(0.45,0.95,uv.y);
+      vec2 muv=vec2(uv.x,0.92-uv.y*0.85);
       vec3 a=texture2D(colorTexture,uv).rgb;
       vec3 b=texture2D(colorTexture,muv).rgb;
-      vec3 c=mix(a,b,smoothstep(0.1,0.6,t));
+      vec3 c=mix(a,b,smoothstep(0.04,0.5,t));
       c=sat(c,0.8); c=pow(c,vec3(1.15)); c*=vec3(0.88,1.0,1.1);
       gl_FragColor=vec4(c,1.0); return;
     }
@@ -469,6 +477,8 @@ function initFilm(){
 }
 function setFilm(i){
   filmIdx=i;
+  if(i===6) toast(KO?"🏙️ 3D건물 켜고 도시 저공에서 지평선을 화면 중앙에 — 하늘로 도시가 접힙니다":"Turn on 3D Buildings, fly low in a city, aim at the horizon");
+  if(i===5) toast(KO?"🌿 정글·바다에서 진가 — 아마존, 라자암팟 추천":"Best over jungles & reefs — try Amazon, Raja Ampat");
   if(!filmStage) initFilm();
   filmStage.enabled = filmIdx>0;
   document.querySelectorAll(".filmc").forEach((c,j)=>c.classList.toggle("on", j===i));
@@ -619,7 +629,7 @@ function goFree(){
 function curSpeed(){
   const h = Math.max(viewer.camera.positionCartographic.height, 1);
   const base = Math.min(Math.max(h*0.8, 100), 200000);
-  return base * veh.sp * ((keys.shift||touch.boost) ? 10 : 1);
+  return base * veh.sp * ((keys.shift||touch.boost) ? 2.5 : 1);
 }
 const driftSt={on:false,vec:null,charge:0,boostT:0};
 const trail=[]; let trailEnt=null;
@@ -655,16 +665,16 @@ function tick(){
     const dr = keys.drift||touch.drift;
     if(moment.on&&(keys.w||keys.s||keys.a||keys.d||touch.jx||touch.jy)) stopMoment();
     if(dr && !driftSt.on){ driftSt.on=true; driftSt.vec=Cesium.Cartesian3.clone(c.direction); driftSt.charge=0; ensureTrail(); }
-    if(!dr && driftSt.on){ driftSt.on=false; driftSt.boostT=Math.min(driftSt.charge,1.6); }
+    if(!dr && driftSt.on){ driftSt.on=false; driftSt.boostT=Math.min(driftSt.charge,1.6); if(driftSt.boostT>0.3)sndGo(); }
     let sp = curSpeed()*dt;
-    if(driftSt.boostT>0){ sp*=1.7; driftSt.boostT-=dt; }
-    const drMul = driftSt.on?1.9:1.0;
+    if(driftSt.boostT>0){ sp*=1.85; driftSt.boostT-=dt; }
+    const drMul = driftSt.on?2.3:1.0;
     const tr = 1.4*veh.ag*dt*drMul, tp = 0.8*veh.ag*dt;
     if(driftSt.on){
-      Cesium.Cartesian3.lerp(driftSt.vec,c.direction,0.05,driftSt.vec);
+      Cesium.Cartesian3.lerp(driftSt.vec,c.direction,0.035,driftSt.vec);
       Cesium.Cartesian3.normalize(driftSt.vec,driftSt.vec);
       const ang=Cesium.Cartesian3.angleBetween(driftSt.vec,c.direction);
-      if(ang>0.12) driftSt.charge+=dt*1.4;
+      if(ang>0.1) driftSt.charge+=dt*1.8;
       if(keys.w||touch.sjy<-0.05||(IS_TOUCH&&!touch.hover)){
         const mv=Cesium.Cartesian3.multiplyByScalar(driftSt.vec,sp,new Cesium.Cartesian3());
         Cesium.Cartesian3.add(c.position,mv,c.position);
@@ -698,6 +708,19 @@ function tick(){
     }
     const moving=keys.w||keys.s||keys.a||keys.d||Math.abs(touch.sjx)>0.05||Math.abs(touch.sjy)>0.05;
     dynRes(moving,dt);
+    const steerDir = touch.steer? touch.steer : (keys.arrowleft? -1 : keys.arrowright? 1 : 0);
+    const lean = steerDir * (driftSt.on? -0.34 : -0.18);
+    tick._roll = (tick._roll||0) + (lean - (tick._roll||0))*0.1;
+    if(Math.abs(tick._roll)>0.002){
+      c.setView({orientation:{heading:c.heading, pitch:c.pitch, roll:tick._roll}});
+    } else if(Math.abs(c.roll)>0.002 && !driftSt.on){
+      c.setView({orientation:{heading:c.heading, pitch:c.pitch, roll:0}});
+      tick._roll=0;
+    }
+    const boosting = driftSt.boostT>0 || keys.shift || touch.boost;
+    const tgtFov = boosting? 74 : driftSt.on? 66 : 60;
+    tick._fov = (tick._fov||60) + (tgtFov-(tick._fov||60))*0.08;
+    if(c.frustum && c.frustum.fov!==undefined) c.frustum.fov = Cesium.Math.toRadians(tick._fov);
     clampToLayer(c);
     vehHud.textContent = (driftSt.on?"\u26A1 ":driftSt.boostT>0?"\uD83D\uDD25 ":"")+`${veh.e} ${dn(veh)} \u00B7 ${Math.round(curSpeed()*3.6).toLocaleString()} km/h`;
   }
@@ -780,6 +803,33 @@ async function photo(){
       return;}catch(e){}
   }
   const aa=document.createElement("a"); aa.href=url; aa.download="earthflight.jpg"; aa.click();
+}
+
+function toast(msg){
+  if(race.on) return;
+  raceHud.innerHTML=msg; raceHud.style.display="block";
+  clearTimeout(toast._t); toast._t=setTimeout(()=>{ if(!race.on) raceHud.style.display="none"; },2600);
+}
+async function searchPlace(){
+  const q=document.getElementById("searchBox").value.trim();
+  if(!q) return;
+  toast("🔍 "+q+" ...");
+  try{
+    const r=await fetch("https://api.cesium.com/v1/geocode/search?text="+encodeURIComponent(q)+"&access_token="+CESIUM_ION_TOKEN);
+    const d=await r.json();
+    if(!d.features||!d.features.length){ toast(KO?"결과 없음":"No results"); return; }
+    const f=d.features[0], bb=f.bbox;
+    goFree();
+    if(bb && Math.abs(bb[2]-bb[0])>0.001){
+      viewer.camera.flyTo({destination:Cesium.Rectangle.fromDegrees(bb[0],bb[1],bb[2],bb[3]),duration:3});
+    } else {
+      const c=f.center||[(bb[0]+bb[2])/2,(bb[1]+bb[3])/2];
+      viewer.camera.flyTo({destination:Cesium.Cartesian3.fromDegrees(c[0],c[1],4000),
+        orientation:{heading:0,pitch:Cesium.Math.toRadians(-25),roll:0},duration:3});
+    }
+    toast("✈️ "+(f.properties&&f.properties.label?f.properties.label:q));
+    document.getElementById("searchBox").blur();
+  }catch(e){ toast("X"); console.warn(e); }
 }
 
 function gatePos(g){return Cesium.Cartesian3.fromDegrees(g[0],g[1],g[2]);}
@@ -949,6 +999,8 @@ function buildUI(){
   const mw=document.getElementById("moments");
   MOMENTS.forEach((m,i)=>{const el=document.createElement("div");el.className="momc";
     el.textContent=(KO?m.n:m.en);el.onclick=()=>playMoment(i);mw.appendChild(el);});
+  document.getElementById("btnGo").onclick=searchPlace;
+  document.getElementById("searchBox").addEventListener("keydown",e=>{if(e.key==="Enter")searchPlace();});
   document.getElementById("btnRec").onclick=toggleRec;
   document.getElementById("btnHQ").onclick=toggleHQ;
   const fw=document.getElementById("films");
@@ -972,6 +1024,7 @@ function buildUI(){
     document.getElementById("stLbl").textContent="Log";
     document.getElementById("recLbl").textContent="Record";
     document.getElementById("hqLbl").textContent="Ultra";
+    document.getElementById("searchBox").placeholder="Search anywhere (e.g. Osaka, Uluru)";
   }
   const tw=document.getElementById("tracks");
   TRACKS.forEach((t,i)=>{const el=document.createElement("div");el.className="tcard";
