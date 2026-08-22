@@ -7,6 +7,9 @@
 <meta name="theme-color" content="#000000">
 <link rel="apple-touch-icon" href="/fly/icon-192.png">
 <link rel="icon" href="/fly/icon-192.png">
+<link rel="preconnect" href="https://assets.ion.cesium.com" crossorigin>
+<link rel="preconnect" href="https://api.cesium.com" crossorigin>
+<link rel="preconnect" href="https://assets.cesium.com" crossorigin>
 <title>Earthflight — 지구비행</title>
 <script src="https://cesium.com/downloads/cesiumjs/releases/1.119/Build/Cesium/Cesium.js"></script>
 <link href="https://cesium.com/downloads/cesiumjs/releases/1.119/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
@@ -54,6 +57,8 @@
     border:1px solid rgba(255,150,200,.4);font-size:13px;white-space:nowrap;cursor:pointer;color:#fff}
   #raceHud{position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:12;color:#fff;
     font-size:20px;font-weight:800;text-shadow:0 2px 8px #000;display:none;text-align:center;line-height:1.5}
+  #tload{position:fixed;top:64px;right:12px;z-index:12;color:rgba(255,255,255,.75);font-size:11px;
+    background:rgba(0,0,0,.35);padding:4px 10px;border-radius:10px;opacity:0;transition:opacity .4s;pointer-events:none}
   #raceHud small{font-size:12px;font-weight:400;opacity:.85}
   .ppanel{display:none;flex-direction:column;gap:8px}
   .ppanel.show{display:flex}
@@ -82,6 +87,7 @@
 <div class="hud" id="title">EARTHFLIGHT</div>
 <div class="hud" id="vehHud"></div>
 <div id="raceHud"></div>
+<div id="tload">🌍 지형 로딩…</div>
 <div id="statsBox" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
  z-index:20;background:rgba(10,12,30,.92);border:1px solid rgba(255,255,255,.25);border-radius:16px;
  padding:22px 26px;color:#fff;font-size:14px;line-height:2;min-width:250px;backdrop-filter:blur(8px)"></div>
@@ -347,7 +353,9 @@ async function init(){
   };
   if (CESIUM_ION_TOKEN){
     Cesium.Ion.defaultAccessToken = CESIUM_ION_TOKEN;
-    opts.terrain = Cesium.Terrain.fromWorldTerrain({requestWaterMask:true, requestVertexNormals:true});
+    Cesium.RequestScheduler.maximumRequestsPerServer = 18;
+  Cesium.RequestScheduler.requestsByServer = {"assets.ion.cesium.com:443":28,"assets.cesium.com:443":28,"api.cesium.com:443":18};
+  opts.terrain = Cesium.Terrain.fromWorldTerrain({requestWaterMask:true, requestVertexNormals:true});
     viewer = new Cesium.Viewer("cesiumContainer", opts);
     tier = "TERRAIN (Cesium World Terrain)";
   } else {
@@ -374,9 +382,13 @@ async function init(){
   sc.globe.depthTestAgainstTerrain = true;
   sc.screenSpaceCameraController.enableCollisionDetection = true;
   viewer.clock.shouldAnimate = true;
+  sc.globe.tileLoadProgressEvent.addEventListener(n=>{
+    const el=document.getElementById("tload");
+    if(el) el.style.opacity = n>2 ? 1 : 0;
+  });
   if(viewer.scene.moon) viewer.scene.moon.show = true;
   sc.fog.density = 0.0004;
-  sc.globe.preloadSiblings = false;
+  sc.globe.preloadSiblings = true;
   Cesium.RequestScheduler.throttleRequests = true;
   sc.globe.showGroundAtmosphere = true;
   sc.skyAtmosphere.saturationShift = 0.15;
@@ -385,6 +397,7 @@ async function init(){
     sc.highDynamicRange = true;
     sc.msaaSamples = 4;
     sc.globe.maximumScreenSpaceError = 1.6;
+    sc.globe.tileCacheSize = 1500;
     const bl = sc.postProcessStages.bloom;
     bl.enabled = true;
     bl.uniforms.brightness = -0.3; bl.uniforms.sigma = 3.0;
@@ -401,7 +414,7 @@ async function init(){
     sc.postProcessStages.fxaa.enabled = false;
     sc.highDynamicRange = false;
     sc.msaaSamples = 1;
-    sc.globe.tileCacheSize = 200;
+    sc.globe.tileCacheSize = 600;
   }
 
   document.getElementById("tier").textContent = tier;
@@ -501,6 +514,12 @@ async function toggleCity(){
         ["${feature['cesium#estimatedHeight']} > 60","color('#ffc98a')"],
         ["${feature['cesium#estimatedHeight']} > 20","color('#f2e2c4')"],
         ["true","color('#e8e0d2')"]]}})});
+    try{
+      cityTiles.dynamicScreenSpaceError = true;
+      cityTiles.skipLevelOfDetail = true;
+      cityTiles.cacheBytes = 536870912;
+      cityTiles.foveatedTimeDelay = 0;
+    }catch(e){}
     viewer.scene.primitives.add(cityTiles);
     document.getElementById("cityLbl").textContent=(KO?"3D 건물":"3D Buildings"); b.classList.add("on");
   }catch(e){ document.getElementById("cityLbl").textContent="!"; console.warn(e); }
@@ -643,8 +662,11 @@ function ensureTrail(){
 let RES_BASE=IS_TOUCH?0.7:1.0, RES_MOVE=IS_TOUCH?0.55:0.8;
 let idleT=0;
 function dynRes(moving,dt){
-  if(moving){ idleT=0; if(viewer.resolutionScale!==RES_MOVE) viewer.resolutionScale=RES_MOVE; }
-  else { idleT+=dt; if(idleT>0.5 && viewer.resolutionScale!==RES_BASE) viewer.resolutionScale=RES_BASE; }
+  if(moving) idleT=0; else idleT+=dt;
+  const tgt = (moving||idleT<0.4)? RES_MOVE : RES_BASE;
+  const cur = viewer.resolutionScale;
+  const nx = cur + (tgt-cur)*Math.min(1,dt*2.5);
+  if(Math.abs(nx-cur)>0.003) viewer.resolutionScale=nx;
 }
 function tick(){
   const now = performance.now();
