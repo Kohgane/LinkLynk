@@ -135,6 +135,18 @@ $('go').onclick=async()=>{
       $('res').appendChild(el);
     });
     $('again').style.display='block';
+    var sb=document.createElement('button');sb.id='shareMap';
+    sb.style.cssText='width:100%;background:linear-gradient(#ff8fa3,#e05572);border:none;color:#fff;padding:13px;border-radius:12px;font-size:15px;font-weight:900;margin-top:4px;box-shadow:0 3px 0 #a03a52';
+    sb.textContent='🗺 이 킁킁 지도로 공유하기';
+    $('res').appendChild(sb);
+    sb.onclick=async()=>{sb.disabled=true;sb.textContent='🐷 지도 만드는 중… (10초)';
+      try{const sr=await fetch('/api/dwaeji/share',{method:'POST',headers:{'Content-Type':'application/json'},
+        body:JSON.stringify({region,food:val($('foodChips')),picks:d.picks})});
+        const sd=await sr.json();
+        if(sd.ok){try{await navigator.clipboard.writeText(sd.url)}catch(e){}
+          sb.textContent='✅ 링크 복사됨 — 열어보기';sb.disabled=false;sb.onclick=()=>window.open(sd.url,'_blank');}
+        else{sb.textContent='실패 — 다시 시도';sb.disabled=false;}
+      }catch(e){sb.textContent='연결 불안정 — 다시 시도';sb.disabled=false;}};
   }catch(e){$('loading').style.display='none';showErr('연결이 잠시 불안정 — 다시 눌러주세요');}
 };
 function showErr(m){$('err').textContent='🐷 '+m;$('err').style.display='block';$('wizard').style.display='block';}

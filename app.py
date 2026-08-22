@@ -1400,6 +1400,139 @@ def dwaeji_asset(fn):
     return send_from_directory("static/dwaeji", fn)
 
 
+_PIG_GEO_CACHE = {}
+
+
+def _pig_geocode(q):
+    """Nominatim 지오코딩 (공유 생성 시 1회, 실패 시 None)."""
+    if q in _PIG_GEO_CACHE:
+        return _PIG_GEO_CACHE[q]
+    import urllib.request as _u, urllib.parse as _p, json as _j
+    try:
+        req = _u.Request("https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=kr&q=" + _p.quote(q),
+                         headers={"User-Agent": "dwaeji-radar/1.0 (ciuga7134@gmail.com)"})
+        rows = _j.loads(_u.urlopen(req, timeout=6).read() or b"[]")
+        out = (float(rows[0]["lat"]), float(rows[0]["lon"])) if rows else None
+    except Exception:
+        out = None
+    _PIG_GEO_CACHE[q] = out
+    return out
+
+
+@app.route("/api/dwaeji/share", methods=["POST", "OPTIONS"])
+def dwaeji_share_api():
+    """탐지 결과 → 인프맵식 공유 지도 페이지 생성."""
+    if request.method == "OPTIONS":
+        resp = make_response("", 204)
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return resp
+    d = request.get_json(force=True, silent=True) or {}
+    region = (d.get("region") or "").strip()[:40]
+    food = (d.get("food") or "").strip()[:30]
+    picks = d.get("picks") or []
+    if not region or not isinstance(picks, list) or not (1 <= len(picks) <= 6):
+        return jsonify({"ok": False, "error": "잘못된 요청"}), 400
+    import time as _t, secrets as _s, json as _j, urllib.request as _u
+    clean = []
+    center = _pig_geocode(region)
+    for p in picks[:6]:
+        name = str(p.get("name") or "")[:40]
+        item = {"name": name, "area": str(p.get("area") or "")[:50],
+                "dish": str(p.get("dish") or "")[:70], "why": str(p.get("why") or "")[:160],
+                "cons": str(p.get("cons") or "")[:80], "diary": str(p.get("diary") or "")[:90],
+                "tip": str(p.get("tip") or "")[:80], "q": str(p.get("q") or "")[:60]}
+        g = _pig_geocode((region.split()[0] + " " + name).strip()) if name else None
+        if g: item["lat"], item["lng"] = g
+        clean.append(item)
+        _t.sleep(1.05)  # Nominatim 1req/s 정책
+    sid = _s.token_urlsafe(6)[:8]
+    body = _j.dumps({"id": sid, "data": {"region": region, "food": food, "picks": clean,
+                                          "center": center and {"lat": center[0], "lng": center[1]}}}).encode()
+    try:
+        req = _sky_pg("POST", "pig_maps")
+        req.add_header("Content-Type", "application/json")
+        req.add_header("Prefer", "return=minimal")
+        _u.urlopen(req, data=body, timeout=8)
+    except Exception:
+        return jsonify({"ok": False, "error": "저장 실패 — 잠시 뒤 다시"})
+    resp = jsonify({"ok": True, "id": sid, "url": "https://linklynk.onrender.com/dwaeji/m/" + sid})
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
+
+@app.route("/dwaeji/m/<sid>")
+def dwaeji_map_page(sid):
+    """공유 지도 페이지 — 인프맵 스타일 (지도 + 식사일기 카드 + CTA)."""
+    import json as _j, urllib.request as _u, html as _h
+    try:
+        rows = _j.loads(_u.urlopen(_sky_pg("GET", "pig_maps?id=eq.%s&select=data&limit=1" % sid), timeout=8).read() or b"[]")
+    except Exception:
+        rows = []
+    if not rows:
+        return "<h3 style='font-family:sans-serif;padding:40px'>🐷 지도를 찾을 수 없어요</h3>", 404
+    d = rows[0]["data"]
+    region, food, picks = d.get("region", ""), d.get("food", ""), d.get("picks", [])
+    center = d.get("center") or {}
+    title = _h.escape("돼지레이다 — %s %s 킁킁 %d선" % (region, food or "찐맛집", len(picks)))
+    pins = [p for p in picks if p.get("lat")]
+    cards = []
+    for i, p in enumerate(picks, 1):
+        import urllib.parse as _p
+        q = _p.quote(p.get("q") or (region + " " + p["name"]))
+        cards.append("""<div class=pk><span class=no>%d</span><h3>%s</h3><div class=ar>📍 %s</div>
+<div class=di>🍽 %s</div><div class=wh>%s</div>%s%s<div class=tp>💡 %s</div>
+<div class=mp><a href="https://map.naver.com/p/search/%s" target=_blank>네이버지도</a>
+<a class=kk href="https://map.kakao.com/?q=%s" target=_blank>카카오맵</a></div></div>""" % (
+            i, _h.escape(p["name"]), _h.escape(p["area"]), _h.escape(p["dish"]), _h.escape(p["why"]),
+            ('<div class=dy>"%s"</div>' % _h.escape(p["diary"])) if p.get("diary") else "",
+            ('<div class=cn>😥 %s</div>' % _h.escape(p["cons"])) if p.get("cons") and p["cons"] != "딱히 없음" else "",
+            _h.escape(p["tip"]), q, q))
+    pin_js = _j.dumps([{"n": i + 1, "name": p["name"], "lat": p["lat"], "lng": p["lng"]}
+                       for i, p in enumerate(picks) if p.get("lat")])
+    ctr = _j.dumps(center if center else ({"lat": pins[0]["lat"], "lng": pins[0]["lng"]} if pins else {"lat": 37.5665, "lng": 126.978}))
+    page = """<!DOCTYPE html><html lang=ko><head><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<title>%(t)s</title>
+<meta property=og:title content="%(t)s">
+<meta property=og:description content="프랜차이즈 아님, 진짜 맛 기준 — 주문 공식과 솔직한 단점까지.">
+<meta property=og:image content="https://linklynk.onrender.com/dwaeji-og.png">
+<link rel=stylesheet href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>:root{--bg:#1a1214;--card:#241a1d;--pink:#ff8fa3;--deep:#e05572;--cream:#fff3ec;--sub:#a08a86;--line:#3a2c30}
+*{margin:0;padding:0;box-sizing:border-box}body{background:var(--bg);color:var(--cream);font-family:'Noto Sans KR',sans-serif}
+#w{max-width:560px;margin:0 auto;padding:20px 16px 60px}h1{font-size:21px;text-align:center}
+.sub{font-size:12px;color:var(--sub);text-align:center;margin:6px 0 14px}
+#map{height:300px;border-radius:16px;border:1.5px solid var(--line);margin-bottom:16px}
+.pk{background:var(--card);border:1.5px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;position:relative}
+.no{position:absolute;top:-9px;left:14px;background:var(--deep);color:#fff;font-size:11px;font-weight:900;padding:3px 10px;border-radius:10px}
+.pk h3{font-size:17px;margin:4px 0 2px}.ar{font-size:12px;color:var(--sub)}
+.di{display:inline-block;background:#160f11;border:1px solid var(--line);color:var(--pink);font-size:12px;font-weight:700;padding:4px 10px;border-radius:8px;margin:8px 0 6px}
+.wh{font-size:13px;line-height:1.6;color:#e8d8d2}
+.dy{font-size:13px;color:#f5c6b8;font-style:italic;margin-top:8px;padding:8px 10px;background:#1c1316;border-left:3px solid var(--pink);border-radius:0 8px 8px 0}
+.cn{font-size:12px;color:#c9a086;margin-top:6px}.tp{font-size:12px;color:var(--sub);margin-top:5px}
+.mp{display:flex;gap:8px;margin-top:10px}.mp a{flex:1;text-align:center;text-decoration:none;font-size:12.5px;font-weight:700;padding:9px;border-radius:9px;background:#160f11;border:1.5px solid #2c5a3f;color:#7ee2a8}
+.mp a.kk{border-color:#5a4c1e;color:#f5d97a}
+.cta{display:block;text-align:center;background:linear-gradient(#ff8fa3,#e05572);color:#fff;text-decoration:none;font-weight:900;font-size:16px;padding:15px;border-radius:14px;margin-top:18px;box-shadow:0 4px 0 #a03a52}
+.ft{font-size:11px;color:#7a6a66;text-align:center;margin-top:12px;line-height:1.7}</style></head><body><div id=w>
+<h1>🐷 %(t)s</h1><div class=sub>돼지레이다가 킁킁한 지도 — 방문 전 영업 여부 확인!</div>
+%(map)s
+%(cards)s
+<a class=cta href="/dwaeji">🐽 나도 킁킁하기 — 무료 맛집 탐지</a>
+<div class=ft>AI 추천 기반 · 폐업/이전 가능 · linklynk.onrender.com/dwaeji</div></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>var P=%(pins)s,C=%(ctr)s;
+if(document.getElementById('map')){var m=L.map('map').setView([C.lat,C.lng],13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OSM'}).addTo(m);
+var g=[];P.forEach(function(p){var mk=L.marker([p.lat,p.lng]).addTo(m).bindPopup('<b>'+p.n+'. '+p.name+'</b>');g.push(mk)});
+if(g.length>1){m.fitBounds(L.featureGroup(g).getBounds().pad(0.25))}}
+</script></body></html>""" % {"t": title, "cards": "".join(cards), "pins": pin_js, "ctr": ctr,
+                              "map": ('<div id=map></div>' if pins else '')}
+    resp = make_response(page)
+    resp.headers["Content-Type"] = "text/html; charset=utf-8"
+    return resp
+
+
 @app.route("/api/dwaeji/config")
 def dwaeji_config_api():
     """돼지레이다 런타임 설정 — 광고그룹ID(재배포 없이 on/off) + 무광고 횟수."""
