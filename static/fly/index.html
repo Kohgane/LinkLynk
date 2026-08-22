@@ -41,15 +41,12 @@
   #custWrap{display:none;align-items:center;gap:10px;font-size:12px;color:#dfd}
   #custWrap input{accent-color:#9fe6a0;width:110px}
     #joyWrap{display:none}
-  .steer{width:74px !important;height:74px !important;font-size:24px !important}
-  #btnL{left:16px;bottom:172px;right:auto}
-  #btnR{left:100px;bottom:172px;right:auto}
-  #btnHov{left:16px;bottom:262px;right:auto;width:48px;height:48px;font-size:15px}
+  #btnHov{left:16px;bottom:180px;right:auto;width:56px;height:56px;font-size:17px}
   .big{width:78px !important;height:78px !important;font-size:14px !important;font-weight:800;background:rgba(255,170,80,.4) !important}
-  #lookPad{position:fixed;right:0;bottom:160px;width:46%;height:52%;z-index:10;touch-action:none}
+  #lookPad{position:fixed;left:0;right:0;bottom:150px;top:110px;z-index:10;touch-action:none}
   .tbtn{position:fixed;right:16px;width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,.14);
     border:1px solid rgba(255,255,255,.3);color:#fff;font-size:17px;z-index:11;touch-action:none}
-  #btnUp{bottom:338px;width:48px;height:48px}#btnDn{bottom:274px;width:48px;height:48px}
+  
   #btnDrift{bottom:168px;right:14px}
   #btnBoost{bottom:186px;right:102px;background:rgba(255,180,80,.35);font-size:11px;font-weight:700}
   #tracks{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
@@ -57,6 +54,11 @@
     border:1px solid rgba(255,150,200,.4);font-size:13px;white-space:nowrap;cursor:pointer;color:#fff}
   #raceHud{position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:12;color:#fff;
     font-size:20px;font-weight:800;text-shadow:0 2px 8px #000;display:none;text-align:center;line-height:1.5}
+  #coach{display:none;position:fixed;inset:0;z-index:30;background:rgba(5,8,18,.75);backdrop-filter:blur(4px)}
+  #coach.show{display:flex;align-items:center;justify-content:center}
+  #coachCard{background:rgba(18,22,38,.96);border:1px solid rgba(255,255,255,.2);border-radius:20px;
+    padding:26px 28px;color:#fff;max-width:320px;width:84%}
+  .cl{font-size:15px;line-height:2.1}
   #tload{position:fixed;top:64px;right:12px;z-index:12;color:rgba(255,255,255,.75);font-size:11px;
     background:rgba(0,0,0,.35);padding:4px 10px;border-radius:10px;opacity:0;transition:opacity .4s;pointer-events:none}
   #raceHud small{font-size:12px;font-weight:400;opacity:.85}
@@ -95,13 +97,19 @@
 <div id="tier"></div>
 <div id="joyWrap">
   <div id="lookPad"></div>
-  <button class="tbtn steer" id="btnL">&#9664;</button>
-  <button class="tbtn steer" id="btnR">&#9654;</button>
   <button class="tbtn" id="btnHov">&#9208;</button>
   <button class="tbtn big" id="btnDrift">DRIFT</button>
   <button class="tbtn" id="btnBoost">BOOST</button>
-  <button class="tbtn" id="btnUp">&#9650;</button>
-  <button class="tbtn" id="btnDn">&#9660;</button>
+</div>
+<div id="coach">
+  <div id="coachCard">
+    <div style="font-size:20px;font-weight:800;margin-bottom:14px">🛫 조종법</div>
+    <div class="cl">🖐 <b>화면 드래그</b> = 가고 싶은 방향으로 기수</div>
+    <div class="cl">⬆️ 위로 향하면 <b>상승</b> · 숙이면 <b>하강</b></div>
+    <div class="cl">🌀 <b>DRIFT 꾹</b> 꺾다가 놓으면 🔥부스터</div>
+    <div class="cl">⏸ 멈춤/재개</div>
+    <button class="btn" id="coachOk" style="margin-top:16px;width:100%;background:rgba(255,255,255,.92);color:#10131c;font-weight:800">비행 시작</button>
+  </div>
 </div>
 <div class="hud" id="panel">
   <div id="px" class="ppanel show">
@@ -442,19 +450,18 @@ function setupTouch(){
   let lid=null,px=0,py=0;
   pad.addEventListener("touchstart",e=>{const t=e.changedTouches[0];lid=t.identifier;px=t.clientX;py=t.clientY;e.preventDefault();},{passive:false});
   pad.addEventListener("touchmove",e=>{for(const t of e.changedTouches){if(t.identifier===lid){
-    touch.lx+=(t.clientX-px)*0.0022; touch.ly+=(t.clientY-py)*0.0022; px=t.clientX;py=t.clientY;}}e.preventDefault();},{passive:false});
+    touch.lx+=(t.clientX-px)*0.0028; touch.ly+=(t.clientY-py)*0.0028; px=t.clientX;py=t.clientY;}}e.preventDefault();},{passive:false});
   const lend=e=>{for(const t of e.changedTouches){if(t.identifier===lid)lid=null;}};
   pad.addEventListener("touchend",lend); pad.addEventListener("touchcancel",lend);
   const hold=(id,prop,val)=>{const el=document.getElementById(id);
     el.addEventListener("touchstart",e=>{touch[prop]=val;e.preventDefault();},{passive:false});
     const off=()=>{touch[prop]=(prop==="boost")?false:0;};
     el.addEventListener("touchend",off); el.addEventListener("touchcancel",off);};
-  hold("btnL","steer",-1); hold("btnR","steer",1);
   document.getElementById("btnHov").addEventListener("touchstart",e=>{
     touch.hover=!touch.hover;
     document.getElementById("btnHov").classList.toggle("on",touch.hover);
     e.preventDefault();},{passive:false});
-  hold("btnDrift","drift",true); hold("btnUp","up",1); hold("btnDn","up",-1); hold("btnBoost","boost",true);
+  hold("btnDrift","drift",true); hold("btnBoost","boost",true); hold("btnBoost","boost",true);
 }
 
 const FILMS=[["\uC6D0\uBCF8","Natural"],["\uBE44\uBE44\uB4DC","Vivid"],["\uACE8\uB4E0\uC544\uC6CC","Golden"],["\uC218\uBB35","Ink"],["\uB4DC\uB9BC","Dream"],["\uC544\uBC14\uD0C0","Pandora"],["\uC778\uC149\uC158","Inception"]];
@@ -639,7 +646,12 @@ function goSpace(instant){
   else viewer.camera.flyTo({destination:dst, duration:5});
 }
 
+function showCoach(){
+  if(!IS_TOUCH || localStorage.getItem("ef_coach")) return;
+  document.getElementById("coach").classList.add("show");
+}
 function goFree(){
+  showCoach();
   mode = "free"; orbiting = false; syncBtns();
   viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
   document.querySelectorAll(".dcard").forEach(c=>c.classList.remove("on"));
@@ -724,13 +736,16 @@ function tick(){
     if (touch.up){ touch.up>0 ? c.moveUp(sp*0.5) : c.moveDown(sp*0.5); }
     if (touch.lx||touch.ly){
       c.lookRight(touch.lx*0.35); c.lookUp(-touch.ly*0.35);
+      const pmax=Cesium.Math.toRadians(58), pmin=Cesium.Math.toRadians(-85);
+      if(c.pitch>pmax) c.setView({orientation:{heading:c.heading,pitch:pmax,roll:c.roll}});
+      if(c.pitch<pmin) c.setView({orientation:{heading:c.heading,pitch:pmin,roll:c.roll}});
       touch.lx*=0.62; touch.ly*=0.62;
       if(Math.abs(touch.lx)<0.0001)touch.lx=0;
       if(Math.abs(touch.ly)<0.0001)touch.ly=0;
     }
     const moving=keys.w||keys.s||keys.a||keys.d||Math.abs(touch.sjx)>0.05||Math.abs(touch.sjy)>0.05;
     dynRes(moving,dt);
-    const steerDir = touch.steer? touch.steer : (keys.arrowleft? -1 : keys.arrowright? 1 : 0);
+    const steerDir = touch.lx? Math.max(-1,Math.min(1,touch.lx*60)) : (keys.arrowleft? -1 : keys.arrowright? 1 : 0);
     const lean = steerDir * (driftSt.on? -0.34 : -0.18);
     tick._roll = (tick._roll||0) + (lean - (tick._roll||0))*0.1;
     if(Math.abs(tick._roll)>0.002){
@@ -1021,6 +1036,10 @@ function buildUI(){
   const mw=document.getElementById("moments");
   MOMENTS.forEach((m,i)=>{const el=document.createElement("div");el.className="momc";
     el.textContent=(KO?m.n:m.en);el.onclick=()=>playMoment(i);mw.appendChild(el);});
+  document.getElementById("coachOk").onclick=()=>{
+    localStorage.setItem("ef_coach","1");
+    document.getElementById("coach").classList.remove("show");
+  };
   document.getElementById("btnGo").onclick=searchPlace;
   document.getElementById("searchBox").addEventListener("keydown",e=>{if(e.key==="Enter")searchPlace();});
   document.getElementById("btnRec").onclick=toggleRec;
@@ -1047,6 +1066,7 @@ function buildUI(){
     document.getElementById("recLbl").textContent="Record";
     document.getElementById("hqLbl").textContent="Ultra";
     document.getElementById("searchBox").placeholder="Search anywhere (e.g. Osaka, Uluru)";
+    document.getElementById("coachCard").innerHTML='<div style="font-size:20px;font-weight:800;margin-bottom:14px">\uD83D\uDEEB How to fly</div><div class="cl">\uD83D\uDD90 <b>Drag anywhere</b> = point your nose</div><div class="cl">\u2B06\uFE0F Aim up to <b>climb</b>, down to <b>dive</b></div><div class="cl">\uD83C\uDF00 Hold <b>DRIFT</b>, turn, release for \uD83D\uDD25 boost</div><div class="cl">\u23F8 pause/resume</div><button class="btn" id="coachOk" style="margin-top:16px;width:100%;background:rgba(255,255,255,.92);color:#10131c;font-weight:800">Take off</button>';
   }
   const tw=document.getElementById("tracks");
   TRACKS.forEach((t,i)=>{const el=document.createElement("div");el.className="tcard";
