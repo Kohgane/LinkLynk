@@ -54,6 +54,11 @@
     border:1px solid rgba(255,150,200,.4);font-size:13px;white-space:nowrap;cursor:pointer;color:#fff}
   #raceHud{position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:12;color:#fff;
     font-size:20px;font-weight:800;text-shadow:0 2px 8px #000;display:none;text-align:center;line-height:1.5}
+  .cinebars{position:fixed;left:0;right:0;height:9vh;background:#000;z-index:8;pointer-events:none;transition:transform .7s ease}
+  #cineTop{top:0;transform:translateY(-101%)}
+  #cineBot{bottom:0;transform:translateY(101%)}
+  body.cine #cineTop{transform:translateY(0)}
+  body.cine #cineBot{transform:translateY(0)}
   #coach{display:none;position:fixed;inset:0;z-index:30;background:rgba(5,8,18,.75);backdrop-filter:blur(4px)}
   #coach.show{display:flex;align-items:center;justify-content:center}
   #coachCard{background:rgba(18,22,38,.96);border:1px solid rgba(255,255,255,.2);border-radius:20px;
@@ -89,6 +94,8 @@
 <div class="hud" id="title">EARTHFLIGHT</div>
 <div class="hud" id="vehHud"></div>
 <div id="raceHud"></div>
+<div id="cineTop" class="cinebars"></div>
+<div id="cineBot" class="cinebars"></div>
 <div id="tload">🌍 지형 로딩…</div>
 <div id="statsBox" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
  z-index:20;background:rgba(10,12,30,.92);border:1px solid rgba(255,255,255,.25);border-radius:16px;
@@ -140,6 +147,7 @@
       <button class="btn" id="btnLayer">🌍 <span id="layerLbl">지상/수중 물리</span></button>
       <button class="btn" id="btnRec">📹 <span id="recLbl">녹화</span></button>
       <button class="btn" id="btnHQ">✨ <span id="hqLbl">고화질</span></button>
+      <button class="btn" id="btnCine">🎞️ <span id="cineLbl">시네스코</span></button>
     </div>
   </div>
   <div id="tabbar">
@@ -464,13 +472,14 @@ function setupTouch(){
   hold("btnDrift","drift",true); hold("btnBoost","boost",true); hold("btnBoost","boost",true);
 }
 
-const FILMS=[["\uC6D0\uBCF8","Natural"],["\uBE44\uBE44\uB4DC","Vivid"],["\uACE8\uB4E0\uC544\uC6CC","Golden"],["\uC218\uBB35","Ink"],["\uB4DC\uB9BC","Dream"],["\uC544\uBC14\uD0C0","Pandora"],["\uC778\uC149\uC158","Inception"]];
+const FILMS=[["\uC6D0\uBCF8","Natural"],["\uBE44\uBE44\uB4DC","Vivid"],["\uACE8\uB4E0\uC544\uC6CC","Golden"],["\uC218\uBB35","Ink"],["\uB4DC\uB9BC","Dream"],["\uC544\uBC14\uD0C0","Pandora"],["\uC778\uC149\uC158","Inception"],["\uCF54\uCF54","Coco"],["\uB354 \uD3F4","The Fall"],["\uBD80\uB2E4\uD398\uC2A4\uD2B8","Budapest"]];
 let filmIdx=0, filmStage=null, cityTiles=null, cityLoading=false;
 function initFilm(){
-  const fs=`uniform sampler2D colorTexture; varying vec2 v_textureCoordinates; uniform float u_mode;
+  const fs=`uniform sampler2D colorTexture; varying vec2 v_textureCoordinates; uniform float u_mode; uniform float u_time;
   vec3 sat(vec3 c,float s){float l=dot(c,vec3(0.299,0.587,0.114));return mix(vec3(l),c,s);}
+  vec3 filmic(vec3 c){ c=max(vec3(0.0),c-0.004); return (c*(6.2*c+0.5))/(c*(6.2*c+1.7)+0.06); }
   void main(){ vec2 uv=v_textureCoordinates;
-    if(u_mode>5.5 && uv.y>0.45){
+    if(u_mode>5.5 && u_mode<6.5 && uv.y>0.45){
       float t=smoothstep(0.45,0.95,uv.y);
       vec2 muv=vec2(uv.x,0.92-uv.y*0.85);
       vec3 a=texture2D(colorTexture,uv).rgb;
@@ -480,6 +489,7 @@ function initFilm(){
       gl_FragColor=vec4(c,1.0); return;
     }
     vec4 col=texture2D(colorTexture,uv); vec3 c=col.rgb;
+    float l=dot(c,vec3(0.299,0.587,0.114));
     if(u_mode<0.5){ }
     else if(u_mode<1.5){ c=sat(c,1.45); c=pow(c,vec3(0.92)); c*=vec3(1.05,1.0,0.97); }
     else if(u_mode<2.5){ c=sat(c,1.25); c*=vec3(1.18,0.96,0.78); c=pow(c,vec3(0.88)); }
@@ -489,10 +499,33 @@ function initFilm(){
       vec3 glow=pow(max(c-0.5,0.0),vec3(1.0))*vec3(0.3,1.5,1.8);
       c=sat(c,1.35); c=mix(c, c*vec3(0.5,1.15,1.4), 0.5); c+=glow*0.9; c=pow(c,vec3(0.88));
     }
-    else { c=sat(c,0.8); c=pow(c,vec3(1.15)); c*=vec3(0.88,1.0,1.1); }
+    else if(u_mode<6.5){ c=sat(c,0.8); c=pow(c,vec3(1.15)); c*=vec3(0.88,1.0,1.1); }
+    else if(u_mode<7.5){
+      c=sat(c,1.3);
+      c += (1.0-l)*vec3(0.10,0.015,0.13);
+      c *= vec3(1.16,0.94,0.82);
+      c += pow(max(c-0.55,0.0),vec3(1.0))*vec3(1.2,0.6,1.1)*0.7;
+      c = filmic(c*1.15);
+    }
+    else if(u_mode<8.5){
+      c=sat(c,1.7);
+      c = filmic(c*1.25);
+      c = c*c*(3.0-2.0*c);
+      c *= vec3(1.06,1.0,1.14);
+    }
+    else {
+      c=sat(c,0.82);
+      c = c*0.74 + vec3(0.17,0.11,0.13);
+      c = mix(c, c*vec3(1.04,0.94,1.0), 0.5);
+      c = pow(c,vec3(1.06));
+    }
+    if(u_mode>0.5){
+      float g=fract(sin(dot(uv*837.0+vec2(u_time*0.7,u_time*1.3), vec2(12.9898,78.233)))*43758.5453);
+      c += (g-0.5)*0.035;
+    }
     gl_FragColor=vec4(c,col.a); }`;
   filmStage=viewer.scene.postProcessStages.add(new Cesium.PostProcessStage({
-    fragmentShader:fs, uniforms:{u_mode:()=>filmIdx}}));
+    fragmentShader:fs, uniforms:{u_mode:()=>filmIdx, u_time:()=>(performance.now()%100000)/1000}}));
   filmStage.enabled=false;
 }
 function setFilm(i){
@@ -549,13 +582,15 @@ function playMoment(i){
   viewer.camera.setView({destination:Cesium.Cartesian3.fromDegrees(M.lon,M.lat-0.02,M.h),
     orientation:{heading:0,pitch:Cesium.Math.toRadians(M.move==="rise"?35:-8),roll:0}});
   setLocalTime(M.hour);
-  moment={on:true,t:0,move:M.move};
+  moment={on:true,t:0,move:M.move,cine:!document.body.classList.contains("cine")};
+  document.body.classList.add("cine");
   viewer.scene.globe.maximumScreenSpaceError=1.6;
   document.querySelectorAll(".momc").forEach((c,j)=>c.classList.toggle("on", j===i));
 }
 function stopMoment(){
   if(!moment.on) return;
   moment.on=false;
+  if(moment.cine) document.body.classList.remove("cine");
   viewer.scene.globe.maximumScreenSpaceError=IS_TOUCH?4:2;
   document.querySelectorAll(".momc").forEach(c=>c.classList.remove("on"));
 }
@@ -1044,6 +1079,10 @@ function buildUI(){
   document.getElementById("searchBox").addEventListener("keydown",e=>{if(e.key==="Enter")searchPlace();});
   document.getElementById("btnRec").onclick=toggleRec;
   document.getElementById("btnHQ").onclick=toggleHQ;
+  document.getElementById("btnCine").onclick=()=>{
+    document.body.classList.toggle("cine");
+    document.getElementById("btnCine").classList.toggle("on",document.body.classList.contains("cine"));
+  };
   const fw=document.getElementById("films");
   FILMS.forEach((f,i)=>{const el=document.createElement("div");el.className="filmc"+(i===0?" on":"");
     el.textContent=(KO?f[0]:f[1]);el.onclick=()=>setFilm(i);fw.appendChild(el);});
@@ -1065,6 +1104,7 @@ function buildUI(){
     document.getElementById("stLbl").textContent="Log";
     document.getElementById("recLbl").textContent="Record";
     document.getElementById("hqLbl").textContent="Ultra";
+    document.getElementById("cineLbl").textContent="Widescreen";
     document.getElementById("searchBox").placeholder="Search anywhere (e.g. Osaka, Uluru)";
     document.getElementById("coachCard").innerHTML='<div style="font-size:20px;font-weight:800;margin-bottom:14px">\uD83D\uDEEB How to fly</div><div class="cl">\uD83D\uDD90 <b>Drag anywhere</b> = point your nose</div><div class="cl">\u2B06\uFE0F Aim up to <b>climb</b>, down to <b>dive</b></div><div class="cl">\uD83C\uDF00 Hold <b>DRIFT</b>, turn, release for \uD83D\uDD25 boost</div><div class="cl">\u23F8 pause/resume</div><button class="btn" id="coachOk" style="margin-top:16px;width:100%;background:rgba(255,255,255,.92);color:#10131c;font-weight:800">Take off</button>';
   }
