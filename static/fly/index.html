@@ -62,6 +62,9 @@
   #films,#studioRow{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px}
   .filmc{flex:0 0 auto;padding:8px 14px;border-radius:18px;background:rgba(200,160,255,.15);
     border:1px solid rgba(210,180,255,.4);font-size:13px;cursor:pointer;color:#e8ddff;white-space:nowrap}
+  .momc{flex:0 0 auto;padding:8px 14px;border-radius:18px;background:rgba(255,190,120,.16);border:1px solid rgba(255,200,140,.45);font-size:13px;cursor:pointer;color:#ffe9cf;white-space:nowrap}
+  .momc.on{background:rgba(255,190,120,.92);color:#33200a;font-weight:800}
+  #moments{display:flex;gap:8px;overflow-x:auto;padding-bottom:2px}
   .filmc.on{background:rgba(200,160,255,.9);color:#1d0a33;font-weight:800}
   #hint{top:14px;right:16px;font-size:11px;text-align:right;opacity:.6;line-height:1.7;text-shadow:0 1px 4px #000}
   #tier{position:fixed;top:44px;left:16px;font-size:11px;opacity:.55;color:#ffd9a0;z-index:10}
@@ -104,10 +107,12 @@
     <div id="tracks"></div>
   </div>
   <div id="ps" class="ppanel">
+    <div id="moments"></div>
     <div id="films"></div>
     <div id="studioRow">
       <button class="btn" id="btnCity">🏙️ <span id="cityLbl">3D 건물</span></button>
       <button class="btn" id="btnLayer">🌍 <span id="layerLbl">지상/수중 물리</span></button>
+      <button class="btn" id="btnRec">📹 <span id="recLbl">녹화</span></button>
     </div>
   </div>
   <div id="tabbar">
@@ -356,6 +361,7 @@ async function init(){
   sc.globe.depthTestAgainstTerrain = true;
   sc.screenSpaceCameraController.enableCollisionDetection = true;
   viewer.clock.shouldAnimate = true;
+  if(viewer.scene.moon) viewer.scene.moon.show = true;
   sc.fog.density = 0.0004;
   sc.globe.preloadSiblings = false;
   Cesium.RequestScheduler.throttleRequests = true;
@@ -474,6 +480,67 @@ async function toggleCity(){
   cityLoading=false;
 }
 
+const MOMENTS=[
+ {n:"🌕 달빛 들녘",en:"Moonlit Fields",lon:127.28,lat:36.45,h:900,hour:23.5,film:4,move:"push"},
+ {n:"💜 보랏빛 폭포",en:"Violet Falls",lon:-54.443,lat:-25.688,h:700,hour:19.2,film:5,move:"orbit"},
+ {n:"🏜️ 황금 사막",en:"Golden Dunes",lon:-4.0,lat:31.15,h:1100,hour:17.9,film:2,move:"push"},
+ {n:"🖤 수묵 협곡",en:"Ink Gorge",lon:110.43,lat:29.32,h:1500,hour:7.2,film:3,move:"orbit"},
+ {n:"🌌 만월 상승",en:"Full Moon Rise",lon:18.96,lat:69.65,h:1200,hour:0.5,film:4,move:"rise"}
+];
+let moment={on:false,t:0,move:null};
+function playMoment(i){
+  const M=MOMENTS[i];
+  goFree(); race.on&&endRace(false);
+  setFilm(M.film);
+  timeSlider.value=M.hour;
+  viewer.camera.setView({destination:Cesium.Cartesian3.fromDegrees(M.lon,M.lat-0.02,M.h),
+    orientation:{heading:0,pitch:Cesium.Math.toRadians(M.move==="rise"?35:-8),roll:0}});
+  setLocalTime(M.hour);
+  moment={on:true,t:0,move:M.move};
+  viewer.scene.globe.maximumScreenSpaceError=1.6;
+  document.querySelectorAll(".momc").forEach((c,j)=>c.classList.toggle("on", j===i));
+}
+function stopMoment(){
+  if(!moment.on) return;
+  moment.on=false;
+  viewer.scene.globe.maximumScreenSpaceError=IS_TOUCH?4:2;
+  document.querySelectorAll(".momc").forEach(c=>c.classList.remove("on"));
+}
+function momentTick(dt){
+  if(!moment.on) return;
+  moment.t+=dt;
+  const c=viewer.camera;
+  if(moment.move==="push"){ c.moveForward(60*dt); }
+  else if(moment.move==="orbit"){ c.moveRight(45*dt); c.lookLeft(0.006*dt*60); }
+  else if(moment.move==="rise"){ c.moveUp(35*dt); c.lookUp(0.0008*dt*60); }
+  if(moment.t>30) stopMoment();
+}
+
+let rec=null, recChunks=[], recT0=0, recTimer=null;
+function toggleRec(){
+  const lbl=document.getElementById("recLbl");
+  if(rec){ rec.stop(); return; }
+  try{
+    const stream=viewer.canvas.captureStream(30);
+    const mime=MediaRecorder.isTypeSupported("video/mp4")?"video/mp4":"video/webm";
+    rec=new MediaRecorder(stream,{mimeType:mime,videoBitsPerSecond:8000000});
+    recChunks=[];
+    rec.ondataavailable=e=>{if(e.data.size)recChunks.push(e.data);};
+    rec.onstop=()=>{
+      clearInterval(recTimer);
+      const blob=new Blob(recChunks,{type:rec.mimeType});
+      const ext=rec.mimeType.includes("mp4")?"mp4":"webm";
+      const aa=document.createElement("a");
+      aa.href=URL.createObjectURL(blob); aa.download="earthflight."+ext; aa.click();
+      rec=null; lbl.textContent=(KO?"녹화":"Record");
+      document.getElementById("btnRec").classList.remove("on");
+    };
+    rec.start(250); recT0=performance.now();
+    document.getElementById("btnRec").classList.add("on");
+    recTimer=setInterval(()=>{lbl.textContent="● "+((performance.now()-recT0)/1000).toFixed(0)+"s";},500);
+  }catch(e){ lbl.textContent="X"; console.warn(e); }
+}
+
 function setLocalTime(h){
   const lon = Cesium.Math.toDegrees(viewer.camera.positionCartographic.longitude) || 0;
   let utc = h - lon/15;
@@ -541,7 +608,7 @@ function tick(){
   const now = performance.now();
   const dt = lastT ? Math.min((now-lastT)/1000, 0.1) : 1/60;
   lastT = now;
-  raceTick(dt);
+  raceTick(dt); momentTick(dt);
   if (mode === "tour" && orbiting && orbitCenter){
     orbitHeading += 0.1*dt;
     viewer.camera.lookAt(orbitCenter, new Cesium.HeadingPitchRange(orbitHeading, orbitP, orbitR));
@@ -554,6 +621,7 @@ function tick(){
     tick._pp=viewer.camera.position.clone();
     const c = viewer.camera;
     const dr = keys.drift||touch.drift;
+    if(moment.on&&(keys.w||keys.s||keys.a||keys.d||touch.jx||touch.jy)) stopMoment();
     if(dr && !driftSt.on){ driftSt.on=true; driftSt.vec=Cesium.Cartesian3.clone(c.direction); driftSt.charge=0; ensureTrail(); }
     if(!dr && driftSt.on){ driftSt.on=false; driftSt.boostT=Math.min(driftSt.charge,1.6); }
     let sp = curSpeed()*dt;
@@ -845,6 +913,10 @@ function buildUI(){
     btnTour.textContent="Tour"; btnFree.textContent="Free Flight"; btnSpace.textContent="Space";
   }
   btnTour.onclick = ()=>{ if(race.on)endRace(false); flyToDest(Math.max(curIdx,0)); };
+  const mw=document.getElementById("moments");
+  MOMENTS.forEach((m,i)=>{const el=document.createElement("div");el.className="momc";
+    el.textContent=(KO?m.n:m.en);el.onclick=()=>playMoment(i);mw.appendChild(el);});
+  document.getElementById("btnRec").onclick=toggleRec;
   const fw=document.getElementById("films");
   FILMS.forEach((f,i)=>{const el=document.createElement("div");el.className="filmc"+(i===0?" on":"");
     el.textContent=(KO?f[0]:f[1]);el.onclick=()=>setFilm(i);fw.appendChild(el);});
@@ -864,6 +936,7 @@ function buildUI(){
     document.getElementById("layerLbl").textContent="Physics Layers";
     document.getElementById("phLbl").textContent="Photo";
     document.getElementById("stLbl").textContent="Log";
+    document.getElementById("recLbl").textContent="Record";
   }
   const tw=document.getElementById("tracks");
   TRACKS.forEach((t,i)=>{const el=document.createElement("div");el.className="tcard";
