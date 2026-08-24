@@ -75,8 +75,8 @@
     // 컨테이너
     const container = document.createElement("div");
     container.id = "swefm-hud-container";
-    container.style.cssText = `position:fixed;top:60px;right:12px;z-index:8800;
-      display:flex;flex-direction:column;align-items:flex-end;gap:6px;pointer-events:none;`;
+    container.style.cssText = `position:fixed;top:120px;left:12px;z-index:8800;
+      display:flex;flex-direction:column;align-items:flex-start;gap:6px;pointer-events:none;`;
     document.body.appendChild(container);
 
     // HUD 정보 박스
@@ -85,7 +85,7 @@
     hud.title = "클릭하여 좌표 복사";
     hud.style.cssText = `background:rgba(0,0,0,.65);color:#eee;border-radius:8px;padding:6px 10px;
       font-size:11px;line-height:1.6;pointer-events:auto;cursor:pointer;
-      font-family:monospace;min-width:160px;text-align:right;`;
+      font-family:monospace;min-width:160px;text-align:left;`;
     hud.innerHTML = `<span style="color:#888">위치 초기화 중...</span>`;
     container.appendChild(hud);
 
