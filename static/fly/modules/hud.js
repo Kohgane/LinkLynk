@@ -75,8 +75,8 @@
     // 컨테이너
     const container = document.createElement("div");
     container.id = "swefm-hud-container";
-    container.style.cssText = `position:fixed;top:60px;right:12px;z-index:8800;
-      display:flex;flex-direction:column;align-items:flex-end;gap:6px;pointer-events:none;`;
+    container.style.cssText = `position:fixed;top:120px;left:12px;z-index:8800;
+      display:flex;flex-direction:column;align-items:flex-start;gap:6px;pointer-events:none;`;
     document.body.appendChild(container);
 
     // HUD 정보 박스
@@ -85,7 +85,7 @@
     hud.title = "클릭하여 좌표 복사";
     hud.style.cssText = `background:rgba(0,0,0,.65);color:#eee;border-radius:8px;padding:6px 10px;
       font-size:11px;line-height:1.6;pointer-events:auto;cursor:pointer;
-      font-family:monospace;min-width:160px;text-align:right;`;
+      font-family:monospace;min-width:160px;text-align:left;`;
     hud.innerHTML = `<span style="color:#888">위치 초기화 중...</span>`;
     container.appendChild(hud);
 
@@ -96,16 +96,6 @@
     compass.innerHTML = compassSVG(0);
     container.appendChild(compass);
 
-    // 토글 버튼
-    const toggleBtn = document.createElement("button");
-    toggleBtn.id = "swefm-hud-toggle";
-    toggleBtn.title = "HUD 토글";
-    toggleBtn.textContent = "🧭";
-    toggleBtn.style.cssText = `position:fixed;top:14px;right:60px;z-index:9000;
-      width:44px;height:44px;border-radius:50%;border:none;background:rgba(0,0,0,.55);
-      color:#fff;font-size:18px;cursor:pointer;touch-action:manipulation;pointer-events:auto;`;
-    document.body.appendChild(toggleBtn);
-
     function setVisible(v) {
       visible = v;
       container.style.display = visible ? "flex" : "none";
@@ -113,7 +103,24 @@
     }
     setVisible(visible);
 
-    toggleBtn.onclick = () => setVisible(!visible);
+    function toggleHud() {
+      setVisible(!visible);
+    }
+
+    try {
+      if (window.SWEFM && typeof window.SWEFM.registerButton === "function") {
+        window.SWEFM.registerButton({
+          id: "swefm-hud",
+          icon: "📍",
+          label: "좌표",
+          onClick: toggleHud
+        });
+      } else {
+        console.warn("[swefm/hud] registerButton 없음");
+      }
+    } catch (e) {
+      console.warn("[swefm/hud] 버튼 등록 실패", e);
+    }
 
     /* 클립보드 복사 */
     hud.onclick = () => {
