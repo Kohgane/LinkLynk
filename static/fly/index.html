@@ -440,6 +440,7 @@ async function init(){
 
   document.getElementById("tier").textContent = tier;
   buildUI();
+  try{ window.viewer = viewer; window.Cesium = window.Cesium || Cesium; }catch(e){}
   try{
     window.SWEF = window.SWEF || {};
     Object.assign(window.SWEF, {
@@ -451,7 +452,15 @@ async function init(){
       version: "1.1"
     });
     window.dispatchEvent(new CustomEvent("swef:ready",{detail:window.SWEF}));
-  }catch(e){ console.warn("SWEF hook", e); }
+    console.log("[SWEF] hook ready", Object.keys(window.SWEF).join(","));
+  }catch(e){
+    console.warn("SWEF hook 부분 실패", e);
+    try{
+      window.SWEF = window.SWEF || {};
+      window.SWEF.viewer = viewer;
+      window.dispatchEvent(new CustomEvent("swef:ready",{detail:window.SWEF}));
+    }catch(e2){ console.warn("SWEF hook 완전 실패", e2); }
+  }
   const q=new URLSearchParams(location.search);
   if(q.has("lon")){
     timeSlider.value=q.get("t")||"17.5";
