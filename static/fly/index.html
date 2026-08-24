@@ -440,6 +440,18 @@ async function init(){
 
   document.getElementById("tier").textContent = tier;
   buildUI();
+  try{
+    window.SWEF = window.SWEF || {};
+    Object.assign(window.SWEF, {
+      viewer, DESTS, TRACKS, FILMS, MOMENTS,
+      toast, goFree, goSpace, flyToDest, setFilm, playMoment,
+      get camera(){ return viewer.camera; },
+      get isTouch(){ return IS_TOUCH; },
+      get lang(){ return KO ? "ko" : "en"; },
+      version: "1.1"
+    });
+    window.dispatchEvent(new CustomEvent("swef:ready",{detail:window.SWEF}));
+  }catch(e){ console.warn("SWEF hook", e); }
   const q=new URLSearchParams(location.search);
   if(q.has("lon")){
     timeSlider.value=q.get("t")||"17.5";
