@@ -161,18 +161,15 @@
     }
 
     /* ── UI ── */
-    const btn = document.createElement("button");
-    btn.id = "swefm-replay-btn";
-    btn.title = "리플레이";
-    btn.textContent = "⏺";
-    btn.style.cssText = `position:fixed;bottom:76px;right:12px;z-index:9000;
-      width:44px;height:44px;border-radius:50%;border:none;background:rgba(0,0,0,.65);
-      color:#FF6666;font-size:20px;cursor:pointer;touch-action:manipulation;`;
-    document.body.appendChild(btn);
+    /* 런처에 버튼 등록 (플로팅 버튼 대신 통합 런처 사용) */
+    let _launcherBtnLabel = "⏺ 리플레이";
+    function updateRecBtn() {
+      _launcherBtnLabel = recording ? "⏹ 녹화중" : "⏺ 리플레이";
+    }
 
     const panel = document.createElement("div");
     panel.id = "swefm-replay-panel";
-    panel.style.cssText = `display:none;position:fixed;bottom:130px;right:12px;z-index:9000;
+    panel.style.cssText = `display:none;position:fixed;right:80px;top:50%;transform:translateY(-50%);z-index:42;
       width:280px;max-height:70vh;overflow-y:auto;background:rgba(15,15,25,.92);
       color:#eee;border-radius:10px;padding:10px;font-size:13px;
       box-shadow:0 4px 20px rgba(0,0,0,.6);`;
@@ -199,9 +196,7 @@
     }
 
     function updateRecBtn() {
-      btn.textContent = recording ? "⏹" : "⏺";
-      btn.style.color = recording ? "#FF9900" : "#FF6666";
-      btn.title = recording ? "녹화 중단" : "리플레이";
+      _launcherBtnLabel = recording ? "⏹ 녹화중" : "⏺ 리플레이";
     }
 
     function renderSlots() {
@@ -291,6 +286,15 @@
         else panel.style.display = "none";
       }
     };
+
+    /* 런처에 등록 */
+    const cfg = { id: "swefm-replay-btn", icon: "⏺", label: "리플레이", onClick: btn.onclick };
+    if (window.SWEFM && typeof window.SWEFM.registerButton === "function") {
+      window.SWEFM.registerButton(cfg);
+    } else if (window.SWEFM) {
+      if (!Array.isArray(window.SWEFM._btnQueue)) window.SWEFM._btnQueue = [];
+      window.SWEFM._btnQueue.push(cfg);
+    }
   }
 
   /* ── 초기화 ── */

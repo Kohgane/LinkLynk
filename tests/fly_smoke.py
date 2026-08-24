@@ -38,6 +38,9 @@ STATIC_PATHS = [
     "/fly/modules/favorites.js",
     "/fly/modules/replay.js",
     "/fly/modules/hud.js",
+    "/fly/modules/launcher.js",
+    "/fly/modules/share.js",
+    "/fly/modules/compare.js",
     "/.well-known/assetlinks.json",
 ]
 ARRAY_MINIMUMS = {

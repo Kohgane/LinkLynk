@@ -72,10 +72,10 @@
     let visible = load(KEY_VISIBLE, true);
     let prevPos = null, prevTs = null;
 
-    // 컨테이너
+    // HUD 컨테이너는 top:120px로 앱 UI 영역 아래에 배치
     const container = document.createElement("div");
     container.id = "swefm-hud-container";
-    container.style.cssText = `position:fixed;top:60px;right:12px;z-index:8800;
+    container.style.cssText = `position:fixed;top:120px;right:12px;z-index:40;
       display:flex;flex-direction:column;align-items:flex-end;gap:6px;pointer-events:none;`;
     document.body.appendChild(container);
 
@@ -96,15 +96,15 @@
     compass.innerHTML = compassSVG(0);
     container.appendChild(compass);
 
-    // 토글 버튼
-    const toggleBtn = document.createElement("button");
-    toggleBtn.id = "swefm-hud-toggle";
-    toggleBtn.title = "HUD 토글";
-    toggleBtn.textContent = "🧭";
-    toggleBtn.style.cssText = `position:fixed;top:14px;right:60px;z-index:9000;
-      width:44px;height:44px;border-radius:50%;border:none;background:rgba(0,0,0,.55);
-      color:#fff;font-size:18px;cursor:pointer;touch-action:manipulation;pointer-events:auto;`;
-    document.body.appendChild(toggleBtn);
+    // 토글 버튼 — 런처에 등록 (플로팅 버튼 대신 통합 런처 사용)
+    function toggleHUD() { setVisible(!visible); }
+    const hudCfg = { id: "swefm-hud-toggle", icon: "🧭", label: "HUD", onClick: toggleHUD };
+    if (window.SWEFM && typeof window.SWEFM.registerButton === "function") {
+      window.SWEFM.registerButton(hudCfg);
+    } else if (window.SWEFM) {
+      if (!Array.isArray(window.SWEFM._btnQueue)) window.SWEFM._btnQueue = [];
+      window.SWEFM._btnQueue.push(hudCfg);
+    }
 
     function setVisible(v) {
       visible = v;
@@ -113,7 +113,7 @@
     }
     setVisible(visible);
 
-    toggleBtn.onclick = () => setVisible(!visible);
+    // toggleBtn.onclick 제거 (런처에 통합됨)
 
     /* 클립보드 복사 */
     hud.onclick = () => {

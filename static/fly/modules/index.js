@@ -12,7 +12,43 @@
     if (tries > 20) return log("viewer 없음 — 모듈 대기 종료");
     setTimeout(()=>waitViewer(cb, tries+1), 500);
   }
-  window.SWEFM = { waitViewer, version: "0.2" };
+
+  /* registerButton: launcher.js 로드 전 호출될 경우 큐에 저장 */
+  const _btnQueue = [];
+  function registerButton(cfg){
+    try {
+      if(typeof window.SWEFM._launcherItems !== "undefined"){
+        // launcher.js 가 _launcherItems를 설정했으면 위임
+        // (launcher.js 에서 덮어씌움)
+      }
+      _btnQueue.push(cfg);
+    } catch(e){ console.warn("[swefm] registerButton 실패", e); }
+  }
+
+  /* debug: 각 모듈 로드·DOM 존재 여부 출력 */
+  function debug(){
+    try {
+      const MODS = ["launcher.js","favorites.js","replay.js","hud.js","share.js","compare.js"];
+      const domIds = {
+        "launcher.js": "swefm-launcher",
+        "favorites.js": "swefm-favs-btn",
+        "replay.js": "swefm-replay-btn",
+        "hud.js": "swefm-hud-toggle",
+        "share.js": "swefm-share-panel",
+        "compare.js": "swefm-compare-panel"
+      };
+      const rows = MODS.map(function(m){
+        const id = domIds[m];
+        const el = id ? document.getElementById(id) : null;
+        return { module: m, dom_id: id||"-", dom_exists: el ? "✓" : "✗" };
+      });
+      if(typeof console.table === "function"){ console.table(rows); }
+      else { rows.forEach(function(r){ console.log("[swefm/debug]", JSON.stringify(r)); }); }
+      log("등록된 런처 버튼 큐:", _btnQueue.map(function(b){ return b.id||b.label; }));
+    } catch(e){ console.warn("[swefm] debug 실패", e); }
+  }
+
+  window.SWEFM = { waitViewer, version: "0.3", registerButton, debug, _btnQueue };
   log("modules ready");
 
   // 서브모듈 동적 로드
@@ -28,7 +64,7 @@
     return "modules/";
   })();
 
-  const MODULES = ["favorites.js","replay.js","hud.js"];
+  const MODULES = ["launcher.js","favorites.js","replay.js","hud.js","share.js","compare.js"];
   let loaded = false;
 
   function loadModules(){
