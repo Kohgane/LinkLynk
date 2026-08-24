@@ -96,16 +96,6 @@
     compass.innerHTML = compassSVG(0);
     container.appendChild(compass);
 
-    // 토글 버튼
-    const toggleBtn = document.createElement("button");
-    toggleBtn.id = "swefm-hud-toggle";
-    toggleBtn.title = "HUD 토글";
-    toggleBtn.textContent = "🧭";
-    toggleBtn.style.cssText = `position:fixed;top:14px;right:60px;z-index:9000;
-      width:44px;height:44px;border-radius:50%;border:none;background:rgba(0,0,0,.55);
-      color:#fff;font-size:18px;cursor:pointer;touch-action:manipulation;pointer-events:auto;`;
-    document.body.appendChild(toggleBtn);
-
     function setVisible(v) {
       visible = v;
       container.style.display = visible ? "flex" : "none";
@@ -113,7 +103,17 @@
     }
     setVisible(visible);
 
-    toggleBtn.onclick = () => setVisible(!visible);
+    // 런처 등록
+    if (window.SWEFM && typeof window.SWEFM.registerButton === "function") {
+      window.SWEFM.registerButton({
+        id: "swefm-hud",
+        icon: "📍",
+        label: "좌표",
+        onClick: function () { setVisible(!visible); }
+      });
+    } else {
+      console.warn("[swefm/hud] registerButton 없음 — 런처 미로드");
+    }
 
     /* 클립보드 복사 */
     hud.onclick = () => {

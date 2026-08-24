@@ -103,20 +103,10 @@
 
   /* ── UI 생성 ── */
   function buildUI(viewer) {
-    // 토글 버튼
-    const btn = document.createElement("button");
-    btn.id = "swefm-favs-btn";
-    btn.title = "즐겨찾기";
-    btn.textContent = "★";
-    btn.style.cssText = `position:fixed;bottom:120px;right:12px;z-index:9000;
-      width:44px;height:44px;border-radius:50%;border:none;background:rgba(0,0,0,.65);
-      color:#FFD700;font-size:20px;cursor:pointer;touch-action:manipulation;`;
-    document.body.appendChild(btn);
-
     // 패널
     const panel = document.createElement("div");
     panel.id = "swefm-favs-panel";
-    panel.style.cssText = `display:none;position:fixed;bottom:170px;right:12px;z-index:9000;
+    panel.style.cssText = `display:none;position:fixed;top:50%;left:12px;transform:translateY(-50%);z-index:9000;
       width:280px;max-height:60vh;overflow-y:auto;background:rgba(15,15,25,.92);
       color:#eee;border-radius:10px;padding:10px;font-size:13px;
       box-shadow:0 4px 20px rgba(0,0,0,.6);`;
@@ -218,10 +208,20 @@
       e.target.value = "";
     }
 
-    btn.onclick = () => {
-      if (panel.style.display === "none") { renderPanel(); panel.style.display = "block"; }
-      else panel.style.display = "none";
-    };
+    // 런처 등록
+    if (window.SWEFM && typeof window.SWEFM.registerButton === "function") {
+      window.SWEFM.registerButton({
+        id: "swefm-favs",
+        icon: "★",
+        label: "즐겨찾기",
+        onClick: function () {
+          if (panel.style.display === "none") { renderPanel(); panel.style.display = "block"; }
+          else panel.style.display = "none";
+        }
+      });
+    } else {
+      console.warn("[swefm/favs] registerButton 없음 — 런처 미로드");
+    }
 
     // 자동 히스토리: 30초마다 기록
     setInterval(() => {
