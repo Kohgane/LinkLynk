@@ -35,9 +35,12 @@ STATIC_PATHS = [
     "/fly/icon-512.png",
     "/fly/privacy.html",
     "/fly/modules/index.js",
+    "/fly/modules/launcher.js",
     "/fly/modules/favorites.js",
     "/fly/modules/replay.js",
     "/fly/modules/hud.js",
+    "/fly/modules/share.js",
+    "/fly/modules/compare.js",
     "/.well-known/assetlinks.json",
 ]
 ARRAY_MINIMUMS = {
@@ -48,6 +51,17 @@ ARRAY_MINIMUMS = {
 SCRIPT_OPEN_RE = re.compile(r"<script\b(?P<attrs>[^>]*)>", re.IGNORECASE)
 SCRIPT_SRC_RE = re.compile(r"\bsrc\s*=", re.IGNORECASE)
 GOOGLE_KEY_RE = re.compile(r"\bconst\s+GOOGLE_KEY\s*=\s*(['\"])(?P<value>.*?)\1", re.DOTALL)
+LOCALSTORAGE_LITERAL_RE = re.compile(
+    r"\blocalStorage\.(?:getItem|setItem|removeItem)\(\s*(['\"])(?P<key>.*?)\1",
+    re.DOTALL,
+)
+MODULE_STRING_RE = re.compile(r"(['\"])(?P<name>[^'\"]+?\.js)\1")
+PANEL_SELECTOR_PATTERNS = [
+    'document.getElementById("panel")',
+    "document.getElementById('panel')",
+    'document.querySelector("#panel")',
+    "document.querySelector('#panel')",
+]
 
 
 class ResultRow:
@@ -166,6 +180,10 @@ def markdown_escape(value: str) -> str:
 
 def add_row(rows: List[ResultRow], check: str, status: str, details: str) -> None:
     rows.append(ResultRow(check, status, details))
+
+
+def add_section(rows: List[ResultRow], title: str) -> None:
+    rows.append(ResultRow(f"=== {title} ===", "", ""))
 
 
 def print_table(rows: Sequence[ResultRow]) -> None:
@@ -345,11 +363,70 @@ def validate_node_syntax(js: str) -> Tuple[str, str]:
         )
         if completed.returncode == 0:
             return "PASS", "`node --check` 문법 검사를 통과했습니다."
-        stderr = (completed.stderr or completed.stdout or "").strip()
-        return "FAIL", f"`node --check` 실패: {stderr[:400]}"
+        output = completed.stderr or completed.stdout or ""
+        return "FAIL", f"`node --check` 실패: {summarize_command_output(output)}"
     finally:
         if tmp_path and os.path.exists(tmp_path):
             os.unlink(tmp_path)
+
+
+def collect_module_paths_from_static_list(paths: Sequence[str]) -> List[str]:
+    modules = []
+    for path in paths:
+        if not path.startswith("/fly/modules/") or not path.endswith(".js"):
+            continue
+        if path.endswith("/index.js"):
+            continue
+        modules.append(path)
+    return modules
+
+
+def extract_modules_from_index_js(index_js: str) -> List[str]:
+    array_literal = extract_const_array_literal(index_js, "MODULES")
+    modules = []
+    for match in MODULE_STRING_RE.finditer(array_literal):
+        modules.append(match.group("name"))
+    if not modules:
+        raise JsParsingError("MODULES 배열에서 모듈 파일명을 추출하지 못했습니다.")
+    return modules
+
+
+def extract_localstorage_literal_keys(js: str) -> List[str]:
+    return [m.group("key") for m in LOCALSTORAGE_LITERAL_RE.finditer(js)]
+
+
+def summarize_command_output(output: str, limit: int = 300) -> str:
+    compact = " ".join((output or "").split())
+    return compact[:limit] if compact else "(출력 없음)"
+
+
+def check_module_conventions(js: str) -> Tuple[str, str, str, str]:
+    keys = extract_localstorage_literal_keys(js)
+    ef_keys = sorted({k for k in keys if k.startswith("ef_")})
+    non_swefm_keys = sorted({k for k in keys if not k.startswith("swefm_")})
+    hardcoded = [pattern for pattern in PANEL_SELECTOR_PATTERNS if pattern in js]
+
+    if ef_keys:
+        storage_status = "FAIL"
+        storage_details = f"ef_* localStorage 키 사용 금지 위반: {', '.join(ef_keys)}"
+    elif non_swefm_keys:
+        storage_status = "FAIL"
+        storage_details = f"swefm_ 접두가 아닌 localStorage 키 발견: {', '.join(non_swefm_keys)}"
+    elif keys:
+        storage_status = "PASS"
+        storage_details = f"localStorage 키 {len(set(keys))}개가 모두 swefm_ 접두입니다."
+    else:
+        storage_status = "PASS"
+        storage_details = "localStorage 문자열 리터럴 키 사용을 찾지 못했습니다."
+
+    if hardcoded:
+        selector_status = "WARN"
+        selector_details = f"앱 내부 selector 하드코딩 경고: {', '.join(hardcoded)}"
+    else:
+        selector_status = "PASS"
+        selector_details = "panel selector 하드코딩 패턴이 없습니다."
+
+    return storage_status, storage_details, selector_status, selector_details
 
 
 def collect_missing_markers(text: str) -> List[str]:
@@ -384,6 +461,7 @@ def main() -> int:
     rows: List[ResultRow] = []
     html = ""
     main_js = ""
+    add_section(rows, "Main app")
 
     try:
         status_code, html = fetch_text(args.url)
@@ -460,6 +538,7 @@ def main() -> int:
 
     try:
         origin = find_origin(args.url)
+        add_section(rows, "Static resources")
         for path in STATIC_PATHS:
             full_url = urljoin(origin, path)
             try:
@@ -486,17 +565,128 @@ def main() -> int:
                 add_row(rows, "assetlinks package_name", "FAIL", "com.kohgane.earthflight 가 없습니다.")
         except (requests.RequestException, AssetCheckError, JsonSearchError) as exc:
             add_row(rows, "assetlinks package_name", "FAIL", str(exc))
+
+        module_paths = collect_module_paths_from_static_list(STATIC_PATHS)
+        module_sources = {}
+        add_section(rows, "Module syntax")
+        for module_path in module_paths:
+            module_url = urljoin(origin, module_path)
+            module_name = module_path.rsplit("/", 1)[-1]
+            try:
+                status_code, module_js = fetch_text(module_url)
+                if status_code != 200:
+                    add_row(
+                        rows,
+                        f"Module syntax {module_name}",
+                        "FAIL",
+                        f"{module_url} -> HTTP {status_code}",
+                    )
+                    continue
+                module_sources[module_name] = module_js
+                syntax_status, syntax_details = validate_node_syntax(module_js)
+                add_row(rows, f"Module syntax {module_name}", syntax_status, syntax_details)
+            except requests.RequestException as exc:
+                add_row(rows, f"Module syntax {module_name}", "FAIL", f"네트워크 오류: {exc}")
+
+        add_section(rows, "Module conventions")
+        for module_path in module_paths:
+            module_name = module_path.rsplit("/", 1)[-1]
+            module_js = module_sources.get(module_name)
+            if module_js is None:
+                module_url = urljoin(origin, module_path)
+                try:
+                    status_code, module_js = fetch_text(module_url)
+                    if status_code != 200:
+                        add_row(
+                            rows,
+                            f"Module conventions storage {module_name}",
+                            "FAIL",
+                            f"{module_url} -> HTTP {status_code}",
+                        )
+                        add_row(
+                            rows,
+                            f"Module conventions selector {module_name}",
+                            "FAIL",
+                            "소스 미확보로 selector 하드코딩 검사를 완료하지 못했습니다.",
+                        )
+                        continue
+                    module_sources[module_name] = module_js
+                except requests.RequestException as exc:
+                    add_row(rows, f"Module conventions storage {module_name}", "FAIL", f"네트워크 오류: {exc}")
+                    add_row(
+                        rows,
+                        f"Module conventions selector {module_name}",
+                        "FAIL",
+                        "네트워크 오류로 selector 하드코딩 검사를 완료하지 못했습니다.",
+                    )
+                    continue
+
+            storage_status, storage_details, selector_status, selector_details = check_module_conventions(module_js)
+            add_row(rows, f"Module conventions storage {module_name}", storage_status, storage_details)
+            add_row(rows, f"Module conventions selector {module_name}", selector_status, selector_details)
+
+        add_section(rows, "Module registration")
+        index_url = urljoin(origin, "/fly/modules/index.js")
+        try:
+            status_code, index_js = fetch_text(index_url)
+            if status_code != 200:
+                add_row(rows, "Module registration parse", "FAIL", f"{index_url} -> HTTP {status_code}")
+            else:
+                try:
+                    registered_modules = extract_modules_from_index_js(index_js)
+                    add_row(
+                        rows,
+                        "Module registration parse",
+                        "PASS",
+                        f"MODULES 배열에서 {len(registered_modules)}개 모듈을 추출했습니다.",
+                    )
+                    for module_name in registered_modules:
+                        module_url = urljoin(origin, f"/fly/modules/{module_name}")
+                        try:
+                            code = fetch_binary_status(module_url)
+                            if code == 200:
+                                add_row(
+                                    rows,
+                                    f"Module registration {module_name}",
+                                    "PASS",
+                                    f"{module_url} -> HTTP 200",
+                                )
+                            else:
+                                add_row(
+                                    rows,
+                                    f"Module registration {module_name}",
+                                    "FAIL",
+                                    f"{module_url} -> HTTP {code}",
+                                )
+                        except requests.RequestException as exc:
+                            add_row(
+                                rows,
+                                f"Module registration {module_name}",
+                                "FAIL",
+                                f"네트워크 오류: {exc}",
+                            )
+                except JsParsingError as exc:
+                    add_row(rows, "Module registration parse", "FAIL", str(exc))
+        except requests.RequestException as exc:
+            add_row(rows, "Module registration parse", "FAIL", f"네트워크 오류: {exc}")
     except CheckFailure as exc:
         add_row(rows, "Static asset checks", "FAIL", str(exc))
         add_row(rows, "assetlinks package_name", "FAIL", "origin 계산 실패로 검사하지 못했습니다.")
+        add_row(rows, "Module syntax", "FAIL", "origin 계산 실패로 검사하지 못했습니다.")
+        add_row(rows, "Module conventions", "FAIL", "origin 계산 실패로 검사하지 못했습니다.")
+        add_row(rows, "Module registration", "FAIL", "origin 계산 실패로 검사하지 못했습니다.")
 
     print_table(rows)
 
     fail_count = sum(1 for row in rows if row.status == "FAIL")
     pass_count = sum(1 for row in rows if row.status == "PASS")
     skip_count = sum(1 for row in rows if row.status == "SKIP")
+    warn_count = sum(1 for row in rows if row.status == "WARN")
+    total_count = sum(1 for row in rows if row.status in {"PASS", "FAIL", "SKIP", "WARN"})
     print()
-    print(f"Summary: PASS={pass_count}, FAIL={fail_count}, SKIP={skip_count}")
+    print(
+        f"Summary: TOTAL {total_count} / PASS {pass_count} / FAIL {fail_count} / SKIP {skip_count} / WARN {warn_count}"
+    )
 
     return 1 if fail_count else 0
 
