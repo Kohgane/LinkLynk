@@ -45,7 +45,7 @@
     return "modules/";
   })();
 
-  const MODULES = ["launcher.js","favorites.js","replay.js","hud.js"];
+  const MODULES = ["launcher.js","favorites.js","replay.js","hud.js","share.js"];
   let loaded = false;
   const _loadedMods = [];
 
