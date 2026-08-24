@@ -161,19 +161,10 @@
     }
 
     /* ── UI ── */
-    const btn = document.createElement("button");
-    btn.id = "swefm-replay-btn";
-    btn.title = "리플레이";
-    btn.textContent = "⏺";
-    btn.style.cssText = `position:fixed;bottom:76px;right:12px;z-index:9000;
-      width:44px;height:44px;border-radius:50%;border:none;background:rgba(0,0,0,.65);
-      color:#FF6666;font-size:20px;cursor:pointer;touch-action:manipulation;`;
-    document.body.appendChild(btn);
-
     const panel = document.createElement("div");
     panel.id = "swefm-replay-panel";
-    panel.style.cssText = `display:none;position:fixed;bottom:130px;right:12px;z-index:9000;
-      width:280px;max-height:70vh;overflow-y:auto;background:rgba(15,15,25,.92);
+    panel.style.cssText = `display:none;position:fixed;top:120px;left:12px;z-index:9000;
+      width:280px;max-height:calc(100vh - 140px);overflow-y:auto;background:rgba(15,15,25,.92);
       color:#eee;border-radius:10px;padding:10px;font-size:13px;
       box-shadow:0 4px 20px rgba(0,0,0,.6);`;
     document.body.appendChild(panel);
@@ -199,8 +190,10 @@
     }
 
     function updateRecBtn() {
-      btn.textContent = recording ? "⏹" : "⏺";
-      btn.style.color = recording ? "#FF9900" : "#FF6666";
+      const btn = document.getElementById("swefm-replay");
+      if (!btn) return;
+      btn.textContent = recording ? "⏹" : "▶";
+      btn.style.color = recording ? "#FF9900" : "#fff";
       btn.title = recording ? "녹화 중단" : "리플레이";
     }
 
@@ -284,13 +277,29 @@
       return `background:${bg};color:${fg};border:none;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;touch-action:manipulation;min-height:30px`;
     }
 
-    btn.onclick = () => {
+    function toggleReplay() {
       if (recording) { stopRecording(); }
       else {
         if (panel.style.display === "none") { renderSlots(); panel.style.display = "block"; }
         else panel.style.display = "none";
       }
-    };
+    }
+
+    try {
+      if (window.SWEFM && typeof window.SWEFM.registerButton === "function") {
+        window.SWEFM.registerButton({
+          id: "swefm-replay",
+          icon: "▶",
+          label: "리플레이",
+          onClick: toggleReplay
+        });
+        updateRecBtn();
+      } else {
+        console.warn("[swefm/replay] registerButton 없음");
+      }
+    } catch (e) {
+      console.warn("[swefm/replay] 버튼 등록 실패", e);
+    }
   }
 
   /* ── 초기화 ── */
