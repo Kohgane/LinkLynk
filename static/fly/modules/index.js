@@ -12,6 +12,27 @@
     if (tries > 20) return log("viewer 없음 — 모듈 대기 종료");
     setTimeout(()=>waitViewer(cb, tries+1), 500);
   }
-  window.SWEFM = { waitViewer, version: "0.1" };
+  window.SWEFM = { waitViewer, version: "0.2" };
   log("modules ready");
+
+  /* 서브모듈 동적 로드 */
+  const BASE = (function(){
+    try {
+      const scripts = document.querySelectorAll("script");
+      for (let i = 0; i < scripts.length; i++) {
+        const s = scripts[i].src || "";
+        if (s.indexOf("modules/index.js") !== -1) return s.replace("index.js","");
+      }
+    } catch(e){}
+    return "modules/";
+  })();
+
+  ["favorites.js","replay.js","hud.js"].forEach(function(mod){
+    try {
+      const s = document.createElement("script");
+      s.src = BASE + mod;
+      s.onerror = function(){ console.warn("[swefm] 모듈 로드 실패:", mod); };
+      document.head.appendChild(s);
+    } catch(e){ console.warn("[swefm] 모듈 주입 실패:", mod, e); }
+  });
 })();
