@@ -12,7 +12,23 @@
     if (tries > 20) return log("viewer 없음 — 모듈 대기 종료");
     setTimeout(()=>waitViewer(cb, tries+1), 500);
   }
-  window.SWEFM = { waitViewer, version: "0.2" };
+  window.SWEFM = {
+    waitViewer,
+    version: "0.2",
+    _btnQueue: [],
+    _registerButtonImpl: null,
+    registerButton: function(cfg) {
+      try {
+        if (window.SWEFM._registerButtonImpl) {
+          window.SWEFM._registerButtonImpl(cfg);
+        } else {
+          window.SWEFM._btnQueue.push(cfg);
+        }
+      } catch(e) {
+        console.warn("[swefm] registerButton error", e);
+      }
+    }
+  };
   log("modules ready");
 
   // 서브모듈 동적 로드
@@ -29,7 +45,7 @@
     return "modules/";
   })();
 
-  const MODULES = ["favorites.js","replay.js","hud.js"];
+  const MODULES = ["launcher.js","favorites.js","replay.js","hud.js"];
   let loaded = false;
   const _loadedMods = [];
 
