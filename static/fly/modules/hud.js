@@ -103,23 +103,16 @@
     }
     setVisible(visible);
 
-    function toggleHud() {
-      setVisible(!visible);
-    }
-
-    try {
-      if (window.SWEFM && typeof window.SWEFM.registerButton === "function") {
-        window.SWEFM.registerButton({
-          id: "swefm-hud",
-          icon: "📍",
-          label: "좌표",
-          onClick: toggleHud
-        });
-      } else {
-        console.warn("[swefm/hud] registerButton 없음");
-      }
-    } catch (e) {
-      console.warn("[swefm/hud] 버튼 등록 실패", e);
+    // 런처 등록
+    if (window.SWEFM && typeof window.SWEFM.registerButton === "function") {
+      window.SWEFM.registerButton({
+        id: "swefm-hud",
+        icon: "📍",
+        label: "좌표",
+        onClick: function () { setVisible(!visible); }
+      });
+    } else {
+      console.warn("[swefm/hud] registerButton 없음 — 런처 미로드");
     }
 
     /* 클립보드 복사 */

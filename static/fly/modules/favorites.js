@@ -106,8 +106,8 @@
     // 패널
     const panel = document.createElement("div");
     panel.id = "swefm-favs-panel";
-    panel.style.cssText = `display:none;position:fixed;top:120px;left:12px;z-index:9000;
-      width:280px;max-height:calc(100vh - 140px);overflow-y:auto;background:rgba(15,15,25,.92);
+    panel.style.cssText = `display:none;position:fixed;top:50%;left:12px;transform:translateY(-50%);z-index:9000;
+      width:280px;max-height:60vh;overflow-y:auto;background:rgba(15,15,25,.92);
       color:#eee;border-radius:10px;padding:10px;font-size:13px;
       box-shadow:0 4px 20px rgba(0,0,0,.6);`;
     document.body.appendChild(panel);
@@ -208,24 +208,19 @@
       e.target.value = "";
     }
 
-    function togglePanel() {
-      if (panel.style.display === "none") { renderPanel(); panel.style.display = "block"; }
-      else panel.style.display = "none";
-    }
-
-    try {
-      if (window.SWEFM && typeof window.SWEFM.registerButton === "function") {
-        window.SWEFM.registerButton({
-          id: "swefm-favs",
-          icon: "★",
-          label: "즐겨찾기",
-          onClick: togglePanel
-        });
-      } else {
-        console.warn("[swefm/favs] registerButton 없음");
-      }
-    } catch (e) {
-      console.warn("[swefm/favs] 버튼 등록 실패", e);
+    // 런처 등록
+    if (window.SWEFM && typeof window.SWEFM.registerButton === "function") {
+      window.SWEFM.registerButton({
+        id: "swefm-favs",
+        icon: "★",
+        label: "즐겨찾기",
+        onClick: function () {
+          if (panel.style.display === "none") { renderPanel(); panel.style.display = "block"; }
+          else panel.style.display = "none";
+        }
+      });
+    } else {
+      console.warn("[swefm/favs] registerButton 없음 — 런처 미로드");
     }
 
     // 자동 히스토리: 30초마다 기록
