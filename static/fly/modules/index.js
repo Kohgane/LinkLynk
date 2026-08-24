@@ -15,24 +15,56 @@
   window.SWEFM = { waitViewer, version: "0.2" };
   log("modules ready");
 
-  /* 서브모듈 동적 로드 */
+  // 서브모듈 동적 로드
   const BASE = (function(){
     try {
-      const scripts = document.querySelectorAll("script");
-      for (let i = 0; i < scripts.length; i++) {
-        const s = scripts[i].src || "";
-        if (s.indexOf("modules/index.js") !== -1) return s.replace("index.js","");
+      const scripts = document.querySelectorAll("script[src]");
+      for(let s of scripts){
+        if(s.src && s.src.includes("modules/index.js")){
+          return s.src.replace("index.js","");
+        }
       }
-    } catch(e){}
+    } catch(e){ /* 무시 */ }
     return "modules/";
   })();
 
-  ["favorites.js","replay.js","hud.js"].forEach(function(mod){
-    try {
-      const s = document.createElement("script");
-      s.src = BASE + mod;
-      s.onerror = function(){ console.warn("[swefm] 모듈 로드 실패:", mod); };
-      document.head.appendChild(s);
-    } catch(e){ console.warn("[swefm] 모듈 주입 실패:", mod, e); }
-  });
+  const MODULES = ["favorites.js","replay.js","hud.js"];
+  let loaded = false;
+
+  function loadModules(){
+    if(loaded) return;
+    loaded = true;
+    MODULES.forEach(function(mod){
+      try {
+        import(BASE + mod).catch(function(){
+          // import 실패 시 script 태그로 폴백
+          try {
+            var s = document.createElement("script");
+            s.src = BASE + mod;
+            s.onerror = function(){ console.warn("[swefm] 모듈 로드 실패:", mod); };
+            document.head.appendChild(s);
+          } catch(e2){ console.warn("[swefm] 모듈 삽입 실패:", mod, e2); }
+        });
+      } catch(e){
+        // import() 자체 미지원 환경
+        try {
+          var s = document.createElement("script");
+          s.src = BASE + mod;
+          s.onerror = function(){ console.warn("[swefm] 모듈 로드 실패:", mod); };
+          document.head.appendChild(s);
+        } catch(e2){ console.warn("[swefm] 모듈 삽입 실패:", mod, e2); }
+      }
+    });
+  }
+
+  window.addEventListener("swef:ready", function(){ loadModules(); });
+  if(window.SWEF && window.SWEF.viewer){ loadModules(); }
+  // DOMContentLoaded 후에도 시도 (viewer 준비 전에 index.js가 실행된 경우)
+  if(document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", function(){
+      setTimeout(loadModules, 200);
+    });
+  } else {
+    setTimeout(loadModules, 200);
+  }
 })();
