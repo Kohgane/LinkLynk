@@ -21,7 +21,8 @@
       const scripts = document.querySelectorAll("script[src]");
       for(let s of scripts){
         if(s.src && s.src.includes("modules/index.js")){
-          return s.src.replace("index.js","");
+          const u = new URL(s.src, location.href);
+          return u.href.replace(/index\.js.*$/, "");
         }
       }
     } catch(e){ /* 무시 */ }
@@ -30,32 +31,54 @@
 
   const MODULES = ["favorites.js","replay.js","hud.js"];
   let loaded = false;
+  const _loadedMods = [];
 
   function loadModules(){
     if(loaded) return;
     loaded = true;
     MODULES.forEach(function(mod){
       try {
-        import(BASE + mod).catch(function(){
+        import(BASE + mod).then(function(){
+          _loadedMods.push(mod);
+          console.log("[swefm] loaded", mod);
+        }).catch(function(err){
+          console.warn("[swefm] failed", mod, err);
           // import 실패 시 script 태그로 폴백
           try {
             var s = document.createElement("script");
             s.src = BASE + mod;
-            s.onerror = function(){ console.warn("[swefm] 모듈 로드 실패:", mod); };
+            s.onload = function(){ _loadedMods.push(mod); console.log("[swefm] loaded", mod); };
+            s.onerror = function(e2){ console.warn("[swefm] failed", mod, e2); };
             document.head.appendChild(s);
-          } catch(e2){ console.warn("[swefm] 모듈 삽입 실패:", mod, e2); }
+          } catch(e2){ console.warn("[swefm] failed", mod, e2); }
         });
       } catch(e){
+        console.warn("[swefm] failed", mod, e);
         // import() 자체 미지원 환경
         try {
           var s = document.createElement("script");
           s.src = BASE + mod;
-          s.onerror = function(){ console.warn("[swefm] 모듈 로드 실패:", mod); };
+          s.onload = function(){ _loadedMods.push(mod); console.log("[swefm] loaded", mod); };
+          s.onerror = function(e2){ console.warn("[swefm] failed", mod, e2); };
           document.head.appendChild(s);
-        } catch(e2){ console.warn("[swefm] 모듈 삽입 실패:", mod, e2); }
+        } catch(e2){ console.warn("[swefm] failed", mod, e2); }
       }
     });
   }
+
+  window.SWEFM.debug = function(){
+    try {
+      var viewer = (window.SWEF && window.SWEF.viewer) || window.viewer;
+      console.table({
+        loadedModules: _loadedMods.join(", ") || "(none)",
+        "window.SWEF": !!(window.SWEF),
+        viewer: !!(viewer),
+        "swefm-DOM count": document.querySelectorAll("[id^=swefm-]").length
+      });
+    } catch(e){
+      console.warn("[swefm] debug error", e);
+    }
+  };
 
   window.addEventListener("swef:ready", function(){ loadModules(); });
   if(window.SWEF && window.SWEF.viewer){ loadModules(); }
