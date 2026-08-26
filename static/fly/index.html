@@ -52,8 +52,8 @@
   #tracks{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px}
     .tcard{flex:0 0 auto;padding:8px 14px;border-radius:20px;background:rgba(255,120,180,.18);
     border:1px solid rgba(255,150,200,.4);font-size:13px;white-space:nowrap;cursor:pointer;color:#fff}
-  #raceHud{position:fixed;top:70px;left:50%;transform:translateX(-50%);z-index:12;color:#fff;
-    font-size:20px;font-weight:800;text-shadow:0 2px 8px #000;display:none;text-align:center;line-height:1.5}
+  #raceHud{position:fixed;top:64px;left:14px;z-index:12;color:#fff;
+    font-size:26px;font-weight:900;text-shadow:0 2px 10px #000;display:none;text-align:left;line-height:1.35}
   .cinebars{position:fixed;left:0;right:0;height:9vh;background:#000;z-index:8;pointer-events:none;transition:transform .7s ease}
   #cineTop{top:0;transform:translateY(-101%)}
   #cineBot{bottom:0;transform:translateY(101%)}
@@ -64,6 +64,23 @@
   #coachCard{background:rgba(18,22,38,.96);border:1px solid rgba(255,255,255,.2);border-radius:20px;
     padding:26px 28px;color:#fff;max-width:320px;width:84%}
   .cl{font-size:15px;line-height:2.1}
+  #btnEye{position:fixed;right:12px;top:100px;z-index:9600;width:38px;height:38px;border-radius:50%;
+    background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.25);color:#fff;font-size:17px}
+  body.zen #panel, body.zen .tbtn, body.zen #hint, body.zen #vehHud,
+  body.zen [id^="swefm-"], body.zen #avWrap{display:none !important}
+  #avWrap{position:fixed;left:50%;transform:translateX(-50%);z-index:7;pointer-events:none;
+    font-size:58px;filter:drop-shadow(0 10px 12px rgba(0,0,0,.55));transition:font-size .2s}
+  #gauge{position:fixed;right:12px;z-index:9;width:86px;height:86px;border-radius:50%;
+    display:flex;align-items:center;justify-content:center;flex-direction:column;
+    background:conic-gradient(rgba(90,180,255,.9) 0%, rgba(255,255,255,.1) 0);
+    border:2px solid rgba(255,255,255,.25);color:#fff;font-weight:800;text-shadow:0 1px 4px #000}
+  #gauge .in{width:66px;height:66px;border-radius:50%;background:rgba(8,10,20,.82);
+    display:flex;align-items:center;justify-content:center;flex-direction:column}
+  #gauge .kv{font-size:17px;line-height:1}
+  #gauge .kd{font-size:9px;opacity:.7}
+  #gauge.dr{background:conic-gradient(rgba(255,170,60,.95) 0%, rgba(255,255,255,.1) 0)}
+  #mini{position:fixed;left:12px;top:100px;z-index:9;width:118px;height:118px;border-radius:14px;
+    background:rgba(5,8,18,.6);border:1px solid rgba(255,255,255,.22);display:none}
   #tload{position:fixed;top:64px;right:12px;z-index:12;color:rgba(255,255,255,.75);font-size:11px;
     background:rgba(0,0,0,.35);padding:4px 10px;border-radius:10px;opacity:0;transition:opacity .4s;pointer-events:none}
   #raceHud small{font-size:12px;font-weight:400;opacity:.85}
@@ -94,8 +111,12 @@
 <div class="hud" id="title">EARTHFLIGHT</div>
 <div class="hud" id="vehHud"></div>
 <div id="raceHud"></div>
+<div id="avWrap">✈️</div>
+<div id="gauge"><div class="in"><div class="kv" id="gKv">0</div><div class="kd">km/h</div></div></div>
+<canvas id="mini" width="118" height="118"></canvas>
 <div id="cineTop" class="cinebars"></div>
 <div id="cineBot" class="cinebars"></div>
+<button id="btnEye" aria-label="UI 숨김">👁</button>
 <div id="tload">🌍 지형 로딩…</div>
 <div id="statsBox" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);
  z-index:20;background:rgba(10,12,30,.92);border:1px solid rgba(255,255,255,.25);border-radius:16px;
@@ -439,7 +460,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0826b";
+  const SWEF_BUILD="0826c";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -488,6 +509,8 @@ function placeTouchBtns(){
   const h=Math.round(p.getBoundingClientRect().height)+14;
   const set=(id,extra)=>{const el=document.getElementById(id); if(el) el.style.bottom=(h+extra)+"px";};
   set("btnDrift",0); set("btnBoost",18); set("btnHov",10);
+  const av=document.getElementById("avWrap"); if(av) av.style.bottom=(h+66)+"px";
+  const gg=document.getElementById("gauge"); if(gg) gg.style.bottom=(h+96)+"px";
 }
 function setupTouch(){
   placeTouchBtns();
@@ -571,16 +594,16 @@ function initFilm(){
     else if(u_mode<11.5){
       float dpt = texture(depthTexture, uv).r;
       float skyM = step(0.999999, dpt);
-      vec3 low  = vec3(0.99,0.80,0.62);
-      vec3 mid  = vec3(0.66,0.86,0.96);
-      vec3 top  = vec3(0.93,0.66,0.90);
+      vec3 low  = vec3(0.98,0.55,0.38);
+      vec3 mid  = vec3(0.45,0.66,0.92);
+      vec3 top  = vec3(0.62,0.35,0.72);
       vec3 skyCol = mix(low, mid, smoothstep(0.05,0.45,uv.y));
       skyCol = mix(skyCol, top, smoothstep(0.45,0.92,uv.y));
       float band = sin(uv.x*4.0 + u_time*0.18 + uv.y*5.0)*0.5+0.5;
       float band2= sin(uv.x*9.0 - u_time*0.11)*0.5+0.5;
       skyCol *= (0.92 + 0.10*band + 0.05*band2);
       skyCol = mix(skyCol, vec3(0.62,0.95,0.82), band*band2*smoothstep(0.5,0.95,uv.y)*0.35);
-      c = mix(c, skyCol, skyM*0.94);
+      c = mix(c, skyCol, skyM*0.8);
       c = sat(c, 1.08);
       c = filmic(c*1.05);
     }
@@ -885,6 +908,67 @@ function ensureTrail(){
     material:new Cesium.ColorMaterialProperty(new Cesium.CallbackProperty(
       ()=>driftSt.on?Cesium.Color.ORANGE.withAlpha(0.85):Cesium.Color.CYAN.withAlpha(0.55),false))}});
 }
+function zenToggle(){
+  document.body.classList.toggle("zen");
+  document.getElementById("btnEye").textContent=document.body.classList.contains("zen")?"🙈":"👁";
+}
+let _avEmoji="", _avRot=99, _gPct=-1, _gDrift=false;
+function updateAvatar(){
+  const el=document.getElementById("avWrap");
+  if(mode!=="free"){ if(el.style.display!=="none"){el.style.display="none";} return; }
+  if(el.style.display==="none") el.style.display="block";
+  const e=veh?veh.e:"✈️";
+  if(e!==_avEmoji){ _avEmoji=e; el.textContent=e; }
+  const r=-(tick._roll||0);
+  if(Math.abs(r-_avRot)>0.02){ _avRot=r;
+    el.style.transform="translateX(-50%) rotate("+(r*57.3).toFixed(1)+"deg)"; }
+  const boost=driftSt.boostT>0||keys.shift||touch.boost;
+  const fs2=boost?66:58;
+  if(el._fs!==fs2){ el._fs=fs2; el.style.fontSize=fs2+"px"; }
+}
+function updateGauge(){
+  const g=document.getElementById("gauge");
+  if(mode!=="free"){ if(g.style.display!=="none")g.style.display="none"; return; }
+  if(g.style.display==="none")g.style.display="flex";
+  const kmh=curSpeed()*3.6;
+  const pct=Math.min(100, Math.round(kmh/8000*100));
+  const dr=driftSt.on;
+  const drPct=Math.min(100, Math.round(driftSt.charge/1.6*100));
+  const usePct=dr?drPct:pct;
+  if(usePct!==_gPct||dr!==_gDrift){
+    _gPct=usePct; _gDrift=dr;
+    g.classList.toggle("dr",dr);
+    const col=dr?"rgba(255,170,60,.95)":"rgba(90,180,255,.9)";
+    g.style.background="conic-gradient("+col+" "+usePct+"%, rgba(255,255,255,.1) 0)";
+  }
+  const kv=document.getElementById("gKv");
+  const txt=kmh>=10000?(kmh/10000).toFixed(1)+"만":Math.round(kmh).toLocaleString();
+  if(kv.textContent!==txt) kv.textContent=txt;
+}
+let miniT=0;
+function miniTick(dt){
+  const cv=document.getElementById("mini");
+  if(!race.on){ if(cv.style.display!=="none")cv.style.display="none"; return; }
+  if(cv.style.display!=="block")cv.style.display="block";
+  miniT+=dt; if(miniT<0.15) return; miniT=0;
+  const T=TRACKS[race.ti], g=T.gates;
+  let x0=1e9,x1=-1e9,y0=1e9,y1=-1e9;
+  g.forEach(p=>{x0=Math.min(x0,p[0]);x1=Math.max(x1,p[0]);y0=Math.min(y0,p[1]);y1=Math.max(y1,p[1]);});
+  const pad=0.15*(Math.max(x1-x0,y1-y0)||0.01); x0-=pad;x1+=pad;y0-=pad;y1+=pad;
+  const W=118,H=118, X=v=> (v-x0)/(x1-x0)*W, Y=v=> H-(v-y0)/(y1-y0)*H;
+  const ctx=cv.getContext("2d");
+  ctx.clearRect(0,0,W,H);
+  ctx.strokeStyle="rgba(120,220,255,.5)"; ctx.lineWidth=2; ctx.beginPath();
+  g.forEach((p,i)=>{ i?ctx.lineTo(X(p[0]),Y(p[1])):ctx.moveTo(X(p[0]),Y(p[1])); }); ctx.stroke();
+  g.forEach((p,i)=>{ ctx.fillStyle= i<race.gi?"rgba(90,255,140,.9)": i===race.gi?"rgba(255,170,60,1)":"rgba(255,255,255,.4)";
+    ctx.beginPath(); ctx.arc(X(p[0]),Y(p[1]), i===race.gi?4.5:3, 0, 6.29); ctx.fill(); });
+  const pc=viewer.camera.positionCartographic;
+  const plon=Cesium.Math.toDegrees(pc.longitude), plat=Cesium.Math.toDegrees(pc.latitude);
+  ctx.fillStyle="#fff"; ctx.save();
+  ctx.translate(X(plon),Y(plat)); ctx.rotate(viewer.camera.heading);
+  ctx.beginPath(); ctx.moveTo(0,-6); ctx.lineTo(4.5,5); ctx.lineTo(-4.5,5); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
 let RES_BASE=IS_TOUCH?0.7:1.0, RES_MOVE=IS_TOUCH?0.55:0.8;
 let idleT=0;
 function dynRes(moving,dt){
@@ -898,7 +982,7 @@ function tick(){
   const now = performance.now();
   const dt = lastT ? Math.min((now-lastT)/1000, 0.1) : 1/60;
   lastT = now;
-  raceTick(dt); momentTick(dt);
+  raceTick(dt); momentTick(dt); miniTick(dt);
   if (mode === "tour" && orbiting && orbitCenter){
     orbitHeading += 0.1*dt;
     if(!tick._hprS) tick._hprS=new Cesium.HeadingPitchRange();
@@ -961,6 +1045,7 @@ function tick(){
     }
     const moving=keys.w||keys.s||keys.a||keys.d||Math.abs(touch.sjx)>0.05||Math.abs(touch.sjy)>0.05;
     dynRes(moving,dt);
+    updateAvatar(); updateGauge();
     const steerDir = touch.lx? Math.max(-1,Math.min(1,touch.lx*60)) : (keys.arrowleft? -1 : keys.arrowright? 1 : 0);
     const lean = steerDir * (driftSt.on? -0.34 : -0.18);
     tick._roll = (tick._roll||0) + (lean - (tick._roll||0))*0.1;
@@ -1109,6 +1194,10 @@ function startRace(i){
         material:Cesium.Color.CYAN.withAlpha(0.22),
         outline:true,outlineColor:Cesium.Color.CYAN.withAlpha(0.7)}}));
   });
+  race.ents.push(viewer.entities.add({polyline:{
+    positions:T.gates.map(g=>gatePos(g)), width:5,
+    material:new Cesium.PolylineGlowMaterialProperty({glowPower:0.22,
+      color:Cesium.Color.CYAN.withAlpha(0.55)})}}));
   highlightGate();
   if(race.best&&race.best.path&&race.best.path.length>1){
     race.ghostEnt=viewer.entities.add({polyline:{positions:race.best.path.map(q=>new Cesium.Cartesian3(q[0],q[1],q[2])),
@@ -1261,6 +1350,7 @@ function buildUI(){
   document.getElementById("btnGo").onclick=searchPlace;
   document.getElementById("searchBox").addEventListener("keydown",e=>{if(e.key==="Enter")searchPlace();});
   document.getElementById("btnRec").onclick=toggleRec;
+  document.getElementById("btnEye").onclick=zenToggle;
   document.getElementById("btnHQ").onclick=toggleHQ;
   document.getElementById("btnCloud").onclick=cycleClouds;
   document.getElementById("btnCine").onclick=()=>{
