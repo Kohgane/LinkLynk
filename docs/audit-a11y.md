@@ -81,6 +81,7 @@
 - **위치**: `static/fly/modules/launcher.js:L140-L162`
 - **문제**: `launcherEl.textContent = "☰"` 에 `title`만 있고 `aria-label`이 없습니다. `title`은 마우스 호버에서만 표시되며 스크린리더 지원이 일관되지 않습니다.
 - **영향**: 모바일 스크린리더에서 기능 파악 불가.
+- **상태**: ✅ 해결(현재 PR)
 - **제안**:
 ```javascript
 launcherEl.setAttribute("aria-label", "모듈 열기");
@@ -94,6 +95,7 @@ launcherEl.setAttribute("aria-expanded", open ? "true" : "false");
 - **위치**: `static/fly/modules/launcher.js:L78-L95`
 - **문제**: `b.textContent = btn.icon` (emoji만) — `aria-label`이 없습니다.
 - **영향**: 스크린리더가 emoji 이름을 읽거나 기능을 파악하지 못합니다.
+- **상태**: ✅ 해결(현재 PR)
 - **제안**:
 ```javascript
 b.setAttribute("aria-label", btn.label || btn.icon);
@@ -104,6 +106,7 @@ b.setAttribute("aria-label", btn.label || btn.icon);
 - **위치**: `static/fly/modules/share.js:L191-L196`
 - **문제**: 닫기(`✕`), 복사, 공유 버튼에 `aria-label` 없음.
 - **영향**: 스크린리더에서 각 버튼 기능을 알 수 없습니다.
+- **상태**: ✅ 해결(현재 PR)
 - **제안**:
 ```html
 <button id="swefm-share-close" aria-label="닫기" ...>✕</button>
@@ -115,6 +118,7 @@ b.setAttribute("aria-label", btn.label || btn.icon);
 
 - **위치**: `static/fly/modules/compare.js:L56-L62`
 - **문제**: 닫기(`✕`), 시작, 중단 버튼에 `aria-label` 없음.
+- **상태**: ✅ 해결(현재 PR)
 - **제안**:
 ```html
 <button id="swefm-compare-close" aria-label="닫기" ...>✕</button>
@@ -305,6 +309,7 @@ b.appendChild(closeBtn);
 
 - **위치**: `static/fly/modules/favorites.js:L119-L134`
 - **문제**: `renderPanel()`에서 innerHTML로 생성한 `button` 요소들이 `aria-label` 없이 emoji/텍스트만 표시됨. `swefm-favs-close(✕)`, `swefm-favs-save`, `swefm-fav-del(✕)` 등.
+- **상태**: ✅ 해결(현재 PR)
 - **제안**:
 ```javascript
 '<button id="swefm-favs-close" aria-label="닫기" style="...">✕</button>'
@@ -323,6 +328,7 @@ document.addEventListener("keydown", e => {
 });
 ```
 - **문제**: 재생 중 Tab 키를 전역 차단하나, 재생 오버레이에 `aria-modal`, `role="dialog"`, `aria-label` 없음. 스크린리더가 배경 콘텐츠를 계속 탐색할 수 있음.
+- **상태**: ✅ 해결(현재 PR)
 - **제안**:
 ```javascript
 inputBlockOverlay.setAttribute("role", "dialog");

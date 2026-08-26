@@ -108,6 +108,9 @@
       // 오버레이 (입력 차단)
       inputBlockOverlay = document.createElement("div");
       inputBlockOverlay.id = "swefm-replay-overlay";
+      inputBlockOverlay.setAttribute("role", "dialog");
+      inputBlockOverlay.setAttribute("aria-modal", "true");
+      inputBlockOverlay.setAttribute("aria-label", "리플레이 재생 중");
       inputBlockOverlay.style.cssText = `position:fixed;inset:0;z-index:8900;cursor:not-allowed;`;
       inputBlockOverlay.addEventListener("touchstart", e => e.preventDefault(), { passive: false });
       inputBlockOverlay.addEventListener("mousedown", e => e.stopPropagation(), true);
@@ -204,6 +207,8 @@
     /* ── UI ── */
     const panel = document.createElement("div");
     panel.id = "swefm-replay-panel";
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-label", "비행 리플레이");
     panel.style.cssText = `display:none;position:fixed;top:50%;left:12px;transform:translateY(-50%);z-index:9000;
       width:280px;max-height:70vh;overflow-y:auto;background:rgba(15,15,25,.92);
       color:#eee;border-radius:10px;padding:10px;font-size:13px;
@@ -220,7 +225,7 @@
       <div id="swefm-replay-bar-track" style="flex:1;height:6px;background:rgba(255,255,255,.2);border-radius:3px">
         <div id="swefm-replay-bar-fill" style="height:100%;width:0%;background:#FF6666;border-radius:3px;transition:width .1s"></div>
       </div>
-      <button id="swefm-replay-stop-btn" style="background:#c33;border:none;color:#fff;border-radius:4px;padding:2px 8px;cursor:pointer;font-size:11px">중단</button>
+      <button id="swefm-replay-stop-btn" type="button" aria-label="리플레이 중단" style="background:#c33;border:none;color:#fff;border-radius:4px;padding:8px 10px;cursor:pointer;font-size:11px;min-height:44px">중단</button>
     `;
     document.body.appendChild(progressBar);
     progressBar.querySelector("#swefm-replay-stop-btn").onclick = stopPlayback;
@@ -246,36 +251,36 @@
       panel.innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <b>비행 리플레이</b>
-          <button id="swefm-replay-close" style="background:none;border:none;color:#aaa;font-size:16px;cursor:pointer">✕</button>
+          <button id="swefm-replay-close" type="button" aria-label="닫기" style="display:inline-flex;align-items:center;justify-content:center;background:none;border:none;color:#aaa;font-size:16px;cursor:pointer;padding:0;min-width:44px;min-height:44px">✕</button>
         </div>
         <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:8px">
-          <button id="swefm-rec-start" style="${bstyle('#933','#fff')}" ${recording ? "disabled" : ""}>⏺ 녹화 시작</button>
-          <button id="swefm-rec-stop" style="${bstyle('#662','#fff')}" ${!recording ? "disabled" : ""}>⏹ 녹화 중단</button>
+          <button id="swefm-rec-start" type="button" aria-label="녹화 시작" style="${bstyle('#933','#fff')}" ${recording ? "disabled" : ""}>⏺ 녹화 시작</button>
+          <button id="swefm-rec-stop" type="button" aria-label="녹화 중단" style="${bstyle('#662','#fff')}" ${!recording ? "disabled" : ""}>⏹ 녹화 중단</button>
         </div>
         ${hasPath ? `
           <div style="background:rgba(255,255,255,.06);border-radius:6px;padding:6px 8px;margin-bottom:8px">
             <div style="color:#aaa;font-size:11px">현재 경로: ${currentPath.length}프레임 (${durSec}초)</div>
             <div style="display:flex;gap:6px;margin-top:6px;align-items:center;flex-wrap:wrap">
               <span style="font-size:11px;color:#aaa">속도:</span>
-              <select id="swefm-replay-speed" style="background:#222;color:#eee;border:none;border-radius:4px;padding:2px 4px;font-size:11px">
+              <select id="swefm-replay-speed" aria-label="리플레이 속도" style="background:#222;color:#eee;border:none;border-radius:4px;padding:8px 6px;font-size:11px;min-height:44px">
                 <option value="0.5">0.5×</option>
                 <option value="1" selected>1×</option>
                 <option value="2">2×</option>
               </select>
-              <button id="swefm-replay-play" style="${bstyle('#226','#fff')}" ${playing ? "disabled" : ""}>▶ 재생</button>
-              <button id="swefm-replay-save-slot" style="${bstyle('#242','#fff')}">💾 슬롯 저장</button>
+              <button id="swefm-replay-play" type="button" aria-label="리플레이 재생" style="${bstyle('#226','#fff')}" ${playing ? "disabled" : ""}>▶ 재생</button>
+              <button id="swefm-replay-save-slot" type="button" aria-label="현재 리플레이를 슬롯에 저장" style="${bstyle('#242','#fff')}">💾 슬롯 저장</button>
             </div>
           </div>
-        ` : `<div style="color:#777;margin-bottom:8px;font-size:12px">녹화된 경로 없음</div>`}
+        ` : `<div style="color:#bbb;margin-bottom:8px;font-size:12px">녹화된 경로 없음</div>`}
         <div style="font-weight:600;margin:4px 0;color:#88BBFF">저장된 리플레이</div>
         ${Array.from({ length: MAX_SLOTS }, (_, i) => {
           const r = replays[i];
-          if (!r) return `<div style="color:#555;font-size:12px;padding:4px 0">슬롯 ${i + 1}: 비어 있음</div>`;
+          if (!r) return `<div style="color:#bbb;font-size:12px;padding:4px 0">슬롯 ${i + 1}: 비어 있음</div>`;
           const dur = ((r.frames.length * SAMPLE_INTERVAL) / 1000).toFixed(0);
           return `<div style="display:flex;align-items:center;gap:4px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.07)">
             <span style="flex:1;font-size:12px">${r.name} (${dur}초)</span>
-            <button class="swefm-slot-play" data-idx="${i}" style="${bstyle('#226','#fff')} font-size:11px;padding:2px 6px">▶</button>
-            <button class="swefm-slot-del" data-idx="${i}" style="background:none;border:none;color:#f66;cursor:pointer;padding:0 4px">✕</button>
+            <button class="swefm-slot-play" type="button" aria-label="저장된 리플레이 재생" data-idx="${i}" style="${bstyle('#226','#fff')} font-size:11px">▶</button>
+            <button class="swefm-slot-del" type="button" aria-label="저장된 리플레이 삭제" data-idx="${i}" style="display:inline-flex;align-items:center;justify-content:center;background:none;border:none;color:#f66;cursor:pointer;padding:0;min-width:44px;min-height:44px">✕</button>
           </div>`;
         }).join("")}
       `;
@@ -315,7 +320,7 @@
     }
 
     function bstyle(bg, fg) {
-      return `background:${bg};color:${fg};border:none;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;touch-action:manipulation;min-height:30px`;
+      return `background:${bg};color:${fg};border:none;border-radius:6px;padding:8px 10px;cursor:pointer;font-size:11px;touch-action:manipulation;min-height:44px`;
     }
 
     // 런처 등록
