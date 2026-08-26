@@ -439,7 +439,9 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  document.getElementById("tier").textContent = tier;
+  const SWEF_BUILD="0826b";
+  document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
+  console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
   try{ window.viewer = viewer; window.Cesium = window.Cesium || Cesium; }catch(e){}
   try{
@@ -479,7 +481,20 @@ async function init(){
   setupTouch();
 }
 
+function placeTouchBtns(){
+  if(!IS_TOUCH) return;
+  const p=document.getElementById("panel");
+  if(!p) return;
+  const h=Math.round(p.getBoundingClientRect().height)+14;
+  const set=(id,extra)=>{const el=document.getElementById(id); if(el) el.style.bottom=(h+extra)+"px";};
+  set("btnDrift",0); set("btnBoost",18); set("btnHov",10);
+}
 function setupTouch(){
+  placeTouchBtns();
+  if(window.ResizeObserver){
+    new ResizeObserver(placeTouchBtns).observe(document.getElementById("panel"));
+  } else { setInterval(placeTouchBtns, 900); }
+  window.addEventListener("resize", placeTouchBtns);
   if(!IS_TOUCH) return;
   const pad=document.getElementById("lookPad");
   let lid=null,px=0,py=0;
@@ -816,7 +831,7 @@ function goFree(){
 function curSpeed(){
   const h = Math.max(viewer.camera.positionCartographic.height, 1);
   const base = Math.min(Math.max(h*0.8, 100), 200000);
-  return base * veh.sp * ((keys.shift||touch.boost) ? 2.5 : 1);
+  return Math.min(base * veh.sp * ((keys.shift||touch.boost) ? 2.5 : 1), 8000);
 }
 const driftSt={on:false,vec:null,charge:0,boostT:0};
 const trail=[]; let trailEnt=null;
@@ -917,7 +932,7 @@ function tick(){
     tick._fov = (tick._fov||60) + (tgtFov-(tick._fov||60))*0.08;
     if(c.frustum && c.frustum.fov!==undefined) c.frustum.fov = Cesium.Math.toRadians(tick._fov);
     clampToLayer(c);
-    const _vh = (driftSt.on?"\u26A1 ":driftSt.boostT>0?"\uD83D\uDD25 ":"")+`${veh.e} ${dn(veh)} \u00B7 ${Math.round(curSpeed()*3.6).toLocaleString()} km/h`;
+    const _vh = (driftSt.on?"\u26A1 ":driftSt.boostT>0?"\uD83D\uDD25 ":"")+`${veh.e} ${dn(veh)} \u00B7 ${(curSpeed()*3.6>=10000? (curSpeed()*3.6/10000).toFixed(1)+"\uB9CC" : Math.round(curSpeed()*3.6).toLocaleString())} km/h`;
     if(_vh!==tick._lastVeh){ tick._lastVeh=_vh; vehHud.textContent=_vh; }
   }
 }
