@@ -148,6 +148,7 @@
       <button class="btn" id="btnRec">📹 <span id="recLbl">녹화</span></button>
       <button class="btn" id="btnHQ">✨ <span id="hqLbl">고화질</span></button>
       <button class="btn" id="btnCine">🎞️ <span id="cineLbl">시네스코</span></button>
+      <button class="btn" id="btnCloud">☁️ <span id="cloudLbl">구름</span></button>
     </div>
   </div>
   <div id="tabbar">
@@ -605,7 +606,9 @@ const MOMENTS=[
  {n:"🏜️ 황금 사막",en:"Golden Dunes",lon:-4.0,lat:31.15,h:1100,hour:17.9,film:2,move:"push"},
  {n:"🖤 수묵 협곡",en:"Ink Gorge",lon:110.43,lat:29.32,h:1500,hour:7.2,film:3,move:"orbit"},
  {n:"🌌 만월 상승",en:"Full Moon Rise",lon:18.96,lat:69.65,h:1200,hour:0.5,film:4,move:"rise"},
- {n:"🌇 노을 하이웨이",en:"Sunset Highway",lon:-16.62,lat:28.02,h:260,hour:19.3,film:10,move:"push"}
+ {n:"🌇 노을 하이웨이",en:"Sunset Highway",lon:-16.62,lat:28.02,h:260,hour:19.3,film:10,move:"push"},
+ {n:"🌄 운해 일출",en:"Cloud Sea Dawn",lon:102.755,lat:23.11,h:2350,hour:6.6,film:2,move:"push",fx:"sea"},
+ {n:"🎆 한강 불꽃",en:"Han River Fireworks",lon:126.933,lat:37.528,h:520,hour:21.6,film:1,move:"orbit",fx:"fw"}
 ];
 let moment={on:false,t:0,move:null};
 function playMoment(i){
@@ -616,7 +619,9 @@ function playMoment(i){
   viewer.camera.setView({destination:Cesium.Cartesian3.fromDegrees(M.lon,M.lat-0.02,M.h),
     orientation:{heading:0,pitch:Cesium.Math.toRadians(M.move==="rise"?35:-8),roll:0}});
   setLocalTime(M.hour);
-  moment={on:true,t:0,move:M.move,cine:!document.body.classList.contains("cine")};
+  moment={on:true,t:0,move:M.move,cine:!document.body.classList.contains("cine"),fx:M.fx||null};
+  if(M.fx==="sea"){ cloudMode=2; buildClouds(2); }
+  if(M.fx==="fw"){ startFireworks(M.lon, M.lat, 300); }
   document.body.classList.add("cine");
   viewer.scene.globe.maximumScreenSpaceError=1.6;
   document.querySelectorAll(".momc").forEach((c,j)=>c.classList.toggle("on", j===i));
@@ -625,6 +630,7 @@ function stopMoment(){
   if(!moment.on) return;
   moment.on=false;
   if(moment.cine) document.body.classList.remove("cine");
+  if(moment.fx==="fw") stopFireworks();
   viewer.scene.globe.maximumScreenSpaceError=IS_TOUCH?4:2;
   document.querySelectorAll(".momc").forEach(c=>c.classList.remove("on"));
 }
@@ -682,6 +688,82 @@ function toggleRec(){
     recTimer=setInterval(()=>{lbl.textContent="● "+((performance.now()-recT0)/1000).toFixed(0)+"s";},500);
   }catch(e){ lbl.textContent="X"; console.warn(e); }
 }
+
+/* ---------- CLOUDS ---------- */
+let cloudCol=null, cloudMode=0; // 0off 1구름 2운해
+function clearClouds(){ if(cloudCol){ viewer.scene.primitives.remove(cloudCol); cloudCol=null; } }
+function buildClouds(mode){
+  clearClouds();
+  if(!Cesium.CloudCollection || mode===0) return;
+  cloudCol=viewer.scene.primitives.add(new Cesium.CloudCollection({noiseDetail:16}));
+  const pc=viewer.camera.positionCartographic;
+  const lon=Cesium.Math.toDegrees(pc.longitude), lat=Cesium.Math.toDegrees(pc.latitude);
+  const R=(x)=>x*(Math.random()*2-1);
+  if(mode===1){
+    for(let i=0;i<38;i++){
+      const d=0.008+Math.random()*0.05, ang=Math.random()*6.283;
+      cloudCol.add({position:Cesium.Cartesian3.fromDegrees(lon+Math.cos(ang)*d, lat+Math.sin(ang)*d*0.7, pc.height+R(400)),
+        scale:new Cesium.Cartesian2(900+Math.random()*1400, 260+Math.random()*320),
+        maximumSize:new Cesium.Cartesian3(28,14,18), slice:0.28+Math.random()*0.3,
+        brightness:0.95});
+    }
+  } else {
+    const base=Math.max(300, pc.height-450);
+    for(let i=0;i<150;i++){
+      const d=0.006+Math.random()*0.11, ang=Math.random()*6.283;
+      cloudCol.add({position:Cesium.Cartesian3.fromDegrees(lon+Math.cos(ang)*d, lat+Math.sin(ang)*d*0.75, base+R(120)),
+        scale:new Cesium.Cartesian2(1600+Math.random()*2600, 340+Math.random()*380),
+        maximumSize:new Cesium.Cartesian3(34,16,22), slice:0.32+Math.random()*0.25,
+        brightness:1.0});
+    }
+  }
+}
+function cycleClouds(){
+  cloudMode=(cloudMode+1)%3;
+  buildClouds(cloudMode);
+  const lbl=document.getElementById("cloudLbl");
+  lbl.textContent=cloudMode===0?(KO?"구름":"Clouds"):cloudMode===1?(KO?"구름 ON":"Clouds ON"):(KO?"운해":"Cloud Sea");
+  document.getElementById("btnCloud").classList.toggle("on",cloudMode>0);
+  if(cloudMode===2) toast(KO?"☁️ 운해 — 산 위 300~600m에서 내려다보면 진가":"Cloud sea — best viewed from above");
+}
+
+/* ---------- FIREWORKS ---------- */
+let fwTimer=null, fwPrims=[], fwImg=null;
+function particleImg(){
+  if(fwImg) return fwImg;
+  const c=document.createElement("canvas"); c.width=c.height=32;
+  const x=c.getContext("2d");
+  const g=x.createRadialGradient(16,16,0,16,16,16);
+  g.addColorStop(0,"rgba(255,255,255,1)"); g.addColorStop(0.35,"rgba(255,255,255,0.9)"); g.addColorStop(1,"rgba(255,255,255,0)");
+  x.fillStyle=g; x.fillRect(0,0,32,32);
+  fwImg=c.toDataURL("image/png"); return fwImg;
+}
+function burst(lon,lat,h){
+  const hue=Math.random();
+  const col=Cesium.Color.fromHsl(hue,0.95,0.62);
+  const col2=Cesium.Color.fromHsl((hue+0.08)%1,0.9,0.5);
+  const mm=Cesium.Transforms.eastNorthUpToFixedFrame(Cesium.Cartesian3.fromDegrees(lon,lat,h));
+  const p=viewer.scene.primitives.add(new Cesium.ParticleSystem({
+    image:particleImg(), startColor:col, endColor:col2.withAlpha(0.0),
+    startScale:6.5, endScale:2.2, particleLife:1.6+Math.random()*0.7, speed:46+Math.random()*30,
+    imageSize:new Cesium.Cartesian2(3,3), sizeInMeters:true,
+    emissionRate:0, bursts:[new Cesium.ParticleBurst({time:0.0, minimum:170, maximum:240})],
+    lifetime:2.6, emitter:new Cesium.SphereEmitter(3.0), modelMatrix:mm,
+    updateCallback:(pt,dt)=>{ pt.velocity.z-=22*dt; }
+  }));
+  fwPrims.push(p);
+  setTimeout(()=>{ try{viewer.scene.primitives.remove(p);}catch(e){} fwPrims=fwPrims.filter(q=>q!==p); }, 3200);
+  sndGate&&snd(120+Math.random()*80,0.5,"triangle",0.12);
+}
+function startFireworks(lon,lat,baseH){
+  stopFireworks();
+  fwTimer=setInterval(()=>{
+    const n=1+(Math.random()<0.3?1:0);
+    for(let i=0;i<n;i++)
+      burst(lon+(Math.random()-0.5)*0.012, lat+(Math.random()-0.5)*0.008, baseH+120+Math.random()*380);
+  }, 780);
+}
+function stopFireworks(){ if(fwTimer){clearInterval(fwTimer);fwTimer=null;} fwPrims.forEach(p=>{try{viewer.scene.primitives.remove(p);}catch(e){}}); fwPrims=[]; }
 
 function setLocalTime(h){
   const lon = Cesium.Math.toDegrees(viewer.camera.positionCartographic.longitude) || 0;
@@ -1118,6 +1200,7 @@ function buildUI(){
   document.getElementById("searchBox").addEventListener("keydown",e=>{if(e.key==="Enter")searchPlace();});
   document.getElementById("btnRec").onclick=toggleRec;
   document.getElementById("btnHQ").onclick=toggleHQ;
+  document.getElementById("btnCloud").onclick=cycleClouds;
   document.getElementById("btnCine").onclick=()=>{
     document.body.classList.toggle("cine");
     document.getElementById("btnCine").classList.toggle("on",document.body.classList.contains("cine"));
