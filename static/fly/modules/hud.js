@@ -71,6 +71,7 @@
   function buildUI(viewer) {
     let visible = load(KEY_VISIBLE, true);
     let prevPos = null, prevTs = null;
+    let hudTimer = null;
 
     // 컨테이너
     const container = document.createElement("div");
@@ -100,6 +101,8 @@
       visible = v;
       container.style.display = visible ? "flex" : "none";
       save(KEY_VISIBLE, visible);
+      if (visible) startHudLoop();
+      else stopHudLoop();
     }
     setVisible(visible);
 
@@ -140,9 +143,7 @@
       } catch { /* 무시 */ }
     }
 
-    /* 업데이트 루프 */
-    setInterval(() => {
-      if (!visible) return;
+    function updateHUD() {
       try {
         const data = getCamData(viewer, prevPos, prevTs);
         if (!data) return;
@@ -165,7 +166,25 @@
         prevPos = data.pos3d;
         prevTs = data.ts;
       } catch (e) { console.warn("[swefm/hud] 업데이트 오류", e); }
-    }, UPDATE_INTERVAL);
+    }
+
+    function startHudLoop() {
+      if (hudTimer) return;
+      hudTimer = setInterval(updateHUD, UPDATE_INTERVAL);
+    }
+
+    function stopHudLoop() {
+      if (!hudTimer) return;
+      clearInterval(hudTimer);
+      hudTimer = null;
+    }
+
+    function handleUnload() {
+      stopHudLoop();
+    }
+
+    window.addEventListener("pagehide", handleUnload);
+    window.addEventListener("beforeunload", handleUnload);
   }
 
   /* ── 초기화 ── */
