@@ -106,6 +106,8 @@
     // 패널
     const panel = document.createElement("div");
     panel.id = "swefm-favs-panel";
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-label", "즐겨찾기 및 히스토리");
     panel.style.cssText = `display:none;position:fixed;top:50%;left:12px;transform:translateY(-50%);z-index:9000;
       width:280px;max-height:60vh;overflow-y:auto;background:rgba(15,15,25,.92);
       color:#eee;border-radius:10px;padding:10px;font-size:13px;
@@ -119,18 +121,18 @@
       panel.innerHTML = `
         <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
           <b>즐겨찾기 & 히스토리</b>
-          <button id="swefm-favs-close" style="background:none;border:none;color:#aaa;font-size:16px;cursor:pointer">✕</button>
+          <button id="swefm-favs-close" type="button" aria-label="닫기" style="display:inline-flex;align-items:center;justify-content:center;background:none;border:none;color:#aaa;font-size:16px;cursor:pointer;padding:0;min-width:44px;min-height:44px">✕</button>
         </div>
         <div style="display:flex;gap:6px;margin-bottom:8px">
-          <button id="swefm-favs-save" style="${btnStyle('#2a6','#fff')}">📍 현재 위치 저장</button>
-          <button id="swefm-favs-export" style="${btnStyle('#336','#ccc')}">⬇ 내보내기</button>
-          <button id="swefm-favs-import-btn" style="${btnStyle('#336','#ccc')}">⬆ 가져오기</button>
+          <button id="swefm-favs-save" type="button" aria-label="현재 위치 저장" style="${btnStyle('#2a6','#fff')}">📍 현재 위치 저장</button>
+          <button id="swefm-favs-export" type="button" aria-label="즐겨찾기 내보내기" style="${btnStyle('#336','#ccc')}">⬇ 내보내기</button>
+          <button id="swefm-favs-import-btn" type="button" aria-label="즐겨찾기 가져오기" style="${btnStyle('#336','#ccc')}">⬆ 가져오기</button>
         </div>
         <input id="swefm-favs-import-file" type="file" accept=".json" style="display:none">
         <div style="font-weight:600;margin:6px 0 4px;color:#FFD700">즐겨찾기 (${favs.length})</div>
-        <div id="swefm-favs-list">${favs.length ? favs.map(f => favRow(f, true)).join("") : '<div style="color:#777">없음</div>'}</div>
+        <div id="swefm-favs-list">${favs.length ? favs.map(f => favRow(f, true)).join("") : '<div style="color:#bbb">없음</div>'}</div>
         <div style="font-weight:600;margin:10px 0 4px;color:#88BBFF">최근 방문 (${hist.length})</div>
-        <div id="swefm-hist-list">${hist.length ? hist.map(h => favRow(h, false)).join("") : '<div style="color:#777">없음</div>'}</div>
+        <div id="swefm-hist-list">${hist.length ? hist.map(h => favRow(h, false)).join("") : '<div style="color:#bbb">없음</div>'}</div>
       `;
 
       // 이벤트
@@ -163,15 +165,15 @@
     }
 
     function btnStyle(bg, fg) {
-      return `background:${bg};color:${fg};border:none;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:11px;touch-action:manipulation;min-height:32px`;
+      return `background:${bg};color:${fg};border:none;border-radius:6px;padding:8px 10px;cursor:pointer;font-size:11px;touch-action:manipulation;min-height:44px`;
     }
 
     function favRow(item, isFav) {
       const posStr = JSON.stringify(item).replace(/"/g, "&quot;");
-      const del = isFav ? `<button class="swefm-fav-del" data-id="${item.id}" style="background:none;border:none;color:#f66;cursor:pointer;padding:0 4px">✕</button>` : "";
-      const promote = !isFav ? `<button class="swefm-hist-promote" data-pos="${posStr}" style="background:none;border:none;color:#FFD700;cursor:pointer;padding:0 4px">★</button>` : "";
+      const del = isFav ? `<button class="swefm-fav-del" type="button" aria-label="즐겨찾기 삭제" data-id="${item.id}" style="display:inline-flex;align-items:center;justify-content:center;background:none;border:none;color:#f66;cursor:pointer;padding:0;min-width:44px;min-height:44px">✕</button>` : "";
+      const promote = !isFav ? `<button class="swefm-hist-promote" type="button" aria-label="최근 위치를 즐겨찾기로 저장" data-pos="${posStr}" style="display:inline-flex;align-items:center;justify-content:center;background:none;border:none;color:#FFD700;cursor:pointer;padding:0;min-width:44px;min-height:44px">★</button>` : "";
       return `<div style="display:flex;align-items:center;gap:4px;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.07)">
-        <button class="swefm-fav-fly" data-pos="${posStr}" style="flex:1;text-align:left;background:none;border:none;color:#eee;cursor:pointer;font-size:12px;padding:2px 0;touch-action:manipulation;min-height:36px">${item.label || makeLabel(item)}</button>
+        <button class="swefm-fav-fly" type="button" aria-label="${isFav ? "즐겨찾기 위치로 이동" : "최근 위치로 이동"}" data-pos="${posStr}" style="flex:1;text-align:left;background:none;border:none;color:#eee;cursor:pointer;font-size:12px;padding:8px 0;touch-action:manipulation;min-height:44px">${item.label || makeLabel(item)}</button>
         ${promote}${del}
       </div>`;
     }

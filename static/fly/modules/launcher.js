@@ -27,12 +27,15 @@
       trayEl.style.pointerEvents = "auto";
       trayEl.style.transform = "scaleY(1)";
       launcherEl.title = "닫기";
+      launcherEl.setAttribute("aria-label", "모듈 닫기");
     } else {
       trayEl.style.opacity = "0";
       trayEl.style.pointerEvents = "none";
       trayEl.style.transform = "scaleY(0)";
       launcherEl.title = "모듈 열기";
+      launcherEl.setAttribute("aria-label", "모듈 열기");
     }
+    launcherEl.setAttribute("aria-expanded", open ? "true" : "false");
     buttons.forEach(function (btn) {
       if (btn.chipEl) {
         btn.chipEl.style.display = open ? "inline-block" : "none";
@@ -78,6 +81,9 @@
     var b = document.createElement("button");
     b.id = btn.id;
     b.textContent = btn.icon || "●";
+    b.type = "button";
+    b.setAttribute("aria-label", btn.label || btn.icon || "모듈 버튼");
+    b.title = btn.label || btn.icon || "모듈 버튼";
     b.style.cssText = [
       "width:44px",
       "height:44px",
@@ -124,6 +130,8 @@
       // 트레이 (버튼 목록, 런처 위쪽)
       trayEl = document.createElement("div");
       trayEl.id = TRAY_ID;
+      trayEl.setAttribute("role", "dialog");
+      trayEl.setAttribute("aria-label", "모듈 목록");
       trayEl.style.cssText = [
         "position:fixed",
         "right:12px",
@@ -139,8 +147,12 @@
       // 런처 버튼
       launcherEl = document.createElement("button");
       launcherEl.id = LAUNCHER_ID;
+      launcherEl.type = "button";
       launcherEl.textContent = "☰";
       launcherEl.title = "모듈 열기";
+      launcherEl.setAttribute("aria-label", "모듈 열기");
+      launcherEl.setAttribute("aria-controls", TRAY_ID);
+      launcherEl.setAttribute("aria-expanded", "false");
       launcherEl.style.cssText = [
         "position:fixed",
         "right:12px",

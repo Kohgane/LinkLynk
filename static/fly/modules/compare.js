@@ -35,6 +35,8 @@
   function buildPanel() {
     var panel = document.createElement("div");
     panel.id = "swefm-compare-panel";
+    panel.setAttribute("role", "dialog");
+    panel.setAttribute("aria-label", "시간 비교 캡처");
     panel.style.cssText = [
       "display:none",
       "position:fixed",
@@ -53,12 +55,12 @@
     panel.innerHTML = [
       '<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">',
       "<b>시간 비교 캡처</b>",
-      '<button id="swefm-compare-close" style="background:none;border:none;color:#aaa;font-size:16px;cursor:pointer">✕</button>',
+      '<button id="swefm-compare-close" type="button" aria-label="닫기" style="display:inline-flex;align-items:center;justify-content:center;background:none;border:none;color:#aaa;font-size:16px;cursor:pointer;padding:0;min-width:44px;min-height:44px">✕</button>',
       "</div>",
       '<div id="swefm-compare-status" style="margin-top:8px;color:#9fd">대기 중</div>',
       '<div style="display:flex;gap:6px;margin-top:10px">',
-      '<button id="swefm-compare-start" style="background:#2a6;color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;min-height:32px">시작</button>',
-      '<button id="swefm-compare-cancel" style="background:#933;color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;min-height:32px" disabled>중단</button>',
+      '<button id="swefm-compare-start" type="button" aria-label="캡처 시작" style="background:#2a6;color:#fff;border:none;border-radius:6px;padding:8px 12px;cursor:pointer;min-height:44px">시작</button>',
+      '<button id="swefm-compare-cancel" type="button" aria-label="캡처 중단" style="background:#933;color:#fff;border:none;border-radius:6px;padding:8px 12px;cursor:pointer;min-height:44px" disabled>중단</button>',
       "</div>"
     ].join("");
     document.body.appendChild(panel);

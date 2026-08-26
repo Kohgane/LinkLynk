@@ -63,6 +63,8 @@
     if (!el) {
       el = document.createElement("div");
       el.id = PANEL_ID;
+      el.setAttribute("role", "dialog");
+      el.setAttribute("aria-label", "모듈 설정");
       el.style.cssText =
         "display:none;position:fixed;top:60px;left:12px;width:320px;" +
         "background:#1a1a2e;color:#eee;border:1px solid #444;border-radius:10px;" +
@@ -81,10 +83,12 @@
     /* 닫기 버튼 */
     var closeBtn = document.createElement("button");
     closeBtn.id = "swefm-settings-close";
+    closeBtn.type = "button";
     closeBtn.textContent = "✕";
+    closeBtn.setAttribute("aria-label", "닫기");
     closeBtn.style.cssText =
-      "position:absolute;top:10px;right:10px;background:none;border:none;" +
-      "color:#aaa;font-size:16px;cursor:pointer;";
+      "position:absolute;top:10px;right:10px;display:inline-flex;align-items:center;justify-content:center;background:none;border:none;" +
+      "color:#aaa;font-size:16px;cursor:pointer;padding:0;min-width:44px;min-height:44px;";
     closeBtn.onclick = function () { togglePanel(false); };
     el.appendChild(closeBtn);
 
@@ -131,11 +135,13 @@
 
       var toggle = document.createElement("button");
       toggle.id = "swefm-toggle-" + mod.replace(/\./g, "-");
+      toggle.type = "button";
       var dis = isDisabled(mod);
       toggle.textContent = dis ? "꺼짐" : "켜짐";
+      toggle.setAttribute("aria-label", mod + " " + (dis ? "비활성화됨" : "활성화됨"));
       toggle.style.cssText =
         "width:54px;border:none;border-radius:4px;cursor:" + (isSelf ? "not-allowed" : "pointer") +
-        ";padding:3px 6px;font-size:12px;background:" + (dis ? "#555" : "#2a7") + ";color:#fff;";
+        ";padding:8px 6px;font-size:12px;background:" + (dis ? "#555" : "#2a7") + ";color:#fff;min-height:44px;";
 
       if (isSelf) {
         toggle.disabled = true;
@@ -150,6 +156,7 @@
               list.push(m);
               setDisabled(list);
               btn.textContent = "꺼짐";
+              btn.setAttribute("aria-label", m + " 비활성화됨");
               btn.style.background = "#555";
               /* 런처 버튼 숨기기 */
               try {
@@ -166,6 +173,7 @@
               list.splice(idx, 1);
               setDisabled(list);
               btn.textContent = "켜짐";
+              btn.setAttribute("aria-label", m + " 활성화됨");
               btn.style.background = "#2a7";
               showToast("'" + m + "' 활성화됨. 새로고침 후 적용됩니다.", 4000);
             }
@@ -203,7 +211,7 @@
       if (keys.length === 0) {
         var empty = document.createElement("p");
         empty.textContent = "(저장된 swefm_* 키 없음)";
-        empty.style.cssText = "color:#777;font-size:12px;";
+        empty.style.cssText = "color:#bbb;font-size:12px;";
         list.appendChild(empty);
       }
       keys.forEach(function (k) {
@@ -216,8 +224,10 @@
         info.title = k;
         info.textContent = k + " (" + val.length + "자)";
         var del = document.createElement("button");
+        del.type = "button";
         del.textContent = "삭제";
-        del.style.cssText = "background:#933;border:none;color:#fff;border-radius:4px;cursor:pointer;padding:2px 6px;font-size:11px;";
+        del.setAttribute("aria-label", k + " 삭제");
+        del.style.cssText = "background:#933;border:none;color:#fff;border-radius:4px;cursor:pointer;padding:8px 8px;font-size:11px;min-height:44px;";
         del.onclick = (function (key) {
           return function () {
             localStorage.removeItem(key);
@@ -236,10 +246,12 @@
     /* 전체 초기화 */
     var resetBtn = document.createElement("button");
     resetBtn.id = "swefm-settings-reset";
+    resetBtn.type = "button";
     resetBtn.textContent = "전체 초기화";
+    resetBtn.setAttribute("aria-label", "모든 모듈 저장 데이터 초기화");
     resetBtn.style.cssText =
       "margin-top:8px;background:#933;border:none;color:#fff;border-radius:5px;" +
-      "cursor:pointer;padding:5px 10px;font-size:12px;";
+      "cursor:pointer;padding:8px 10px;font-size:12px;min-height:44px;";
     resetBtn.onclick = function () {
       if (!confirm("모든 swefm_* 저장 데이터를 삭제합니다. 계속하시겠습니까?")) return;
       var keys = getSwefmKeys();
@@ -265,10 +277,12 @@
     /* 내보내기 */
     var exportBtn = document.createElement("button");
     exportBtn.id = "swefm-settings-export";
+    exportBtn.type = "button";
     exportBtn.textContent = "⬇ JSON 내보내기";
+    exportBtn.setAttribute("aria-label", "모듈 설정 JSON 내보내기");
     exportBtn.style.cssText =
       "background:#246;border:none;color:#fff;border-radius:5px;cursor:pointer;" +
-      "padding:5px 10px;font-size:12px;margin-right:6px;";
+      "padding:8px 10px;font-size:12px;margin-right:6px;min-height:44px;";
     exportBtn.onclick = function () {
       try {
         var data = {};
@@ -296,14 +310,23 @@
     var importLabel = document.createElement("label");
     importLabel.id = "swefm-settings-import-label";
     importLabel.textContent = "⬆ JSON 가져오기";
+    importLabel.setAttribute("role", "button");
+    importLabel.setAttribute("tabindex", "0");
+    importLabel.setAttribute("aria-label", "모듈 설정 JSON 가져오기");
     importLabel.style.cssText =
       "background:#264;border:none;color:#fff;border-radius:5px;cursor:pointer;" +
-      "padding:5px 10px;font-size:12px;display:inline-block;";
+      "padding:8px 10px;font-size:12px;display:inline-flex;align-items:center;min-height:44px;";
     var importInput = document.createElement("input");
     importInput.type = "file";
     importInput.accept = ".json,application/json";
     importInput.style.display = "none";
     importInput.id = "swefm-settings-import-input";
+    importLabel.onkeydown = function (e) {
+      if (e.key === "Enter" || e.key === " ") {
+        e.preventDefault();
+        importInput.click();
+      }
+    };
     importInput.onchange = function (e) {
       var file = e.target.files && e.target.files[0];
       if (!file) return;
@@ -414,10 +437,12 @@
 
     var refreshBtn = document.createElement("button");
     refreshBtn.id = "swefm-debug-refresh";
+    refreshBtn.type = "button";
     refreshBtn.textContent = "↻ 새로고침";
+    refreshBtn.setAttribute("aria-label", "진단 정보 새로고침");
     refreshBtn.style.cssText =
       "margin-top:6px;background:#334;border:none;color:#ccc;border-radius:4px;" +
-      "cursor:pointer;padding:4px 8px;font-size:11px;";
+      "cursor:pointer;padding:8px 8px;font-size:11px;min-height:44px;";
     refreshBtn.onclick = runDebug;
     wrap.appendChild(refreshBtn);
 

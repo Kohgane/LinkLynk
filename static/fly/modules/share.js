@@ -127,6 +127,8 @@
 
       var panel = document.createElement("div");
       panel.id = "swefm-share-panel";
+      panel.setAttribute("role", "dialog");
+      panel.setAttribute("aria-label", "공유 링크");
       panel.style.cssText = [
         "display:none",
         "position:fixed",
@@ -151,15 +153,15 @@
         var listEl = document.getElementById("swefm-share-recent");
         if (!listEl) return;
         if (!recent.length) {
-          listEl.innerHTML = '<div style="color:#777">최근 링크 없음</div>';
+          listEl.innerHTML = '<div style="color:#bbb">최근 링크 없음</div>';
           return;
         }
         listEl.innerHTML = recent.map(function (item) {
           var safeUrl = String(item.url || "").replace(/"/g, "&quot;");
           var safeLabel = String(item.label || "").replace(/</g, "&lt;").replace(/>/g, "&gt;");
           return '<div style="display:flex;gap:4px;align-items:center;padding:4px 0;border-bottom:1px solid rgba(255,255,255,.07)">' +
-            '<button class="swefm-share-copy-recent" data-url="' + safeUrl + '" style="flex:1;text-align:left;background:none;border:none;color:#ddd;cursor:pointer;font-size:12px;padding:2px 0;min-height:32px">' + safeLabel + "</button>" +
-            '<button class="swefm-share-del-recent" data-url="' + safeUrl + '" style="background:none;border:none;color:#f66;cursor:pointer;padding:0 4px">✕</button>' +
+            '<button class="swefm-share-copy-recent" type="button" aria-label="최근 링크 복사" data-url="' + safeUrl + '" style="flex:1;text-align:left;background:none;border:none;color:#ddd;cursor:pointer;font-size:12px;padding:8px 0;min-height:44px">' + safeLabel + "</button>" +
+            '<button class="swefm-share-del-recent" type="button" aria-label="최근 링크 삭제" data-url="' + safeUrl + '" style="display:inline-flex;align-items:center;justify-content:center;background:none;border:none;color:#f66;cursor:pointer;padding:0;min-width:44px;min-height:44px">✕</button>' +
             "</div>";
         }).join("");
         listEl.querySelectorAll(".swefm-share-copy-recent").forEach(function (btn) {
@@ -188,12 +190,12 @@
       panel.innerHTML = [
         '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">',
         "<b>공유 링크</b>",
-        '<button id="swefm-share-close" style="background:none;border:none;color:#aaa;font-size:16px;cursor:pointer">✕</button>',
+        '<button id="swefm-share-close" type="button" aria-label="닫기" style="display:inline-flex;align-items:center;justify-content:center;background:none;border:none;color:#aaa;font-size:16px;cursor:pointer;padding:0;min-width:44px;min-height:44px">✕</button>',
         "</div>",
         '<input id="swefm-share-link" type="text" readonly style="width:100%;box-sizing:border-box;border:1px solid #444;border-radius:6px;background:#111;color:#eee;padding:8px;font-size:12px">',
         '<div style="display:flex;gap:6px;margin-top:8px">',
-        '<button id="swefm-share-copy" style="background:#2a6;color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;min-height:32px">복사</button>',
-        '<button id="swefm-share-share" style="display:none;background:#246;color:#fff;border:none;border-radius:6px;padding:6px 10px;cursor:pointer;min-height:32px">공유</button>',
+        '<button id="swefm-share-copy" type="button" aria-label="링크 복사" style="background:#2a6;color:#fff;border:none;border-radius:6px;padding:8px 12px;cursor:pointer;min-height:44px">복사</button>',
+        '<button id="swefm-share-share" type="button" aria-label="링크 공유" style="display:none;background:#246;color:#fff;border:none;border-radius:6px;padding:8px 12px;cursor:pointer;min-height:44px">공유</button>',
         "</div>",
         '<div style="font-weight:600;margin:10px 0 4px;color:#88BBFF">최근 링크</div>',
         '<div id="swefm-share-recent"></div>'
