@@ -189,7 +189,7 @@ dcardEls.forEach(c => c.classList.remove("on"));
 
 ---
 
-### PERF-006: replay.js 전역 `keydown` 리스너 미제거 (이벤트 리스너 누수)
+### PERF-006: replay.js 전역 `keydown` 리스너 미제거 (이벤트 리스너 누수) — ✅ 해결(현재 PR)
 
 - **우선순위**: 중
 - **위치**: `static/fly/modules/replay.js:L141-L146`
@@ -227,7 +227,7 @@ function stopPlayback() {
 
 ---
 
-### PERF-007: hud.js `setInterval` 미정리 (잠재적 리스너 누수)
+### PERF-007: hud.js `setInterval` 미정리 (잠재적 리스너 누수) — ✅ 해결(현재 PR)
 
 - **우선순위**: 하
 - **위치**: `static/fly/modules/hud.js:L144-L168`
@@ -261,7 +261,7 @@ function setVisible(v) {
 
 ---
 
-### PERF-008: replay.js `setInterval` 기반 재생 루프
+### PERF-008: replay.js `setInterval` 기반 재생 루프 — ✅ 해결(현재 PR)
 
 - **우선순위**: 중
 - **위치**: `static/fly/modules/replay.js:L113-L127`

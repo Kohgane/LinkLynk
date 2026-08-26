@@ -62,10 +62,13 @@
     // 재생 상태
     let playing = false;
     let playFrameIdx = 0;
-    let playTimer = null;
+    let playRafId = null;
+    let playElapsed = 0;
+    let playLastTs = null;
     let playSpeed = 1;
     let inputBlockOverlay = null;
     let currentPath = null;
+    let keydownAttached = false;
 
     /* 녹화 */
     function startRecording() {
@@ -94,9 +97,12 @@
     function startPlayback(path, speed) {
       if (!path || path.length < 2) { console.warn("[swefm/replay] 경로 없음"); return; }
       if (!window.Cesium) { console.warn("[swefm/replay] Cesium 없음"); return; }
+      if (playing) stopPlayback();
       playing = true;
       playSpeed = speed || 1;
       playFrameIdx = 0;
+      playElapsed = 0;
+      playLastTs = null;
       currentPath = path;
 
       // 오버레이 (입력 차단)
@@ -110,25 +116,50 @@
       updateProgress(0);
       progressBar.style.display = "flex";
 
-      const interval = SAMPLE_INTERVAL / playSpeed;
-      playTimer = setInterval(() => {
-        if (playFrameIdx >= path.length - 1) { stopPlayback(); return; }
+      attachPlaybackKeydown();
+      const maxIdx = path.length - 1;
+      const totalDuration = maxIdx * SAMPLE_INTERVAL;
+
+      function playTick(now) {
+        if (!playing) return;
+        if (playLastTs === null) playLastTs = now;
+        else {
+          const dt = now - playLastTs;
+          playLastTs = now;
+          if (dt > 0) playElapsed += dt * playSpeed;
+        }
+
+        const elapsed = Math.min(playElapsed, totalDuration);
+        const rawIndex = totalDuration > 0 ? (elapsed / SAMPLE_INTERVAL) : maxIdx;
+        const idx0 = Math.min(Math.floor(rawIndex), maxIdx);
+        const idx1 = Math.min(idx0 + 1, maxIdx);
+        const t = Math.min(Math.max(rawIndex - idx0, 0), 1);
+
         try {
-          const f0 = path[playFrameIdx], f1 = path[playFrameIdx + 1];
-          const frame = lerpFrame(f0, f1, 0.5);
+          const f0 = path[idx0], f1 = path[idx1];
+          const frame = idx0 === idx1 ? f0 : lerpFrame(f0, f1, t);
           viewer.camera.setView({
             destination: Cesium.Cartesian3.fromDegrees(frame.lon, frame.lat, frame.alt),
             orientation: { heading: frame.heading, pitch: frame.pitch, roll: frame.roll }
           });
         } catch (e) { console.warn("[swefm/replay] 재생 프레임 오류", e); }
-        playFrameIdx++;
-        updateProgress(playFrameIdx / (path.length - 1));
-      }, interval);
+
+        playFrameIdx = idx0;
+        updateProgress(totalDuration > 0 ? (elapsed / totalDuration) : 1);
+
+        if (elapsed >= totalDuration) { stopPlayback(); return; }
+        playRafId = requestAnimationFrame(playTick);
+      }
+
+      playRafId = requestAnimationFrame(playTick);
     }
 
     function stopPlayback() {
       playing = false;
-      if (playTimer) { clearInterval(playTimer); playTimer = null; }
+      if (playRafId !== null) { cancelAnimationFrame(playRafId); playRafId = null; }
+      playLastTs = null;
+      playElapsed = 0;
+      detachPlaybackKeydown();
       if (inputBlockOverlay && inputBlockOverlay.parentNode) {
         inputBlockOverlay.parentNode.removeChild(inputBlockOverlay);
         inputBlockOverlay = null;
@@ -138,12 +169,22 @@
     }
 
     /* ESC 중단 */
-    document.addEventListener("keydown", e => {
+    function onPlaybackKeydown(e) {
       if ((e.key === "Escape" || e.key === "Tab") && playing) {
         e.preventDefault();
         stopPlayback();
       }
-    });
+    }
+    function attachPlaybackKeydown() {
+      if (keydownAttached) return;
+      document.addEventListener("keydown", onPlaybackKeydown);
+      keydownAttached = true;
+    }
+    function detachPlaybackKeydown() {
+      if (!keydownAttached) return;
+      document.removeEventListener("keydown", onPlaybackKeydown);
+      keydownAttached = false;
+    }
 
     /* 슬롯 저장/불러오기 */
     function saveToSlot(idx, path, name) {
