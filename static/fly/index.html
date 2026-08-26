@@ -843,14 +843,16 @@ function tick(){
   raceTick(dt); momentTick(dt);
   if (mode === "tour" && orbiting && orbitCenter){
     orbitHeading += 0.1*dt;
-    viewer.camera.lookAt(orbitCenter, new Cesium.HeadingPitchRange(orbitHeading, orbitP, orbitR));
+    if(!tick._hprS) tick._hprS=new Cesium.HeadingPitchRange();
+    tick._hprS.heading=orbitHeading; tick._hprS.pitch=orbitP; tick._hprS.range=orbitR;
+    viewer.camera.lookAt(orbitCenter, tick._hprS);
   }
   if (mode === "free"){
     if(!tick._pp) tick._pp=viewer.camera.position.clone();
     const _mv=Cesium.Cartesian3.distance(tick._pp,viewer.camera.position);
     if(_mv>0.5&&_mv<500000){stats.dist+=_mv; statTimer+=dt;
       if(statTimer>5){saveStats();statTimer=0;}}
-    tick._pp=viewer.camera.position.clone();
+    Cesium.Cartesian3.clone(viewer.camera.position, tick._pp);
     const c = viewer.camera;
     const dr = keys.drift||touch.drift;
     if(moment.on&&(keys.w||keys.s||keys.a||keys.d||touch.jx||touch.jy)) stopMoment();
@@ -915,7 +917,8 @@ function tick(){
     tick._fov = (tick._fov||60) + (tgtFov-(tick._fov||60))*0.08;
     if(c.frustum && c.frustum.fov!==undefined) c.frustum.fov = Cesium.Math.toRadians(tick._fov);
     clampToLayer(c);
-    vehHud.textContent = (driftSt.on?"\u26A1 ":driftSt.boostT>0?"\uD83D\uDD25 ":"")+`${veh.e} ${dn(veh)} \u00B7 ${Math.round(curSpeed()*3.6).toLocaleString()} km/h`;
+    const _vh = (driftSt.on?"\u26A1 ":driftSt.boostT>0?"\uD83D\uDD25 ":"")+`${veh.e} ${dn(veh)} \u00B7 ${Math.round(curSpeed()*3.6).toLocaleString()} km/h`;
+    if(_vh!==tick._lastVeh){ tick._lastVeh=_vh; vehHud.textContent=_vh; }
   }
 }
 
@@ -1105,7 +1108,8 @@ function raceTick(dt){
     if(race.gi>=T.gates.length){endRace(true);return;}
     highlightGate();
   }
-  raceHud.innerHTML="⏱ "+el.toFixed(1)+"s<br><small>"+(KO?"게이트 ":"Gate ")+race.gi+"/"+T.gates.length+(KO?" · 주황 구체로!":" · to the orange ring!")+"</small>";
+  const _rh="⏱ "+el.toFixed(1)+"s<br><small>"+(KO?"게이트 ":"Gate ")+race.gi+"/"+T.gates.length+(KO?" · 주황 구체로!":" · to the orange ring!")+"</small>";
+  if(_rh!==race._lastHudStr){ race._lastHudStr=_rh; raceHud.innerHTML=_rh; }
 }
 
 function setupInput(){
