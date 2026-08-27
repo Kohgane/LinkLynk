@@ -1,0 +1,2004 @@
+[
+{
+"ids": "PF013",
+"cas": "111982-50-4",
+"name": "2-",
+"inn": "2-",
+"list": "psychotropic"
+},
+{
+"ids": "NB014",
+"cas": "98608-61-8",
+"name": "2-METHYL-AP-237",
+"inn": "2-methyl-ap-237",
+"list": "narcotic"
+},
+{
+"ids": "PB008",
+"cas": "66142-81-2",
+"name": "2C-B",
+"inn": "2c-b",
+"list": "psychotropic"
+},
+{
+"ids": "PC017",
+"cas": "1049677-59-9",
+"name": "3-chloromethcathinone",
+"inn": "3-chloromethcathinone",
+"list": "psychotropic"
+},
+{
+"ids": "NM017",
+"cas": "42045-86-3",
+"name": "3-METHYLFENTANYL",
+"inn": "3-methylfentanyl",
+"list": "narcotic"
+},
+{
+"ids": "NM024",
+"cas": "86052-04-2",
+"name": "3-METHYLTHIOFENTANYL",
+"inn": "3-methylthiofentanyl",
+"list": "narcotic"
+},
+{
+"ids": "PM032",
+"cas": "1246816-62-5",
+"name": "3-MMC",
+"inn": "3-mmc",
+"list": "psychotropic"
+},
+{
+"ids": "PC014",
+"cas": "1225843-86-6",
+"name": "4-CMC",
+"inn": "4-cmc",
+"list": "psychotropic"
+},
+{
+"ids": "PF007",
+"cas": "459-02-9",
+"name": "4-fluoroamphetamine,",
+"inn": "4-fluoroamphetamine",
+"list": "psychotropic"
+},
+{
+"ids": "NB012",
+"cas": "244195-32-2",
+"name": "4-FLUOROISOBUTYRFENTANYL",
+"inn": "4-fluoroisobutyrfentanyl",
+"list": "narcotic"
+},
+{
+"ids": "PM027",
+"cas": "1225617-18-4",
+"name": "4-methylethcathi",
+"inn": "4-methylethcathi",
+"list": "psychotropic"
+},
+{
+"ids": "PM029",
+"cas": "2390036-46-9",
+"name": "4F-MDMB-BINACA",
+"inn": "4f-mdmb-binaca",
+"list": "psychotropic"
+},
+{
+"ids": "PP011",
+"cas": "1715016-75-3",
+"name": "5F-ADB,",
+"inn": "5f-adb",
+"list": "psychotropic"
+},
+{
+"ids": "PA010",
+"cas": "1801552-03-3",
+"name": "5F-AMB,",
+"inn": "5f-amb",
+"list": "psychotropic"
+},
+{
+"ids": "PA009",
+"cas": "1400742-13-3",
+"name": "5F-APINACA,",
+"inn": "5f-apinaca",
+"list": "psychotropic"
+},
+{
+"ids": "PM028",
+"cas": "1971007-88-1",
+"name": "5F-MDMB-PICA",
+"inn": "5f-mdmb-pica",
+"list": "psychotropic"
+},
+{
+"ids": "PP026",
+"cas": "1400742-41-7",
+"name": "5F-PB-22",
+"inn": "5f-pb-22",
+"list": "psychotropic"
+},
+{
+"ids": "PC011",
+"cas": "1185887-21-1",
+"name": "AB-CHMINACA",
+"inn": "ab-chminaca",
+"list": "psychotropic"
+},
+{
+"ids": "PF010",
+"cas": "1185282-01-2",
+"name": "AB-FUBINACA",
+"inn": "ab-fubinaca",
+"list": "psychotropic"
+},
+{
+"ids": "PP018",
+"cas": "1445752-09-9",
+"name": "AB-PINACA",
+"inn": "ab-pinaca",
+"list": "psychotropic"
+},
+{
+"ids": "NA001",
+"cas": "25333-77-1",
+"name": "ACETORPHINE",
+"inn": "acetorphine",
+"list": "narcotic"
+},
+{
+"ids": "NA015",
+"cas": "101860-00-8",
+"name": "ACETYL-ALPHA-METHYLFENTANYL",
+"inn": "acetyl-alpha-methylfentanyl",
+"list": "narcotic"
+},
+{
+"ids": "NA002",
+"cas": "3861-72-1",
+"name": "ACETYLDIHYDROCODEINE",
+"inn": "acetyldihydrocodeine",
+"list": "narcotic"
+},
+{
+"ids": "NA019",
+"cas": "3258-84-2",
+"name": "ACETYLFENTANYL",
+"inn": "acetylfentanyl",
+"list": "narcotic"
+},
+{
+"ids": "NA004",
+"cas": "509-74-0",
+"name": "ACETYLMETHADOL",
+"inn": "acetylmethadol",
+"list": "narcotic"
+},
+{
+"ids": "NA020",
+"cas": "82003-75-6",
+"name": "ACRYLOYLFENTANYL",
+"inn": "acryloylfentanyl",
+"list": "narcotic"
+},
+{
+"ids": "PA011",
+"cas": "2682867-55-4",
+"name": "ADB-BUTINACA",
+"inn": "adb-butinaca",
+"list": "psychotropic"
+},
+{
+"ids": "PC013",
+"cas": "1185887-13-1",
+"name": "ADB-CHMINACA",
+"inn": "adb-chminaca",
+"list": "psychotropic"
+},
+{
+"ids": "PF009",
+"cas": "1445583-51-6",
+"name": "ADB-FUBINACA",
+"inn": "adb-fubinaca",
+"list": "psychotropic"
+},
+{
+"ids": "NA018",
+"cas": "55154-30-8",
+"name": "AH-7921",
+"inn": "ah-7921",
+"list": "narcotic"
+},
+{
+"ids": "NA014",
+"cas": "71195-58-9",
+"name": "ALFENTANIL",
+"inn": "alfentanil",
+"list": "narcotic"
+},
+{
+"ids": "PA005",
+"cas": "52-43-7",
+"name": "ALLOBARBITAL",
+"inn": "allobarbital",
+"list": "psychotropic"
+},
+{
+"ids": "NA007",
+"cas": "25384-17-2",
+"name": "ALLYLPRODINE",
+"inn": "allylprodine",
+"list": "narcotic"
+},
+{
+"ids": "NA016",
+"cas": "79704-88-4",
+"name": "ALPHA-METHYLFENTANYL",
+"inn": "alpha-methylfentanyl",
+"list": "narcotic"
+},
+{
+"ids": "NA017",
+"cas": "103963-66-2",
+"name": "ALPHA-METHYLTHIOFENTANYL",
+"inn": "alpha-methylthiofentanyl",
+"list": "narcotic"
+},
+{
+"ids": "PP027",
+"cas": "13415-86-6",
+"name": "alpha-PHP",
+"inn": "alpha-php",
+"list": "psychotropic"
+},
+{
+"ids": "PP028",
+"cas": "2181620-71-1",
+"name": "alpha-PiHP",
+"inn": "alpha-pihp",
+"list": "psychotropic"
+},
+{
+"ids": "PP022",
+"cas": "14530-33-7",
+"name": "alpha-PVP",
+"inn": "alpha-pvp",
+"list": "psychotropic"
+},
+{
+"ids": "NA008",
+"cas": "17199-58-5",
+"name": "ALPHACETYLMETHADOL",
+"inn": "alphacetylmethadol",
+"list": "narcotic"
+},
+{
+"ids": "NA009",
+"cas": "468-51-9",
+"name": "ALPHAMEPRODINE",
+"inn": "alphameprodine",
+"list": "narcotic"
+},
+{
+"ids": "NA010",
+"cas": "17199-54-1",
+"name": "ALPHAMETHADOL",
+"inn": "alphamethadol",
+"list": "narcotic"
+},
+{
+"ids": "NA011",
+"cas": "77-20-3",
+"name": "ALPHAPRODINE",
+"inn": "alphaprodine",
+"list": "narcotic"
+},
+{
+"ids": "PA004",
+"cas": "28981-97-7",
+"name": "ALPRAZOLAM",
+"inn": "alprazolam",
+"list": "psychotropic"
+},
+{
+"ids": "PA008",
+"cas": "335161-24-5",
+"name": "AM-2201, JWH-2201",
+"inn": "am-2201, jwh-2201",
+"list": "psychotropic"
+},
+{
+"ids": "PA001",
+"cas": "134-80-5",
+"name": "AMFEPRAMONE",
+"inn": "amfepramone",
+"list": "psychotropic"
+},
+{
+"ids": "PA003",
+"cas": "300-62-9",
+"name": "AMFETAMINE",
+"inn": "amfetamine",
+"list": "psychotropic"
+},
+{
+"ids": "PA007",
+"cas": "57574-09-1",
+"name": "AMINEPTINE",
+"inn": "amineptine",
+"list": "psychotropic"
+},
+{
+"ids": "PA006",
+"cas": "2207-50-3",
+"name": "AMINOREX",
+"inn": "aminorex",
+"list": "psychotropic"
+},
+{
+"ids": "PA002",
+"cas": "57-43-2",
+"name": "AMOBARBITAL",
+"inn": "amobarbital",
+"list": "psychotropic"
+},
+{
+"ids": "NA012",
+"cas": "144-14-9",
+"name": "ANILERIDINE",
+"inn": "anileridine",
+"list": "narcotic"
+},
+{
+"ids": "PB001",
+"cas": "57-44-3",
+"name": "BARBITAL",
+"inn": "barbital",
+"list": "psychotropic"
+},
+{
+"ids": "NB001",
+"cas": "3691-78-9",
+"name": "BENZETHIDINE",
+"inn": "benzethidine",
+"list": "narcotic"
+},
+{
+"ids": "PB002",
+"cas": "156-08-1",
+"name": "BENZFETAMINE",
+"inn": "benzfetamine",
+"list": "psychotropic"
+},
+{
+"ids": "NB002",
+"cas": "14297-87-1",
+"name": "BENZYLMORPHINE",
+"inn": "benzylmorphine",
+"list": "narcotic"
+},
+{
+"ids": "NB010",
+"cas": "78995-14-9",
+"name": "BETA-HYDROXY-3-",
+"inn": "beta-hydroxy-3-",
+"list": "narcotic"
+},
+{
+"ids": "NB009",
+"cas": "78995-10-5",
+"name": "BETA-HYDROXYFENTANYL",
+"inn": "beta-hydroxyfentanyl",
+"list": "narcotic"
+},
+{
+"ids": "NB003",
+"cas": "17199-59-6",
+"name": "BETACETYLMETHADOL",
+"inn": "betacetylmethadol",
+"list": "narcotic"
+},
+{
+"ids": "NB004",
+"cas": "468-50-8",
+"name": "BETAMEPRODINE",
+"inn": "betameprodine",
+"list": "narcotic"
+},
+{
+"ids": "NB005",
+"cas": "17199-55-2",
+"name": "BETAMETHADOL",
+"inn": "betamethadol",
+"list": "narcotic"
+},
+{
+"ids": "NB006",
+"cas": "468-59-7",
+"name": "BETAPRODINE",
+"inn": "betaprodine",
+"list": "narcotic"
+},
+{
+"ids": "NB007",
+"cas": "15301-48-1",
+"name": "BEZITRAMIDE",
+"inn": "bezitramide",
+"list": "narcotic"
+},
+{
+"ids": "PB003",
+"cas": "1812-30-2",
+"name": "BROMAZEPAM",
+"inn": "bromazepam",
+"list": "psychotropic"
+},
+{
+"ids": "PB009",
+"cas": "71368-80-4",
+"name": "bromazolam",
+"inn": "bromazolam",
+"list": "psychotropic"
+},
+{
+"ids": "NB013",
+"cas": "2244737-98-0",
+"name": "BRORPHINE",
+"inn": "brorphine",
+"list": "narcotic"
+},
+{
+"ids": "PB007",
+"cas": "57801-81-7",
+"name": "BROTIZOLAM",
+"inn": "brotizolam",
+"list": "psychotropic"
+},
+{
+"ids": "PB006",
+"cas": "52485-79-7",
+"name": "BUPRENORPHINE",
+"inn": "buprenorphine",
+"list": "psychotropic"
+},
+{
+"ids": "PB004",
+"cas": "77-26-9",
+"name": "BUTALBITAL",
+"inn": "butalbital",
+"list": "psychotropic"
+},
+{
+"ids": "PB005",
+"cas": "77-28-1",
+"name": "butobarbital",
+"inn": "butobarbital",
+"list": "psychotropic"
+},
+{
+"ids": "NB015",
+"cas": "95810-54-1",
+"name": "BUTONITAZENE",
+"inn": "butonitazene",
+"list": "narcotic"
+},
+{
+"ids": "NB011",
+"cas": "1169-70-6",
+"name": "BUTYRFENTANYL",
+"inn": "butyrfentanyl",
+"list": "narcotic"
+},
+{
+"ids": "PC002",
+"cas": "36104-80-0",
+"name": "CAMAZEPAM",
+"inn": "camazepam",
+"list": "psychotropic"
+},
+{
+"ids": "NC001",
+"cas": "8063-14-7",
+"name": "CANNABIS",
+"inn": "cannabis",
+"list": "narcotic"
+},
+{
+"ids": "NC008",
+"cas": "6465-30-1",
+"name": "CANNABIS RESIN, EXTRACTS",
+"inn": "cannabis resin, extracts",
+"list": "narcotic"
+},
+{
+"ids": "NC090",
+"cas": "59708-52-0",
+"name": "CARFENTANIL Methyl",
+"inn": "carfentanil methyl",
+"list": "narcotic"
+},
+{
+"ids": "PC018",
+"cas": "78-44-4",
+"name": "CARISOPRODOL",
+"inn": "carisoprodol",
+"list": "psychotropic"
+},
+{
+"ids": "PC009",
+"cas": "492-39-7",
+"name": "CATHINE",
+"inn": "cathine",
+"list": "psychotropic"
+},
+{
+"ids": "PC003",
+"cas": "58-25-3",
+"name": "CHLORDIAZEPOXIDE",
+"inn": "chlordiazepoxide",
+"list": "psychotropic"
+},
+{
+"ids": "PC004",
+"cas": "22316-47-8",
+"name": "CLOBAZAM",
+"inn": "clobazam",
+"list": "psychotropic"
+},
+{
+"ids": "PC005",
+"cas": "1622-61-3",
+"name": "CLONAZEPAM",
+"inn": "clonazepam",
+"list": "psychotropic"
+},
+{
+"ids": "NC002",
+"cas": "3861-76-5",
+"name": "CLONITAZENE",
+"inn": "clonitazene",
+"list": "narcotic"
+},
+{
+"ids": "PC006",
+"cas": "23887-31-2",
+"name": "CLORAZEPATE",
+"inn": "clorazepate",
+"list": "psychotropic"
+},
+{
+"ids": "PC007",
+"cas": "33671-46-4",
+"name": "CLOTIAZEPAM",
+"inn": "clotiazepam",
+"list": "psychotropic"
+},
+{
+"ids": "PC008",
+"cas": "24166-13-0",
+"name": "CLOXAZOLAM",
+"inn": "cloxazolam",
+"list": "psychotropic"
+},
+{
+"ids": "NC004",
+"cas": "50-36-2",
+"name": "COCAINE",
+"inn": "cocaine",
+"list": "narcotic"
+},
+{
+"ids": "NC005",
+"cas": "76-57-3",
+"name": "CODEINE",
+"inn": "codeine",
+"list": "narcotic"
+},
+{
+"ids": "NC006",
+"cas": "7125-76-0",
+"name": "CODOXIME",
+"inn": "codoxime",
+"list": "narcotic"
+},
+{
+"ids": "PC012",
+"cas": "1631074-54-8",
+"name": "CUMYL-4CN-BINACA",
+"inn": "cumyl-4cn-binaca",
+"list": "psychotropic"
+},
+{
+"ids": "PC015",
+"cas": "2160555-55-3",
+"name": "CUMYL-PEGACLONE",
+"inn": "cumyl-pegaclone",
+"list": "psychotropic"
+},
+{
+"ids": "PC001",
+"cas": "52-31-3",
+"name": "CYCLOBARBITAL",
+"inn": "cyclobarbital",
+"list": "psychotropic"
+},
+{
+"ids": "NC091",
+"cas": "1169-68-2",
+"name": "CYCLOPROPYLFENTANYL",
+"inn": "cyclopropylfentanyl",
+"list": "narcotic"
+},
+{
+"ids": "PD005",
+"cas": "2894-67-9",
+"name": "DELORAZEPAM",
+"inn": "delorazepam",
+"list": "psychotropic"
+},
+{
+"ids": "PD010",
+"cas": "1972-08-3",
+"name": "delta-9-tetrahydro-",
+"inn": "delta-9-tetrahydro-",
+"list": "psychotropic"
+},
+{
+"ids": "ND002",
+"cas": "427-00-9",
+"name": "DESOMORPHINE",
+"inn": "desomorphine",
+"list": "narcotic"
+},
+{
+"ids": "PD002",
+"cas": "51-64-9",
+"name": "DEXAMFETAMINE",
+"inn": "dexamfetamine",
+"list": "psychotropic"
+},
+{
+"ids": "ND003",
+"cas": "357-56-2",
+"name": "DEXTROMORAMIDE",
+"inn": "dextromoramide",
+"list": "narcotic"
+},
+{
+"ids": "ND004",
+"cas": "469-62-5",
+"name": "DEXTROPROPOXYPHENE",
+"inn": "dextropropoxyphene",
+"list": "narcotic"
+},
+{
+"ids": "ND005",
+"cas": "552-25-0",
+"name": "DIAMPROMIDE",
+"inn": "diampromide",
+"list": "narcotic"
+},
+{
+"ids": "PD006",
+"cas": "439-14-5",
+"name": "DIAZEPAM",
+"inn": "diazepam",
+"list": "psychotropic"
+},
+{
+"ids": "PD013",
+"cas": "2894-68-0",
+"name": "diclazepam,",
+"inn": "diclazepam",
+"list": "psychotropic"
+},
+{
+"ids": "ND006",
+"cas": "86-14-6",
+"name": "DIETHYLTHIAMBUTENE",
+"inn": "diethylthiambutene",
+"list": "narcotic"
+},
+{
+"ids": "ND007",
+"cas": "28782-42-5",
+"name": "DIFENOXIN",
+"inn": "difenoxin",
+"list": "narcotic"
+},
+{
+"ids": "ND008",
+"cas": "125-28-0",
+"name": "DIHYDROCODEINE",
+"inn": "dihydrocodeine",
+"list": "narcotic"
+},
+{
+"ids": "ND025",
+"cas": "14357-76-7",
+"name": "DIHYDROETORPHINE",
+"inn": "dihydroetorphine",
+"list": "narcotic"
+},
+{
+"ids": "ND009",
+"cas": "509-60-4",
+"name": "DIHYDROMORPHINE",
+"inn": "dihydromorphine",
+"list": "narcotic"
+},
+{
+"ids": "ND011",
+"cas": "509-78-4",
+"name": "DIMENOXADOL",
+"inn": "dimenoxadol",
+"list": "narcotic"
+},
+{
+"ids": "ND012",
+"cas": "545-90-4",
+"name": "DIMEPHEPTANOL",
+"inn": "dimepheptanol",
+"list": "narcotic"
+},
+{
+"ids": "ND014",
+"cas": "524-84-5",
+"name": "DIMETHYLTHIAMBUTENE",
+"inn": "dimethylthiambutene",
+"list": "narcotic"
+},
+{
+"ids": "ND015",
+"cas": "467-86-7",
+"name": "DIOXAPHETYL BUTYRATE",
+"inn": "dioxaphetyl butyrate",
+"list": "narcotic"
+},
+{
+"ids": "PD014",
+"cas": "803614-36-0",
+"name": "dipentylone",
+"inn": "dipentylone",
+"list": "psychotropic"
+},
+{
+"ids": "PD012",
+"cas": "36794-52-2",
+"name": "diphenidine",
+"inn": "diphenidine",
+"list": "psychotropic"
+},
+{
+"ids": "ND016",
+"cas": "915-30-0",
+"name": "DIPHENOXYLATE",
+"inn": "diphenoxylate",
+"list": "narcotic"
+},
+{
+"ids": "ND017",
+"cas": "467-83-4",
+"name": "DIPIPANONE",
+"inn": "dipipanone",
+"list": "narcotic"
+},
+{
+"ids": "ND018",
+"cas": "3176-03-2",
+"name": "DROTEBANOL",
+"inn": "drotebanol",
+"list": "narcotic"
+},
+{
+"ids": "NE001",
+"cas": "481-37-8",
+"name": "ECGONINE",
+"inn": "ecgonine",
+"list": "narcotic"
+},
+{
+"ids": "PE003",
+"cas": "29975-16-4",
+"name": "ESTAZOLAM",
+"inn": "estazolam",
+"list": "psychotropic"
+},
+{
+"ids": "NE009",
+"cas": "14030-76-3",
+"name": "ETAZENE",
+"inn": "etazene",
+"list": "narcotic"
+},
+{
+"ids": "PE001",
+"cas": "113-18-8",
+"name": "ETHCHLORVYNOL",
+"inn": "ethchlorvynol",
+"list": "psychotropic"
+},
+{
+"ids": "PE002",
+"cas": "126-52-3",
+"name": "ETHINAMATE",
+"inn": "ethinamate",
+"list": "psychotropic"
+},
+{
+"ids": "PE004",
+"cas": "29177-84-2",
+"name": "ETHYL LOFLAZEPATE",
+"inn": "ethyl loflazepate",
+"list": "psychotropic"
+},
+{
+"ids": "NE004",
+"cas": "441-61-2",
+"name": "ETHYLMETHYLTHIAMBUTENE",
+"inn": "ethylmethylthiambutene",
+"list": "narcotic"
+},
+{
+"ids": "NE005",
+"cas": "76-58-4",
+"name": "ETHYLMORPHINE",
+"inn": "ethylmorphine",
+"list": "narcotic"
+},
+{
+"ids": "PE007",
+"cas": "1112937-64-0",
+"name": "ethylone",
+"inn": "ethylone",
+"list": "psychotropic"
+},
+{
+"ids": "PE008",
+"cas": "57413-43-1",
+"name": "ethylphenidate",
+"inn": "ethylphenidate",
+"list": "psychotropic"
+},
+{
+"ids": "PE005",
+"cas": "457-87-4",
+"name": "ETILAMFETAMINE N-ethylamphetamine",
+"inn": "etilamfetamine n-ethylamphetamine",
+"list": "psychotropic"
+},
+{
+"ids": "PE009",
+"cas": "40054-69-1",
+"name": "ETIZOLAM",
+"inn": "etizolam",
+"list": "psychotropic"
+},
+{
+"ids": "NE006",
+"cas": "911-65-9",
+"name": "ETONITAZENE",
+"inn": "etonitazene",
+"list": "narcotic"
+},
+{
+"ids": "NE011",
+"cas": "734496-28-7",
+"name": "ETONITAZEPIPNE N-piperidinyl",
+"inn": "etonitazepipne n-piperidinyl",
+"list": "narcotic"
+},
+{
+"ids": "NE010",
+"cas": "2785346-75-8",
+"name": "ETONITAZEPYNE",
+"inn": "etonitazepyne",
+"list": "narcotic"
+},
+{
+"ids": "NE007",
+"cas": "14521-96-1",
+"name": "ETORPHINE",
+"inn": "etorphine",
+"list": "narcotic"
+},
+{
+"ids": "NE008",
+"cas": "469-82-9",
+"name": "ETOXERIDINE",
+"inn": "etoxeridine",
+"list": "narcotic"
+},
+{
+"ids": "PE010",
+"cas": "802855-66-9",
+"name": "eutylone",
+"inn": "eutylone",
+"list": "psychotropic"
+},
+{
+"ids": "PF004",
+"cas": "1209-98-9",
+"name": "FENCAMFAMIN N-ethyl-3-phenyl-2-norbornanamine",
+"inn": "fencamfamin n-ethyl-3-phenyl-2-norbornanamine",
+"list": "psychotropic"
+},
+{
+"ids": "PF005",
+"cas": "3736-08-1",
+"name": "FENETYLLINE",
+"inn": "fenetylline",
+"list": "psychotropic"
+},
+{
+"ids": "PF006",
+"cas": "16397-28-7",
+"name": "FENPROPOREX",
+"inn": "fenproporex",
+"list": "psychotropic"
+},
+{
+"ids": "NF001",
+"cas": "437-38-7",
+"name": "FENTANYL",
+"inn": "fentanyl",
+"list": "narcotic"
+},
+{
+"ids": "PF011",
+"cas": "28910-91-0",
+"name": "flualprazolam",
+"inn": "flualprazolam",
+"list": "psychotropic"
+},
+{
+"ids": "PF012",
+"cas": "612526-40-6",
+"name": "flubromazolam",
+"inn": "flubromazolam",
+"list": "psychotropic"
+},
+{
+"ids": "PF001",
+"cas": "3900-31-0",
+"name": "FLUDIAZEPAM",
+"inn": "fludiazepam",
+"list": "psychotropic"
+},
+{
+"ids": "PF002",
+"cas": "1622-62-4",
+"name": "FLUNITRAZEPAM",
+"inn": "flunitrazepam",
+"list": "psychotropic"
+},
+{
+"ids": "PF003",
+"cas": "17617-23-1",
+"name": "FLURAZEPAM",
+"inn": "flurazepam",
+"list": "psychotropic"
+},
+{
+"ids": "PF008",
+"cas": "1971007-92-7",
+"name": "FUB-AMB, MMB-",
+"inn": "fub-amb, mmb-",
+"list": "psychotropic"
+},
+{
+"ids": "NF004",
+"cas": "101345-66-8",
+"name": "FURANYLFENTANYL",
+"inn": "furanylfentanyl",
+"list": "narcotic"
+},
+{
+"ids": "NF002",
+"cas": "2385-81-1",
+"name": "FURETHIDINE",
+"inn": "furethidine",
+"list": "narcotic"
+},
+{
+"ids": "PG002",
+"cas": "591-81-1",
+"name": "gamma-",
+"inn": "gamma-",
+"list": "psychotropic"
+},
+{
+"ids": "PG001",
+"cas": "77-21-4",
+"name": "GLUTETHIMIDE",
+"inn": "glutethimide",
+"list": "psychotropic"
+},
+{
+"ids": "PH001",
+"cas": "23092-17-3",
+"name": "HALAZEPAM",
+"inn": "halazepam",
+"list": "psychotropic"
+},
+{
+"ids": "PH002",
+"cas": "59128-97-1",
+"name": "HALOXAZOLAM",
+"inn": "haloxazolam",
+"list": "psychotropic"
+},
+{
+"ids": "NH001",
+"cas": "561-27-3",
+"name": "HEROIN Diacetylmorphine",
+"inn": "heroin diacetylmorphine",
+"list": "narcotic"
+},
+{
+"ids": "PH003",
+"cas": "6692-85-9",
+"name": "HEXAHYDROCANNA",
+"inn": "hexahydrocanna",
+"list": "psychotropic"
+},
+{
+"ids": "NH002",
+"cas": "125-29-1",
+"name": "HYDROCODONE",
+"inn": "hydrocodone",
+"list": "narcotic"
+},
+{
+"ids": "NH003",
+"cas": "2183-56-4",
+"name": "HYDROMORPHINOL",
+"inn": "hydromorphinol",
+"list": "narcotic"
+},
+{
+"ids": "NH004",
+"cas": "466-99-9",
+"name": "HYDROMORPHONE",
+"inn": "hydromorphone",
+"list": "narcotic"
+},
+{
+"ids": "NH005",
+"cas": "468-56-4",
+"name": "HYDROXYPETHIDINE",
+"inn": "hydroxypethidine",
+"list": "narcotic"
+},
+{
+"ids": "NI001",
+"cas": "466-40-0",
+"name": "ISOMETHADONE",
+"inn": "isomethadone",
+"list": "narcotic"
+},
+{
+"ids": "NI003",
+"cas": "14188-81-9",
+"name": "ISOTONITAZENE N,N-diethyl-2-(2-(4-isopropoxybenzyl)-5-nitro-1H-",
+"inn": "isotonitazene n,n-diethyl-2-(2-(4-isopropoxybenzyl)-5-nitro-1h-",
+"list": "narcotic"
+},
+{
+"ids": "PJ001",
+"cas": "209414-07-3",
+"name": "JWH-018, AM-678 Naphthalene-1-yl(1-pentyl-1H-indol-3-",
+"inn": "jwh-018, am-678 naphthalene-1-yl(1-pentyl-1h-indol-3-",
+"list": "psychotropic"
+},
+{
+"ids": "PK001",
+"cas": "27223-35-4",
+"name": "KETAZOLAM",
+"inn": "ketazolam",
+"list": "psychotropic"
+},
+{
+"ids": "NK001",
+"cas": "469-79-4",
+"name": "KETOBEMIDONE",
+"inn": "ketobemidone",
+"list": "narcotic"
+},
+{
+"ids": "PL001",
+"cas": "7262-75-1",
+"name": "LEFETAMINE SPA",
+"inn": "lefetamine spa",
+"list": "psychotropic"
+},
+{
+"ids": "PL006",
+"cas": "156-34-3",
+"name": "LEVAMFETAMINE",
+"inn": "levamfetamine",
+"list": "psychotropic"
+},
+{
+"ids": "PL007",
+"cas": "33817-09-3",
+"name": "LEVMETAMFETAMINE",
+"inn": "levmetamfetamine",
+"list": "psychotropic"
+},
+{
+"ids": "NL004",
+"cas": "125-70-2",
+"name": "LEVOMETHORPHAN2",
+"inn": "levomethorphan2",
+"list": "narcotic"
+},
+{
+"ids": "NL005",
+"cas": "5666-11-5",
+"name": "LEVOMORAMIDE",
+"inn": "levomoramide",
+"list": "narcotic"
+},
+{
+"ids": "NL006",
+"cas": "10061-32-2",
+"name": "LEVOPHENACYLMORPHAN",
+"inn": "levophenacylmorphan",
+"list": "narcotic"
+},
+{
+"ids": "NL007",
+"cas": "77-07-6",
+"name": "LEVORPHANOL2",
+"inn": "levorphanol2",
+"list": "narcotic"
+},
+{
+"ids": "PL003",
+"cas": "61197-73-7",
+"name": "LOPRAZOLAM",
+"inn": "loprazolam",
+"list": "psychotropic"
+},
+{
+"ids": "PL004",
+"cas": "846-49-1",
+"name": "LORAZEPAM",
+"inn": "lorazepam",
+"list": "psychotropic"
+},
+{
+"ids": "PL005",
+"cas": "848-75-9",
+"name": "LORMETAZEPAM",
+"inn": "lormetazepam",
+"list": "psychotropic"
+},
+{
+"ids": "PM001",
+"cas": "22232-71-9",
+"name": "MAZINDOL",
+"inn": "mazindol",
+"list": "psychotropic"
+},
+{
+"ids": "PM030",
+"cas": "2504100-70-1",
+"name": "MDMB-4en-PINACA Methyl",
+"inn": "mdmb-4en-pinaca methyl",
+"list": "psychotropic"
+},
+{
+"ids": "PM025",
+"cas": "1863065-84-2",
+"name": "MDMB-CHMICA",
+"inn": "mdmb-chmica",
+"list": "psychotropic"
+},
+{
+"ids": "PM021",
+"cas": "687603-66-3",
+"name": "MDPV",
+"inn": "mdpv",
+"list": "psychotropic"
+},
+{
+"ids": "PM002",
+"cas": "340-57-8",
+"name": "MECLOQUALONE",
+"inn": "mecloqualone",
+"list": "psychotropic"
+},
+{
+"ids": "PM010",
+"cas": "2898-12-6",
+"name": "MEDAZEPAM",
+"inn": "medazepam",
+"list": "psychotropic"
+},
+{
+"ids": "PM012",
+"cas": "17243-57-1",
+"name": "MEFENOREX",
+"inn": "mefenorex",
+"list": "psychotropic"
+},
+{
+"ids": "PM022",
+"cas": "1189805-46-6",
+"name": "mephedrone,",
+"inn": "mephedrone",
+"list": "psychotropic"
+},
+{
+"ids": "PM003",
+"cas": "57-53-4",
+"name": "MEPROBAMATE",
+"inn": "meprobamate",
+"list": "psychotropic"
+},
+{
+"ids": "PM018",
+"cas": "34262-84-5",
+"name": "MESOCARB",
+"inn": "mesocarb",
+"list": "psychotropic"
+},
+{
+"ids": "PM005",
+"cas": "537-46-2",
+"name": "METAMFETAMINE",
+"inn": "metamfetamine",
+"list": "psychotropic"
+},
+{
+"ids": "PM015",
+"cas": "7632-10-2",
+"name": "METAMFETAMINE",
+"inn": "metamfetamine",
+"list": "psychotropic"
+},
+{
+"ids": "NM001",
+"cas": "3734-52-9",
+"name": "METAZOCINE",
+"inn": "metazocine",
+"list": "narcotic"
+},
+{
+"ids": "NM002",
+"cas": "76-99-3",
+"name": "METHADONE",
+"inn": "methadone",
+"list": "narcotic"
+},
+{
+"ids": "NM003",
+"cas": "125-79-1",
+"name": "METHADONE INTERMEDIATE",
+"inn": "methadone intermediate",
+"list": "narcotic"
+},
+{
+"ids": "PM006",
+"cas": "72-44-6",
+"name": "METHAQUALONE",
+"inn": "methaqualone",
+"list": "psychotropic"
+},
+{
+"ids": "PM026",
+"cas": "801156-47-8",
+"name": "methiopropamine,",
+"inn": "methiopropamine",
+"list": "psychotropic"
+},
+{
+"ids": "PM024",
+"cas": "1239943-76-0",
+"name": "methoxetamine,",
+"inn": "methoxetamine",
+"list": "psychotropic"
+},
+{
+"ids": "NM044",
+"cas": "101345-67-9",
+"name": "METHOXYACETYLFENTANYL",
+"inn": "methoxyacetylfentanyl",
+"list": "narcotic"
+},
+{
+"ids": "NM004",
+"cas": "16008-36-9",
+"name": "METHYLDESORPHINE",
+"inn": "methyldesorphine",
+"list": "narcotic"
+},
+{
+"ids": "NM005",
+"cas": "509-56-8",
+"name": "METHYLDIHYDROMORPHINE",
+"inn": "methyldihydromorphine",
+"list": "narcotic"
+},
+{
+"ids": "PM023",
+"cas": "186028-79-5",
+"name": "methylone,",
+"inn": "methylone",
+"list": "psychotropic"
+},
+{
+"ids": "PM007",
+"cas": "113-45-1",
+"name": "METHYLPHENIDATE",
+"inn": "methylphenidate",
+"list": "psychotropic"
+},
+{
+"ids": "PM008",
+"cas": "115-38-8",
+"name": "METHYLPHENOBARBITAL",
+"inn": "methylphenobarbital",
+"list": "psychotropic"
+},
+{
+"ids": "PM009",
+"cas": "125-64-4",
+"name": "METHYPRYLON",
+"inn": "methyprylon",
+"list": "psychotropic"
+},
+{
+"ids": "NM026",
+"cas": "14680-51-4",
+"name": "METONITAZENE",
+"inn": "metonitazene",
+"list": "narcotic"
+},
+{
+"ids": "NM006",
+"cas": "143-52-2",
+"name": "METOPON",
+"inn": "metopon",
+"list": "narcotic"
+},
+{
+"ids": "PM016",
+"cas": "59467-70-8",
+"name": "MIDAZOLAM",
+"inn": "midazolam",
+"list": "psychotropic"
+},
+{
+"ids": "NM007",
+"cas": "3626-55-9",
+"name": "MORAMIDE INTERMEDIATE",
+"inn": "moramide intermediate",
+"list": "narcotic"
+},
+{
+"ids": "NM008",
+"cas": "469-81-8",
+"name": "MORPHERIDINE",
+"inn": "morpheridine",
+"list": "narcotic"
+},
+{
+"ids": "NM009",
+"cas": "57-27-2",
+"name": "MORPHINE",
+"inn": "morphine",
+"list": "narcotic"
+},
+{
+"ids": "NM012",
+"cas": "639-46-3",
+"name": "MORPHINE-N-OXIDE",
+"inn": "morphine-n-oxide",
+"list": "narcotic"
+},
+{
+"ids": "NM018",
+"cas": "13147-09-6",
+"name": "MPPP",
+"inn": "mppp",
+"list": "narcotic"
+},
+{
+"ids": "NM045",
+"cas": "41537-67-1",
+"name": "MT-45",
+"inn": "mt-45",
+"list": "narcotic"
+},
+{
+"ids": "NM013",
+"cas": "467-18-5",
+"name": "MYROPHINE Myristylbenzylmorphine",
+"inn": "myrophine myristylbenzylmorphine",
+"list": "narcotic"
+},
+{
+"ids": "PN009",
+"cas": "2759-28-6",
+"name": "N-benzyl",
+"inn": "n-benzyl",
+"list": "psychotropic"
+},
+{
+"ids": "NE012",
+"cas": "2732926-26-8",
+"name": "N-DESETHYL ETONITAZENE",
+"inn": "n-desethyl etonitazene",
+"list": "narcotic"
+},
+{
+"ids": "NI004",
+"cas": "2732926-24-6",
+"name": "N-DESETHYL ISOTONITAZENE N-ethyl-2-(2-(4-isopropoxybenzyl)",
+"inn": "n-desethyl isotonitazene n-ethyl-2-(2-(4-isopropoxybenzyl)",
+"list": "narcotic"
+},
+{
+"ids": "PN010",
+"cas": "952016-47-6",
+"name": "N-ethyl",
+"inn": "n-ethyl",
+"list": "psychotropic"
+},
+{
+"ids": "PN011",
+"cas": "802857-66-5",
+"name": "N-ethylhexedrone",
+"inn": "n-ethylhexedrone",
+"list": "psychotropic"
+},
+{
+"ids": "NI005",
+"cas": "3053113-12-2",
+"name": "N-PYRROLIDINO ISOTONITAZENE",
+"inn": "n-pyrrolidino isotonitazene",
+"list": "narcotic"
+},
+{
+"ids": "NP036",
+"cas": "3038401-95-2",
+"name": "N-PYRROLIDINO PROTONITAZENE",
+"inn": "n-pyrrolidino protonitazene",
+"list": "narcotic"
+},
+{
+"ids": "NN001",
+"cas": "3688-66-2",
+"name": "NICOCODINE",
+"inn": "nicocodine",
+"list": "narcotic"
+},
+{
+"ids": "NN002",
+"cas": "808-24-2",
+"name": "NICODICODINE",
+"inn": "nicodicodine",
+"list": "narcotic"
+},
+{
+"ids": "NN003",
+"cas": "639-48-5",
+"name": "NICOMORPHINE",
+"inn": "nicomorphine",
+"list": "narcotic"
+},
+{
+"ids": "PN001",
+"cas": "2011-67-8",
+"name": "NIMETAZEPAM",
+"inn": "nimetazepam",
+"list": "psychotropic"
+},
+{
+"ids": "PN002",
+"cas": "146-22-5",
+"name": "NITRAZEPAM",
+"inn": "nitrazepam",
+"list": "psychotropic"
+},
+{
+"ids": "NN004",
+"cas": "1477-39-0",
+"name": "NORACYMETHADOL",
+"inn": "noracymethadol",
+"list": "narcotic"
+},
+{
+"ids": "NN005",
+"cas": "467-15-2",
+"name": "NORCODEINE N-demethylcodeine",
+"inn": "norcodeine n-demethylcodeine",
+"list": "narcotic"
+},
+{
+"ids": "PN003",
+"cas": "1088-11-5",
+"name": "NORDAZEPAM",
+"inn": "nordazepam",
+"list": "psychotropic"
+},
+{
+"ids": "NN006",
+"cas": "1531-12-0",
+"name": "NORLEVORPHANOL",
+"inn": "norlevorphanol",
+"list": "narcotic"
+},
+{
+"ids": "NN007",
+"cas": "467-85-6",
+"name": "NORMETHADONE",
+"inn": "normethadone",
+"list": "narcotic"
+},
+{
+"ids": "NN008",
+"cas": "466-97-7",
+"name": "NORMORPHINE",
+"inn": "normorphine",
+"list": "narcotic"
+},
+{
+"ids": "NN009",
+"cas": "561-48-8",
+"name": "NORPIPANONE",
+"inn": "norpipanone",
+"list": "narcotic"
+},
+{
+"ids": "NO011",
+"cas": "101343-69-5",
+"name": "OCFENTANIL",
+"inn": "ocfentanil",
+"list": "narcotic"
+},
+{
+"ids": "NO001",
+"cas": "8008-60-4",
+"name": "OPIUM3",
+"inn": "opium3",
+"list": "narcotic"
+},
+{
+"ids": "NO010",
+"cas": "467-04-9",
+"name": "ORIPAVINE",
+"inn": "oripavine",
+"list": "narcotic"
+},
+{
+"ids": "NO012",
+"cas": "2306825-26-1",
+"name": "ORTHOFLUOROFENTANYL",
+"inn": "orthofluorofentanyl",
+"list": "narcotic"
+},
+{
+"ids": "PO001",
+"cas": "604-75-1",
+"name": "OXAZEPAM",
+"inn": "oxazepam",
+"list": "psychotropic"
+},
+{
+"ids": "PO002",
+"cas": "24143-17-7",
+"name": "OXAZOLAM",
+"inn": "oxazolam",
+"list": "psychotropic"
+},
+{
+"ids": "NO002",
+"cas": "76-42-6",
+"name": "OXYCODONE",
+"inn": "oxycodone",
+"list": "narcotic"
+},
+{
+"ids": "NO003",
+"cas": "76-41-5",
+"name": "OXYMORPHONE",
+"inn": "oxymorphone",
+"list": "narcotic"
+},
+{
+"ids": "NF003",
+"cas": "90736-23-5",
+"name": "PARA-FLUOROFENTANYL",
+"inn": "para-fluorofentanyl",
+"list": "narcotic"
+},
+{
+"ids": "PP023",
+"cas": "1445569-01-6",
+"name": "para-Methyl-4-",
+"inn": "para-methyl-4-",
+"list": "psychotropic"
+},
+{
+"ids": "NP029",
+"cas": "244195-31-1",
+"name": "PARAFLUOROBUTYRYLFENTANYL",
+"inn": "parafluorobutyrylfentanyl",
+"list": "narcotic"
+},
+{
+"ids": "PP020",
+"cas": "2152-34-3",
+"name": "PEMOLINE",
+"inn": "pemoline",
+"list": "psychotropic"
+},
+{
+"ids": "PP014",
+"cas": "359-83-1",
+"name": "PENTAZOCINE",
+"inn": "pentazocine",
+"list": "psychotropic"
+},
+{
+"ids": "PP025",
+"cas": "879722-57-3",
+"name": "pentedrone",
+"inn": "pentedrone",
+"list": "psychotropic"
+},
+{
+"ids": "PP002",
+"cas": "76-74-4",
+"name": "PENTOBARBITAL",
+"inn": "pentobarbital",
+"list": "psychotropic"
+},
+{
+"ids": "NP026",
+"cas": "64-52-8",
+"name": "PEPAP",
+"inn": "pepap",
+"list": "narcotic"
+},
+{
+"ids": "NP001",
+"cas": "57-42-1",
+"name": "PETHIDINE",
+"inn": "pethidine",
+"list": "narcotic"
+},
+{
+"ids": "NP002",
+"cas": "3627-62-1",
+"name": "PETHIDINE INTERMEDIATE A",
+"inn": "pethidine intermediate a",
+"list": "narcotic"
+},
+{
+"ids": "NP003",
+"cas": "77-17-8",
+"name": "PETHIDINE INTERMEDIATE B",
+"inn": "pethidine intermediate b",
+"list": "narcotic"
+},
+{
+"ids": "NP004",
+"cas": "3627-48-3",
+"name": "PETHIDINE INTERMEDIATE C",
+"inn": "pethidine intermediate c",
+"list": "narcotic"
+},
+{
+"ids": "NP005",
+"cas": "467-84-5",
+"name": "PHENADOXONE",
+"inn": "phenadoxone",
+"list": "narcotic"
+},
+{
+"ids": "NP019",
+"cas": "129-83-9",
+"name": "PHENAMPROMIDE N-(1-methyl-2-piperidinoethyl)propionanilide",
+"inn": "phenampromide n-(1-methyl-2-piperidinoethyl)propionanilide",
+"list": "narcotic"
+},
+{
+"ids": "PP024",
+"cas": "51753-57-2",
+"name": "phenazepam,",
+"inn": "phenazepam",
+"list": "psychotropic"
+},
+{
+"ids": "NP008",
+"cas": "127-35-5",
+"name": "PHENAZOCINE",
+"inn": "phenazocine",
+"list": "narcotic"
+},
+{
+"ids": "PP005",
+"cas": "77-10-1",
+"name": "PHENCYCLIDINE PCP",
+"inn": "phencyclidine pcp",
+"list": "psychotropic"
+},
+{
+"ids": "PP004",
+"cas": "634-03-7",
+"name": "PHENDIMETRAZINE",
+"inn": "phendimetrazine",
+"list": "psychotropic"
+},
+{
+"ids": "PP006",
+"cas": "134-49-6",
+"name": "PHENMETRAZINE",
+"inn": "phenmetrazine",
+"list": "psychotropic"
+},
+{
+"ids": "PP008",
+"cas": "50-06-6",
+"name": "PHENOBARBITAL",
+"inn": "phenobarbital",
+"list": "psychotropic"
+},
+{
+"ids": "NP009",
+"cas": "468-07-5",
+"name": "PHENOMORPHAN",
+"inn": "phenomorphan",
+"list": "narcotic"
+},
+{
+"ids": "NP010",
+"cas": "562-26-5",
+"name": "PHENOPERIDINE",
+"inn": "phenoperidine",
+"list": "narcotic"
+},
+{
+"ids": "PP009",
+"cas": "122-09-8",
+"name": "PHENTERMINE",
+"inn": "phentermine",
+"list": "psychotropic"
+},
+{
+"ids": "NP011",
+"cas": "509-67-1",
+"name": "PHOLCODINE",
+"inn": "pholcodine",
+"list": "narcotic"
+},
+{
+"ids": "NP012",
+"cas": "13495-09-5",
+"name": "PIMINODINE",
+"inn": "piminodine",
+"list": "narcotic"
+},
+{
+"ids": "PP015",
+"cas": "52463-83-9",
+"name": "PINAZEPAM",
+"inn": "pinazepam",
+"list": "psychotropic"
+},
+{
+"ids": "PP010",
+"cas": "467-60-7",
+"name": "PIPRADROL",
+"inn": "pipradrol",
+"list": "psychotropic"
+},
+{
+"ids": "NP013",
+"cas": "302-41-0",
+"name": "PIRITRAMIDE",
+"inn": "piritramide",
+"list": "narcotic"
+},
+{
+"ids": "PP016",
+"cas": "2955-38-6",
+"name": "PRAZEPAM",
+"inn": "prazepam",
+"list": "psychotropic"
+},
+{
+"ids": "NP014",
+"cas": "77-14-5",
+"name": "PROHEPTAZINE",
+"inn": "proheptazine",
+"list": "narcotic"
+},
+{
+"ids": "NP015",
+"cas": "561-76-2",
+"name": "PROPERIDINE",
+"inn": "properidine",
+"list": "narcotic"
+},
+{
+"ids": "NP016",
+"cas": "15686-91-6",
+"name": "PROPIRAM N-(1-methyl-2-piperidinoethyl)-N-2-",
+"inn": "propiram n-(1-methyl-2-piperidinoethyl)-n-2-",
+"list": "narcotic"
+},
+{
+"ids": "NP035",
+"cas": "95958-84-2",
+"name": "PROTONITAZENE",
+"inn": "protonitazene",
+"list": "narcotic"
+},
+{
+"ids": "PP019",
+"cas": "3563-49-3",
+"name": "PYROVALERONE",
+"inn": "pyrovalerone",
+"list": "psychotropic"
+},
+{
+"ids": "NR001",
+"cas": "510-53-2",
+"name": "RACEMETHORPHAN4",
+"inn": "racemethorphan4",
+"list": "narcotic"
+},
+{
+"ids": "NR002",
+"cas": "545-59-5",
+"name": "RACEMORAMIDE",
+"inn": "racemoramide",
+"list": "narcotic"
+},
+{
+"ids": "NR003",
+"cas": "297-90-5",
+"name": "RACEMORPHAN4",
+"inn": "racemorphan4",
+"list": "narcotic"
+},
+{
+"ids": "NR005",
+"cas": "132875-61-7",
+"name": "REMIFENTANIL",
+"inn": "remifentanil",
+"list": "narcotic"
+},
+{
+"ids": "PS003",
+"cas": "125-40-6",
+"name": "SECBUTABARBITAL",
+"inn": "secbutabarbital",
+"list": "psychotropic"
+},
+{
+"ids": "PS001",
+"cas": "76-73-3",
+"name": "SECOBARBITAL",
+"inn": "secobarbital",
+"list": "psychotropic"
+},
+{
+"ids": "NS001",
+"cas": "56030-54-7",
+"name": "SUFENTANIL",
+"inn": "sufentanil",
+"list": "narcotic"
+},
+{
+"ids": "PT003",
+"cas": "846-50-4",
+"name": "TEMAZEPAM",
+"inn": "temazepam",
+"list": "psychotropic"
+},
+{
+"ids": "PT004",
+"cas": "10379-14-3",
+"name": "TETRAZEPAM",
+"inn": "tetrazepam",
+"list": "psychotropic"
+},
+{
+"ids": "NT001",
+"cas": "466-90-0",
+"name": "THEBACON Acetyldihydrocodeinone",
+"inn": "thebacon acetyldihydrocodeinone",
+"list": "narcotic"
+},
+{
+"ids": "NT002",
+"cas": "115-37-7",
+"name": "THEBAINE",
+"inn": "thebaine",
+"list": "narcotic"
+},
+{
+"ids": "NT005",
+"cas": "1165-22-6",
+"name": "THIOFENTANYL",
+"inn": "thiofentanyl",
+"list": "narcotic"
+},
+{
+"ids": "NT003",
+"cas": "20380-58-9",
+"name": "TILIDINE",
+"inn": "tilidine",
+"list": "narcotic"
+},
+{
+"ids": "PT005",
+"cas": "28911-01-5",
+"name": "TRIAZOLAM",
+"inn": "triazolam",
+"list": "psychotropic"
+},
+{
+"ids": "NT004",
+"cas": "64-39-1",
+"name": "TRIMEPERIDINE",
+"inn": "trimeperidine",
+"list": "narcotic"
+},
+{
+"ids": "NU001",
+"cas": "121348-98-9",
+"name": "U-47700",
+"inn": "u-47700",
+"list": "narcotic"
+},
+{
+"ids": "PU001",
+"cas": "1199943-44-6",
+"name": "UR-144",
+"inn": "ur-144",
+"list": "psychotropic"
+},
+{
+"ids": "NV001",
+"cas": "122882-90-0",
+"name": "VALERYLFENTANYL N-(1-phenethylpiperidin-4-yl)-N-phenylpentanamide",
+"inn": "valerylfentanyl n-(1-phenethylpiperidin-4-yl)-n-phenylpentanamide",
+"list": "narcotic"
+},
+{
+"ids": "PV001",
+"cas": "2430-49-1",
+"name": "VINYLBITAL",
+"inn": "vinylbital",
+"list": "psychotropic"
+},
+{
+"ids": "PX001",
+"cas": "1364933-54-9",
+"name": "XLR-11",
+"inn": "xlr-11",
+"list": "psychotropic"
+},
+{
+"ids": "PZ001",
+"cas": "34758-83-3",
+"name": "ZIPEPROL",
+"inn": "zipeprol",
+"list": "psychotropic"
+},
+{
+"ids": "PZ002",
+"cas": "82626-48-0",
+"name": "ZOLPIDEM",
+"inn": "zolpidem",
+"list": "psychotropic"
+}
+]
