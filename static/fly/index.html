@@ -167,6 +167,7 @@
     <div id="dests"></div>
   </div>
   <div id="pv" class="ppanel">
+    <button class="btn" id="btnAv2" style="margin-bottom:8px">🛩 <span>아바타 꾸미기</span></button>
     <div id="vehs"></div>
     <div id="custWrap">
       <span>⚙️ 속도 <output id="custSpv">1.0×</output></span>
@@ -434,7 +435,7 @@ async function init(){
       g.foveatedTimeDelay = 0.1;
       window._gT = g;
       viewer.scene.primitives.add(g);
-      viewer.scene.globe.show = false;
+      /* globe 유지 — 타일 공백 시 검은 우주 노출 방지 */
       tier = "PHOTOREAL (Google 3D Tiles)";
     }catch(e){ console.warn("Google tiles 실패", e); }
   }
@@ -443,6 +444,7 @@ async function init(){
   sc.globe.enableLighting = true;
   sc.globe.atmosphereLightIntensity = 22;
   sc.skyAtmosphere.show = true;
+  try{ sc.skyAtmosphere.perFragmentAtmosphere = true; }catch(e){}
   sc.fog.enabled = true;
   sc.globe.depthTestAgainstTerrain = true;
   sc.screenSpaceCameraController.enableCollisionDetection = true;
@@ -1418,6 +1420,11 @@ function buildUI(){
   document.getElementById("btnEye").onclick=zenToggle;
   document.getElementById("btnHQ").onclick=toggleHQ;
   document.getElementById("btnCloud").onclick=cycleClouds;
+  document.getElementById("btnAv2").onclick=()=>{
+    const p=document.getElementById("avCfg");
+    p.style.display=p.style.display==="block"?"none":"block";
+    if(p.style.display==="block") buildAvCfg();
+  };
   document.getElementById("btnAv").onclick=()=>{
     const p=document.getElementById("avCfg");
     p.style.display=p.style.display==="block"?"none":"block";
