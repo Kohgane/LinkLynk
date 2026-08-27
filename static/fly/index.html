@@ -429,6 +429,9 @@ async function init(){
       g.maximumScreenSpaceError = 12;
       g.skipLevelOfDetail = true;
       g.cacheBytes = 1073741824;
+      g.cullRequestsWhileMoving = false;
+      g.preloadWhenHidden = true;
+      g.foveatedTimeDelay = 0.1;
       window._gT = g;
       viewer.scene.primitives.add(g);
       viewer.scene.globe.show = false;
@@ -934,7 +937,7 @@ function buildAvCfg(){
   document.getElementById("avSizeR").value=avSize;
   const g=document.getElementById("avGrid");
   if(g.childElementCount) return;
-  const opts=["","img:/fly/av/jet1.png","img:/fly/av/jet2.png"].concat(VEHICLES.map(v=>v.e)).concat(["🦅","🐉","🛸","🧚","☄️","🎈"]);
+  const opts=["","img:/fly/av/jet1.png","img:/fly/av/jet2.png","img:/fly/av/dragon.png","img:/fly/av/ufo.png","img:/fly/av/rocket.png","img:/fly/av/eagle.png"].concat(VEHICLES.map(v=>v.e)).concat(["🦅","🐉","🛸","🧚","☄️","🎈"]);
   const seen={};
   opts.forEach(e=>{
     if(e!=="" && seen[e]) return; seen[e]=1;
@@ -1026,8 +1029,18 @@ function dynRes(moving,dt){
   const nx = cur + (tgt-cur)*Math.min(1,dt*2.5);
   if(Math.abs(nx-cur)>0.003) viewer.resolutionScale=nx;
   if(window._gT){
-    const want=(!moving&&idleT>1.2)?(hq?7:9):(hq?10:12);
+    const alt=viewer.camera.positionCartographic.height;
+    if(dynRes._band===undefined) dynRes._band=1;
+    if(dynRes._band!==0 && alt<450) dynRes._band=0;
+    else if(dynRes._band!==2 && alt>2300) dynRes._band=2;
+    else if(dynRes._band===0 && alt>650) dynRes._band=1;
+    else if(dynRes._band===2 && alt<1800) dynRes._band=1;
+    const bandAdj = dynRes._band===0? -2 : dynRes._band===2? 3 : 0;
+    const base=(!moving&&idleT>1.2)?(hq?7:9):(hq?10:12);
+    const want=Math.max(5, base+bandAdj);
     if(window._gT.maximumScreenSpaceError!==want) window._gT.maximumScreenSpaceError=want;
+    const skip = dynRes._band!==0;
+    if(window._gT.skipLevelOfDetail!==skip) window._gT.skipLevelOfDetail=skip;
   }
 }
 function tick(){
