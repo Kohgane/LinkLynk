@@ -934,12 +934,13 @@ function buildAvCfg(){
   document.getElementById("avSizeR").value=avSize;
   const g=document.getElementById("avGrid");
   if(g.childElementCount) return;
-  const opts=[""].concat(VEHICLES.map(v=>v.e)).concat(["🦅","🐉","🛸","🧚","☄️","🎈"]);
+  const opts=["","img:/fly/av/jet1.png","img:/fly/av/jet2.png"].concat(VEHICLES.map(v=>v.e)).concat(["🦅","🐉","🛸","🧚","☄️","🎈"]);
   const seen={};
   opts.forEach(e=>{
     if(e!=="" && seen[e]) return; seen[e]=1;
     const b=document.createElement("div"); b.className="em"+((avPick===e)?" on":"");
-    b.textContent=e===""?"🚘":e; b.title=e===""?(KO?"탈것 따라감":"Follow vehicle"):e;
+    if(e.indexOf("img:")===0){ b.innerHTML='<img src="'+e.slice(4)+'" style="height:34px" alt="J">'; }
+    else b.textContent=e===""?"🚘":e; b.title=e===""?(KO?"탈것 따라감":"Follow vehicle"):e;
     b.onclick=()=>{ avPick=e; localStorage.setItem("ef_av_emoji",e); _avEmoji="";
       g.querySelectorAll(".em").forEach(x=>x.classList.remove("on")); b.classList.add("on"); };
     g.appendChild(b);
@@ -958,12 +959,19 @@ function updateAvatar(){
   if(!avOn||mode!=="free"||moment.on||orbiting){ if(el.style.display!=="none"){el.style.display="none";} return; }
   if(el.style.display==="none") el.style.display="block";
   const e=avPick||(veh?veh.e:"✈️");
-  if(e!==_avEmoji){ _avEmoji=e; el.textContent=e; }
+  if(e!==_avEmoji){
+    _avEmoji=e;
+    if(e.indexOf("img:")===0){
+      el.innerHTML='<img src="'+e.slice(4)+'" style="height:'+Math.round(avSize*1.7)+'px;filter:drop-shadow(0 12px 14px rgba(0,0,0,.6))" alt="">';
+    } else el.textContent=e;
+  }
   const r=-(tick._roll||0);
   if(Math.abs(r-_avRot)>0.02){ _avRot=r;
     el.style.transform="translateX(-50%) rotate("+(r*57.3).toFixed(1)+"deg)"; }
   const boost=driftSt.boostT>0||keys.shift||touch.boost;
   const fs2=boost?Math.round(avSize*1.2):avSize;
+  const im=el.querySelector("img");
+  if(im){ const hh=Math.round(fs2*1.7); if(im._h!==hh){im._h=hh; im.style.height=hh+"px";} }
   if(el._fs!==fs2){ el._fs=fs2; el.style.fontSize=fs2+"px"; }
 }
 function updateGauge(){
