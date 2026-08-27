@@ -79,6 +79,12 @@
   #gauge .kv{font-size:17px;line-height:1}
   #gauge .kd{font-size:9px;opacity:.7}
   #gauge.dr{background:conic-gradient(rgba(255,170,60,.95) 0%, rgba(255,255,255,.1) 0)}
+  #avCfg{position:fixed;left:50%;top:44%;transform:translate(-50%,-50%);z-index:9700;display:none;
+    width:min(320px,86vw);background:rgba(10,12,24,.95);border:1px solid rgba(255,255,255,.25);
+    border-radius:16px;padding:14px;color:#fff}
+  #avCfg .em{width:44px;height:44px;border-radius:10px;background:rgba(255,255,255,.08);
+    border:1px solid rgba(255,255,255,.18);font-size:24px;display:flex;align-items:center;justify-content:center;cursor:pointer}
+  #avCfg .em.on{background:rgba(90,180,255,.35);border-color:rgba(90,180,255,.8)}
   #mini{position:fixed;left:12px;top:100px;z-index:9;width:118px;height:118px;border-radius:14px;
     background:rgba(5,8,18,.6);border:1px solid rgba(255,255,255,.22);display:none}
   #tload{position:fixed;top:64px;right:12px;z-index:12;color:rgba(255,255,255,.75);font-size:11px;
@@ -114,6 +120,18 @@
 <div id="avWrap">✈️</div>
 <div id="gauge"><div class="in"><div class="kv" id="gKv">0</div><div class="kd">km/h</div></div></div>
 <canvas id="mini" width="118" height="118"></canvas>
+<div id="avCfg">
+  <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
+    <b id="avCfgTitle">🛩 기체 아바타</b><button class="btn" id="avCfgX">✕</button>
+  </div>
+  <label style="display:flex;align-items:center;gap:8px;margin-bottom:8px">
+    <input type="checkbox" id="avOnChk"> <span id="avOnLbl">표시</span>
+  </label>
+  <div style="margin-bottom:8px"><span id="avSizeLbl">크기</span>
+    <input type="range" id="avSizeR" min="24" max="80" step="2" style="width:100%">
+  </div>
+  <div id="avGrid" style="display:flex;flex-wrap:wrap;gap:6px;max-height:150px;overflow:auto"></div>
+</div>
 <div id="cineTop" class="cinebars"></div>
 <div id="cineBot" class="cinebars"></div>
 <button id="btnEye" aria-label="UI 숨김">👁</button>
@@ -170,6 +188,7 @@
       <button class="btn" id="btnHQ">✨ <span id="hqLbl">고화질</span></button>
       <button class="btn" id="btnCine">🎞️ <span id="cineLbl">시네스코</span></button>
       <button class="btn" id="btnCloud">☁️ <span id="cloudLbl">구름</span></button>
+      <button class="btn" id="btnAv">🛩 <span id="avLbl">아바타</span></button>
     </div>
   </div>
   <div id="tabbar">
@@ -460,7 +479,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0826d";
+  const SWEF_BUILD="0826e";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -598,7 +617,8 @@ function initFilm(){
     }
     if(u_mode>0.5){
       float g=fract(sin(dot(uv*837.0+vec2(u_time*0.7,u_time*1.3), vec2(12.9898,78.233)))*43758.5453);
-      c += (g-0.5)*0.035;
+      float lum=dot(c,vec3(0.299,0.587,0.114));
+      c += (g-0.5)*0.03*(0.25+0.75*smoothstep(0.05,0.5,lum));
     }
     out_FragColor=vec4(c,col.a); }`;
   filmStage=viewer.scene.postProcessStages.add(new Cesium.PostProcessStage({
@@ -611,8 +631,8 @@ function setFilm(i){
   try{
     const sky=viewer.scene.skyAtmosphere, gl=viewer.scene.globe;
     if(i===11){
-      sky.hueShift=-0.38; sky.saturationShift=0.22; sky.brightnessShift=0.12;
-      gl.atmosphereHueShift=-0.38; gl.atmosphereSaturationShift=0.18; gl.atmosphereBrightnessShift=0.08;
+      sky.hueShift=-0.42; sky.saturationShift=0.34; sky.brightnessShift=0.28;
+      gl.atmosphereHueShift=-0.42; gl.atmosphereSaturationShift=0.26; gl.atmosphereBrightnessShift=0.14;
     } else {
       sky.hueShift=0; sky.saturationShift=0; sky.brightnessShift=0;
       gl.atmosphereHueShift=0; gl.atmosphereSaturationShift=0; gl.atmosphereBrightnessShift=0;
@@ -663,7 +683,7 @@ const MOMENTS=[
  {n:"🌇 노을 하이웨이",en:"Sunset Highway",lon:-16.62,lat:28.02,h:260,hour:19.3,film:10,move:"push"},
  {n:"🌄 운해 일출",en:"Cloud Sea Dawn",lon:102.755,lat:23.11,h:2350,hour:6.6,film:2,move:"push",fx:"sea"},
  {n:"🎆 한강 불꽃",en:"Han River Fireworks",lon:126.933,lat:37.528,h:520,hour:21.6,film:1,move:"orbit",fx:"fw"},
- {n:"🌌 오로라 해변",en:"Aurora Beach",lon:-14.995,lat:64.235,h:150,hour:22.4,film:11,move:"push"}
+ {n:"🌌 오로라 해변",en:"Aurora Beach",lon:-14.995,lat:64.235,h:150,hour:20.7,film:11,move:"push"}
 ];
 let moment={on:false,t:0,move:null};
 function playMoment(i){
@@ -909,22 +929,41 @@ function ensureTrail(){
     material:new Cesium.ColorMaterialProperty(new Cesium.CallbackProperty(
       ()=>driftSt.on?Cesium.Color.ORANGE.withAlpha(0.85):Cesium.Color.CYAN.withAlpha(0.55),false))}});
 }
+function buildAvCfg(){
+  document.getElementById("avOnChk").checked=avOn;
+  document.getElementById("avSizeR").value=avSize;
+  const g=document.getElementById("avGrid");
+  if(g.childElementCount) return;
+  const opts=[""].concat(VEHICLES.map(v=>v.e)).concat(["🦅","🐉","🛸","🧚","☄️","🎈"]);
+  const seen={};
+  opts.forEach(e=>{
+    if(e!=="" && seen[e]) return; seen[e]=1;
+    const b=document.createElement("div"); b.className="em"+((avPick===e)?" on":"");
+    b.textContent=e===""?"🚘":e; b.title=e===""?(KO?"탈것 따라감":"Follow vehicle"):e;
+    b.onclick=()=>{ avPick=e; localStorage.setItem("ef_av_emoji",e); _avEmoji="";
+      g.querySelectorAll(".em").forEach(x=>x.classList.remove("on")); b.classList.add("on"); };
+    g.appendChild(b);
+  });
+}
 function zenToggle(){
   document.body.classList.toggle("zen");
   document.getElementById("btnEye").textContent=document.body.classList.contains("zen")?"🙈":"👁";
 }
 let _avEmoji="", _avRot=99, _gPct=-1, _gDrift=false;
+let avOn = localStorage.getItem("ef_av_on")!=="0";
+let avSize = parseInt(localStorage.getItem("ef_av_size")||"42");
+let avPick = localStorage.getItem("ef_av_emoji")||"";
 function updateAvatar(){
   const el=document.getElementById("avWrap");
-  if(mode!=="free"||moment.on){ if(el.style.display!=="none"){el.style.display="none";} return; }
+  if(!avOn||mode!=="free"||moment.on||orbiting){ if(el.style.display!=="none"){el.style.display="none";} return; }
   if(el.style.display==="none") el.style.display="block";
-  const e=veh?veh.e:"✈️";
+  const e=avPick||(veh?veh.e:"✈️");
   if(e!==_avEmoji){ _avEmoji=e; el.textContent=e; }
   const r=-(tick._roll||0);
   if(Math.abs(r-_avRot)>0.02){ _avRot=r;
     el.style.transform="translateX(-50%) rotate("+(r*57.3).toFixed(1)+"deg)"; }
   const boost=driftSt.boostT>0||keys.shift||touch.boost;
-  const fs2=boost?50:42;
+  const fs2=boost?Math.round(avSize*1.2):avSize;
   if(el._fs!==fs2){ el._fs=fs2; el.style.fontSize=fs2+"px"; }
 }
 function updateGauge(){
@@ -1358,6 +1397,14 @@ function buildUI(){
   document.getElementById("btnEye").onclick=zenToggle;
   document.getElementById("btnHQ").onclick=toggleHQ;
   document.getElementById("btnCloud").onclick=cycleClouds;
+  document.getElementById("btnAv").onclick=()=>{
+    const p=document.getElementById("avCfg");
+    p.style.display=p.style.display==="block"?"none":"block";
+    if(p.style.display==="block") buildAvCfg();
+  };
+  document.getElementById("avCfgX").onclick=()=>{document.getElementById("avCfg").style.display="none";};
+  document.getElementById("avOnChk").onchange=(e)=>{ avOn=e.target.checked; localStorage.setItem("ef_av_on",avOn?"1":"0"); };
+  document.getElementById("avSizeR").oninput=(e)=>{ avSize=parseInt(e.target.value); localStorage.setItem("ef_av_size",avSize); _avEmoji=""; const el=document.getElementById("avWrap"); el._fs=0; el.style.fontSize=avSize+"px"; };
   document.getElementById("btnCine").onclick=()=>{
     document.body.classList.toggle("cine");
     document.getElementById("btnCine").classList.toggle("on",document.body.classList.contains("cine"));
@@ -1384,6 +1431,7 @@ function buildUI(){
     document.getElementById("recLbl").textContent="Record";
     document.getElementById("hqLbl").textContent="Ultra";
     document.getElementById("cineLbl").textContent="Widescreen";
+    document.getElementById("avLbl").textContent="Avatar";
     document.getElementById("searchBox").placeholder="Search anywhere (e.g. Osaka, Uluru)";
     document.getElementById("coachCard").innerHTML='<div style="font-size:20px;font-weight:800;margin-bottom:14px">\uD83D\uDEEB How to fly</div><div class="cl">\uD83D\uDD90 <b>Drag anywhere</b> = point your nose</div><div class="cl">\u2B06\uFE0F Aim up to <b>climb</b>, down to <b>dive</b></div><div class="cl">\uD83C\uDF00 Hold <b>DRIFT</b>, turn, release for \uD83D\uDD25 boost</div><div class="cl">\u23F8 pause/resume</div><button class="btn" id="coachOk" style="margin-top:16px;width:100%;background:rgba(255,255,255,.92);color:#10131c;font-weight:800">Take off</button>';
   }
