@@ -202,6 +202,7 @@
       <button class="btn" id="btnCloud">☁️ <span id="cloudLbl">구름</span></button>
       <button class="btn" id="btnAv">🛩 <span id="avLbl">아바타</span></button>
       <button class="btn" id="btnCinema">🎬 <span id="cinemaLbl">시네마</span></button>
+      <button class="btn" id="btnDream">🌌 <span id="dreamLbl">드림스카이</span></button>
     </div>
   </div>
   <div id="tabbar">
@@ -496,7 +497,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0828c";
+  const SWEF_BUILD="0828d";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -998,6 +999,31 @@ function buildAvCfg(){
     g.appendChild(b);
   });
 }
+let dreamEnt=null;
+function toggleDream(){
+  const lbl=document.getElementById("dreamLbl");
+  if(dreamEnt){
+    viewer.entities.remove(dreamEnt); dreamEnt=null;
+    viewer.scene.skyAtmosphere.show=true;
+    document.getElementById("btnDream").classList.remove("on");
+    return;
+  }
+  fetch("/fly/sky/pano.jpg",{method:"HEAD"}).then(r=>{
+    if(!r.ok){ toast(KO?"🌌 드림스카이 준비 중":"Dream sky coming soon"); return; }
+    viewer.scene.skyAtmosphere.show=false;
+    dreamEnt=viewer.entities.add({
+      position:new Cesium.CallbackProperty(()=>viewer.camera.position, false),
+      ellipsoid:{
+        radii:new Cesium.Cartesian3(400000,400000,400000),
+        innerRadii:new Cesium.Cartesian3(399000,399000,399000),
+        material:new Cesium.ImageMaterialProperty({image:"/fly/sky/pano.jpg"}),
+        outline:false
+      }
+    });
+    document.getElementById("btnDream").classList.add("on");
+    toast(KO?"🌌 드림스카이 — 생성된 하늘 아래를 비행합니다":"Flying under a generated sky");
+  }).catch(()=>toast("sky load fail"));
+}
 const CINE=[{n:"☁️ 인피니트 스카이",en:"Infinite Sky",f:"/fly/cine/infinite_sky.mp4"}];
 function openCinema(i){
   const w=document.getElementById("cineWrap"), v=document.getElementById("cineVid");
@@ -1483,6 +1509,7 @@ function buildUI(){
     if(p.style.display==="block") buildAvCfg();
   };
   document.getElementById("btnCinema").onclick=()=>openCinema(0);
+  document.getElementById("btnDream").onclick=toggleDream;
   document.getElementById("cineX").onclick=()=>{
     const w=document.getElementById("cineWrap"), v=document.getElementById("cineVid");
     v.pause(); v.src=""; w.style.display="none";
@@ -1523,6 +1550,7 @@ function buildUI(){
     document.getElementById("cineLbl").textContent="Widescreen";
     document.getElementById("avLbl").textContent="Avatar";
     document.getElementById("cinemaLbl").textContent="Cinema";
+    document.getElementById("dreamLbl").textContent="Dream Sky";
     document.getElementById("searchBox").placeholder="Search anywhere (e.g. Osaka, Uluru)";
     document.getElementById("coachCard").innerHTML='<div style="font-size:20px;font-weight:800;margin-bottom:14px">\uD83D\uDEEB How to fly</div><div class="cl">\uD83D\uDD90 <b>Drag anywhere</b> = point your nose</div><div class="cl">\u2B06\uFE0F Aim up to <b>climb</b>, down to <b>dive</b></div><div class="cl">\uD83C\uDF00 Hold <b>DRIFT</b>, turn, release for \uD83D\uDD25 boost</div><div class="cl">\u23F8 pause/resume</div><button class="btn" id="coachOk" style="margin-top:16px;width:100%;background:rgba(255,255,255,.92);color:#10131c;font-weight:800">Take off</button>';
   }
