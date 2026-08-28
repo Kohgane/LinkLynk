@@ -79,12 +79,6 @@
   #gauge .kv{font-size:17px;line-height:1}
   #gauge .kd{font-size:9px;opacity:.7}
   #gauge.dr{background:conic-gradient(rgba(255,170,60,.95) 0%, rgba(255,255,255,.1) 0)}
-  #cineWrap{position:fixed;inset:0;z-index:9800;display:none;background:#000}
-  #cineWrap video{width:100%;height:100%;object-fit:cover}
-  #cineX{position:absolute;top:calc(env(safe-area-inset-top,0px) + 14px);right:14px;z-index:2;
-    width:40px;height:40px;border-radius:50%;background:rgba(0,0,0,.5);border:1px solid rgba(255,255,255,.3);color:#fff;font-size:18px}
-  #cineTitle{position:absolute;bottom:34px;left:0;right:0;text-align:center;color:#fff;
-    font-weight:800;text-shadow:0 2px 10px #000;z-index:2;pointer-events:none}
   #avCfg{position:fixed;left:50%;top:44%;transform:translate(-50%,-50%);z-index:9700;display:none;
     width:min(320px,86vw);background:rgba(10,12,24,.95);border:1px solid rgba(255,255,255,.25);
     border-radius:16px;padding:14px;color:#fff}
@@ -126,11 +120,6 @@
 <div id="avWrap">✈️</div>
 <div id="gauge"><div class="in"><div class="kv" id="gKv">0</div><div class="kd">km/h</div></div></div>
 <canvas id="mini" width="118" height="118"></canvas>
-<div id="cineWrap">
-  <video id="cineVid" playsinline loop muted></video>
-  <button id="cineX">✕</button>
-  <div id="cineTitle"></div>
-</div>
 <div id="avCfg">
   <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px">
     <b id="avCfgTitle">🛩 기체 아바타</b><button class="btn" id="avCfgX">✕</button>
@@ -201,7 +190,6 @@
       <button class="btn" id="btnCine">🎞️ <span id="cineLbl">시네스코</span></button>
       <button class="btn" id="btnCloud">☁️ <span id="cloudLbl">구름</span></button>
       <button class="btn" id="btnAv">🛩 <span id="avLbl">아바타</span></button>
-      <button class="btn" id="btnCinema">🎬 <span id="cinemaLbl">시네마</span></button>
       <button class="btn" id="btnDream">🌌 <span id="dreamLbl">드림스카이</span></button>
     </div>
   </div>
@@ -452,6 +440,7 @@ async function init(){
       tier = "PHOTOREAL (Google 3D Tiles)";
     }catch(e){ console.warn("Google tiles 실패", e); }
   }
+  try{ portalTick(); }catch(e){}
   if(window._gT){ setTimeout(()=>{ RES_BASE=Math.max(RES_BASE,0.85); RES_MOVE=Math.max(RES_MOVE,0.72); },0); }
   const sc = viewer.scene;
   sc.globe.enableLighting = true;
@@ -497,7 +486,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0828d";
+  const SWEF_BUILD="0828f";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -987,7 +976,7 @@ function buildAvCfg(){
   document.getElementById("avSizeR").value=avSize;
   const g=document.getElementById("avGrid");
   if(g.childElementCount) return;
-  const opts=["","img:/fly/av/jet1.png","img:/fly/av/jet2.png","img:/fly/av/dragon.png","img:/fly/av/ufo.png","img:/fly/av/rocket.png","img:/fly/av/eagle.png"].concat(VEHICLES.map(v=>v.e)).concat(["🦅","🐉","🛸","🧚","☄️","🎈"]);
+  const opts=["","img:/fly/av/jet1.png","img:/fly/av/jet2.png","img:/fly/av/dragon.png","img:/fly/av/ufo.png","img:/fly/av/rocket.png","img:/fly/av/eagle.png","img:/fly/av/whale.png","img:/fly/av/heli.png","img:/fly/av/phoenix.png","img:/fly/av/balloon.png"].concat(VEHICLES.map(v=>v.e)).concat(["🦅","🐉","🛸","🧚","☄️","🎈"]);
   const seen={};
   opts.forEach(e=>{
     if(e!=="" && seen[e]) return; seen[e]=1;
@@ -995,44 +984,78 @@ function buildAvCfg(){
     if(e.indexOf("img:")===0){ b.innerHTML='<img src="'+e.slice(4)+'" style="height:34px" alt="J">'; }
     else b.textContent=e===""?"🚘":e; b.title=e===""?(KO?"탈것 따라감":"Follow vehicle"):e;
     b.onclick=()=>{ avPick=e; localStorage.setItem("ef_av_emoji",e); _avEmoji="";
+      if(e){ avOn=true; localStorage.setItem("ef_av_on","1"); const ck=document.getElementById("avOnChk"); if(ck) ck.checked=true; }
       g.querySelectorAll(".em").forEach(x=>x.classList.remove("on")); b.classList.add("on"); };
     g.appendChild(b);
   });
 }
-let dreamEnt=null;
-function toggleDream(){
-  const lbl=document.getElementById("dreamLbl");
-  if(dreamEnt){
-    viewer.entities.remove(dreamEnt); dreamEnt=null;
-    viewer.scene.skyAtmosphere.show=true;
-    document.getElementById("btnDream").classList.remove("on");
-    return;
-  }
-  fetch("/fly/sky/pano.jpg",{method:"HEAD"}).then(r=>{
-    if(!r.ok){ toast(KO?"🌌 드림스카이 준비 중":"Dream sky coming soon"); return; }
-    viewer.scene.skyAtmosphere.show=false;
-    dreamEnt=viewer.entities.add({
-      position:new Cesium.CallbackProperty(()=>viewer.camera.position, false),
-      ellipsoid:{
-        radii:new Cesium.Cartesian3(400000,400000,400000),
-        innerRadii:new Cesium.Cartesian3(399000,399000,399000),
-        material:new Cesium.ImageMaterialProperty({image:"/fly/sky/pano.jpg"}),
-        outline:false
-      }
-    });
-    document.getElementById("btnDream").classList.add("on");
-    toast(KO?"🌌 드림스카이 — 생성된 하늘 아래를 비행합니다":"Flying under a generated sky");
-  }).catch(()=>toast("sky load fail"));
+let dreamPrim=null, dreamSky="", _dreamMat=null, _dreamCb=null;
+function dreamOff(){
+  if(!dreamPrim) return;
+  viewer.scene.primitives.remove(dreamPrim); dreamPrim=null; dreamSky=""; _dreamMat=null;
+  if(_dreamCb){ viewer.scene.preRender.removeEventListener(_dreamCb); _dreamCb=null; }
+  viewer.scene.skyAtmosphere.show=true;
+  document.getElementById("btnDream").classList.remove("on");
 }
-const CINE=[{n:"☁️ 인피니트 스카이",en:"Infinite Sky",f:"/fly/cine/infinite_sky.mp4"}];
-function openCinema(i){
-  const w=document.getElementById("cineWrap"), v=document.getElementById("cineVid");
-  const C=CINE[i||0];
-  v.src=C.f; v.muted=true;
-  document.getElementById("cineTitle").textContent=(KO?C.n:C.en)+"  ·  "+(KO?"탭하면 소리":"tap for sound");
-  w.style.display="block";
-  v.play().catch(()=>{});
-  v.onclick=()=>{ v.muted=!v.muted; };
+function dreamOn(sky){
+  if(dreamPrim && dreamSky===sky) return;
+  if(dreamPrim && _dreamMat){ _dreamMat.uniforms.image=sky; dreamSky=sky; return; }
+  viewer.scene.skyAtmosphere.show=false;
+  _dreamMat=Cesium.Material.fromType("Image",{image:sky});
+  const app=new Cesium.MaterialAppearance({flat:true, translucent:false, material:_dreamMat,
+    renderState:{cull:{enabled:false}, depthTest:{enabled:true}}});
+  dreamPrim=viewer.scene.primitives.add(new Cesium.Primitive({
+    geometryInstances:new Cesium.GeometryInstance({geometry:new Cesium.EllipsoidGeometry({
+      radii:new Cesium.Cartesian3(400000,400000,400000),
+      vertexFormat:Cesium.VertexFormat.POSITION_AND_ST})}),
+    appearance:app, asynchronous:false, allowPicking:false}));
+  const scM=new Cesium.Matrix4();
+  _dreamCb=function(){ if(dreamPrim) dreamPrim.modelMatrix=Cesium.Transforms.eastNorthUpToFixedFrame(viewer.camera.positionWC, undefined, scM); };
+  viewer.scene.preRender.addEventListener(_dreamCb);
+  dreamSky=sky;
+  document.getElementById("btnDream").classList.add("on");
+}
+function toggleDream(){
+  if(dreamPrim){ dreamOff(); return; }
+  fetch("/fly/sky/pano.jpg",{method:"HEAD"}).then(r=>{
+    if(!r.ok){ toast(KO?"🌌 준비 중":"coming soon"); return; }
+    dreamOn("/fly/sky/pano.jpg");
+  }).catch(()=>{});
+}
+/* 숨은 포탈 — 이스터에그 */
+const PORTALS=[
+  {lat:37.5219, lon:126.9245, alt:900,  sky:"/fly/sky/pano.jpg"},
+  {lat:27.9881, lon:86.9250,  alt:9300, sky:"/fly/sky/pano.jpg"}
+];
+function createPortals(){
+  const c=document.createElement("canvas"); c.width=c.height=32;
+  const x=c.getContext("2d");
+  const g=x.createRadialGradient(16,16,1,16,16,15);
+  g.addColorStop(0,"rgba(255,255,255,.75)"); g.addColorStop(.5,"rgba(190,230,255,.28)"); g.addColorStop(1,"rgba(190,230,255,0)");
+  x.fillStyle=g; x.fillRect(0,0,32,32);
+  const img=c.toDataURL();
+  for(const p of PORTALS){
+    p._pos=Cesium.Cartesian3.fromDegrees(p.lon,p.lat,p.alt);
+    viewer.entities.add({position:p._pos, billboard:{image:img, width:9, height:9,
+      translucencyByDistance:new Cesium.NearFarScalar(600,0.55,7000,0.0)}});
+  }
+}
+function _flash(){
+  let f=document.getElementById("pflash");
+  if(!f){ f=document.createElement("div"); f.id="pflash";
+    f.style.cssText="position:fixed;inset:0;background:#fff;opacity:0;pointer-events:none;z-index:9500;transition:opacity .35s";
+    document.body.appendChild(f); }
+  f.style.opacity=.95; setTimeout(()=>{f.style.opacity=0;},320);
+}
+let _portalCd=0;
+function portalTick(){
+  if(_portalCd>0){ _portalCd--; return; }
+  const cam=viewer.camera.positionWC;
+  for(const p of PORTALS){
+    if(p._pos && Cesium.Cartesian3.distance(cam,p._pos)<420){
+      _portalCd=1200; _flash(); dreamOn(p.sky); break;
+    }
+  }
 }
 function zenToggle(){
   document.body.classList.toggle("zen");
@@ -1508,12 +1531,8 @@ function buildUI(){
     p.style.display=p.style.display==="block"?"none":"block";
     if(p.style.display==="block") buildAvCfg();
   };
-  document.getElementById("btnCinema").onclick=()=>openCinema(0);
   document.getElementById("btnDream").onclick=toggleDream;
-  document.getElementById("cineX").onclick=()=>{
-    const w=document.getElementById("cineWrap"), v=document.getElementById("cineVid");
-    v.pause(); v.src=""; w.style.display="none";
-  };
+  try{ createPortals(); }catch(e){}
   document.getElementById("btnAv").onclick=()=>{
     const p=document.getElementById("avCfg");
     p.style.display=p.style.display==="block"?"none":"block";
@@ -1549,7 +1568,6 @@ function buildUI(){
     document.getElementById("hqLbl").textContent="Ultra";
     document.getElementById("cineLbl").textContent="Widescreen";
     document.getElementById("avLbl").textContent="Avatar";
-    document.getElementById("cinemaLbl").textContent="Cinema";
     document.getElementById("dreamLbl").textContent="Dream Sky";
     document.getElementById("searchBox").placeholder="Search anywhere (e.g. Osaka, Uluru)";
     document.getElementById("coachCard").innerHTML='<div style="font-size:20px;font-weight:800;margin-bottom:14px">\uD83D\uDEEB How to fly</div><div class="cl">\uD83D\uDD90 <b>Drag anywhere</b> = point your nose</div><div class="cl">\u2B06\uFE0F Aim up to <b>climb</b>, down to <b>dive</b></div><div class="cl">\uD83C\uDF00 Hold <b>DRIFT</b>, turn, release for \uD83D\uDD25 boost</div><div class="cl">\u23F8 pause/resume</div><button class="btn" id="coachOk" style="margin-top:16px;width:100%;background:rgba(255,255,255,.92);color:#10131c;font-weight:800">Take off</button>';
