@@ -486,7 +486,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0828g";
+  const SWEF_BUILD="0828h";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -1024,9 +1024,16 @@ function toggleDream(){
 }
 /* 숨은 포탈 — 이스터에그 */
 const PORTALS=[
-  {lat:37.5219, lon:126.9245, alt:900,  sky:"/fly/sky/pano.jpg"},
-  {lat:27.9881, lon:86.9250,  alt:9300, sky:"/fly/sky/aurora.jpg"},
-  {lat:64.2478, lon:-14.9944, alt:700,  sky:"/fly/sky/aurora.jpg"}
+  {lat:37.5219,  lon:126.9245, alt:900,  sky:"/fly/sky/pano.jpg"},
+  {lat:27.9881,  lon:86.9250,  alt:9300, sky:"/fly/sky/pano.jpg"},
+  {lat:64.2478,  lon:-14.9944, alt:700,  sky:"/fly/sky/aurora.jpg"},
+  {lat:69.6492,  lon:18.9553,  alt:800,  sky:"/fly/sky/aurora.jpg"},
+  {lat:28.2724,  lon:-16.6425, alt:2600, sky:"/fly/sky/sunset.jpg"},
+  {lat:25.1972,  lon:55.2744,  alt:1200, sky:"/fly/sky/sunset.jpg"},
+  {lat:29.3574,  lon:110.5347, alt:1500, sky:"/fly/sky/islands.jpg"},
+  {lat:36.1069,  lon:-112.1129,alt:2900, sky:"/fly/sky/storm.jpg"},
+  {lat:19.8207,  lon:-155.4681,alt:4600, sky:"/fly/sky/galaxy.jpg"},
+  {lat:-20.1338, lon:-67.4891, alt:4200, sky:"/fly/sky/galaxy.jpg"}
 ];
 function createPortals(){
   const c=document.createElement("canvas"); c.width=c.height=32;
