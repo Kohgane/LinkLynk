@@ -352,11 +352,11 @@ const VEHICLES = [
   {n:"스텔스 헬기",en:"Stealth Heli",e:"img:/fly/av/heli.png",sp:0.9,ag:2.0},
   {n:"아티팩트 열기구",en:"Artifact Balloon",e:"img:/fly/av/balloon.png",sp:0.25,ag:0.6},
   {n:"제트기",en:"Jet",e:"\u2708\uFE0F",sp:2.2,ag:0.9},
-  {n:"전투기",en:"Fighter",e:"\uD83D\uDEE9\uFE0F",sp:3.0,ag:1.5},
-  {n:"여객기",en:"Airliner",e:"\uD83D\uDEEB",sp:1.8,ag:0.5},
+  {n:"전투기",en:"Fighter",e:"img:/fly/av/fighter.png",sp:3.0,ag:1.5},
+  {n:"여객기",en:"Airliner",e:"img:/fly/av/airliner.png",sp:1.8,ag:0.5},
   {n:"헬리콥터",en:"Helicopter",e:"\uD83D\uDE81",sp:0.6,ag:1.8},
-  {n:"글라이더",en:"Glider",e:"\uD83E\uDE82",sp:0.45,ag:1.2},
-  {n:"패러글라이더",en:"Paraglider",e:"\uD83C\uDFCB\uFE0F",sp:0.3,ag:1.5},
+  {n:"글라이더",en:"Glider",e:"img:/fly/av/glider.png",sp:0.45,ag:1.2},
+  {n:"패러글라이더",en:"Paraglider",e:"img:/fly/av/paraglider.png",sp:0.3,ag:1.5},
   {n:"열기구",en:"Balloon",e:"\uD83C\uDF88",sp:0.15,ag:0.5},
   {n:"드론",en:"Drone",e:"\uD83D\uDEF8",sp:0.5,ag:2.5},
   {n:"복엽기",en:"Biplane",e:"\uD83D\uDEE9",sp:0.8,ag:1.1},
@@ -486,7 +486,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0829b";
+  const SWEF_BUILD="0829c";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
