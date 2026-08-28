@@ -486,7 +486,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0828f";
+  const SWEF_BUILD="0828g";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -1025,7 +1025,8 @@ function toggleDream(){
 /* 숨은 포탈 — 이스터에그 */
 const PORTALS=[
   {lat:37.5219, lon:126.9245, alt:900,  sky:"/fly/sky/pano.jpg"},
-  {lat:27.9881, lon:86.9250,  alt:9300, sky:"/fly/sky/pano.jpg"}
+  {lat:27.9881, lon:86.9250,  alt:9300, sky:"/fly/sky/aurora.jpg"},
+  {lat:64.2478, lon:-14.9944, alt:700,  sky:"/fly/sky/aurora.jpg"}
 ];
 function createPortals(){
   const c=document.createElement("canvas"); c.width=c.height=32;
