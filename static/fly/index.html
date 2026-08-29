@@ -351,14 +351,16 @@ const VEHICLES = [
   {n:"하늘고래",en:"Sky Whale",e:"img:/fly/av/whale.png",sp:0.5,ag:0.8},
   {n:"스텔스 헬기",en:"Stealth Heli",e:"img:/fly/av/heli.png",sp:0.9,ag:2.0},
   {n:"아티팩트 열기구",en:"Artifact Balloon",e:"img:/fly/av/balloon.png",sp:0.25,ag:0.6},
+  {n:"경비행기",en:"Prop Plane",e:"img:/fly/av/propplane.png",sp:0.8,ag:1.5},
+  {n:"윙슈트",en:"Wingsuit",e:"img:/fly/av/wingsuit.png",sp:1.4,ag:2.7},
   {n:"제트기",en:"Jet",e:"\u2708\uFE0F",sp:2.2,ag:0.9},
   {n:"전투기",en:"Fighter",e:"img:/fly/av/fighter.png",sp:3.0,ag:1.5},
   {n:"여객기",en:"Airliner",e:"img:/fly/av/airliner.png",sp:1.8,ag:0.5},
-  {n:"헬리콥터",en:"Helicopter",e:"\uD83D\uDE81",sp:0.6,ag:1.8},
+  {n:"헬리콥터",en:"Helicopter",e:"img:/fly/av/heli2.png",sp:0.6,ag:1.8},
   {n:"글라이더",en:"Glider",e:"img:/fly/av/glider.png",sp:0.45,ag:1.2},
   {n:"패러글라이더",en:"Paraglider",e:"img:/fly/av/paraglider.png",sp:0.3,ag:1.5},
   {n:"열기구",en:"Balloon",e:"\uD83C\uDF88",sp:0.15,ag:0.5},
-  {n:"드론",en:"Drone",e:"\uD83D\uDEF8",sp:0.5,ag:2.5},
+  {n:"드론",en:"Drone",e:"img:/fly/av/drone.png",sp:0.5,ag:2.5},
   {n:"복엽기",en:"Biplane",e:"\uD83D\uDEE9",sp:0.8,ag:1.1},
   {n:"로켓",en:"Rocket",e:"\uD83D\uDE80",sp:6.0,ag:0.5,cat:"space"},
   {n:"우주왕복선",en:"Shuttle",e:"\uD83D\uDEF0\uFE0F",sp:5.0,ag:0.8,cat:"space"},
@@ -486,7 +488,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0829c";
+  const SWEF_BUILD="0829d";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
