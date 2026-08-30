@@ -374,14 +374,14 @@ const VEHICLES = [
   {n:"복엽기",en:"Biplane",e:"img:/fly/av/biplane.png",sp:0.8,ag:1.1},
   {n:"우주왕복선",en:"Shuttle",e:"img:/fly/av/shuttle.png",sp:5.0,ag:0.8,cat:"space"},
   {n:"스포츠카",en:"Sports Car",e:"\uD83C\uDFCE\uFE0F",sp:1.2,ag:1.5,cat:"ground",off:2},
-  {n:"오토바이",en:"Motorbike",e:"\uD83C\uDFCD\uFE0F",sp:1.0,ag:2.0,cat:"ground",off:2},
+  {n:"오토바이",en:"Motorbike",e:"img:/fly/av/superbike.png",sp:1.0,ag:2.0,cat:"ground",off:2},
   {n:"오프로드",en:"Offroad",e:"\uD83D\uDEFB",sp:0.8,ag:1.6,cat:"ground",off:3},
-  {n:"기차",en:"Train",e:"\uD83D\uDE84",sp:1.5,ag:0.3,cat:"ground",off:4},
+  {n:"기차",en:"Train",e:"img:/fly/av/bullettrain.png",sp:1.5,ag:0.3,cat:"ground",off:4},
   {n:"탱크",en:"Tank",e:"\uD83D\uDEE1\uFE0F",sp:0.5,ag:0.8,cat:"ground",off:3},
   {n:"말",en:"Horse",e:"\uD83D\uDC0E",sp:0.3,ag:1.8,cat:"ground",off:2},
   {n:"치타",en:"Cheetah",e:"\uD83D\uDC06",sp:0.6,ag:2.5,cat:"ground",off:1},
   {n:"자전거",en:"Bicycle",e:"\uD83D\uDEB2",sp:0.15,ag:1.5,cat:"ground",off:2},
-  {n:"쾌속정",en:"Speedboat",e:"\uD83D\uDEA4",sp:0.9,ag:1.5,cat:"sea",off:2},
+  {n:"쾌속정",en:"Speedboat",e:"img:/fly/av/speedboat.png",sp:0.9,ag:1.5,cat:"sea",off:2},
   {n:"요트",en:"Yacht",e:"\u26F5",sp:0.4,ag:0.8,cat:"sea",off:3},
   {n:"항공모함",en:"Carrier",e:"\uD83D\uDEA2",sp:0.6,ag:0.2,cat:"sea",off:15},
   {n:"서핑보드",en:"Surfboard",e:"img:/fly/av/surfboard.png",sp:0.3,ag:2.0,cat:"sea",off:1},
@@ -487,7 +487,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0830a";
+  const SWEF_BUILD="0830b";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
