@@ -337,6 +337,10 @@ const VEHICLES = [
   {n:"주작",en:"Vermilion Bird",e:"img:/fly/av/jujak.png",sp:3.0,ag:1.8},
   {n:"백호",en:"White Tiger",e:"img:/fly/av/baekho.png",sp:1.8,ag:3.0},
   {n:"현무",en:"Black Tortoise",e:"img:/fly/av/hyeonmu.png",sp:0.7,ag:1.0},
+  {n:"비행 거북선",en:"Sky Geobukseon",e:"img:/fly/av/geobukseon.png",sp:1.4,ag:1.2},
+  {n:"방패연",en:"Shield Kite",e:"img:/fly/av/kite.png",sp:1.0,ag:2.4},
+  {n:"두루미",en:"Red-crowned Crane",e:"img:/fly/av/crane.png",sp:1.1,ag:2.1},
+  {n:"도깨비불",en:"Dokkaebi Fire",e:"img:/fly/av/dokkaebi.png",sp:1.8,ag:2.9},
   {n:"페가수스",en:"Pegasus",e:"img:/fly/av/pegasus.png",sp:1.7,ag:2.1},
   {n:"그리핀",en:"Griffin",e:"img:/fly/av/griffin.png",sp:1.5,ag:2.3},
   {n:"가루다",en:"Garuda",e:"img:/fly/av/garuda.png",sp:2.1,ag:1.7},
@@ -489,7 +493,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0830e";
+  const SWEF_BUILD="0830f";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
