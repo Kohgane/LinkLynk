@@ -493,7 +493,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0830f";
+  const SWEF_BUILD="0830g";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -1022,7 +1022,7 @@ const PORTALS=[
   {lat:29.3574,  lon:110.5347, alt:1500, sky:"/fly/sky/islands.jpg", open:true},
   {lat:36.1069,  lon:-112.1129,alt:2900, sky:"/fly/sky/storm.jpg"},
   {lat:19.8207,  lon:-155.4681,alt:4600, sky:"/fly/sky/galaxy.jpg"},
-  {lat:-20.1338, lon:-67.4891, alt:4200, sky:"/fly/sky/galaxy.jpg"}
+  {lat:-20.1338, lon:-67.4891, alt:4200, sky:"/fly/sky/galaxy.jpg", unlock:"swef_gate1"}
 ];
 function createPortals(){
   const c=document.createElement("canvas"); c.width=c.height=32;
@@ -1040,7 +1040,7 @@ function createPortals(){
   const ring=r.toDataURL();
   for(const p of PORTALS){
     p._pos=Cesium.Cartesian3.fromDegrees(p.lon,p.lat,p.alt);
-    if(p.open){
+    if(p.open || (p.unlock && localStorage.getItem(p.unlock))){
       viewer.entities.add({position:p._pos,
         billboard:{image:ring, width:170, height:170,
           scaleByDistance:new Cesium.NearFarScalar(400,2.2,60000,0.15)},
@@ -1468,8 +1468,26 @@ function syncBtns(){
     : (mode==="tour" ? "명소 카드를 눌러 이동 · 자동 선회 중" : "지구를 드래그해 회전 · 휠로 접근");
 }
 
+const GOD_NAMES=["청룡","주작","백호","현무"];
+function godTrial(name){
+  if(GOD_NAMES.indexOf(name)<0) return;
+  let done=[];
+  try{ done=JSON.parse(localStorage.getItem("swef_gods")||"[]"); }catch(e){}
+  if(done.indexOf(name)>=0) return;
+  done.push(name);
+  localStorage.setItem("swef_gods",JSON.stringify(done));
+  if(done.length<4){
+    toast("🐲 사신의 시험 "+done.length+"/4 — "+name+" 각성");
+  } else {
+    localStorage.setItem("swef_gate1","1");
+    if(typeof _flash==="function") _flash();
+    toast("🗝 사신의 시험 완료 — 비밀 좌표가 지도에 나타났다");
+    setTimeout(()=>toast("✨ 남미의 거대한 소금 거울, 하늘이 두 개가 되는 곳"),2600);
+  }
+}
 function pickVeh(i){
   veh = VEHICLES[i];
+  godTrial(veh.n);
   document.querySelectorAll(".vcard").forEach((c,j)=>c.classList.toggle("on", j===i));
   custWrap.style.display = veh.custom ? "flex" : "none";
   if (veh.custom){ veh.sp=parseFloat(custSp.value); veh.ag=parseFloat(custAg.value); }
