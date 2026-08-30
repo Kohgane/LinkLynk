@@ -377,20 +377,22 @@ const VEHICLES = [
   {n:"오토바이",en:"Motorbike",e:"img:/fly/av/superbike.png",sp:1.0,ag:2.0,cat:"ground",off:2},
   {n:"오프로드",en:"Offroad",e:"\uD83D\uDEFB",sp:0.8,ag:1.6,cat:"ground",off:3},
   {n:"기차",en:"Train",e:"img:/fly/av/bullettrain.png",sp:1.5,ag:0.3,cat:"ground",off:4},
-  {n:"탱크",en:"Tank",e:"\uD83D\uDEE1\uFE0F",sp:0.5,ag:0.8,cat:"ground",off:3},
+  {n:"탱크",en:"Tank",e:"img:/fly/av/tank.png",sp:0.5,ag:0.8,cat:"ground",off:3},
   {n:"말",en:"Horse",e:"img:/fly/av/horse.png",sp:0.3,ag:1.8,cat:"ground",off:2},
   {n:"치타",en:"Cheetah",e:"img:/fly/av/cheetah.png",sp:0.6,ag:2.5,cat:"ground",off:1},
   {n:"자전거",en:"Bicycle",e:"\uD83D\uDEB2",sp:0.15,ag:1.5,cat:"ground",off:2},
   {n:"쾌속정",en:"Speedboat",e:"img:/fly/av/speedboat.png",sp:0.9,ag:1.5,cat:"sea",off:2},
-  {n:"요트",en:"Yacht",e:"\u26F5",sp:0.4,ag:0.8,cat:"sea",off:3},
-  {n:"항공모함",en:"Carrier",e:"\uD83D\uDEA2",sp:0.6,ag:0.2,cat:"sea",off:15},
+  {n:"요트",en:"Yacht",e:"img:/fly/av/yacht.png",sp:0.4,ag:0.8,cat:"sea",off:3},
+  {n:"항공모함",en:"Carrier",e:"img:/fly/av/carrier.png",sp:0.6,ag:0.2,cat:"sea",off:15},
   {n:"서핑보드",en:"Surfboard",e:"img:/fly/av/surfboard.png",sp:0.3,ag:2.0,cat:"sea",off:1},
   {n:"잠수함",en:"Submarine",e:"\uD83E\uDD3F",sp:0.5,ag:0.8,cat:"sub"},
   {n:"인어",en:"Mermaid",e:"img:/fly/av/mermaid.png",sp:0.3,ag:2.0,cat:"sub"},
   {n:"드릴머신",en:"Drill",e:"\uD83D\uDEE0\uFE0F",sp:0.4,ag:0.8,cat:"tunnel"},
   {n:"두더지",en:"Mole",e:"\uD83D\uDC00",sp:0.3,ag:1.5,cat:"tunnel"},
-  {n:"모래벌레",en:"Sandworm",e:"\uD83E\uDEB1",sp:1.2,ag:1.0,cat:"tunnel"},
+  {n:"모래벌레",en:"Sandworm",e:"img:/fly/av/sandworm.png",sp:1.2,ag:1.0,cat:"tunnel"},
   {n:"종이비행기",en:"Paper Plane",e:"img:/fly/av/paperplane.png",sp:0.4,ag:2.2},
+  {n:"밤빛 익룡",en:"Night Wing",e:"img:/fly/av/nightwing.png",sp:2.1,ag:2.7},
+  {n:"리바이어던",en:"Leviathan",e:"img:/fly/av/leviathan.png",sp:1.2,ag:0.5},
   {n:"커스텀",en:"Custom",e:"\u2699\uFE0F",sp:1.0,ag:1.0,custom:true},
 ];
 
@@ -487,7 +489,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0830c";
+  const SWEF_BUILD="0830d";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
