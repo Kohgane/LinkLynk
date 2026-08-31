@@ -173,6 +173,7 @@
       <button class="btn" id="btnCine">🎞️ <span id="cineLbl">시네스코</span></button>
       <button class="btn" id="btnCloud">☁️ <span id="cloudLbl">구름</span></button>
       <button class="btn" id="btnDream">🌌 <span id="dreamLbl">드림스카이</span></button>
+      <button class="btn" id="btnMb">💫 <span id="mbLbl">블러</span></button>
     </div>
   </div>
   <div id="tabbar">
@@ -493,7 +494,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0830g";
+  const SWEF_BUILD="0831a";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -584,6 +585,26 @@ function setupTouch(){
 
 const FILMS=[["\uC6D0\uBCF8","Natural"],["\uBE44\uBE44\uB4DC","Vivid"],["\uACE8\uB4E0\uC544\uC6CC","Golden"],["\uC218\uBB35","Ink"],["\uB4DC\uB9BC","Dream"],["\uC544\uBC14\uD0C0","Pandora"],["\uC778\uC149\uC158","Inception"],["\uCF54\uCF54","Coco"],["\uB354 \uD3F4","The Fall"],["\uBD80\uB2E4\uD398\uC2A4\uD2B8","Budapest"],["\uB178\uC744\uAE38","Sunset Drive"],["\uC624\uB85C\uB77C","Aurora"]];
 let filmIdx=0, filmStage=null, cityTiles=null, cityLoading=false;
+let _mbStage=null,_mbPrevV=null,_mbPrevP=null,_mbLast=0,_mbScale=0;
+let _mbJ=Cesium.Matrix4.clone(Cesium.Matrix4.IDENTITY);
+const _mbTmpA=new Cesium.Matrix4(),_mbTmpB=new Cesium.Matrix4();
+function mbLevel(){ return parseInt(localStorage.getItem("swef_mb")||"1"); }
+function mbUpdate(){
+  if(!_mbStage) return;
+  const lvl=mbLevel();
+  const cam=viewer.camera, V=cam.viewMatrix, P=cam.frustum.projectionMatrix;
+  const now=performance.now(); const dt=_mbLast?Math.min(100,now-_mbLast):16.6; _mbLast=now;
+  _mbStage.enabled = lvl>0;
+  if(lvl>0 && _mbPrevV && P){
+    const invV=Cesium.Matrix4.inverse(V,_mbTmpA);
+    const A=Cesium.Matrix4.multiply(_mbPrevV,invV,_mbTmpB);
+    Cesium.Matrix4.multiply(_mbPrevP,A,_mbJ);
+    const shutter = lvl===2?1.0:0.5;
+    _mbScale = shutter*Math.min(1.0,16.6/dt);
+  } else _mbScale=0;
+  _mbPrevV=Cesium.Matrix4.clone(V,_mbPrevV||new Cesium.Matrix4());
+  if(P) _mbPrevP=Cesium.Matrix4.clone(P,_mbPrevP||new Cesium.Matrix4());
+}
 function initFilm(){
   const fs=`uniform sampler2D colorTexture; uniform sampler2D depthTexture; in vec2 v_textureCoordinates; uniform float u_mode; uniform float u_time;
   vec3 sat(vec3 c,float s){float l=dot(c,vec3(0.299,0.587,0.114));return mix(vec3(l),c,s);}
@@ -670,6 +691,35 @@ function initFilm(){
       c += (g-0.5)*0.03*(0.25+0.75*smoothstep(0.05,0.5,lum));
     }
     out_FragColor=vec4(c,col.a); }`;
+  try{
+    const mbfs=`uniform sampler2D colorTexture; uniform sampler2D depthTexture;
+uniform mat4 u_J; uniform float u_scale; uniform float u_clamp;
+in vec2 v_textureCoordinates;
+void main(){
+  vec2 uv=v_textureCoordinates;
+  vec4 col=texture(colorTexture,uv);
+  if(u_scale<=0.0){ out_FragColor=col; return; }
+  float d=czm_readDepth(depthTexture,uv);
+  vec4 eye=czm_windowToEyeCoordinates(gl_FragCoord.xy, d);
+  vec4 pc=u_J*eye;
+  if(abs(pc.w)<1e-6){ out_FragColor=col; return; }
+  vec2 puv=(pc.xy/pc.w)*0.5+0.5;
+  vec2 vel=(uv-puv)*u_scale;
+  float l=length(vel);
+  if(l<0.0006){ out_FragColor=col; return; }
+  if(l>u_clamp) vel*=u_clamp/l;
+  vec4 acc=vec4(0.0);
+  for(int i=0;i<8;i++){
+    float t=(float(i)+0.5)/8.0-0.5;
+    acc+=texture(colorTexture, clamp(uv+vel*t, vec2(0.002), vec2(0.998)));
+  }
+  out_FragColor=acc*0.125;
+}`;
+    _mbStage=viewer.scene.postProcessStages.add(new Cesium.PostProcessStage({
+      fragmentShader:mbfs, uniforms:{u_J:()=>_mbJ, u_scale:()=>_mbScale, u_clamp:0.045}}));
+    _mbStage.enabled=false;
+    viewer.scene.preRender.addEventListener(mbUpdate);
+  }catch(e){ console.warn("mblur init fail",e); }
   filmStage=viewer.scene.postProcessStages.add(new Cesium.PostProcessStage({
     fragmentShader:fs, uniforms:{u_mode:()=>filmIdx, u_time:()=>(performance.now()%100000)/1000}}));
   filmStage.enabled=false;
@@ -1564,6 +1614,13 @@ function buildUI(){
   if(_asz){ _asz.value=avSize;
     _asz.oninput=()=>{ avSize=parseInt(_asz.value); localStorage.setItem("ef_av_size",avSize); _avEmoji=""; }; }
   document.getElementById("btnDream").onclick=toggleDream;
+  (function(){
+    const b=document.getElementById("btnMb"), L=document.getElementById("mbLbl");
+    const names=KO?["블러 OFF","블러 180°","블러 360°"]:["Blur OFF","Blur 180°","Blur 360°"];
+    const paint=()=>{ const l=mbLevel(); L.textContent=names[l]; b.classList.toggle("on",l>0); };
+    b.onclick=()=>{ localStorage.setItem("swef_mb",String((mbLevel()+1)%3)); paint(); toast("💫 "+names[mbLevel()]); };
+    paint();
+  })();
   try{ createPortals(); }catch(e){}
   document.getElementById("btnCine").onclick=()=>{
     document.body.classList.toggle("cine");
