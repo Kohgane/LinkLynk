@@ -11,3 +11,5 @@ screen_*.png
 배포실행_복붙가이드.md
 core.py.bak*
 data/*.pdf
+.order_loop.lock
+*.lock
