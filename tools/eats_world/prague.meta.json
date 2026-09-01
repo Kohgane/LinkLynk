@@ -1,0 +1,13 @@
+{
+ "key": "prague",
+ "label": "프라하",
+ "cc": "CZ",
+ "center": [
+  50.0755,
+  14.4378
+ ],
+ "count": 171,
+ "with_coord": 163,
+ "license": "CC BY-SA 4.0 / Wikivoyage",
+ "built": "2026-08-31"
+}

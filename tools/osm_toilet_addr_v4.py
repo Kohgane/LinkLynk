@@ -10,13 +10,12 @@ import json, os, sys, time, urllib.request
 HERE = os.path.dirname(os.path.abspath(__file__))
 DIR = os.path.join(HERE, "toilets_world")
 UA = "GottaGo/1.0 (kohgane; +https://linklynk.onrender.com/gottago)"
-RATE = 1.6          # 초당 1회 규칙 + 여유
+RATE = 0.35          # 초당 1회 규칙 + 여유
 MAXFAIL = 8         # 연속 실패 이만큼이면 중단(차단 방지)
 
 
 def rev(lat, lng):
-    url = ("https://nominatim.openstreetmap.org/reverse?format=jsonv2"
-           "&lat=%f&lon=%f&zoom=18&addressdetails=1&accept-language=ko,en") % (lat, lng)
+    url = "https://photon.komoot.io/reverse?lat=%f&lon=%f&lang=en" % (lat, lng)
     req = urllib.request.Request(url)
     req.add_header("User-Agent", UA)
     r = urllib.request.urlopen(req, timeout=30)
@@ -24,17 +23,14 @@ def rev(lat, lng):
 
 
 def compose(d):
-    a = d.get("address") or {}
-    road = (a.get("road") or a.get("pedestrian") or a.get("footway")
-            or a.get("path") or a.get("square") or "")
-    area = (a.get("quarter") or a.get("neighbourhood") or a.get("suburb")
-            or a.get("city_district") or a.get("village") or a.get("town") or "")
-    nm = d.get("name") or ""
-    if nm and nm != road:
-        head = nm
-    else:
-        head = road
-    if head and area:
+    f = (d.get("features") or [{}])[0].get("properties", {}) or {}
+    head = f.get("street") or f.get("name") or ""
+    area = (f.get("district") or f.get("suburb") or f.get("city")
+            or f.get("county") or "")
+    hn = f.get("housenumber") or ""
+    if head and hn:
+        head = "%s %s" % (head, hn)
+    if head and area and head != area:
         return "%s · %s" % (head[:30], area[:22])
     return (head or area)[:52]
 

@@ -1,0 +1,13 @@
+{
+ "key": "danang",
+ "label": "다낭",
+ "cc": "VN",
+ "center": [
+  16.0544,
+  108.2022
+ ],
+ "count": 44,
+ "with_coord": 42,
+ "license": "CC BY-SA 4.0 / Wikivoyage",
+ "built": "2026-08-31"
+}

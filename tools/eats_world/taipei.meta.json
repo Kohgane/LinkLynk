@@ -1,0 +1,13 @@
+{
+ "key": "taipei",
+ "label": "타이베이",
+ "cc": "TW",
+ "center": [
+  25.033,
+  121.5654
+ ],
+ "count": 121,
+ "with_coord": 78,
+ "license": "CC BY-SA 4.0 / Wikivoyage",
+ "built": "2026-08-31"
+}

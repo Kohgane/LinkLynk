@@ -1,0 +1,13 @@
+{
+ "key": "bangkok",
+ "label": "방콕",
+ "cc": "TH",
+ "center": [
+  13.7563,
+  100.5018
+ ],
+ "count": 232,
+ "with_coord": 138,
+ "license": "CC BY-SA 4.0 / Wikivoyage",
+ "built": "2026-08-31"
+}

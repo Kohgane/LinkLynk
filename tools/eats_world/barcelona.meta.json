@@ -1,0 +1,13 @@
+{
+ "key": "barcelona",
+ "label": "바르셀로나",
+ "cc": "ES",
+ "center": [
+  41.3874,
+  2.1686
+ ],
+ "count": 152,
+ "with_coord": 141,
+ "license": "CC BY-SA 4.0 / Wikivoyage",
+ "built": "2026-08-31"
+}

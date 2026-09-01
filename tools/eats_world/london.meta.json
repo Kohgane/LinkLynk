@@ -1,0 +1,13 @@
+{
+ "key": "london",
+ "label": "런던",
+ "cc": "GB",
+ "center": [
+  51.5074,
+  -0.1278
+ ],
+ "count": 846,
+ "with_coord": 840,
+ "license": "CC BY-SA 4.0 / Wikivoyage",
+ "built": "2026-08-31"
+}

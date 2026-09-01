@@ -1,0 +1,13 @@
+{
+ "key": "rome",
+ "label": "로마",
+ "cc": "IT",
+ "center": [
+  41.9028,
+  12.4964
+ ],
+ "count": 112,
+ "with_coord": 110,
+ "license": "CC BY-SA 4.0 / Wikivoyage",
+ "built": "2026-08-31"
+}

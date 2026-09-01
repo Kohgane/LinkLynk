@@ -1,0 +1,13 @@
+{
+ "key": "paris",
+ "label": "파리",
+ "cc": "FR",
+ "center": [
+  48.8566,
+  2.3522
+ ],
+ "count": 282,
+ "with_coord": 219,
+ "license": "CC BY-SA 4.0 / Wikivoyage",
+ "built": "2026-08-31"
+}
