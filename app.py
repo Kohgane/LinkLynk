@@ -1926,6 +1926,14 @@ def assetlinks():
                      "target": {"namespace": "android_app",
                                 "package_name": os.environ.get("EF_ANDROID_PKG", "com.kohgane.earthflight"),
                                 "sha256_cert_fingerprints": _ef_fps}})
+    _gg_default = (
+        "0A:49:F2:5D:9A:BA:A5:96:BD:50:73:B1:CB:83:79:BE:45:73:9F:32:94:E6:AC:42:5A:22:8A:63:B2:09:45:AF")  # 빌드 키
+    _gg_fps = [x.strip() for x in os.environ.get("GOTTAGO_ANDROID_SHA256", _gg_default).split(",") if x.strip()]
+    if _gg_fps:
+        body.append({"relation": ["delegate_permission/common.handle_all_urls"],
+                     "target": {"namespace": "android_app",
+                                "package_name": os.environ.get("GOTTAGO_ANDROID_PKG", "app.gottago.twa"),
+                                "sha256_cert_fingerprints": _gg_fps}})
     r = jsonify(body)
     r.headers["Content-Type"] = "application/json"
     return r
