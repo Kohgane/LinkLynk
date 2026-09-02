@@ -140,6 +140,11 @@ def gg_static(fname):
     return send_from_directory(os.path.join(HERE, "static", "gottago"), fname)
 
 
+@gg_bp.route("/gottago/privacy")
+def gg_privacy():
+    return Response(PRIVACY, mimetype="text/html; charset=utf-8")
+
+
 @gg_bp.route("/gottago")
 @gg_bp.route("/gottago/")
 def gg_page():
@@ -306,3 +311,66 @@ function query(lat,lng,keep){
    }).catch(function(){OUT.innerHTML='<div class="msg">Request failed.</div>';});
 }
 </script></body></html>"""
+
+
+PRIVACY = """<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>GottaGo - Privacy Policy</title>
+<style>
+body{margin:0;background:#0b0f16;color:#e9eef5;font:15px/1.75 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+.w{max-width:720px;margin:0 auto;padding:28px 18px 80px}
+h1{font-size:22px;margin:0 0 4px}
+h2{font-size:16px;margin:26px 0 6px;color:#7ff0e2}
+p,li{color:#c3cedb;font-size:14px}
+.d{color:#7f8ea0;font-size:12.5px;margin:0 0 20px}
+a{color:#5f9fe0}
+code{background:#141a24;padding:1px 5px;border-radius:4px;font-size:13px}
+</style></head><body><div class="w">
+<h1>Privacy Policy</h1>
+<p class="d">GottaGo - Restroom Finder &middot; Last updated: 2 September 2026</p>
+
+<h2>Who we are</h2>
+<p>GottaGo is operated by alaz ltd. Contact: <a href="mailto:cigua7134@gmail.com">cigua7134@gmail.com</a></p>
+
+<h2>What we collect</h2>
+<p><b>Location.</b> When you tap "Find restrooms near me", your device asks for
+permission and sends your coordinates to our server so we can calculate which
+restrooms are nearest to you. This happens only when you tap that button.</p>
+<p>We do <b>not</b> store your location. The coordinates are used to compute
+distances and are discarded once the response is sent. They are not linked to
+any identifier and are not used to build a profile of you.</p>
+
+<h2>What we do not collect</h2>
+<ul>
+<li>No account, name, email address or phone number</li>
+<li>No advertising identifiers</li>
+<li>No contacts, photos, files or device identifiers</li>
+<li>No analytics or tracking cookies</li>
+<li>No background or continuous location tracking</li>
+</ul>
+
+<h2>Third parties</h2>
+<p>Map tiles are served by <a href="https://www.openstreetmap.org/" target="_blank" rel="noopener">OpenStreetMap</a>.
+When the map is displayed, your browser requests tiles directly from their
+servers, which receive your IP address as part of any normal web request.
+See the <a href="https://wiki.osmfoundation.org/wiki/Privacy_Policy" target="_blank" rel="noopener">OSM Foundation privacy policy</a>.</p>
+<p>Our servers are hosted by Render. Standard web server logs (IP address,
+timestamp, requested path) are retained for operational and security purposes.</p>
+
+<h2>Data source</h2>
+<p>Restroom locations come from OpenStreetMap contributors and are licensed
+under the <a href="https://opendatacommons.org/licenses/odbl/" target="_blank" rel="noopener">Open Database License (ODbL)</a>.
+Street and district names are resolved using the Photon geocoding service.</p>
+
+<h2>Children</h2>
+<p>This app is not directed at children under 13 and we do not knowingly
+collect any information from them.</p>
+
+<h2>Your rights</h2>
+<p>Because we do not store personal data, there is nothing to export or erase
+on request. If you believe we hold information about you, write to the address
+above and we will respond within 30 days.</p>
+
+<h2>Changes</h2>
+<p>If this policy changes, the date at the top of this page will be updated.</p>
+</div></body></html>"""
