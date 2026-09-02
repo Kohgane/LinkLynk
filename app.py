@@ -1932,7 +1932,7 @@ def assetlinks():
     if _gg_fps:
         body.append({"relation": ["delegate_permission/common.handle_all_urls"],
                      "target": {"namespace": "android_app",
-                                "package_name": os.environ.get("GOTTAGO_ANDROID_PKG", "app.gottago.twa"),
+                                "package_name": os.environ.get("GOTTAGO_ANDROID_PKG", "com.kohgane.gottago"),
                                 "sha256_cert_fingerprints": _gg_fps}})
     r = jsonify(body)
     r.headers["Content-Type"] = "application/json"
