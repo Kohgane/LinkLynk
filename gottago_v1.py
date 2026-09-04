@@ -61,6 +61,71 @@ def ident(r):
     return (r.get("name") or r.get("near") or r.get("addr") or "").strip()
 
 
+# ── 사용자 제보: 신규 화장실 위치 (해외 전용, 국내 reports.json 과 분리)
+import urllib.request, datetime, re as _re
+
+SB_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
+SB_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "") or os.environ.get("SUPABASE_KEY", "")
+SB_BUCKET = os.environ.get("SUPABASE_BUCKET", "linklynk")
+_REP, _rlock = None, threading.Lock()
+
+
+def _sb(method, data=None):
+    url = "%s/storage/v1/object/%s/gottago/reports_world.json" % (SB_URL, SB_BUCKET)
+    req = urllib.request.Request(url, data=data, method=method)
+    req.add_header("Authorization", "Bearer " + SB_KEY)
+    req.add_header("apikey", SB_KEY)
+    if method != "GET":
+        req.add_header("Content-Type", "application/json")
+        req.add_header("x-upsert", "true")
+    return urllib.request.urlopen(req, timeout=12).read()
+
+
+def reps():
+    global _REP
+    if _REP is None:
+        try:
+            _REP = json.loads(_sb("GET"))
+        except Exception:
+            _REP = {"new": []}
+        _REP.setdefault("new", [])
+    return _REP
+
+
+@gg_bp.route("/api/gg/report", methods=["POST"])
+def gg_report():
+    d = request.get_json(silent=True) or {}
+    try:
+        lat, lng = float(d.get("lat")), float(d.get("lng"))
+    except Exception:
+        return jsonify({"ok": False, "error": "bad coords"}), 400
+    if not (-90 <= lat <= 90 and -180 <= lng <= 180):
+        return jsonify({"ok": False, "error": "bad coords"}), 400
+    m, dist = city_at(lat, lng)
+    if m is None or dist > 0:
+        return jsonify({"ok": False, "error": "outside covered cities"}), 400
+    name = (d.get("name") or "").strip()[:40]
+    fee = 1 if d.get("fee") else 0
+    wc = 1 if d.get("wc") else 0
+    with _rlock:
+        r = reps()
+        k = (round(lat, 4), round(lng, 4))
+        r["new"] = [x for x in r["new"]
+                    if (round(x["lat"], 4), round(x["lng"], 4)) != k]
+        r["new"].append({"lat": round(lat, 6), "lng": round(lng, 6),
+                         "name": name, "fee": fee,
+                         "access": "휠체어" if wc else "",
+                         "h24": 0, "ty": "user", "cc": m.get("cc", ""),
+                         "city": m["key"],
+                         "ts": datetime.datetime.utcnow().strftime("%Y-%m-%d")})
+        r["new"] = r["new"][-4000:]
+        try:
+            _sb("POST", json.dumps(r, ensure_ascii=False).encode())
+        except Exception:
+            return jsonify({"ok": False, "error": "save failed"}), 502
+    return jsonify({"ok": True, "count": len(r["new"])})
+
+
 @gg_bp.route("/api/gg/near")
 def gg_near():
     try:
@@ -77,7 +142,11 @@ def gg_near():
         return jsonify({"ok": True, "covered": False, "nearest": m["label"],
                         "nearest_km": int(dist), "items": [],
                         "cities": [x["label"] for x in metas()]})
-    rows = load(m["key"])
+    rows = list(load(m["key"]))
+    try:
+        rows += [x for x in reps()["new"] if x.get("city") == m["key"]]
+    except Exception:
+        pass
     coslat = math.cos(math.radians(lat))
     free_only = request.args.get("free") == "1"
     acc_only = request.args.get("wc") == "1"
@@ -96,6 +165,7 @@ def gg_near():
     items = []
     for d, t in out[:20]:
         items.append({"lat": t["lat"], "lng": t["lng"], "label": ident(t),
+                      "user": 1 if t.get("ty") == "user" else 0,
                       "fee": t.get("fee", 0), "h24": t.get("h24", 0),
                       "wc": 1 if "휠체어" in (t.get("access") or "") else 0,
                       "baby": 1 if "기저귀" in (t.get("access") or "") else 0,
@@ -195,6 +265,11 @@ button{font:inherit;cursor:pointer}
 .msg{color:#8b98a8;text-align:center;padding:32px 8px;font-size:14px;line-height:1.7}
 .chips{display:flex;gap:6px;flex-wrap:wrap;justify-content:center;margin-top:12px}
 .chips button{background:#141a24;border:1px solid #24303f;color:#9fb0c2;border-radius:999px;padding:6px 12px;font-size:12px}
+.add{width:100%;background:#141a24;border:1px dashed #35485f;color:#9fb0c2;
+ border-radius:12px;padding:13px;font-size:14px;margin-top:14px;display:none}
+.add.on{display:block}
+.add:active{background:#1a2430}
+.utag{background:#122a1e;border-color:#1f5c46;color:#6cd6a0}
 .foot{color:#5d6b7c;font-size:11px;margin-top:22px;line-height:1.6}
 .foot a{color:#5f9fe0}
 </style></head><body><div class="wrap">
@@ -206,6 +281,7 @@ button{font:inherit;cursor:pointer}
 <button class="go" id="go">Find restrooms near me</button>
 <div class="f"><button id="ffree">Free only</button><button id="fwc">Wheelchair</button></div>
 <div id="map"></div>
+<button class="add" id="addBtn">+ Add a restroom you found here</button>
 <div id="out"><div class="msg">Tap the button to see the nearest restrooms.<div class="chips" id="chips"></div></div></div>
 <p class="foot">Data &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors (ODbL). Opening hours are rarely mapped, so they are not shown. Always check on site.</p>
 </div>
@@ -271,6 +347,28 @@ function drawMap(lat,lng,items){
   map.fitBounds(pts,{padding:[28,28],maxZoom:16});
   setTimeout(function(){map.invalidateSize();},80);
 }
+document.getElementById("addBtn").onclick=function(){
+  var b=this;
+  if(!navigator.geolocation){alert("Geolocation not supported.");return;}
+  if(!confirm("Add a restroom at your current location?\\nOnly do this if you are standing at one."))return;
+  b.disabled=true;b.textContent="Getting your position...";
+  navigator.geolocation.getCurrentPosition(function(p){
+    var nm=prompt("Name or landmark (optional)","")||"";
+    var fee=confirm("Is it free?\\nOK = free, Cancel = paid")?0:1;
+    var wc=confirm("Wheelchair accessible?\\nOK = yes, Cancel = no")?1:0;
+    b.textContent="Sending...";
+    fetch("/api/gg/report",{method:"POST",headers:{"Content-Type":"application/json"},
+      body:JSON.stringify({lat:p.coords.latitude,lng:p.coords.longitude,name:nm,fee:fee,wc:wc})})
+     .then(function(r){return r.json();}).then(function(d){
+       b.disabled=false;b.textContent="+ Add a restroom you found here";
+       if(d.ok){alert("Thanks. Your report is live.");query(p.coords.latitude,p.coords.longitude,true);}
+       else alert("Could not save: "+(d.error||"unknown"));
+     }).catch(function(){b.disabled=false;
+       b.textContent="+ Add a restroom you found here";alert("Request failed.");});
+  },function(){b.disabled=false;
+    b.textContent="+ Add a restroom you found here";alert("Location permission denied.");},
+  {enableHighAccuracy:true,timeout:15000,maximumAge:0});
+};
 function query(lat,lng,keep){
   last=[lat,lng];
   BACK.classList.add("on");
@@ -281,17 +379,20 @@ function query(lat,lng,keep){
     if(!d.ok){OUT.innerHTML='<div class="msg">'+esc(d.error)+'</div>';return;}
     if(!d.covered){
       MAPEL.classList.remove("on");
+      document.getElementById("addBtn").classList.remove("on");
       OUT.innerHTML='<div class="msg">Not covered here yet.<br>Nearest supported city: <b>'
         +esc(d.nearest)+'</b> ('+d.nearest_km+' km)<div class="chips" id="chips3"></div></div>';
       fillChips("chips3"); return;}
     if(!d.items.length){
       MAPEL.classList.remove("on");
+      document.getElementById("addBtn").classList.remove("on");
       OUT.innerHTML='<div class="msg">Nothing within 4 km with these filters.</div>';return;}
     var h='<div class="city">'+esc(d.city)+' &middot; '+d.total+' mapped</div>';
     d.items.forEach(function(it,i){
       h+='<div class="row" data-i="'+i+'"><div class="n"><div class="lb'+(it.label?"":" dim")+'">'
         +esc(it.label||"Public restroom")+'</div><div class="tags">';
       h+='<span class="tag">'+(it.fee?"Paid":"Free")+'</span>';
+   if(it.user)h+='<span class="tag utag">Reported</span>';
       if(it.h24)h+='<span class="tag">24h</span>';
       if(it.wc)h+='<span class="tag">Wheelchair</span>';
       if(it.baby)h+='<span class="tag">Baby</span>';
@@ -299,6 +400,7 @@ function query(lat,lng,keep){
     });
     OUT.innerHTML=h;
     drawMap(lat,lng,d.items);
+    document.getElementById("addBtn").classList.add("on");
     Array.prototype.forEach.call(document.querySelectorAll(".row"),function(el){
       el.onclick=function(){
         var i=+el.getAttribute("data-i"); var it=d.items[i];
