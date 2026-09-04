@@ -251,6 +251,16 @@ def append_disclosure(text: str, deeplink: str = "x") -> str:
         return text
     return text.rstrip() + "\n\n---\n" + _disc
 
+def append_own_store(text: str, product_name: str) -> str:
+    """★자사 스마트스토어 링크 병기. 파트너스 수수료(2~3%)보다 자사 마진이 크다.
+    링크가 이미 있거나 상품이 없으면 그대로 둔다."""
+    if not product_name or "smartstore.naver.com" in (text or ""):
+        return text
+    hit = nv_link(product_name)
+    if not hit: return text
+    price = f" ({int(hit['price']):,}원)" if hit.get("price") else ""
+    return (text or "").rstrip() + f"\n\n🛒 직접 구매{price}\n{hit['url']}"
+
 
 def guess_category(name: str):
     """상품명에서 카테고리·특성을 추론 → 맞춤 문구용. 파트너스 API 안 씀(이름만 분석)."""
@@ -362,6 +372,27 @@ def extract_keywords(name: str):
     return {"core": core, "brand": brand, "features": features}
 
 
+# ── 스마트스토어 링크 조회 (쿠팡파트너스 수수료보다 자사 마진이 크다) ──
+_NVIDX=None
+def nv_link(product_name):
+    """상품명으로 우리 스마트스토어 링크를 찾는다. 없으면 None."""
+    global _NVIDX
+    if _NVIDX is None:
+        try:
+            import json as _j
+            _NVIDX=_j.load(open("/home1/ikymximy/nv_link_index.json"))
+        except Exception:
+            _NVIDX={}
+    if not _NVIDX or not product_name: return None
+    import re as _re
+    k=_re.sub(r'[^가-힣A-Za-z0-9]',"",_re.sub(r'\[해외직구\]|해외직구|정품',"",product_name)).lower()
+    if k in _NVIDX: return _NVIDX[k]
+    if len(k)>=14:
+        for kk,v in _NVIDX.items():
+            if kk[:14]==k[:14]: return v
+    return None
+
+
 def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", channel: str = "blog", info: dict = None) -> str:
     # ★정보글(링크 없음): 템플릿에 링크·고지·구매유도가 섞이지 않도록 전용 골격을 쓴다.
     if not (deeplink or "").strip():
@@ -410,7 +441,7 @@ def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", ch
             f"{'가격 '+price_txt+' ' if price_txt else ''}{deeplink}",
         ]
         tags = R([f"#쿠팡추천 #{core}", f"#{core} #추천템", f"#내돈내산 #{core}"])
-        return append_disclosure(f"{R(hooks)}\n\n{R(tails)}\n\n{tags}")
+        return append_own_store(append_disclosure(f"{R(hooks)}\n\n{R(tails)}\n\n{tags}"), name)
 
     # ── 쓰레드: 6분할, 매번 다른 골격·말투 (THREADS 가이드) ──
     if channel == "threads":
@@ -690,7 +721,7 @@ def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", ch
         body = (f"{R(opens)}\n\n{R(bodies)}\n"
                 f"{'가격 '+price_txt+' / ' if price_txt else ''}{R(guides)}\n\n"
                 f"👉 {deeplink}\n\n{tags}")
-        return append_disclosure(body, deeplink)
+        return append_own_store(append_disclosure(body, deeplink), name)
 
     # ── 유튜브: 설명란, 매번 다른 인트로 ──
     if channel == "youtube":
@@ -710,7 +741,7 @@ def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", ch
                 f"───────────\n"
                 f"⏱ 타임스탬프\n00:00 인트로\n00:30 제품 소개\n02:00 사용 후기\n\n"
                 f"👍 도움 되셨다면 좋아요와 구독 부탁드려요!")
-        return append_disclosure(body, deeplink)
+        return append_own_store(append_disclosure(body, deeplink), name)
 
     # ── 블로그(네이버): 긴 글, 매번 다른 제목·인트로·소제목 ──
     titles = [
@@ -774,7 +805,7 @@ def make_blog_draft(product_name: str, deeplink: str, tone: str = "friendly", ch
             f"{sub3}\n{outro}")
     if info and info.get("image"):
         body += f"\n\n[상품 이미지]\n{info['image']}"
-    return append_disclosure(body, deeplink)
+    return append_own_store(append_disclosure(body, deeplink), name)
 
 
 # ══════════════ 자동 게시 / HTML 내보내기 ══════════════
