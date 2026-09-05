@@ -1,0 +1,13 @@
+{
+ "key": "hochiminh",
+ "label": "호치민",
+ "cc": "VN",
+ "center": [
+  10.7769,
+  106.7009
+ ],
+ "count": 71,
+ "with_coord": 38,
+ "license": "CC BY-SA 4.0 / Wikivoyage",
+ "built": "2026-09-05"
+}

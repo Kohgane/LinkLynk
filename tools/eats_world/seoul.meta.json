@@ -1,0 +1,13 @@
+{
+ "key": "seoul",
+ "label": "서울",
+ "cc": "KR",
+ "center": [
+  37.5665,
+  126.978
+ ],
+ "count": 379,
+ "with_coord": 349,
+ "license": "CC BY-SA 4.0 / Wikivoyage",
+ "built": "2026-09-05"
+}

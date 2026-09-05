@@ -1,0 +1,13 @@
+{
+ "key": "berlin",
+ "label": "베를린",
+ "cc": "DE",
+ "center": [
+  52.52,
+  13.405
+ ],
+ "count": 301,
+ "with_coord": 292,
+ "license": "CC BY-SA 4.0 / Wikivoyage",
+ "built": "2026-09-05"
+}

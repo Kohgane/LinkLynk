@@ -1,0 +1,13 @@
+{
+ "key": "lisbon",
+ "label": "리스본",
+ "cc": "PT",
+ "center": [
+  38.7223,
+  -9.1393
+ ],
+ "count": 125,
+ "with_coord": 122,
+ "license": "CC BY-SA 4.0 / Wikivoyage",
+ "built": "2026-09-05"
+}

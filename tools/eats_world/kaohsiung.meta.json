@@ -1,0 +1,13 @@
+{
+ "key": "kaohsiung",
+ "label": "가오슝",
+ "cc": "TW",
+ "center": [
+  22.6273,
+  120.3014
+ ],
+ "count": 26,
+ "with_coord": 14,
+ "license": "CC BY-SA 4.0 / Wikivoyage",
+ "built": "2026-09-05"
+}
