@@ -3,11 +3,11 @@
  "label": "오사카",
  "cc": "JP",
  "center": [
-  34.6937,
-  135.5023
+  34.6723,
+  135.498
  ],
- "count": 39,
- "with_coord": 21,
+ "count": 46,
+ "with_coord": 24,
  "license": "CC BY-SA 4.0 / Wikivoyage",
- "built": "2026-08-31"
+ "built": "2026-09-05"
 }
