@@ -19,7 +19,7 @@ SIM = 0.62          # 이름 유사도 하한. 미달이면 좌표를 붙이지 
 
 CITIES = {
     "tokyo":     ("도쿄", "JP", 35.6895, 139.6917),
-    "osaka":     ("오사카", "JP", 34.6937, 135.5023),
+    "osaka":     ("오사카", "JP", 34.6723, 135.4980),
     "kyoto":     ("교토", "JP", 35.0116, 135.7681),
     "fukuoka":   ("후쿠오카", "JP", 33.5904, 130.4017),
     "taipei":    ("타이베이", "TW", 25.0330, 121.5654),
@@ -36,6 +36,22 @@ CITIES = {
     "newyork":   ("뉴욕", "US", 40.7128, -74.0060),
     "sanfran":   ("샌프란시스코", "US", 37.7749, -122.4194),
     "sydney":    ("시드니", "AU", -33.8688, 151.2093),
+    "kobe":        ("고베", "JP", 34.6901, 135.1955),
+    "nagoya":      ("나고야", "JP", 35.1815, 136.9066),
+    "seoul":       ("서울", "KR", 37.5665, 126.9780),
+    "busan":       ("부산", "KR", 35.1796, 129.0756),
+    "kaohsiung":   ("가오슝", "TW", 22.6273, 120.3014),
+    "chiangmai":   ("치앙마이", "TH", 18.7883, 98.9853),
+    "kualalumpur": ("쿠알라룸푸르", "MY", 3.1390, 101.6869),
+    "hochiminh":   ("호치민", "VN", 10.7769, 106.7009),
+    "amsterdam":   ("암스테르담", "NL", 52.3676, 4.9041),
+    "berlin":      ("베를린", "DE", 52.5200, 13.4050),
+    "vienna":      ("빈", "AT", 48.2082, 16.3738),
+    "lisbon":      ("리스본", "PT", 38.7223, -9.1393),
+    "istanbul":    ("이스탄불", "TR", 41.0082, 28.9784),
+    "losangeles":  ("LA", "US", 34.0522, -118.2437),
+    "vancouver":   ("밴쿠버", "CA", 49.2827, -123.1207),
+    "melbourne":   ("멜버른", "AU", -37.8136, 144.9631),
 }
 
 
@@ -50,16 +66,25 @@ def wv(params):
     return get(WV + "?" + urllib.parse.urlencode(params))
 
 
-def pages_near(lat, lng, radius=14000, limit=40):
-    """좌표 주변 위키보야지 문서 = 도시 및 구역 문서"""
-    try:
-        d = wv({"action": "query", "list": "geosearch",
-                "gscoord": "%f|%f" % (lat, lng),
-                "gsradius": str(radius), "gslimit": str(limit)})
-        return [p["title"] for p in d["query"]["geosearch"]]
-    except Exception as e:
-        print("    geosearch 실패 %s" % str(e)[:40])
-        return []
+def pages_near(lat, lng, radius=10000, limit=50):
+    """좌표 주변 위키보야지 문서. gsradius 상한이 10km 라서
+       중심 + 사방 0.09도(약 10km) 지점을 함께 훑어 커버리지를 넓힌다."""
+    seen, out = set(), []
+    spots = [(lat, lng), (lat + 0.09, lng), (lat - 0.09, lng),
+             (lat, lng + 0.11), (lat, lng - 0.11)]
+    for a, b in spots:
+        try:
+            d = wv({"action": "query", "list": "geosearch",
+                    "gscoord": "%f|%f" % (a, b),
+                    "gsradius": str(radius), "gslimit": str(limit)})
+            for pg in d["query"]["geosearch"]:
+                t = pg["title"]
+                if t not in seen:
+                    seen.add(t); out.append(t)
+        except Exception as e:
+            print("    geosearch(%.3f,%.3f) 실패 %s" % (a, b, str(e)[:34]))
+        time.sleep(0.4)
+    return out
 
 
 def wikitext(title):
