@@ -515,7 +515,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0831e";
+  const SWEF_BUILD="0831f";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -1144,7 +1144,8 @@ const PORTALS=[
   {lat:36.1069,  lon:-112.1129,alt:2900, sky:"/fly/sky/storm.jpg"},
   {lat:19.8207,  lon:-155.4681,alt:4600, sky:"/fly/sky/galaxy.jpg"},
   {lat:-20.1338, lon:-67.4891, alt:4200, sky:"/fly/sky/galaxy.jpg", unlock:"swef_gate1"},
-  {lat:37.5796, lon:126.9770, alt:900, sky:"/fly/sky/moonink.jpg", unlock:"swef_gate2"}
+  {lat:37.5796, lon:126.9770, alt:900, sky:"/fly/sky/moonink.jpg", unlock:"swef_gate2"},
+  {lat:29.5325, lon:35.4207, alt:1400, sky:"/fly/sky/mars.jpg"}
 ];
 function createPortals(){
   const c=document.createElement("canvas"); c.width=c.height=32;
