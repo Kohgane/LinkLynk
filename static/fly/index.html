@@ -515,7 +515,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0906a";
+  const SWEF_BUILD="0906b";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -1148,7 +1148,10 @@ const PORTALS=[
   {lat:29.5325, lon:35.4207, alt:1400, sky:"/fly/sky/mars.jpg"},
   {lat:17.3160, lon:-87.5351, alt:600,  sky:"/fly/sky/merfolk.jpg"},
   {lat:55.2408, lon:-6.5116,  alt:700,  sky:"/fly/sky/giants.jpg"},
-  {lat:-13.1631,lon:-72.5450, alt:3200, sky:"/fly/sky/ancient.jpg"}
+  {lat:-13.1631,lon:-72.5450, alt:3200, sky:"/fly/sky/ancient.jpg"},
+  {lat:18.7883, lon:98.9853,  alt:800,  sky:"/fly/sky/lanterns.jpg"},
+  {lat:32.3078, lon:-64.7505, alt:1000, sky:"/fly/sky/stormeye.jpg"},
+  {lat:78.2232, lon:15.6267,  alt:900,  sky:"/fly/sky/icepalace.jpg"}
 ];
 function createPortals(){
   const c=document.createElement("canvas"); c.width=c.height=32;
