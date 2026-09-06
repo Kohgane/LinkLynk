@@ -104,6 +104,14 @@
   #hint{top:14px;right:16px;font-size:11px;text-align:right;opacity:.6;line-height:1.7;text-shadow:0 1px 4px #000}
   #tier{position:fixed;top:44px;left:16px;font-size:11px;opacity:.55;color:#ffd9a0;z-index:10}
   .cesium-viewer-bottom{opacity:.4}
+  #vjPanel{position:fixed;left:12px;right:12px;bottom:calc(env(safe-area-inset-bottom,0px) + 90px);z-index:9600;
+    display:none;background:rgba(12,16,26,.96);border:1px solid rgba(255,255,255,.14);border-radius:16px;padding:14px;max-height:60vh;overflow:auto}
+  #vjPanel h4{margin:0 0 8px;font-size:14px}
+  #vjPanel .vjrow{display:flex;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+  #vjPanel .vjbtn{flex:1;min-width:120px;padding:10px;border-radius:12px;border:1px solid rgba(255,255,255,.18);background:rgba(255,255,255,.08);color:#fff;font-weight:700}
+  #vjPanel .vjitem{padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.06);margin-bottom:6px;font-size:13px;display:flex;justify-content:space-between;align-items:center}
+  #vjPanel .vjitem button{border:none;background:rgba(120,200,255,.2);color:#bfe6ff;border-radius:8px;padding:5px 9px}
+  #vjNote{font-size:11px;opacity:.6;margin-top:6px}
 </style>
 </head>
 <body>
@@ -144,6 +152,7 @@
     <div id="searchRow">
       <input id="searchBox" placeholder="장소 검색 — 어디든 (예: 오사카, Uluru)" autocomplete="off">
       <button class="btn" id="btnGo">🔍</button>
+      <button class="btn" id="btnVj">🧭</button>
     </div>
     <div id="cats"></div>
     <div id="dests"></div>
@@ -174,6 +183,7 @@
       <button class="btn" id="btnCloud">☁️ <span id="cloudLbl">구름</span></button>
       <button class="btn" id="btnDream">🌌 <span id="dreamLbl">드림스카이</span></button>
       <button class="btn" id="btnMb">💫 <span id="mbLbl">블러</span></button>
+      <button class="btn" id="btnAtmo">🌫 <span id="atmoLbl">대기</span></button>
     </div>
   </div>
   <div id="tabbar">
@@ -194,6 +204,16 @@
       <span id="timeLabel">17:30</span>
     </div>
   </div>
+</div>
+<div id="vjPanel">
+  <h4>🧭 내 여정 <span style="float:right;opacity:.5;font-size:11px" id="vjX">✕</span></h4>
+  <div class="vjrow">
+    <button class="vjbtn" id="vjHere">📍 지금 위치 기록</button>
+    <button class="vjbtn" id="vjImport">⭐ 구글 별표 가져오기</button>
+  </div>
+  <div id="vjList"></div>
+  <div id="vjNote">위치·별표는 이 기기(브라우저)에만 저장됩니다. 서버 전송 없음.<br>구글 별표: takeout.google.com → 저장된 장소(Saved) 내보내기 → JSON 선택</div>
+  <input type="file" id="vjFile" accept=".json,application/json" style="display:none">
 </div>
 <script>
 /* ===================== CONFIG ===================== */
@@ -494,7 +514,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0831a";
+  const SWEF_BUILD="0831c";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -585,6 +605,8 @@ function setupTouch(){
 
 const FILMS=[["\uC6D0\uBCF8","Natural"],["\uBE44\uBE44\uB4DC","Vivid"],["\uACE8\uB4E0\uC544\uC6CC","Golden"],["\uC218\uBB35","Ink"],["\uB4DC\uB9BC","Dream"],["\uC544\uBC14\uD0C0","Pandora"],["\uC778\uC149\uC158","Inception"],["\uCF54\uCF54","Coco"],["\uB354 \uD3F4","The Fall"],["\uBD80\uB2E4\uD398\uC2A4\uD2B8","Budapest"],["\uB178\uC744\uAE38","Sunset Drive"],["\uC624\uB85C\uB77C","Aurora"]];
 let filmIdx=0, filmStage=null, cityTiles=null, cityLoading=false;
+let _fogStage=null,_atmoH=1000,_atmoFlash=0,_atmoPrevH=0;
+const _atmoUp=new Cesium.Cartesian3(0,1,0),_atmoTmp=new Cesium.Cartesian3();
 let _mbStage=null,_mbPrevV=null,_mbPrevP=null,_mbLast=0,_mbScale=0;
 let _mbJ=Cesium.Matrix4.clone(Cesium.Matrix4.IDENTITY);
 const _mbTmpA=new Cesium.Matrix4(),_mbTmpB=new Cesium.Matrix4();
@@ -602,6 +624,21 @@ function mbUpdate(){
     const shutter = lvl===2?1.0:0.5;
     _mbScale = shutter*Math.min(1.0,16.6/dt);
   } else _mbScale=0;
+  try{
+    const cg=cam.positionCartographic;
+    _atmoH=cg.height;
+    const up=Cesium.Cartesian3.normalize(cam.positionWC,_atmoTmp);
+    Cesium.Matrix4.multiplyByPointAsVector(V,up,_atmoUp);
+    const bands=[1200,2500,6000];
+    if(typeof cloudMode!=="undefined" && cloudMode>0 && _atmoPrevH>0){
+      for(const b of bands){
+        if((_atmoPrevH-b)*(_atmoH-b)<0){ _atmoFlash=1.0; break; }
+      }
+    }
+    _atmoPrevH=_atmoH;
+    _atmoFlash*=Math.pow(0.02,dt/500);
+    if(_atmoFlash<0.002)_atmoFlash=0;
+  }catch(e){}
   _mbPrevV=Cesium.Matrix4.clone(V,_mbPrevV||new Cesium.Matrix4());
   if(P) _mbPrevP=Cesium.Matrix4.clone(P,_mbPrevP||new Cesium.Matrix4());
 }
@@ -720,6 +757,39 @@ void main(){
     _mbStage.enabled=false;
     viewer.scene.preRender.addEventListener(mbUpdate);
   }catch(e){ console.warn("mblur init fail",e); }
+  try{
+    const fogfs=`uniform sampler2D colorTexture; uniform sampler2D depthTexture;
+uniform float u_fogOn; uniform float u_camH; uniform vec3 u_upEC; uniform float u_flash;
+in vec2 v_textureCoordinates;
+void main(){
+  vec2 uv=v_textureCoordinates;
+  vec4 col=texture(colorTexture,uv);
+  vec3 c=col.rgb;
+  float d=czm_readDepth(depthTexture,uv);
+  if(u_fogOn>0.5 && d<0.9999999){
+    vec4 eye=czm_windowToEyeCoordinates(gl_FragCoord.xy, d);
+    float dist=length(eye.xyz);
+    vec3 vdir=eye.xyz/max(dist,1.0);
+    float hFrag=u_camH + dot(vdir,u_upEC)*dist;
+    float hAvg=max(1.0,(u_camH+hFrag)*0.5);
+    float density=0.000022*exp(-hAvg/1600.0);
+    float fog=1.0-exp(-density*dist);
+    float sunAmt=pow(max(dot(vdir,czm_sunDirectionEC),0.0),8.0);
+    vec3 fogCol=mix(vec3(0.60,0.71,0.90), vec3(1.0,0.80,0.58), sunAmt);
+    /* 원거리 레일리: 거리 비례 청색 편이가 fogCol 혼합에 내재 */
+    c=mix(c,fogCol,clamp(fog,0.0,0.85));
+  }
+  if(u_flash>0.001){
+    c=mix(c,vec3(0.96,0.97,1.0),u_flash*0.8);
+    c*=1.0+u_flash*0.25;
+  }
+  out_FragColor=vec4(c,col.a);
+}`;
+    _fogStage=viewer.scene.postProcessStages.add(new Cesium.PostProcessStage({
+      fragmentShader:fogfs,
+      uniforms:{u_fogOn:()=>(localStorage.getItem("swef_atmo")==="0"?0:1),
+        u_camH:()=>_atmoH, u_upEC:()=>_atmoUp, u_flash:()=>_atmoFlash}}));
+  }catch(e){ console.warn("atmo init fail",e); }
   filmStage=viewer.scene.postProcessStages.add(new Cesium.PostProcessStage({
     fragmentShader:fs, uniforms:{u_mode:()=>filmIdx, u_time:()=>(performance.now()%100000)/1000}}));
   filmStage.enabled=false;
@@ -1535,6 +1605,84 @@ function godTrial(name){
     setTimeout(()=>toast("✨ 남미의 거대한 소금 거울, 하늘이 두 개가 되는 곳"),2600);
   }
 }
+/* ── 여정: 자동 방문 추적 + 구글 별표 ── */
+let _vjEnts=[];
+function vjLoad(k){ try{return JSON.parse(localStorage.getItem(k)||"[]");}catch(e){return [];} }
+function vjSave(k,v){ localStorage.setItem(k,JSON.stringify(v)); }
+function vjTrack(silent){
+  if(!navigator.geolocation) return;
+  navigator.geolocation.getCurrentPosition(p=>{
+    localStorage.setItem("swef_vj_auto","1");
+    const la=p.coords.latitude, lo=p.coords.longitude;
+    const vs=vjLoad("swef_visits");
+    const near=vs.some(v=>{
+      const dy=(v.la-la)*111, dx=(v.lo-lo)*111*Math.cos(la*0.017453);
+      return dy*dy+dx*dx<625;
+    });
+    if(!near){
+      vs.push({la:la,lo:lo,ts:Date.now()});
+      vjSave("swef_visits",vs);
+      toast(KO?"🧭 새 발자국 — 이 기기에만 저장":"🧭 New footprint (device only)");
+    } else if(!silent) toast(KO?"🧭 이미 기록된 지역이야":"Already recorded here");
+    vjRender();
+  },()=>{ if(!silent) toast(KO?"위치 권한이 필요해":"Location permission needed"); },
+  {enableHighAccuracy:false,timeout:9000,maximumAge:600000});
+}
+function vjImportFile(f){
+  const r=new FileReader();
+  r.onload=()=>{
+    try{
+      const j=JSON.parse(r.result);
+      const feats=j.features||[];
+      const st=vjLoad("swef_stars");
+      let add=0;
+      for(const ft of feats){
+        const co=ft.geometry&&ft.geometry.coordinates;
+        if(!co||co.length<2) continue;
+        const nm=(ft.properties&&((ft.properties.location&&ft.properties.location.name)||ft.properties.Title||ft.properties.name))||"⭐";
+        if(st.some(x=>Math.abs(x.la-co[1])<1e-4&&Math.abs(x.lo-co[0])<1e-4)) continue;
+        st.push({la:co[1],lo:co[0],n:String(nm).slice(0,40)}); add++;
+      }
+      vjSave("swef_stars",st);
+      toast("⭐ "+add+(KO?"곳 가져옴":" imported"));
+      vjRender();
+    }catch(e){ toast(KO?"파일 형식을 못 읽었어 (Takeout JSON 맞아?)":"Bad file"); }
+  };
+  r.readAsText(f);
+}
+function vjRender(){
+  for(const e of _vjEnts) viewer.entities.remove(e);
+  _vjEnts=[];
+  const vs=vjLoad("swef_visits"), st=vjLoad("swef_stars");
+  for(const v of vs){
+    _vjEnts.push(viewer.entities.add({position:Cesium.Cartesian3.fromDegrees(v.lo,v.la,400),
+      point:{pixelSize:7,color:Cesium.Color.fromCssColorString("#39d98a"),
+        outlineColor:Cesium.Color.BLACK,outlineWidth:1,
+        translucencyByDistance:new Cesium.NearFarScalar(5e5,1,9e6,0.3)}}));
+  }
+  for(const x of st){
+    _vjEnts.push(viewer.entities.add({position:Cesium.Cartesian3.fromDegrees(x.lo,x.la,400),
+      point:{pixelSize:7,color:Cesium.Color.GOLD,outlineColor:Cesium.Color.BLACK,outlineWidth:1,
+        translucencyByDistance:new Cesium.NearFarScalar(5e5,1,9e6,0.3)}}));
+  }
+  const L=document.getElementById("vjList");
+  if(!L) return;
+  let h="";
+  if(st.length) h+='<div style="opacity:.6;font-size:11px;margin:4px 0">⭐ 가고 싶은 곳 '+st.length+'</div>';
+  st.slice(0,25).forEach((x,i)=>{ h+='<div class="vjitem"><span>⭐ '+x.n+'</span><button data-t="s'+i+'">비행</button></div>'; });
+  if(vs.length) h+='<div style="opacity:.6;font-size:11px;margin:4px 0">📍 가본 곳 '+vs.length+'</div>';
+  vs.slice(-15).reverse().forEach((v,i)=>{ h+='<div class="vjitem"><span>📍 '+new Date(v.ts).toLocaleDateString()+'</span><button data-t="v'+(vs.length-1-i)+'">비행</button></div>'; });
+  L.innerHTML=h||'<div style="opacity:.5;font-size:12px">아직 기록이 없어 — 위 버튼으로 시작</div>';
+  L.querySelectorAll("button").forEach(b=>{
+    b.onclick=()=>{
+      const t=b.getAttribute("data-t");
+      const it=t[0]==="s"?st[parseInt(t.slice(1))]:vs[parseInt(t.slice(1))];
+      if(!it) return;
+      document.getElementById("vjPanel").style.display="none";
+      viewer.camera.flyTo({destination:Cesium.Cartesian3.fromDegrees(it.lo,it.la,2600),duration:4});
+    };
+  });
+}
 function pickVeh(i){
   veh = VEHICLES[i];
   godTrial(veh.n);
@@ -1614,6 +1762,25 @@ function buildUI(){
   if(_asz){ _asz.value=avSize;
     _asz.oninput=()=>{ avSize=parseInt(_asz.value); localStorage.setItem("ef_av_size",avSize); _avEmoji=""; }; }
   document.getElementById("btnDream").onclick=toggleDream;
+  (function(){
+    const P=document.getElementById("vjPanel");
+    document.getElementById("btnVj").onclick=()=>{ P.style.display=P.style.display==="block"?"none":"block"; vjRender(); };
+    document.getElementById("vjX").onclick=()=>P.style.display="none";
+    document.getElementById("vjHere").onclick=()=>vjTrack(false);
+    const fi=document.getElementById("vjFile");
+    document.getElementById("vjImport").onclick=()=>fi.click();
+    fi.onchange=()=>{ if(fi.files[0]) vjImportFile(fi.files[0]); fi.value=""; };
+    vjRender();
+    if(localStorage.getItem("swef_vj_auto")==="1") setTimeout(()=>vjTrack(true),2500);
+  })();
+  (function(){
+    const b=document.getElementById("btnAtmo");
+    const paint=()=>b.classList.toggle("on",localStorage.getItem("swef_atmo")!=="0");
+    b.onclick=()=>{ const on=localStorage.getItem("swef_atmo")!=="0";
+      localStorage.setItem("swef_atmo",on?"0":"1"); paint();
+      toast(on?"🌫 대기 OFF":"🌫 대기 ON"); };
+    paint();
+  })();
   (function(){
     const b=document.getElementById("btnMb"), L=document.getElementById("mbLbl");
     const names=KO?["블러 OFF","블러 180°","블러 360°"]:["Blur OFF","Blur 180°","Blur 360°"];
