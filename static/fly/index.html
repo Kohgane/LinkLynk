@@ -337,6 +337,14 @@ const DESTS = [
   {n:"골든게이트",c:"c",en:"Golden Gate",lon:-122.478,lat:37.82,h:500,r:3200,p:-20},
   {n:"치첸이트사",c:"w",en:"Chichen Itza",lon:-88.568,lat:20.68,h:300,r:2200,p:-24},
   {n:"테오티우아칸",c:"w",en:"Teotihuacan",lon:-98.844,lat:19.693,h:2400,r:2800,p:-22},
+  {n:"콜로세움",c:"w",en:"Colosseum",lon:12.4922,lat:41.8902,h:420,r:850,p:-24},
+  {n:"아크로폴리스",c:"w",en:"Acropolis",lon:23.7257,lat:37.9715,h:450,r:900,p:-24},
+  {n:"아야 소피아",c:"w",en:"Hagia Sophia",lon:28.9802,lat:41.0086,h:420,r:850,p:-22},
+  {n:"알함브라",c:"w",en:"Alhambra",lon:-3.5881,lat:37.1761,h:500,r:1000,p:-22},
+  {n:"몽생미셸",c:"w",en:"Mont-Saint-Michel",lon:-1.5115,lat:48.6361,h:520,r:1100,p:-20},
+  {n:"스톤헨지",c:"w",en:"Stonehenge",lon:-1.8262,lat:51.1789,h:350,r:700,p:-30},
+  {n:"프라하 성",c:"w",en:"Prague Castle",lon:14.4009,lat:50.0909,h:480,r:950,p:-22},
+  {n:"히메지 성",c:"w",en:"Himeji Castle",lon:134.6939,lat:34.8394,h:450,r:900,p:-24},
   {n:"아바나",c:"c",en:"Havana",lon:-82.36,lat:23.13,h:500,r:3600,p:-22},
   {n:"남극반도",c:"x",en:"Antarctic Peninsula",lon:-63.0,lat:-64.8,h:1500,r:16000,p:-16},
   {n:"트롬쇠 (오로라)",c:"x",en:"Tromso",lon:18.96,lat:69.65,h:800,r:6500,p:-18},
@@ -515,7 +523,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0906b";
+  const SWEF_BUILD="0906c";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
