@@ -45,7 +45,7 @@
     return "modules/";
   })();
 
-  const MODULES = ["launcher.js","favorites.js","replay.js","hud.js","share.js","compare.js","camera-feel.js","foreground.js","settings.js","flight-sound.js"];
+  const MODULES = ["launcher.js","favorites.js","replay.js","hud.js","share.js","compare.js","camera-feel.js","foreground.js","settings.js","flight-sound.js","journey-replay.js"];
   let loaded = false;
   const _loadedMods = [];
 
