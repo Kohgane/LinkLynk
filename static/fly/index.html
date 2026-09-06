@@ -514,7 +514,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0831c";
+  const SWEF_BUILD="0831d";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -1142,7 +1142,8 @@ const PORTALS=[
   {lat:29.3574,  lon:110.5347, alt:1500, sky:"/fly/sky/islands.jpg", open:true},
   {lat:36.1069,  lon:-112.1129,alt:2900, sky:"/fly/sky/storm.jpg"},
   {lat:19.8207,  lon:-155.4681,alt:4600, sky:"/fly/sky/galaxy.jpg"},
-  {lat:-20.1338, lon:-67.4891, alt:4200, sky:"/fly/sky/galaxy.jpg", unlock:"swef_gate1"}
+  {lat:-20.1338, lon:-67.4891, alt:4200, sky:"/fly/sky/galaxy.jpg", unlock:"swef_gate1"},
+  {lat:37.5796, lon:126.9770, alt:900, sky:"/fly/sky/moonink.jpg", unlock:"swef_gate2"}
 ];
 function createPortals(){
   const c=document.createElement("canvas"); c.width=c.height=32;
@@ -1588,23 +1589,37 @@ function syncBtns(){
     : (mode==="tour" ? "명소 카드를 눌러 이동 · 자동 선회 중" : "지구를 드래그해 회전 · 휠로 접근");
 }
 
-const GOD_NAMES=["청룡","주작","백호","현무"];
+const TRIALS=[
+  {names:["청룡","주작","백호","현무"], key:"swef_gods", gate:"swef_gate1",
+   icon:"🐲", title:"사신의 시험",
+   done:"🗝 사신의 시험 완료 — 비밀 좌표가 지도에 나타났다",
+   hint:"✨ 남미의 거대한 소금 거울, 하늘이 두 개가 되는 곳"},
+  {names:["비행 거북선","방패연","두루미","도깨비불"], key:"swef_kr", gate:"swef_gate2",
+   icon:"🏯", title:"수호자의 길",
+   done:"🗝 수호자의 길 완주 — 옛 도읍의 하늘이 열렸다",
+   hint:"✨ 왕의 지붕 위에서 먹빛 보름달을 보라"}
+];
 function godTrial(name){
-  if(GOD_NAMES.indexOf(name)<0) return;
-  let done=[];
-  try{ done=JSON.parse(localStorage.getItem("swef_gods")||"[]"); }catch(e){}
-  if(done.indexOf(name)>=0) return;
-  done.push(name);
-  localStorage.setItem("swef_gods",JSON.stringify(done));
-  if(done.length<4){
-    toast("🐲 사신의 시험 "+done.length+"/4 — "+name+" 각성");
-  } else {
-    localStorage.setItem("swef_gate1","1");
-    if(typeof _flash==="function") _flash();
-    toast("🗝 사신의 시험 완료 — 비밀 좌표가 지도에 나타났다");
-    setTimeout(()=>toast("✨ 남미의 거대한 소금 거울, 하늘이 두 개가 되는 곳"),2600);
+  for(const T of TRIALS){
+    if(T.names.indexOf(name)<0) continue;
+    let done=[];
+    try{ done=JSON.parse(localStorage.getItem(T.key)||"[]"); }catch(e){}
+    if(done.indexOf(name)>=0) return;
+    done.push(name);
+    localStorage.setItem(T.key,JSON.stringify(done));
+    if(done.length<T.names.length){
+      toast(T.icon+" "+T.title+" "+done.length+"/"+T.names.length+" — "+name);
+    } else {
+      localStorage.setItem(T.gate,"1");
+      if(typeof _flash==="function") _flash();
+      toast(T.done);
+      setTimeout(()=>toast(T.hint),2600);
+      try{ createPortals&&refreshPortals(); }catch(e){}
+    }
+    return;
   }
 }
+function refreshPortals(){ /* 해금 직후 링 즉시 점등: 다음 로드 시 반영이 기본, 즉시는 보너스 */ }
 /* ── 여정: 자동 방문 추적 + 구글 별표 ── */
 let _vjEnts=[];
 function vjLoad(k){ try{return JSON.parse(localStorage.getItem(k)||"[]");}catch(e){return [];} }
