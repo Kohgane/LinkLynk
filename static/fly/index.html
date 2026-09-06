@@ -354,6 +354,7 @@ const DESTS = [
 ];
 
 const VEHICLES = [
+  {n:"황금 봉황",en:"Golden Phoenix",e:"img:/fly/av/goldphoenix.png",sp:3.2,ag:3.0,lock:"swef_gate3"},
   {n:"청룡",en:"Azure Dragon",e:"img:/fly/av/cheongryong.png",sp:2.2,ag:2.6},
   {n:"주작",en:"Vermilion Bird",e:"img:/fly/av/jujak.png",sp:3.0,ag:1.8},
   {n:"백호",en:"White Tiger",e:"img:/fly/av/baekho.png",sp:1.8,ag:3.0},
@@ -514,7 +515,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0831d";
+  const SWEF_BUILD="0831e";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -1188,7 +1189,21 @@ function portalTick(){
   const cam=viewer.camera.positionWC;
   for(const p of PORTALS){
     if(p._pos && Cesium.Cartesian3.distance(cam,p._pos)<420){
-      _portalCd=1200; _flash(); dreamOn(p.sky); break;
+      _portalCd=1200; _flash(); dreamOn(p.sky);
+      try{
+        const k=p.lat.toFixed(3)+","+p.lon.toFixed(3);
+        let pv=[]; try{ pv=JSON.parse(localStorage.getItem("swef_portals")||"[]"); }catch(e){}
+        if(pv.indexOf(k)<0){
+          pv.push(k); localStorage.setItem("swef_portals",JSON.stringify(pv));
+          toast("🌀 차원의 문 "+pv.length+"/"+PORTALS.length);
+          if(pv.length>=PORTALS.length && !localStorage.getItem("swef_gate3")){
+            localStorage.setItem("swef_gate3","1");
+            setTimeout(()=>{ _flash(); toast("👑 모든 차원을 여행한 자 — 전설이 깨어났다"); },1200);
+            setTimeout(()=>toast("✨ 탈것 목록을 보라"),3600);
+          }
+        }
+      }catch(e){}
+      break;
     }
   }
 }
@@ -1718,9 +1733,15 @@ function buildUI(){
   VEHICLES.forEach((v,i)=>{
     const el = document.createElement("div");
     el.className = "vcard";
-    if(v.e.indexOf("img:")===0){ el.innerHTML='<img src="'+v.e.slice(4)+'" style="height:30px;vertical-align:middle"> '+dn(v); }
+    const locked = v.lock && !localStorage.getItem(v.lock);
+    if(locked){ el.textContent="🔒 ???"; el.style.opacity="0.5"; }
+    else if(v.e.indexOf("img:")===0){ el.innerHTML='<img src="'+v.e.slice(4)+'" style="height:30px;vertical-align:middle"> '+dn(v); }
     else el.textContent = v.e+" "+dn(v);
-    el.onclick = ()=>{ avPick=""; localStorage.setItem("ef_av_emoji",""); _avEmoji=""; pickVeh(i); };
+    el.onclick = ()=>{
+      if(v.lock && !localStorage.getItem(v.lock)){
+        toast(KO?"🔒 모든 차원의 문을 지나온 자만이…":"🔒 Only a traveler of every gate…"); return;
+      }
+      avPick=""; localStorage.setItem("ef_av_emoji",""); _avEmoji=""; pickVeh(i); };
     vw.appendChild(el);
   });
   const CATS=[["all",KO?"전체":"All"],["s",KO?"절경":"Nature"],["w",KO?"유적":"Wonders"],["c",KO?"도시":"Cities"],["h",KO?"비경":"Hidden"],["x",KO?"극한":"Extreme"]];
