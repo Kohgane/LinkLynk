@@ -515,7 +515,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0831f";
+  const SWEF_BUILD="0906a";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -1145,7 +1145,10 @@ const PORTALS=[
   {lat:19.8207,  lon:-155.4681,alt:4600, sky:"/fly/sky/galaxy.jpg"},
   {lat:-20.1338, lon:-67.4891, alt:4200, sky:"/fly/sky/galaxy.jpg", unlock:"swef_gate1"},
   {lat:37.5796, lon:126.9770, alt:900, sky:"/fly/sky/moonink.jpg", unlock:"swef_gate2"},
-  {lat:29.5325, lon:35.4207, alt:1400, sky:"/fly/sky/mars.jpg"}
+  {lat:29.5325, lon:35.4207, alt:1400, sky:"/fly/sky/mars.jpg"},
+  {lat:17.3160, lon:-87.5351, alt:600,  sky:"/fly/sky/merfolk.jpg"},
+  {lat:55.2408, lon:-6.5116,  alt:700,  sky:"/fly/sky/giants.jpg"},
+  {lat:-13.1631,lon:-72.5450, alt:3200, sky:"/fly/sky/ancient.jpg"}
 ];
 function createPortals(){
   const c=document.createElement("canvas"); c.width=c.height=32;
@@ -1718,8 +1721,14 @@ function pickVeh(i){
   veh = VEHICLES[i];
   godTrial(veh.n);
   document.querySelectorAll(".vcard").forEach((c,j)=>c.classList.toggle("on", j===i));
-  custWrap.style.display = veh.custom ? "flex" : "none";
-  if (veh.custom){ veh.sp=parseFloat(custSp.value); veh.ag=parseFloat(custAg.value); }
+  custWrap.style.display = "flex";
+  try{
+    const t=JSON.parse(localStorage.getItem("swef_tune_"+veh.n)||"null");
+    if(t){ veh.sp=t.sp; veh.ag=t.ag; }
+    custSp.value=veh.sp; custAg.value=veh.ag;
+    custSpv.textContent=(+veh.sp).toFixed(1)+"×";
+    custAgv.textContent=(+veh.ag).toFixed(1)+"×";
+  }catch(e){}
   const under = layerMode && (veh.cat==="sub" || veh.cat==="tunnel");
   const gl = viewer.scene.globe;
   gl.translucency.enabled = under;
@@ -1888,8 +1897,9 @@ function buildUI(){
     b.onclick=()=>b.style.display="none";
   };
   timeSlider.oninput = e=>setLocalTime(parseFloat(e.target.value));
-  custSp.oninput = e=>{ custSpv.textContent=(+e.target.value).toFixed(1)+"×"; if(veh.custom) veh.sp=parseFloat(e.target.value); };
-  custAg.oninput = e=>{ custAgv.textContent=(+e.target.value).toFixed(1)+"×"; if(veh.custom) veh.ag=parseFloat(e.target.value); };
+  const _tuneSave=()=>{ try{ localStorage.setItem("swef_tune_"+veh.n, JSON.stringify({sp:veh.sp,ag:veh.ag})); }catch(e){} };
+  custSp.oninput = e=>{ custSpv.textContent=(+e.target.value).toFixed(1)+"×"; veh.sp=parseFloat(e.target.value); _tuneSave(); };
+  custAg.oninput = e=>{ custAgv.textContent=(+e.target.value).toFixed(1)+"×"; veh.ag=parseFloat(e.target.value); _tuneSave(); };
 }
 const btnTour=document.getElementById("btnTour"), btnFree=document.getElementById("btnFree"),
       btnSpace=document.getElementById("btnSpace"), timeSlider=document.getElementById("timeSlider"),
