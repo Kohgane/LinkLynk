@@ -531,7 +531,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0907b";
+  const SWEF_BUILD="0907c";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -1081,7 +1081,38 @@ const stats=JSON.parse(localStorage.getItem("ef_stats")||'{"visits":{},"dist":0}
 function saveStats(){localStorage.setItem("ef_stats",JSON.stringify(stats));}
 let statTimer=0;
 
+/* 시그니처 진입 — 장소별 최적 연출 자동 세팅 */
+const SIGS={
+  "에베레스트":{f:3,t:6.3,c:2},
+  "두바이":{f:1,t:19.5,c:0},
+  "몽생미셸":{f:2,t:18.2,c:1},
+  "콜로세움":{f:2,t:17.8,c:0},
+  "마추픽추":{f:4,t:7.0,c:2},
+  "그랜드캐니언":{f:8,t:18.5,c:1},
+  "히메지 성":{f:3,t:17.0,c:1},
+  "아야 소피아":{f:9,t:18.0,c:0},
+  "산토리니":{f:1,t:18.8,c:0},
+  "우유니":{f:11,t:20.5,c:0},
+  "페트라":{f:2,t:17.5,c:0},
+  "타지마할":{f:2,t:6.8,c:1},
+  "앙코르와트":{f:2,t:6.5,c:2},
+  "뉴욕":{f:1,t:19.8,c:0},
+  "도쿄":{f:6,t:19.2,c:0},
+  "파리":{f:2,t:19.0,c:0}
+};
+function applySig(d){
+  const g=SIGS[d.n];
+  if(!g) return;
+  try{
+    setFilm(g.f);
+    setLocalTime(g.t);
+    if(typeof timeSlider!=="undefined") timeSlider.value=g.t;
+    if(g.c>=0 && typeof cloudMode!=="undefined" && cloudMode!==g.c){ cloudMode=g.c; buildClouds(g.c); }
+    toast("🎬 "+(KO?"시그니처":"Signature")+" — "+FILMS[g.f][KO?0:1]);
+  }catch(e){}
+}
 function flyToDest(i){
+  applySig(DESTS[i]);
   stats.visits[DESTS[i].n]=(stats.visits[DESTS[i].n]||0)+1; saveStats();
   const d = DESTS[i]; curIdx = i; mode = "tour"; orbiting = false; syncBtns();
   document.querySelectorAll(".dcard").forEach(c=>c.classList.toggle("on", c.textContent===dn(d)));
