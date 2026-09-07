@@ -1809,7 +1809,7 @@ def _llm_gemini(api_key, sys_prompt, user_msg, max_tokens=1200):
         try:
             req = urllib.request.Request(url, data=json.dumps(payload).encode(),
                 headers={"Content-Type": "application/json"}, method="POST")
-            with urllib.request.urlopen(req, timeout=30, context=_ctx) as r:
+            with urllib.request.urlopen(req, timeout=12, context=_ctx) as r:
                 data = json.loads(r.read().decode())
             cands = data.get("candidates", [])
             if not cands:

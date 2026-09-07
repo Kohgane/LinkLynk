@@ -519,7 +519,16 @@ def recommend(api_key, who, budget, taste, exclude=None):
                 alt = str(o.get("_alt") or "")
                 o["keyword"] = alt if (alt and nb in alt) else \
                     (nb + (" " + " ".join(kw0[1:3]) if len(kw0) > 1 else "")).strip()
-                o["reason"] = nb + " — 같은 결의 검증된 대안으로 골랐어요."
+                # ★원문 보존: 브랜드가 대안으로 바뀌어도 LLM이 쓴 이유(역사·디테일)는
+                # 대체로 그 계열에 그대로 유효하다. 통째로 덮으면 값어치가 사라진다.
+                # ★브랜드가 교체된 경우, 원문에 옛 브랜드명이 들어있으면 그 역사는
+                # 새 브랜드의 것이 아니다 — 그대로 붙이면 거짓이 된다. 그때만 덮는다.
+                _r0 = str(o.get("reason") or "").strip()
+                _oldb = (b or "").strip()
+                if _r0 and _oldb and _oldb not in _r0:
+                    o["reason"] = nb + " — " + _r0        # 브랜드 언급 없는 서술 → 보존
+                else:
+                    o["reason"] = nb + " — 같은 결의 검증된 대안이에요."
         # ★LLM이 쓴 reason(브랜드 역사·디테일)은 이 엔진의 핵심 산출물이다.
         # 브랜드명이 안 들어갔다는 이유로 통째로 덮으면 값어치가 사라진다 —
         # 이름만 앞에 붙이고 원문은 보존한다.
