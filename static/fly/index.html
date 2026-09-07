@@ -531,7 +531,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0907d";
+  const SWEF_BUILD="0907e";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -636,7 +636,7 @@ const _atmoUp=new Cesium.Cartesian3(0,1,0),_atmoTmp=new Cesium.Cartesian3();
 let _mbStage=null,_mbPrevV=null,_mbPrevP=null,_mbLast=0,_mbScale=0;
 let _mbJ=Cesium.Matrix4.clone(Cesium.Matrix4.IDENTITY);
 const _mbTmpA=new Cesium.Matrix4(),_mbTmpB=new Cesium.Matrix4();
-function mbLevel(){ const v=localStorage.getItem("swef_mb"); return v!==null?parseInt(v):(IS_TOUCH?0:1); }
+function mbLevel(){ const v=localStorage.getItem("swef_mb"); return v!==null?parseInt(v):0; }
 function mbUpdate(){
   if(!_mbStage) return;
   const lvl=mbLevel();
@@ -1083,7 +1083,7 @@ let statTimer=0;
 
 /* 시그니처 진입 — 장소별 최적 연출 자동 세팅 */
 const SIGS={
-  "에베레스트":{f:3,t:6.3,c:2},
+  "에베레스트":{f:2,t:17.2,c:1},
   "두바이":{f:1,t:19.5,c:0},
   "몽생미셸":{f:2,t:18.2,c:1},
   "콜로세움":{f:2,t:17.8,c:0},
@@ -1100,7 +1100,9 @@ const SIGS={
   "도쿄":{f:6,t:19.2,c:0},
   "파리":{f:2,t:19.0,c:0}
 };
+let _sigReady=false; setTimeout(()=>{_sigReady=true;},12000);
 function applySig(d){
+  if(!_sigReady) return;
   const g=SIGS[d.n];
   if(!g) return;
   try{
