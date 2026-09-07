@@ -476,8 +476,8 @@ async function init(){
       g.maximumScreenSpaceError = 12;
       g.skipLevelOfDetail = true;
       g.cacheBytes = 1073741824;
-      g.cullRequestsWhileMoving = false;
-      g.preloadWhenHidden = true;
+      g.cullRequestsWhileMoving = true;
+      g.preloadWhenHidden = false;
       g.foveatedTimeDelay = 0.1;
       window._gT = g;
       viewer.scene.primitives.add(g);
@@ -531,7 +531,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0907c";
+  const SWEF_BUILD="0907d";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -1377,9 +1377,15 @@ function dynRes(moving,dt){
     else if(dynRes._band===2 && alt<1800) dynRes._band=1;
     const bandAdj = dynRes._band===0? -2 : dynRes._band===2? 3 : 0;
     const base=(!moving&&idleT>1.2)?(hq?7:9):(hq?10:12);
-    const want=Math.max(5, base+bandAdj);
+    if(!dynRes._pp){ dynRes._pp=Cesium.Cartesian3.clone(viewer.camera.positionWC,new Cesium.Cartesian3()); }
+    const _spd=Cesium.Cartesian3.distance(viewer.camera.positionWC,dynRes._pp);
+    Cesium.Cartesian3.clone(viewer.camera.positionWC,dynRes._pp);
+    if(_spd>1500) dynRes._warp=30;
+    else if(dynRes._warp>0) dynRes._warp--;
+    const warp = dynRes._warp>0;
+    const want = warp?26:Math.max(5, base+bandAdj);
     if(window._gT.maximumScreenSpaceError!==want) window._gT.maximumScreenSpaceError=want;
-    const skip = dynRes._band!==0;
+    const skip = warp?true:(dynRes._band!==0);
     if(window._gT.skipLevelOfDetail!==skip) window._gT.skipLevelOfDetail=skip;
   }
 }
