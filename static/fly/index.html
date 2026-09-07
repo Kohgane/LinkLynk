@@ -476,8 +476,8 @@ async function init(){
       const g = await Cesium.createGooglePhotorealistic3DTileset();
       g.maximumScreenSpaceError = 12;
       g.skipLevelOfDetail = true;
-      g.cacheBytes = IS_TOUCH?335544320:805306368;
-      g.maximumCacheOverflowBytes = IS_TOUCH?134217728:268435456;
+      g.cacheBytes = IS_TOUCH?201326592:805306368;
+      g.maximumCacheOverflowBytes = IS_TOUCH?100663296:268435456;
       g.cullRequestsWhileMoving = true;
       g.preloadWhenHidden = false;
       g.foveatedTimeDelay = 0.1;
@@ -542,14 +542,14 @@ async function init(){
   }catch(e){}
   if (IS_TOUCH){
     viewer.resolutionScale = 0.65;
-    sc.globe.maximumScreenSpaceError = 4;
+    sc.globe.maximumScreenSpaceError = 6;
     sc.postProcessStages.fxaa.enabled = false;
     sc.highDynamicRange = false;
     sc.msaaSamples = 1;
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0907i";
+  const SWEF_BUILD="0907j";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -664,7 +664,7 @@ function mbUpdate(){
   const cam=viewer.camera, V=cam.viewMatrix, P=cam.frustum.projectionMatrix;
   const now=performance.now(); const dt=_mbLast?Math.min(100,now-_mbLast):16.6; _mbLast=now;
   _pgAcc+=dt; _pgN++;
-  if(_pgN>=120){
+  if(_pgN>=60){
     const avg=_pgAcc/_pgN; _pgAcc=0; _pgN=0;
     if(avg>26 && _pgTier<2){ _pgTier++; _pgApply(); }
     else if(avg<17 && _pgTier>0){ _pgTier--; _pgApply(); }
