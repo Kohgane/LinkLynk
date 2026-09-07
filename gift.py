@@ -235,6 +235,9 @@ def _style_line(taste):
 
 
 def recommend(api_key, who, budget, taste, exclude=None):
+    _T0 = time.time()
+    def _lap(tag):
+        print("[gift] %-14s %.2fs" % (tag, time.time() - _T0), flush=True)
     reroll = bool(exclude)
     n_dir = 5 if reroll else 4     # ★재뽑기 = 폭 확장: 방향 4->5
     n_prod = 5 if reroll else 4    # ★픽당 상품도 4->5
@@ -276,7 +279,9 @@ def recommend(api_key, who, budget, taste, exclude=None):
         'JSON: {"clue":"받는 사람의 핵심 단서(형용사·상황) 한 단어",'
         f'"picks":[{{"keyword":"브랜드+라인+사양(3~5단어)","alt":"대체 브랜드 검색어","reason":"한 줄 이유","angle":"계열 이름"}}x{n_dir}]}}'
     )
+    _lap("prompt_ready")
     r = llm_chat(api_key, _SYS, user, max_tokens=1500)
+    _lap("llm1_done")
     if not r.get("ok"):
         return {"ok": False, "error": "추천 생성 실패",
                 "detail": str(r.get("error") or "")[:120] + " " + str(r.get("detail") or "")[:150]}
@@ -431,6 +436,7 @@ def recommend(api_key, who, budget, taste, exclude=None):
     results = {}
     if cp:
         from concurrent.futures import ThreadPoolExecutor
+        _lap("coupang_start")
         with ThreadPoolExecutor(max_workers=5) as pool:
             futs = {kw: pool.submit(_fetch, kw) for kw in kws if kw}
             results = {kw: f.result() for kw, f in futs.items()}
@@ -471,7 +477,9 @@ def recommend(api_key, who, budget, taste, exclude=None):
              "인스탁스, 레고, 반다이, 무인양품, 펜텔, 파이롯트, 트래블러스컴퍼니\n"
              '"JSON: {"picks":[{"keyword":"...","reason":"...","angle":"..."}]}"'
          )
+         _lap("llm2_start")
          r2 = llm_chat(api_key, _SYS, user2, max_tokens=700)
+         _lap("llm2_done")
          if r2.get("ok"):
              try:
                  repl = _parse_json_out(r2["text"]).get("picks", [])[:len(failed_idx)]
@@ -540,4 +548,5 @@ def recommend(api_key, who, budget, taste, exclude=None):
         pass   # 변환 실패 시 기존 링크 유지
 
     return {"ok": True, "picks": out, "src": used_model,
-            "coupang": bool(cp), "coupang_err": (cp.last_error if cp else "no_keys")}
+            "coupang": bool(cp), "coupang_err": (cp.last_error if cp else "no_keys"),
+            "ms": int((time.time() - _T0) * 1000)}
