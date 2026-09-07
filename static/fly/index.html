@@ -67,7 +67,7 @@
   #btnEye{position:fixed;right:12px;top:100px;z-index:9600;width:38px;height:38px;border-radius:50%;
     background:rgba(0,0,0,.45);border:1px solid rgba(255,255,255,.25);color:#fff;font-size:17px}
   body.zen #panel, body.zen .tbtn, body.zen #hint, body.zen #vehHud,
-  body.zen [id^="swefm-"], body.zen #avWrap, body.zen #gauge{display:none !important}
+  body.zen [id^="swefm-"], body.zen #gauge{display:none !important}
   #avWrap{position:fixed;left:50%;transform:translateX(-50%);z-index:7;pointer-events:none;
     font-size:42px;filter:drop-shadow(0 10px 12px rgba(0,0,0,.55));transition:font-size .2s}
   #gauge{position:fixed;right:12px;z-index:9;width:86px;height:86px;border-radius:50%;
@@ -165,6 +165,7 @@
       <span>민첩 <output id="custAgv">1.0×</output></span>
       <span>🛩 크기</span>
       <input type="range" id="avSizeR2" min="24" max="140" step="2" value="44">
+      <button class="btn" id="btnAvHide" style="padding:6px 12px">👻</button>
       <input type="range" id="custAg" min="0.3" max="3" step="0.1" value="1">
     </div>
   </div>
@@ -475,7 +476,8 @@ async function init(){
       const g = await Cesium.createGooglePhotorealistic3DTileset();
       g.maximumScreenSpaceError = 12;
       g.skipLevelOfDetail = true;
-      g.cacheBytes = 1073741824;
+      g.cacheBytes = IS_TOUCH?335544320:805306368;
+      g.maximumCacheOverflowBytes = IS_TOUCH?134217728:268435456;
       g.cullRequestsWhileMoving = true;
       g.preloadWhenHidden = false;
       g.foveatedTimeDelay = 0.1;
@@ -547,7 +549,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0907g";
+  const SWEF_BUILD="0907h";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -611,14 +613,16 @@ function setupTouch(){
   let pinchD=0, pinchF=0;
   const dist2=(e)=>{const a=e.touches[0],b=e.touches[1];return Math.hypot(a.clientX-b.clientX,a.clientY-b.clientY);};
   pad.addEventListener("touchstart",e=>{
-    if(e.touches.length===2){ pinchD=dist2(e); pinchF=viewer.camera.frustum.fov; lid=null; e.preventDefault(); return; }
+    if(e.touches.length===2){ pinchD=dist2(e); lid=null; e.preventDefault(); return; }
     const t=e.changedTouches[0];lid=t.identifier;px=t.clientX;py=t.clientY;e.preventDefault();},{passive:false});
   pad.addEventListener("touchmove",e=>{
     if(e.touches.length===2 && pinchD>0){
       const nd=dist2(e);
-      let f = pinchF * (pinchD/nd);
-      f = Math.max(0.52, Math.min(1.92, f));
-      viewer.camera.frustum.fov = f;
+      const dz=(nd-pinchD)/Math.max(40,pinchD);
+      let k=200;
+      try{ k=Math.max(60, viewer.camera.positionCartographic.height*0.9); }catch(_){}
+      viewer.camera.moveForward(dz*k*2.2);
+      pinchD=nd;
       e.preventDefault(); return;
     }
     for(const t of e.changedTouches){if(t.identifier===lid){
@@ -1320,7 +1324,7 @@ try{ if(typeof IS_TOUCH!=="undefined" && !IS_TOUCH && !localStorage.getItem("ef_
 let avPick = localStorage.getItem("ef_av_emoji")||"";
 function updateAvatar(){
   const el=document.getElementById("avWrap");
-  if(mode!=="free"){ if(el.style.display!=="none"){el.style.display="none";} return; }
+  if(mode!=="free"||localStorage.getItem("swef_avhide")==="1"){ if(el.style.display!=="none"){el.style.display="none";} return; }
   if(el.style.display==="none") el.style.display="block";
   const e=avPick||(veh?veh.e:"✈️");
   if(e!==_avEmoji){
@@ -1397,7 +1401,7 @@ function dynRes(moving,dt){
     else if(dynRes._band===0 && alt>650) dynRes._band=1;
     else if(dynRes._band===2 && alt<1800) dynRes._band=1;
     const bandAdj = dynRes._band===0? -2 : dynRes._band===2? 3 : 0;
-    const _ig=window._iGPU?3:0;
+    const _ig=(window._iGPU?3:0)+(IS_TOUCH?2:0);
     const base=((!moving&&idleT>1.2)?(hq?7:9):(hq?10:12))+_ig;
     if(!dynRes._pp){ dynRes._pp=Cesium.Cartesian3.clone(viewer.camera.positionWC,new Cesium.Cartesian3()); }
     const _spd=Cesium.Cartesian3.distance(viewer.camera.positionWC,dynRes._pp);
@@ -1920,10 +1924,32 @@ function buildUI(){
     _asz.oninput=()=>{ avSize=parseInt(_asz.value); localStorage.setItem("ef_av_size",avSize); _avEmoji=""; }; }
   ["dests","vehs","cats"].forEach(id=>{
     const el=document.getElementById(id);
-    if(el) el.addEventListener("wheel",e=>{
+    if(!el) return;
+    el.addEventListener("wheel",e=>{
       if(Math.abs(e.deltaY)>Math.abs(e.deltaX)){ el.scrollLeft+=e.deltaY; e.preventDefault(); }
     },{passive:false});
+    let _dx=null;
+    el.addEventListener("mousedown",e=>{ _dx=e.clientX+el.scrollLeft; });
+    window.addEventListener("mousemove",e=>{ if(_dx!==null){ el.scrollLeft=_dx-e.clientX; } });
+    window.addEventListener("mouseup",()=>{ _dx=null; });
   });
+  const _ahBtn=document.getElementById("btnAvHide");
+  if(_ahBtn){
+    const _ahp=()=>_ahBtn.classList.toggle("on",localStorage.getItem("swef_avhide")==="1");
+    _ahBtn.onclick=()=>{ const h=localStorage.getItem("swef_avhide")==="1";
+      localStorage.setItem("swef_avhide",h?"0":"1"); _ahp();
+      toast(h?"👻 기체 표시":"👻 기체 숨김"); };
+    _ahp();
+  }
+  if(!IS_TOUCH){
+    viewer.canvas.addEventListener("wheel",e=>{
+      if(mode!=="free") return;
+      let k=3;
+      try{ k=Math.max(3, viewer.camera.positionCartographic.height*0.0012); }catch(_){}
+      viewer.camera.moveForward(-e.deltaY*k);
+      e.preventDefault();
+    },{passive:false});
+  }
   document.getElementById("btnDream").onclick=toggleDream;
   (function(){
     const P=document.getElementById("vjPanel");
