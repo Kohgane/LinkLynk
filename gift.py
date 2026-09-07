@@ -242,7 +242,7 @@ def recommend(api_key, who, budget, taste, exclude=None):
     # ★여유분 전략: LLM에 6~7개를 요청해 쿠팡 실패분을 흡수한다.
     # 실패 픽이 생겨도 2차 LLM 구제(llm2, +2~3초)를 안 타게 만드는 게 목적.
     n_show = 5 if reroll else 4    # 화면에 보일 개수
-    n_dir = n_show + 1             # LLM에 요청할 방향 수 (여유 1)
+    n_dir = n_show + 2             # LLM에 요청할 방향 수 (여유 2 — 쿠팡 실패 흡수)
     n_prod = 5 if reroll else 4    # 픽당 상품 수
     ex = ""
     if exclude:
