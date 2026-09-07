@@ -532,6 +532,11 @@ async function init(){
       viewer.resolutionScale=0.5;
       setTimeout(()=>toast("⚠️ GPU 가속 꺼짐 감지 — 브라우저 설정에서 그래픽 가속을 켜야 정상 속도가 납니다"),3500);
     }
+    else if(!IS_TOUCH && /intel.*(iris|uhd|hd graphics)/i.test(_rn) && !/arc/i.test(_rn)){
+      window._iGPU=true;
+      viewer.resolutionScale=0.8;
+      setTimeout(()=>toast("💻 내장그래픽 감지 — 균형 프로파일로 최적화"),3500);
+    }
   }catch(e){}
   if (IS_TOUCH){
     viewer.resolutionScale = 0.7;
@@ -542,7 +547,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0907f";
+  const SWEF_BUILD="0907g";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -636,8 +641,9 @@ let filmIdx=0, filmStage=null, cityTiles=null, cityLoading=false;
 let _pgTier=0,_pgAcc=0,_pgN=0,_pgFogOff=false,_pgToasted=false;
 function _pgApply(){
   try{
-    if(_pgTier===0){ viewer.resolutionScale=IS_TOUCH?0.7:1.0; _pgFogOff=false; }
-    else if(_pgTier===1){ viewer.resolutionScale=IS_TOUCH?0.6:0.85; _pgFogOff=false;
+    const pcBase=window._iGPU?0.8:1.0;
+    if(_pgTier===0){ viewer.resolutionScale=IS_TOUCH?0.7:pcBase; _pgFogOff=false; }
+    else if(_pgTier===1){ viewer.resolutionScale=IS_TOUCH?0.6:(pcBase-0.12); _pgFogOff=false;
       if(!_pgToasted){ _pgToasted=true; toast("⚡ 최적화 모드 — 부드러움 우선"); } }
     else { viewer.resolutionScale=IS_TOUCH?0.55:0.75; _pgFogOff=true; }
   }catch(e){}
@@ -1391,7 +1397,8 @@ function dynRes(moving,dt){
     else if(dynRes._band===0 && alt>650) dynRes._band=1;
     else if(dynRes._band===2 && alt<1800) dynRes._band=1;
     const bandAdj = dynRes._band===0? -2 : dynRes._band===2? 3 : 0;
-    const base=(!moving&&idleT>1.2)?(hq?7:9):(hq?10:12);
+    const _ig=window._iGPU?3:0;
+    const base=((!moving&&idleT>1.2)?(hq?7:9):(hq?10:12))+_ig;
     if(!dynRes._pp){ dynRes._pp=Cesium.Cartesian3.clone(viewer.camera.positionWC,new Cesium.Cartesian3()); }
     const _spd=Cesium.Cartesian3.distance(viewer.camera.positionWC,dynRes._pp);
     Cesium.Cartesian3.clone(viewer.camera.positionWC,dynRes._pp);
