@@ -454,7 +454,7 @@ async function init(){
     homeButton:false, sceneModePicker:false, navigationHelpButton:false,
     fullscreenButton:false, infoBox:false, selectionIndicator:false,
     requestRenderMode:false,
-    contextOptions:{webgl:{preserveDrawingBuffer:true}},
+    contextOptions:{webgl:{preserveDrawingBuffer:false}},
   };
   if (CESIUM_ION_TOKEN){
     Cesium.Ion.defaultAccessToken = CESIUM_ION_TOKEN;
@@ -541,7 +541,7 @@ async function init(){
     }
   }catch(e){}
   if (IS_TOUCH){
-    viewer.resolutionScale = 0.7;
+    viewer.resolutionScale = 0.65;
     sc.globe.maximumScreenSpaceError = 4;
     sc.postProcessStages.fxaa.enabled = false;
     sc.highDynamicRange = false;
@@ -549,7 +549,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0907h";
+  const SWEF_BUILD="0907i";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -646,7 +646,7 @@ let _pgTier=0,_pgAcc=0,_pgN=0,_pgFogOff=false,_pgToasted=false;
 function _pgApply(){
   try{
     const pcBase=window._iGPU?0.8:1.0;
-    if(_pgTier===0){ viewer.resolutionScale=IS_TOUCH?0.7:pcBase; _pgFogOff=false; }
+    if(_pgTier===0){ viewer.resolutionScale=IS_TOUCH?0.65:pcBase; _pgFogOff=false; }
     else if(_pgTier===1){ viewer.resolutionScale=IS_TOUCH?0.6:(pcBase-0.12); _pgFogOff=false;
       if(!_pgToasted){ _pgToasted=true; toast("⚡ 최적화 모드 — 부드러움 우선"); } }
     else { viewer.resolutionScale=IS_TOUCH?0.55:0.75; _pgFogOff=true; }
@@ -1562,6 +1562,7 @@ function shareLink(){
 }
 async function photo(){
   viewer.scene.render();
+  try{ viewer.scene.render(); }catch(e){}
   const src=viewer.canvas, c=document.createElement("canvas");
   c.width=src.width; c.height=src.height;
   const x=c.getContext("2d"); x.drawImage(src,0,0);
@@ -1860,7 +1861,7 @@ function buildUI(){
     el.className = "vcard";
     const locked = v.lock && !localStorage.getItem(v.lock);
     if(locked){ el.textContent="🔒 ???"; el.style.opacity="0.5"; }
-    else if(v.e.indexOf("img:")===0){ el.innerHTML='<img src="'+v.e.slice(4)+'" style="height:30px;vertical-align:middle"> '+dn(v); }
+    else if(v.e.indexOf("img:")===0){ el.innerHTML='<img loading="lazy" decoding="async" src="'+v.e.slice(4)+'" style="height:30px;vertical-align:middle"> '+dn(v); }
     else el.textContent = v.e+" "+dn(v);
     el.onclick = ()=>{
       if(v.lock && !localStorage.getItem(v.lock)){
