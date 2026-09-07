@@ -531,7 +531,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0906d";
+  const SWEF_BUILD="0907a";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -1141,11 +1141,24 @@ function dreamOn(sky){
   dreamSky=sky;
   document.getElementById("btnDream").classList.add("on");
 }
+const DREAM_SKIES=["/fly/sky/pano.jpg","/fly/sky/aurora.jpg","/fly/sky/sunset.jpg","/fly/sky/islands.jpg","/fly/sky/storm.jpg","/fly/sky/galaxy.jpg","/fly/sky/moonink.jpg","/fly/sky/mars.jpg","/fly/sky/merfolk.jpg","/fly/sky/giants.jpg","/fly/sky/ancient.jpg","/fly/sky/lanterns.jpg","/fly/sky/stormeye.jpg","/fly/sky/icepalace.jpg"];
+let _dreamIdx=0;
 function toggleDream(){
-  if(dreamPrim){ dreamOff(); return; }
+  const free=localStorage.getItem("swef_gate4")==="1";
+  if(dreamPrim){
+    if(free){
+      _dreamIdx=(_dreamIdx+1)%DREAM_SKIES.length;
+      if(_dreamIdx===0){ dreamOff(); toast("🌌 OFF"); return; }
+      dreamOn(DREAM_SKIES[_dreamIdx]);
+      toast("🌌 세계 "+(_dreamIdx+1)+"/"+DREAM_SKIES.length);
+      return;
+    }
+    dreamOff(); return;
+  }
   fetch("/fly/sky/pano.jpg",{method:"HEAD"}).then(r=>{
     if(!r.ok){ toast(KO?"🌌 준비 중":"coming soon"); return; }
-    dreamOn("/fly/sky/pano.jpg");
+    _dreamIdx=0; dreamOn(DREAM_SKIES[0]);
+    if(!free) toast(KO?"🌌 드림스카이 — 여정을 쌓으면 더 많은 세계가 열린다":"Dream sky");
   }).catch(()=>{});
 }
 /* 숨은 포탈 — 이스터에그 */
@@ -1676,6 +1689,11 @@ function vjTrack(silent){
       vs.push({la:la,lo:lo,ts:Date.now()});
       vjSave("swef_visits",vs);
       toast(KO?"🧭 새 발자국 — 이 기기에만 저장":"🧭 New footprint (device only)");
+      if(vs.length>=3 && !localStorage.getItem("swef_gate4")){
+        localStorage.setItem("swef_gate4","1");
+        if(typeof _flash==="function") _flash();
+        setTimeout(()=>toast("🌠 여정자의 증표 — 드림스카이가 모든 세계를 기억한다"),1200);
+      }
     } else if(!silent) toast(KO?"🧭 이미 기록된 지역이야":"Already recorded here");
     vjRender();
   },()=>{ if(!silent) toast(KO?"위치 권한이 필요해":"Location permission needed"); },
