@@ -239,8 +239,11 @@ def recommend(api_key, who, budget, taste, exclude=None):
     def _lap(tag):
         print("[gift] %-14s %.2fs" % (tag, time.time() - _T0), flush=True)
     reroll = bool(exclude)
-    n_dir = 5 if reroll else 4     # ★재뽑기 = 폭 확장: 방향 4->5
-    n_prod = 5 if reroll else 4    # ★픽당 상품도 4->5
+    # ★여유분 전략: LLM에 6~7개를 요청해 쿠팡 실패분을 흡수한다.
+    # 실패 픽이 생겨도 2차 LLM 구제(llm2, +2~3초)를 안 타게 만드는 게 목적.
+    n_show = 5 if reroll else 4    # 화면에 보일 개수
+    n_dir = n_show + 3             # LLM에 요청할 방향 수 (여유 3)
+    n_prod = 5 if reroll else 4    # 픽당 상품 수
     ex = ""
     if exclude:
         ex = ("\n★재뽑기다. 이전에 추천한 키워드: " + ", ".join(exclude[:20]) +
@@ -341,7 +344,11 @@ def recommend(api_key, who, budget, taste, exclude=None):
     def _relevant(items, toks):
         return [u for u in items if any(t in u["name"] for t in toks)] if toks else items
 
+    _FETCH_DEADLINE = time.time() + 8.0   # 쿠팡·네이버 폴백 사슬 총 상한(초)
+
     def _fetch(kw, _retry=True):
+        if time.time() > _FETCH_DEADLINE:
+            return []
         """멀티소스: 자사 스토어(마진 전체) > 쿠팡 브랜드 진품 > 쿠팡 일반.
         관련성(콜라·화장지 차단) + 가격대(예산 격 훼손 차단) 이중 검증은 전 소스 공통."""
         try:
@@ -509,15 +516,20 @@ def recommend(api_key, who, budget, taste, exclude=None):
                 o["keyword"] = alt if (alt and nb in alt) else \
                     (nb + (" " + " ".join(kw0[1:3]) if len(kw0) > 1 else "")).strip()
                 o["reason"] = nb + " — 같은 결의 검증된 대안으로 골랐어요."
+        # ★LLM이 쓴 reason(브랜드 역사·디테일)은 이 엔진의 핵심 산출물이다.
+        # 브랜드명이 안 들어갔다는 이유로 통째로 덮으면 값어치가 사라진다 —
+        # 이름만 앞에 붙이고 원문은 보존한다.
         kw0 = str(o.get("keyword") or "").split()
-        if kw0 and o.get("reason") and kw0[0] not in str(o.get("reason", "")):
-            o["reason"] = (kw0[0] + " " + " ".join(kw0[1:3])).strip() + \
-                          " — 받는 분의 결에 맞춰 고른 픽이에요."
+        _rs = str(o.get("reason") or "").strip()
+        if kw0 and _rs and kw0[0] not in _rs:
+            o["reason"] = (kw0[0] + " — " + _rs)
+        elif kw0 and not _rs:
+            o["reason"] = (kw0[0] + " " + " ".join(kw0[1:3])).strip() + " — 받는 분의 결에 맞춰 고른 픽이에요."
         o.pop("_alt", None)
 
     # ★빈 픽 제거: '상품을 찾지 못했어요' 카드는 체감 품질을 죽인다 —
     # 꽉 찬 2장이 빈칸 낀 3장보다 낫다 (전부 비면 그대로 두고 에러 노출)
-    filled = [o for o in out if o["products"]]
+    filled = [o for o in out if o["products"]][:n_show]
     if filled:
         out = filled
 
