@@ -164,7 +164,7 @@
       <input type="range" id="custSp" min="0.1" max="8" step="0.1" value="1">
       <span>민첩 <output id="custAgv">1.0×</output></span>
       <span>🛩 크기</span>
-      <input type="range" id="avSizeR2" min="24" max="80" step="2" value="44">
+      <input type="range" id="avSizeR2" min="24" max="140" step="2" value="44">
       <input type="range" id="custAg" min="0.3" max="3" step="0.1" value="1">
     </div>
   </div>
@@ -513,15 +513,26 @@ async function init(){
     sc.globe.maximumScreenSpaceError = 1.6;
     sc.globe.tileCacheSize = 1500;
     const bl = sc.postProcessStages.bloom;
-    bl.enabled = true;
+    bl.enabled = false;
     bl.uniforms.brightness = -0.3; bl.uniforms.sigma = 3.0;
     bl.uniforms.delta = 1.0; bl.uniforms.stepSize = 1.2; bl.uniforms.contrast = 119;
     try{
       const lf = Cesium.PostProcessStageLibrary.createLensFlareStage();
       lf.uniforms.intensity = 2.0; lf.uniforms.dirtAmount = 0.2;
+      lf.enabled = false; window._lf = lf;
       sc.postProcessStages.add(lf);
     }catch(e){}
   }
+  try{
+    const _gl=viewer.canvas.getContext("webgl2")||viewer.canvas.getContext("webgl");
+    const _dbg=_gl&&_gl.getExtension("WEBGL_debug_renderer_info");
+    const _rn=_dbg?String(_gl.getParameter(_dbg.UNMASKED_RENDERER_WEBGL)):"";
+    if(/swiftshader|llvmpipe|software|basic render/i.test(_rn)){
+      window._softGL=true;
+      viewer.resolutionScale=0.5;
+      setTimeout(()=>toast("⚠️ GPU 가속 꺼짐 감지 — 브라우저 설정에서 그래픽 가속을 켜야 정상 속도가 납니다"),3500);
+    }
+  }catch(e){}
   if (IS_TOUCH){
     viewer.resolutionScale = 0.7;
     sc.globe.maximumScreenSpaceError = 4;
@@ -531,7 +542,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0907e";
+  const SWEF_BUILD="0907f";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -828,6 +839,7 @@ void main(){
 }
 function setFilm(i){
   filmIdx=i;
+  try{ if(window._lf) window._lf.enabled=(i===2||i===10); }catch(e){}
   /* atmosphereHueShift 오로라 */
   try{
     const sky=viewer.scene.skyAtmosphere, gl=viewer.scene.globe;
@@ -1298,6 +1310,7 @@ function zenToggle(){
 let _avEmoji="", _avRot=99, _gPct=-1, _gDrift=false;
 let avOn = localStorage.getItem("ef_av_on")!=="0";
 let avSize = parseInt(localStorage.getItem("ef_av_size")||"42");
+try{ if(typeof IS_TOUCH!=="undefined" && !IS_TOUCH && !localStorage.getItem("ef_av_size")) avSize=68; }catch(e){}
 let avPick = localStorage.getItem("ef_av_emoji")||"";
 function updateAvatar(){
   const el=document.getElementById("avWrap");
@@ -1898,6 +1911,12 @@ function buildUI(){
   const _asz=document.getElementById("avSizeR2");
   if(_asz){ _asz.value=avSize;
     _asz.oninput=()=>{ avSize=parseInt(_asz.value); localStorage.setItem("ef_av_size",avSize); _avEmoji=""; }; }
+  ["dests","vehs","cats"].forEach(id=>{
+    const el=document.getElementById(id);
+    if(el) el.addEventListener("wheel",e=>{
+      if(Math.abs(e.deltaY)>Math.abs(e.deltaX)){ el.scrollLeft+=e.deltaY; e.preventDefault(); }
+    },{passive:false});
+  });
   document.getElementById("btnDream").onclick=toggleDream;
   (function(){
     const P=document.getElementById("vjPanel");
