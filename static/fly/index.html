@@ -531,7 +531,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0907a";
+  const SWEF_BUILD="0907b";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -622,24 +622,39 @@ function setupTouch(){
 
 const FILMS=[["\uC6D0\uBCF8","Natural"],["\uBE44\uBE44\uB4DC","Vivid"],["\uACE8\uB4E0\uC544\uC6CC","Golden"],["\uC218\uBB35","Ink"],["\uB4DC\uB9BC","Dream"],["\uC544\uBC14\uD0C0","Pandora"],["\uC778\uC149\uC158","Inception"],["\uCF54\uCF54","Coco"],["\uB354 \uD3F4","The Fall"],["\uBD80\uB2E4\uD398\uC2A4\uD2B8","Budapest"],["\uB178\uC744\uAE38","Sunset Drive"],["\uC624\uB85C\uB77C","Aurora"]];
 let filmIdx=0, filmStage=null, cityTiles=null, cityLoading=false;
+let _pgTier=0,_pgAcc=0,_pgN=0,_pgFogOff=false,_pgToasted=false;
+function _pgApply(){
+  try{
+    if(_pgTier===0){ viewer.resolutionScale=IS_TOUCH?0.7:1.0; _pgFogOff=false; }
+    else if(_pgTier===1){ viewer.resolutionScale=IS_TOUCH?0.6:0.85; _pgFogOff=false;
+      if(!_pgToasted){ _pgToasted=true; toast("⚡ 최적화 모드 — 부드러움 우선"); } }
+    else { viewer.resolutionScale=IS_TOUCH?0.55:0.75; _pgFogOff=true; }
+  }catch(e){}
+}
 let _fogStage=null,_atmoH=1000,_atmoFlash=0,_atmoPrevH=0;
 const _atmoUp=new Cesium.Cartesian3(0,1,0),_atmoTmp=new Cesium.Cartesian3();
 let _mbStage=null,_mbPrevV=null,_mbPrevP=null,_mbLast=0,_mbScale=0;
 let _mbJ=Cesium.Matrix4.clone(Cesium.Matrix4.IDENTITY);
 const _mbTmpA=new Cesium.Matrix4(),_mbTmpB=new Cesium.Matrix4();
-function mbLevel(){ return parseInt(localStorage.getItem("swef_mb")||"1"); }
+function mbLevel(){ const v=localStorage.getItem("swef_mb"); return v!==null?parseInt(v):(IS_TOUCH?0:1); }
 function mbUpdate(){
   if(!_mbStage) return;
   const lvl=mbLevel();
   const cam=viewer.camera, V=cam.viewMatrix, P=cam.frustum.projectionMatrix;
   const now=performance.now(); const dt=_mbLast?Math.min(100,now-_mbLast):16.6; _mbLast=now;
+  _pgAcc+=dt; _pgN++;
+  if(_pgN>=120){
+    const avg=_pgAcc/_pgN; _pgAcc=0; _pgN=0;
+    if(avg>26 && _pgTier<2){ _pgTier++; _pgApply(); }
+    else if(avg<17 && _pgTier>0){ _pgTier--; _pgApply(); }
+  }
   _mbStage.enabled = lvl>0;
   if(lvl>0 && _mbPrevV && P){
     const invV=Cesium.Matrix4.inverse(V,_mbTmpA);
     const A=Cesium.Matrix4.multiply(_mbPrevV,invV,_mbTmpB);
     Cesium.Matrix4.multiply(_mbPrevP,A,_mbJ);
     const shutter = lvl===2?1.0:0.5;
-    _mbScale = shutter*Math.min(1.0,16.6/dt);
+    _mbScale = (_pgTier>=1?0:1)*shutter*Math.min(1.0,16.6/dt);
   } else _mbScale=0;
   try{
     const cg=cam.positionCartographic;
@@ -804,7 +819,7 @@ void main(){
 }`;
     _fogStage=viewer.scene.postProcessStages.add(new Cesium.PostProcessStage({
       fragmentShader:fogfs,
-      uniforms:{u_fogOn:()=>(localStorage.getItem("swef_atmo")==="0"?0:1),
+      uniforms:{u_fogOn:()=>((_pgFogOff||localStorage.getItem("swef_atmo")==="0")?0:1),
         u_camH:()=>_atmoH, u_upEC:()=>_atmoUp, u_flash:()=>_atmoFlash}}));
   }catch(e){ console.warn("atmo init fail",e); }
   filmStage=viewer.scene.postProcessStages.add(new Cesium.PostProcessStage({
