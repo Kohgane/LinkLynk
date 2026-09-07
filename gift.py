@@ -242,7 +242,7 @@ def recommend(api_key, who, budget, taste, exclude=None):
     # ★여유분 전략: LLM에 6~7개를 요청해 쿠팡 실패분을 흡수한다.
     # 실패 픽이 생겨도 2차 LLM 구제(llm2, +2~3초)를 안 타게 만드는 게 목적.
     n_show = 5 if reroll else 4    # 화면에 보일 개수
-    n_dir = n_show + 3             # LLM에 요청할 방향 수 (여유 3)
+    n_dir = n_show + 1             # LLM에 요청할 방향 수 (여유 1)
     n_prod = 5 if reroll else 4    # 픽당 상품 수
     ex = ""
     if exclude:
@@ -468,7 +468,11 @@ def recommend(api_key, who, budget, taste, exclude=None):
     # LLM에게 되물어 '쿠팡에 실재하는 다른 브랜드'로 통째 교체 — 훅과 물건이 항상 일치.
     for _round in range(2):   # 재추천 최대 2라운드
       failed_idx = [i for i, o in enumerate(out) if not o["products"]]
-      if failed_idx and cp:
+      # ★구제 루프 봉인 (실측 2026-09-07): llm2 1회당 ~6.7초, 실제로 2회 돌아 13초를
+      # 먹었다. 쿠팡 검색은 ~0초로 병목이 아니었다. 여유분(n_dir=n_show+1)이
+      # 실패분을 대신 채우므로 구제 자체가 불필요하다.
+      _RESCUE = os.environ.get("GIFT_RESCUE", "0") == "1"
+      if failed_idx and cp and _RESCUE:
          failed_kws = [out[i]["keyword"] for i in failed_idx]
          ok_kws = [o["keyword"] for o in out if o["products"]]
          user2 = (
