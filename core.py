@@ -47,10 +47,27 @@ def _sticky_ok(p, m):
     except Exception:
         pass
 
+_COOLING = {}          # (provider, model) -> 해제 시각
+_COOL_SEC = 90
+
+
+def _cool(p, m):
+    """429/503 은 '그 모델의 사망'이 아니라 '지금 혼잡'이다. 기억을 버리면
+    다음 요청이 8개 모델을 처음부터 순회하며 12초씩 까먹는다(실측 26~30초).
+    기억은 유지하고 그 모델만 잠시 재운다."""
+    _COOLING[(p, m)] = time.time() + _COOL_SEC
+
+
+def _is_cool(p, m):
+    t = _COOLING.get((p, m))
+    return bool(t and time.time() < t)
+
+
 def _sticky_drop(p):
-    """과부하·레이트리밋을 맞은 모델은 '지금은 아픈 것'이다.
-    기억해두면 다음 요청도 같은 모델로 가서 또 죽는다. 즉시 버린다."""
-    _GOOD_MODEL.pop(p, None)
+    """호환 유지 — 이제는 기억을 버리지 않고 현재 sticky 모델만 재운다."""
+    v = _GOOD_MODEL.get(p)
+    if v:
+        _cool(p, v[0])
     try:
         d = _sticky_load()
         if d.pop(p, None) is not None:
@@ -64,10 +81,12 @@ def _sticky_drop(p):
 RETRYABLE = (408, 409, 425, 429, 500, 502, 503, 504, 529)
 
 def _order(p, models):
+    hot = [x for x in models if not _is_cool(p, x)]
+    cold = [x for x in models if _is_cool(p, x)]
     m = _sticky(p)
-    if m and m in models:
-        return [m] + [x for x in models if x != m]
-    return models
+    if m and m in hot:
+        hot = [m] + [x for x in hot if x != m]
+    return hot + cold
 
 
 _ctx = ssl.create_default_context()
