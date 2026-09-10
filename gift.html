@@ -69,19 +69,8 @@ input:focus{border-color:var(--blue)}
 <body>
 <div class="wrap">
   <div id="vForm">
-    <div class="card">
-      <div id="wzStep" style="font-size:12px;color:#8b95a6;margin-bottom:6px"></div>
-      <div id="wzTitle" style="font-size:19px;font-weight:700;margin-bottom:4px"></div>
-      <div id="wzHint" style="font-size:12.5px;color:#8b95a6;margin-bottom:14px"></div>
-      <div id="wzBody"></div>
-      <div style="display:flex;gap:8px;margin-top:18px">
-        <button class="btn" id="wzPrev" style="flex:0 0 84px;background:#1a2029;color:#9fb0c2">이전</button>
-        <button class="btn" id="wzNext" style="flex:1">다음</button>
-      </div>
-      <div style="margin-top:10px;height:3px;background:#1a2029;border-radius:2px;overflow:hidden">
-        <div id="wzBar" style="height:100%;width:0;background:#e0a04a;transition:width .2s"></div>
-      </div>
-    </div>
+    <div id="wzBody"></div>
+    <button class="btn" id="wzGo" style="width:100%;margin-top:6px">선물 찾기</button>
   </div>
 
   <div id="vProg" style="display:none">
@@ -100,65 +89,73 @@ input:focus{border-color:var(--blue)}
 function esc(s){const d=document.createElement('div');d.textContent=s==null?'':String(s);return d.innerHTML;}
 let _tt;
 function toast(m){const t=document.getElementById('toast');t.textContent=m;t.classList.add('show');clearTimeout(_tt);_tt=setTimeout(()=>t.classList.remove('show'),2400);}
-let QS=[], ANS={}, STEP=0;
+let QS=[], ANS={};
 
 const FALLBACK_QS=[
-  {id:"who",step:"1/1",t:"누구에게 주나요?",type:"text",ph:"예: 자취 시작한 여동생"},
-  {id:"budget",step:"1/1",t:"예산은?",type:"single",opts:["1만원 이하","1~3만원","3~5만원","5~10만원","10~20만원","20만원 이상"]},
-  {id:"taste",step:"1/1",t:"취향 힌트",type:"text",ph:"예: 캠핑 좋아함"}
+  {id:"who",step:"받는 분",t:"누구에게 주나요?",type:"text",ph:"예: 자취 시작한 여동생"},
+  {id:"budget",step:"상황",t:"예산",type:"single",opts:["1만원 이하","1~3만원","3~5만원","5~10만원","10~20만원","20만원 이상"]},
+  {id:"taste",step:"취향",t:"취향 힌트",type:"text",ph:"예: 캠핑 좋아함"}
 ];
 
 fetch('/api/gift/config').then(r=>r.json()).then(d=>{
-  QS=(d&&d.questions&&d.questions.length)?d.questions:FALLBACK_QS;
-  STEP=0; renderQ();
-}).catch(()=>{ QS=FALLBACK_QS; renderQ(); });
+  QS=(d&&d.questions&&d.questions.length)?d.questions:FALLBACK_QS; renderAll();
+}).catch(()=>{ QS=FALLBACK_QS; renderAll(); });
 
-function renderQ(){
-  const q=QS[STEP]; if(!q) return;
-  document.getElementById('wzStep').textContent=(q.step||'')+'  ·  '+(STEP+1)+'/'+QS.length;
-  document.getElementById('wzTitle').textContent=q.t||'';
-  document.getElementById('wzHint').textContent=q.hint||'';
-  document.getElementById('wzBar').style.width=Math.round((STEP)/QS.length*100)+'%';
-  const b=document.getElementById('wzBody');
-  if(q.type==='text'){
-    b.innerHTML='<input class="inp" id="wzText" placeholder="'+esc(q.ph||'')+'" value="'+esc(ANS[q.id]||'')+'">';
-  }else{
-    const labels=q.labels||q.opts||[];
-    const cur=ANS[q.id];
-    let h='<div class="chips" id="wzChips">';
-    (q.opts||[]).forEach((o,i)=>{
-      const on=(q.type==='multi')?((cur||[]).indexOf(o)>=0):(cur===o);
-      h+='<span class="chip'+(on?' on':'')+'" data-v="'+esc(o)+'">'+esc(labels[i]||o)+'</span>';
-    });
-    b.innerHTML=h+'</div>';
-    b.querySelector('#wzChips').addEventListener('click',e=>{
+function renderAll(){
+  const wrap=document.getElementById('wzBody');
+  let h='', last='';
+  QS.forEach((q,qi)=>{
+    if(q.step && q.step!==last){
+      if(last) h+='</div>';
+      h+='<div class="card" style="margin-bottom:12px"><div style="font-size:12px;color:#8b95a6;letter-spacing:.04em;margin-bottom:12px">'+esc(q.step)+'</div>';
+      last=q.step;
+    }
+    h+='<div style="margin-bottom:16px" data-q="'+qi+'">';
+    h+='<div style="font-size:14.5px;font-weight:600;margin-bottom:'+(q.hint?'2px':'8px')+'">'+esc(q.t)
+      +(q.max?'<span style="color:#8b95a6;font-weight:400;font-size:12px"> 최대 '+q.max+'</span>':'')+'</div>';
+    if(q.hint) h+='<div style="font-size:12px;color:#8b95a6;margin-bottom:8px">'+esc(q.hint)+'</div>';
+    if(q.type==='text'){
+      h+='<input class="inp" data-id="'+esc(q.id)+'" placeholder="'+esc(q.ph||'')+'">';
+    }else{
+      const L=q.labels||q.opts||[];
+      h+='<div class="chips" data-id="'+esc(q.id)+'" data-type="'+q.type+'" data-max="'+(q.max||0)+'">';
+      (q.opts||[]).forEach((o,i)=>{
+        h+='<span class="chip" data-v="'+esc(o)+'">'+esc(L[i]||o||'상관없음')+'</span>';
+      });
+      h+='</div>';
+    }
+    h+='</div>';
+  });
+  if(last) h+='</div>';
+  wrap.innerHTML=h;
+
+  wrap.querySelectorAll('.chips').forEach(box=>{
+    const id=box.dataset.id, type=box.dataset.type, max=+box.dataset.max||0;
+    box.addEventListener('click',e=>{
       const c=e.target.closest('.chip'); if(!c) return;
       const v=c.dataset.v;
-      if(q.type==='multi'){
-        let a=ANS[q.id]||[]; const k=a.indexOf(v);
-        if(k>=0) a.splice(k,1);
-        else { if(q.max&&a.length>=q.max){ toast('최대 '+q.max+'개'); return; } a.push(v); }
-        ANS[q.id]=a; c.classList.toggle('on');
+      if(type==='multi'){
+        let a=ANS[id]||[]; const k=a.indexOf(v);
+        if(k>=0){ a.splice(k,1); c.classList.remove('on'); }
+        else{
+          if(max && a.length>=max){ toast('최대 '+max+'개까지예요'); return; }
+          a.push(v); c.classList.add('on');
+        }
+        ANS[id]=a;
       }else{
-        ANS[q.id]=v;
-        b.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));
+        ANS[id]=v;
+        box.querySelectorAll('.chip').forEach(x=>x.classList.remove('on'));
         c.classList.add('on');
-        setTimeout(()=>{ if(STEP<QS.length-1){STEP++;renderQ();} },140);
       }
     });
-  }
-  document.getElementById('wzPrev').style.visibility=STEP?'visible':'hidden';
-  document.getElementById('wzNext').textContent=(STEP===QS.length-1)?'선물 찾기':'다음';
+  });
 }
-document.getElementById('wzPrev').onclick=()=>{ saveText(); if(STEP){STEP--;renderQ();} };
-document.getElementById('wzNext').onclick=()=>{
-  saveText();
-  if(STEP<QS.length-1){ STEP++; renderQ(); } else reco(false);
-};
-function saveText(){
-  const q=QS[STEP]; if(!q||q.type!=='text') return;
-  const el=document.getElementById('wzText'); if(el) ANS[q.id]=el.value.trim();
+function collectText(){
+  document.querySelectorAll('#wzBody input.inp[data-id]').forEach(el=>{
+    const v=(el.value||'').trim(); if(v) ANS[el.dataset.id]=v;
+  });
 }
+document.getElementById('wzGo').onclick=()=>{ collectText(); reco(false); };
 
 let __lastKeywords=[];
 async function reco(isRetry){
