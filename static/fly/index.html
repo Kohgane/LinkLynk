@@ -458,7 +458,7 @@ async function init(){
   };
   if (CESIUM_ION_TOKEN){
     Cesium.Ion.defaultAccessToken = CESIUM_ION_TOKEN;
-    Cesium.RequestScheduler.maximumRequestsPerServer = 18;
+    Cesium.RequestScheduler.maximumRequestsPerServer = IS_TOUCH?6:12;
   Cesium.RequestScheduler.requestsByServer = {"assets.ion.cesium.com:443":28,"assets.cesium.com:443":28,"api.cesium.com:443":18};
   opts.terrain = Cesium.Terrain.fromWorldTerrain({requestWaterMask:true, requestVertexNormals:true});
     viewer = new Cesium.Viewer("cesiumContainer", opts);
@@ -549,7 +549,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0907k";
+  const SWEF_BUILD="0907l";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -1413,7 +1413,13 @@ function dynRes(moving,dt){
     else if(dynRes._warp>0) dynRes._warp--;
     const warp = dynRes._warp>0;
     const want = warp?26:Math.max(5, base+bandAdj+(dreamPrim?4:0));
-    if(window._gT.maximumScreenSpaceError!==want) window._gT.maximumScreenSpaceError=want;
+    if(dynRes._sse===undefined) dynRes._sse=want;
+    if(want>=dynRes._sse){ dynRes._sse=want; dynRes._sseT=0; }
+    else {
+      dynRes._sseT=(dynRes._sseT||0)+1;
+      if(dynRes._sseT>=14){ dynRes._sseT=0; dynRes._sse=Math.max(want, dynRes._sse-2); }
+    }
+    if(window._gT.maximumScreenSpaceError!==dynRes._sse) window._gT.maximumScreenSpaceError=dynRes._sse;
     const skip = warp?true:(dynRes._band!==0);
     if(window._gT.skipLevelOfDetail!==skip) window._gT.skipLevelOfDetail=skip;
   }
