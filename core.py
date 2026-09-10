@@ -3,6 +3,7 @@ LinkLynk — 코어 모듈
 쿠팡 파트너스 딥링크 생성 + 고지문구 삽입 + 블로그 초안 생성
 서버(app.py)에서 import해서 사용.
 """
+import os
 import hmac, hashlib, time, urllib.request, urllib.error, json, ssl, re, random, threading
 import datetime as _dt
 
