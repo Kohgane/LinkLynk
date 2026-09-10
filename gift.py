@@ -548,11 +548,25 @@ def recommend(api_key, who, budget, taste, exclude=None):
     #   통과한 실측이 있었다. 반환 직전에 한 번 더 거른다.
     _HARD = int(_hi * 1.1)
     for _o in out:
-        _o["products"] = [u for u in _o.get("products") or []
+        _o["_all"] = list(_o.get("products") or [])   # 폴백용 원본 보존
+        _o["products"] = [u for u in _o["_all"]
                           if _price_ok_range(u, int(_lo * 0.6), _HARD)]
     filled = [o for o in out if o["products"]][:n_show]
+    if not filled:
+        # ★하드컷이 전부를 지운 경우: 예산창을 한 단계만 넓혀 재수집한다.
+        #   빈 카드를 보여주느니 예산을 조금 넘더라도 실물을 준다(초과분은 표시).
+        _SOFT = int(_hi * 1.45)
+        for _o in out:
+            _o["products"] = [u for u in _o.get("_all") or _o.get("products") or []
+                              if _price_ok_range(u, int(_lo * 0.5), _SOFT)]
+            for _u in _o["products"]:
+                if int(_u.get("price") or 0) > _HARD:
+                    _u["over_budget"] = 1
+        filled = [o for o in out if o["products"]][:n_show]
     if filled:
         out = filled
+    for _o in out:
+        _o.pop("_all", None)
 
     # ★링크 정착륙: 검색 API productUrl은 가끔 다른 상품/검색결과로 떨어진다.
     # productId로 정식 상품 URL 재구성 -> 딥링크 API 일괄 변환(파트너스 수익 유지).
