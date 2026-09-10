@@ -364,7 +364,9 @@ def recommend(api_key, who, budget, taste, exclude=None):
                 rel_cp = _relevant(_search_once(" ".join(toks[:2])), toks[:2])
 
             # 브랜드 우대 창도 정밀화: 0.9~1.2배 (정밀 테이블 위에 얹으므로 충분)
-            wide_lo, wide_hi = int(_lo * 0.9), int(_hi * 1.2)
+            # ★_BUDGET_RANGES 표가 이미 예산의 70~110%다. 여기에 1.2배를 또 곱하면
+            # 3만원 요청이 39,600원까지 통과한다(실측 52,410원). 1.05배로 조인다.
+            wide_lo, wide_hi = int(_lo * 0.9), int(_hi * 1.05)
             picked = []
             brand = toks[0] if toks else ""
 
@@ -542,6 +544,12 @@ def recommend(api_key, who, budget, taste, exclude=None):
 
     # ★빈 픽 제거: '상품을 찾지 못했어요' 카드는 체감 품질을 죽인다 —
     # 꽉 찬 2장이 빈칸 낀 3장보다 낫다 (전부 비면 그대로 두고 에러 노출)
+    # ★최종 하드컷: 위 단계 어딘가에 가격 미검증 경로가 있어 예산의 175%가
+    #   통과한 실측이 있었다. 반환 직전에 한 번 더 거른다.
+    _HARD = int(_hi * 1.1)
+    for _o in out:
+        _o["products"] = [u for u in _o.get("products") or []
+                          if _price_ok_range(u, int(_lo * 0.6), _HARD)]
     filled = [o for o in out if o["products"]][:n_show]
     if filled:
         out = filled
