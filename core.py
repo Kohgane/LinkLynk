@@ -10,19 +10,55 @@ import datetime as _dt
 _GOOD_MODEL = {}   # provider -> (model, ts)
 _STICKY_TTL = 1800
 
+_STICKY_FILE = "/tmp/llm_sticky.json"
+
+
+def _sticky_load():
+    """워커 간 공유: gunicorn 워커마다 따로 학습하면 각 워커의 첫 요청이
+    죽은 모델을 순회하느라 17~29초를 먹는다(실측 2026-09-10)."""
+    try:
+        with open(_STICKY_FILE, encoding="utf-8") as f:
+            return json.load(f)
+    except Exception:
+        return {}
+
+
 def _sticky(p):
     v = _GOOD_MODEL.get(p)
     if v and time.time() - v[1] < _STICKY_TTL:
         return v[0]
+    d = _sticky_load().get(p)
+    if d and time.time() - d[1] < _STICKY_TTL:
+        _GOOD_MODEL[p] = (d[0], d[1])
+        return d[0]
     return None
+
 
 def _sticky_ok(p, m):
     _GOOD_MODEL[p] = (m, time.time())
+    try:
+        d = _sticky_load()
+        d[p] = [m, time.time()]
+        tmp = _STICKY_FILE + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(d, f)
+        os.replace(tmp, _STICKY_FILE)
+    except Exception:
+        pass
 
 def _sticky_drop(p):
     """과부하·레이트리밋을 맞은 모델은 '지금은 아픈 것'이다.
     기억해두면 다음 요청도 같은 모델로 가서 또 죽는다. 즉시 버린다."""
     _GOOD_MODEL.pop(p, None)
+    try:
+        d = _sticky_load()
+        if d.pop(p, None) is not None:
+            tmp = _STICKY_FILE + ".tmp"
+            with open(tmp, "w", encoding="utf-8") as f:
+                json.dump(d, f)
+            os.replace(tmp, _STICKY_FILE)
+    except Exception:
+        pass
 
 RETRYABLE = (408, 409, 425, 429, 500, 502, 503, 504, 529)
 

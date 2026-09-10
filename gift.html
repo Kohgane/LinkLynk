@@ -200,7 +200,7 @@ function render(r, who, budget){
         <a class="prod" href="${esc(x.link||'#')}" target="_blank" rel="noopener">
           ${x.image?`<img src="${esc(x.image)}" loading="lazy" alt="">`:''}
           <div><div class="pn">${esc(x.name||'')}</div>
-          ${x.price?`<div class="pp">${Number(x.price).toLocaleString()}원</div>`:''}</div>
+          ${x.price?`<div class="pp">${Number(x.price).toLocaleString()}원${x.over_budget?'<span style="margin-left:6px;font-size:10.5px;color:#e0a04a;border:1px solid #5a4420;border-radius:5px;padding:1px 5px">예산 초과</span>':''}</div>`:''}</div>
           <div class="go">›</div>
         </a>`).join('');
       return `<div class="card">
