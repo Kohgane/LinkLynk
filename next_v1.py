@@ -205,7 +205,7 @@ EX.forEach(function(n){var b=document.createElement("button");b.textContent=n;
 document.getElementById("go").onclick=function(){run(document.getElementById("q").value);};
 document.getElementById("q").addEventListener("keydown",function(e){
   if(e.key==="Enter") run(this.value);});
-var m=location.pathname.match(/\/next\/r\/(.+)$/);
+var m=location.pathname.match(/[/]next[/]r[/](.+)$/);
 if(m){var v=decodeURIComponent(m[1]);document.getElementById("q").value=v;run(v);}
 function run(q){
   q=(q||"").trim(); if(q.length<2){return;}
