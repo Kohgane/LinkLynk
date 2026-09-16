@@ -27,6 +27,16 @@ def verdict(q):
         if k in _res:
             return _res[k]
     ings = ingredients(q)
+    # ★한글 입력 안전장치: RxNav 는 영문 DB라 한글 약명을 엉뚱한 성분으로 매핑한다
+    #   (애더럴 -> citrate 실측). 오판정은 "가져가도 된다"는 거짓 안전 신호가 되므로
+    #   매핑 근거가 약하면 판정을 내지 않고 되묻는다.
+    import re as _re
+    _ko = bool(_re.search(r"[가-힣]", q))
+    _named = [i for i in ings if i and i.lower() not in ("citrate", "acid", "sodium",
+                                                         "chloride", "hydrochloride")]
+    if _ko and not _named:
+        return {"ok": False, "need_en": True,
+                "error": "한글 약 이름은 성분 확인이 어려워요. 포장에 적힌 영문 성분명을 넣어주세요 (예: acetaminophen, codeine)"}
     hits, rows = build_verdict(ings, q)
     pro = [r for r in rows if r["level"] == "PROHIBITED"]
     per = [r for r in rows if r["level"] == "PERMIT"]
