@@ -30,6 +30,8 @@ from gottago_v1 import gg_bp
 app.register_blueprint(gg_bp)
 from eats_v1 import ea_bp
 app.register_blueprint(ea_bp)
+from next_v1 import nx_bp
+app.register_blueprint(nx_bp)
 app.secret_key = os.environ.get("LINKLYNK_SESSION_SECRET", "dev-secret-change-me")
 from datetime import timedelta
 app.permanent_session_lifetime = timedelta(days=365)  # 로그인 1년 유지 (자동로그인)
