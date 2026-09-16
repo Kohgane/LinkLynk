@@ -28,19 +28,49 @@ def _put(k, v):
     return v
 COUNTRIES = [
     ("JP", "\U0001F1EF\U0001F1F5", "일본", "Japan"),
-    ("KR", "\U0001F1F0\U0001F1F7", "한국", "South Korea"),
-    ("US", "\U0001F1FA\U0001F1F8", "미국", "United States"),
+    ("CN", "\U0001F1E8\U0001F1F3", "중국", "China"),
+    ("TW", "\U0001F1F9\U0001F1FC", "대만", "Taiwan"),
+    ("HK", "\U0001F1ED\U0001F1F0", "홍콩", "Hong Kong"),
     ("SG", "\U0001F1F8\U0001F1EC", "싱가포르", "Singapore"),
+    ("TH", "\U0001F1F9\U0001F1ED", "태국", "Thailand"),
+    ("VN", "\U0001F1FB\U0001F1F3", "베트남", "Vietnam"),
+    ("ID", "\U0001F1EE\U0001F1E9", "인도네시아", "Indonesia"),
+    ("PH", "\U0001F1F5\U0001F1ED", "필리핀", "Philippines"),
     ("AE", "\U0001F1E6\U0001F1EA", "UAE", "United Arab Emirates"),
+    ("SA", "\U0001F1F8\U0001F1E6", "사우디", "Saudi Arabia"),
+    ("QA", "\U0001F1F6\U0001F1E6", "카타르", "Qatar"),
     ("GB", "\U0001F1EC\U0001F1E7", "영국", "United Kingdom"),
+    ("DE", "\U0001F1E9\U0001F1EA", "독일", "Germany"),
+    ("FR", "\U0001F1EB\U0001F1F7", "프랑스", "France"),
+    ("RU", "\U0001F1F7\U0001F1FA", "러시아", "Russia"),
+    ("US", "\U0001F1FA\U0001F1F8", "미국", "United States"),
+    ("CA", "\U0001F1E8\U0001F1E6", "캐나다", "Canada"),
+    ("AU", "\U0001F1E6\U0001F1FA", "호주", "Australia"),
+    ("NZ", "\U0001F1F3\U0001F1FF", "뉴질랜드", "New Zealand"),
+    ("KR", "\U0001F1F0\U0001F1F7", "한국", "South Korea"),
 ]
 SRC = {
     "JP": "https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/iyakuhin/index.html",
-    "KR": "https://www.customs.go.kr/",
-    "US": "https://www.fda.gov/industry/import-basics/personal-importation",
+    "CN": "https://www.customs.gov.cn/",
+    "TW": "https://www.fda.gov.tw/",
+    "HK": "https://www.drugoffice.gov.hk/",
     "SG": "https://www.hsa.gov.sg/",
+    "TH": "https://www.fda.moph.go.th/",
+    "VN": "https://dav.gov.vn/",
+    "ID": "https://www.pom.go.id/",
+    "PH": "https://www.fda.gov.ph/",
     "AE": "https://mohap.gov.ae/",
+    "SA": "https://www.sfda.gov.sa/",
+    "QA": "https://www.moph.gov.qa/",
     "GB": "https://www.gov.uk/take-medicine-in-or-out-uk",
+    "DE": "https://www.zoll.de/",
+    "FR": "https://ansm.sante.fr/",
+    "RU": "https://customs.gov.ru/",
+    "US": "https://www.fda.gov/industry/import-basics/personal-importation",
+    "CA": "https://travel.gc.ca/travelling/health-safety/medication",
+    "AU": "https://www.tga.gov.au/travelling-medicines-and-medical-devices",
+    "NZ": "https://www.medsafe.govt.nz/",
+    "KR": "https://www.customs.go.kr/",
 }
 NATIONAL = {
     "pseudoephedrine": {
@@ -129,6 +159,69 @@ def national_rules(ings, raw):
             if any(key == w or (" " + key) in w or w.endswith(key) for w in pool):
                 found.setdefault(key, {}).update(rules)
     return found
+# ★20개국 확장분 — 여행자 억류·체포 사례가 실제로 보고된 국가 위주.
+#   INCB 등재(국제)는 별도 층이고, 여기는 개별국 추가 규제다.
+#   모두 "확인 권고" 대상으로 표시된다(verified=False).
+_EXTRA_RULES = {
+    "codeine": {
+        "AE": ("PROHIBITED", "코데인 함유 감기약 반입 억류 사례 다수", False),
+        "SA": ("PROHIBITED", "마약류로 취급. 처방전 지참해도 억류 위험", False),
+        "QA": ("PERMIT", "사전 허가 및 처방전 원본 필요", False),
+        "JP": ("LIMIT", "코데인 함유량 기준 초과 시 반입 제한", False),
+        "SG": ("PERMIT", "사전 승인 필요", False),
+        "HK": ("DECLARE", "처방전 지참 및 신고 권장", False)},
+    "tramadol": {
+        "AE": ("PROHIBITED", "향정신성으로 엄격 통제. 체포 사례 보고", False),
+        "SA": ("PROHIBITED", "마약류 취급", False),
+        "QA": ("PERMIT", "사전 허가 필요", False),
+        "SG": ("PERMIT", "사전 승인 필요", False),
+        "TH": ("DECLARE", "처방전 지참 권장", False)},
+    "diazepam": {
+        "AE": ("PERMIT", "향정신성. 사전 허가 필요", False),
+        "SA": ("PERMIT", "처방전 원본 및 사전 허가", False),
+        "QA": ("PERMIT", "사전 허가 필요", False),
+        "SG": ("PERMIT", "사전 승인 필요", False),
+        "RU": ("PERMIT", "처방전 및 신고 필요", False)},
+    "alprazolam": {
+        "AE": ("PERMIT", "향정신성. 사전 허가 필요", False),
+        "SA": ("PERMIT", "사전 허가 필요", False),
+        "SG": ("PERMIT", "사전 승인 필요", False)},
+    "zolpidem": {
+        "AE": ("PERMIT", "수면제. 처방전 및 사전 허가", False),
+        "SA": ("PERMIT", "사전 허가 필요", False),
+        "SG": ("PERMIT", "사전 승인 필요", False),
+        "JP": ("DECLARE", "처방전 지참 권장", False)},
+    "methylphenidate": {
+        "AE": ("PROHIBITED", "반입 불가", False),
+        "SA": ("PROHIBITED", "반입 불가", False),
+        "TH": ("PERMIT", "사전 허가 필요", False),
+        "TW": ("PERMIT", "사전 신고 필요", False)},
+    "dextroamphetamine": {
+        "AE": ("PROHIBITED", "반입 불가", False),
+        "SA": ("PROHIBITED", "반입 불가", False),
+        "TH": ("PROHIBITED", "반입 불가", False),
+        "SG": ("PROHIBITED", "반입 불가", False)},
+    "pseudoephedrine": {
+        "TH": ("PROHIBITED", "각성제 원료로 통제", False),
+        "ID": ("LIMIT", "수량 제한", False),
+        "AE": ("DECLARE", "성분 표기된 포장 지참 권장", False),
+        "MX": ("PROHIBITED", "반입 불가", False)},
+    "cannabidiol": {
+        "SG": ("PROHIBITED", "CBD 포함 대마 성분 일체 금지", False),
+        "AE": ("PROHIBITED", "미량이라도 형사처벌 대상", False),
+        "SA": ("PROHIBITED", "금지", False),
+        "JP": ("LIMIT", "THC 불검출 제품만 허용", False),
+        "CN": ("PROHIBITED", "금지", False),
+        "TH": ("DECLARE", "국내 규정 변동 — 출국 전 재확인", False)},
+    "melatonin": {
+        "GB": ("PERMIT", "처방 의약품으로 분류", False),
+        "DE": ("PERMIT", "용량에 따라 처방 대상", False),
+        "JP": ("DECLARE", "개인 사용분 신고 권장", False),
+        "KR": ("DECLARE", "건강기능식품 수량 제한 확인", False)},
+}
+for _k, _v in _EXTRA_RULES.items():
+    NATIONAL.setdefault(_k, {}).update(_v)
+
 RANK = {"PROHIBITED": 4, "PERMIT": 3, "DECLARE": 2, "LIMIT": 1, "OK": 0}
 def build_verdict(ings, raw):
     hits = match_incb(ings, raw)
