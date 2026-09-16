@@ -5,6 +5,7 @@
 import io, os, re, json, hashlib, threading
 from flask import Blueprint, request, jsonify, Response, send_file
 from borderrx_v1 import ingredients, build_verdict, COUNTRIES
+from rx_ko_dict import lookup_ko
 
 nx_bp = Blueprint("nextviral", __name__)
 HERE = os.path.dirname(os.path.abspath(__file__))
@@ -26,7 +27,9 @@ def verdict(q):
     with _lock:
         if k in _res:
             return _res[k]
-    ings = ingredients(q)
+    # ★한글 약명은 사전을 먼저 본다 — RxNav 는 영문 DB라 한글을 못 읽고,
+    #   폴백이 입력 문자열을 그대로 성분으로 써서 오판정을 만든다.
+    ings = lookup_ko(q) or ingredients(q)
     # ★한글 입력 안전장치: RxNav 는 영문 DB라 한글 약명을 엉뚱한 성분으로 매핑한다
     #   (애더럴 -> citrate 실측). 오판정은 "가져가도 된다"는 거짓 안전 신호가 되므로
     #   매핑 근거가 약하면 판정을 내지 않고 되묻는다.
