@@ -121,6 +121,83 @@ def _draw(d, path):
     im.save(path, optimize=True)
 
 
+
+# ── 인스타/릴스용 세로 카드 (1080x1350). 콘텐츠 제작 비용을 0으로 만드는 게 목적.
+@nx_bp.route("/next/card/<path:name>")
+def nx_card(name):
+    q = re.sub(r"\.(png|jpg)$", "", name)
+    d = verdict(q)
+    if not d.get("ok"):
+        return jsonify(d), 400
+    key = hashlib.md5(("card|" + q + "|" + d["head"]).encode()).hexdigest()[:16]
+    path = os.path.join(CACHE, key + ".png")
+    if not os.path.exists(path):
+        _card(d, path)
+    return send_file(path, mimetype="image/png", max_age=86400)
+
+
+def _card(d, path):
+    from PIL import Image, ImageDraw, ImageFont
+    C = {"red": (255, 92, 80), "amber": (240, 176, 76), "green": (110, 220, 180)}
+    col = C.get(d["tone"], C["amber"])
+    F = lambda n: ImageFont.truetype(FONT, n)
+    W, H = 1080, 1350
+    im = Image.new("RGB", (W, H), (11, 13, 18))
+    dr = ImageDraw.Draw(im)
+    dr.rectangle([0, 0, W, 10], fill=col)
+
+    def wrap(txt, font, maxw):
+        out, line = [], ""
+        for ch in txt:
+            t = line + ch
+            if dr.textlength(t, font=font) > maxw and line:
+                out.append(line); line = ch
+            else:
+                line = t
+        if line:
+            out.append(line)
+        return out
+
+    y = 118
+    dr.text((78, y), "당신의 " + d["q"][:14] + "은", font=F(40), fill=(148, 160, 176))
+    y += 74
+    hf = F(76 if len(d["head"]) <= 14 else 58)
+    for ln in wrap(d["head"], hf, W - 156):
+        dr.text((78, y), ln, font=hf, fill=col); y += int(hf.size * 1.22)
+
+    y += 34
+    ing = " · ".join(d["ings"][:3]) or d["q"]
+    for ln in wrap(ing, F(34), W - 156)[:2]:
+        dr.text((78, y), ln, font=F(34), fill=(206, 216, 228)); y += 48
+
+    if d["incb"]:
+        y += 14
+        dr.rounded_rectangle([78, y, W - 78, y + 96], radius=14,
+                             fill=(22, 29, 40), outline=(39, 50, 63))
+        dr.text((102, y + 18), "UN 국제통제물질 등재", font=F(30), fill=(230, 238, 246))
+        dr.text((102, y + 56), "협약 가입국 전체에서 신고 대상", font=F(26), fill=(140, 154, 170))
+        y += 128
+
+    y += 20
+    lab = [("반입 불가", d["pro"], (255, 92, 80)),
+           ("사전 허가", d["per"], (240, 176, 76)),
+           ("신고 대상", d["dec"], (127, 182, 232))]
+    for name_, arr, c in lab:
+        if not arr:
+            continue
+        dr.text((78, y), name_, font=F(30), fill=c)
+        dr.text((78, y + 42), "  ".join(arr[:6])[:34], font=F(30), fill=(200, 210, 224))
+        y += 106
+
+    dr.text((78, H - 262), "약 이름만 넣으면 5초 만에", font=F(42), fill=(230, 238, 246))
+    dr.text((78, H - 200), "linklynk.onrender.com/next", font=F(32), fill=(120, 200, 190))
+    dr.line([78, H - 140, W - 78, H - 140], fill=(32, 41, 53), width=2)
+    dr.text((78, H - 112), "출처: 유엔 마약통제위원회(INCB) 등재 목록", font=F(24), fill=(96, 110, 126))
+    dr.text((78, H - 74), "각국 규정은 수시로 바뀝니다 · 출국 전 대사관 확인", font=F(24), fill=(96, 110, 126))
+    dr.text((W - 230, H - 112), "BorderRx", font=F(36), fill=(120, 200, 190))
+    im.save(path, optimize=True)
+
+
 PAGE = """<!doctype html><html lang="ko"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>이 약, 몇 개국에서 잡히나 — BorderRx</title>
@@ -232,12 +309,17 @@ function run(q){
     h+='</div>';
     h+='<div class="share"><button class="p" id="sh">친구에게 공유</button>'
       +'<button id="cp">링크 복사</button></div>';
+    h+='<div class="share" style="margin-top:8px"><a id="cd" style="flex:1;background:#141a24;'
+      +'border:1px solid #27323f;color:#cfdae6;border-radius:12px;padding:13px;font-size:14px;'
+      +'font-weight:600;text-align:center;text-decoration:none" download>카드 이미지 저장</a></div>';
     h+='<div class="more">'
       +'<a href="/rx">BorderRx 전체 판정<span>성분·국가별 상세</span></a>'
       +'<a href="/gottago/">GottaGo<span>해외 화장실 11,445곳</span></a>'
       +'<a href="/eats/">Local Bites<span>여행자가 고른 맛집</span></a></div>';
     R.innerHTML=h;
     var url=location.origin+"/next/r/"+encodeURIComponent(d.q)+"?via=share";
+    var cd=document.getElementById("cd");
+    if(cd){cd.href="/next/card/"+encodeURIComponent(d.q)+".png";}
     document.getElementById("sh").onclick=function(){
       var txt="내 "+d.q+"은 "+d.head+" — 당신 약도 확인해보세요";
       if(navigator.share){navigator.share({title:"이 약, 몇 개국에서 잡히나",text:txt,url:url});}
