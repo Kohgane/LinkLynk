@@ -19,9 +19,28 @@ def _post(path, params):
         return json.loads(r.read().decode())
 
 
+_UID_CACHE = {"v": None}
+
+
+def _resolve_uid():
+    """환경변수 UID 오타로 막히는 걸 없앤다 — 토큰에서 직접 읽어 캐시한다."""
+    if _UID_CACHE["v"]:
+        return _UID_CACHE["v"]
+    if not TOK:
+        return UID
+    try:
+        u = API + "/me?fields=id&access_token=" + TOK
+        with urllib.request.urlopen(u, timeout=25) as r:
+            _UID_CACHE["v"] = json.loads(r.read().decode()).get("id") or UID
+    except Exception:
+        _UID_CACHE["v"] = UID
+    return _UID_CACHE["v"]
+
+
 def publish(text, image_url=None, link=None):
-    if not (UID and TOK):
-        return {"ok": False, "error": "THREADS_USER_ID / THREADS_ACCESS_TOKEN 미설정"}
+    uid = _resolve_uid()
+    if not (uid and TOK):
+        return {"ok": False, "error": "THREADS_ACCESS_TOKEN 미설정"}
     p = {"access_token": TOK, "text": text[:480]}
     if image_url:
         p["media_type"] = "IMAGE"
@@ -31,12 +50,12 @@ def publish(text, image_url=None, link=None):
         if link:
             p["link_attachment"] = link
     try:
-        c = _post("/%s/threads" % UID, p)
+        c = _post("/%s/threads" % uid, p)
         cid = c.get("id")
         if not cid:
             return {"ok": False, "error": "컨테이너 생성 실패", "detail": c}
         time.sleep(3)   # 미디어 처리 대기
-        r = _post("/%s/threads_publish" % UID,
+        r = _post("/%s/threads_publish" % uid,
                   {"access_token": TOK, "creation_id": cid})
         return {"ok": True, "id": r.get("id"), "container": cid}
     except Exception as e:
