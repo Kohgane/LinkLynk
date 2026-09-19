@@ -1,0 +1,80 @@
+# -*- coding: utf-8 -*-
+"""Threads 게시 — 카드 이미지를 공개 URL 그대로 올린다.
+   컨테이너 생성 -> 게시 2단계. 이미지는 /next/card, /duty/card 를 그대로 쓴다.
+"""
+import os, json, time, urllib.parse, urllib.request
+from flask import Blueprint, request, jsonify, Response
+
+th_bp = Blueprint("threads", __name__)
+API = "https://graph.threads.net/v1.0"
+UID = os.environ.get("THREADS_USER_ID", "").strip()
+TOK = os.environ.get("THREADS_ACCESS_TOKEN", "").strip()
+ADMIN = os.environ.get("TH_ADMIN_KEY", "").strip()
+
+
+def _post(path, params):
+    data = urllib.parse.urlencode(params).encode()
+    req = urllib.request.Request(API + path, data=data, method="POST")
+    with urllib.request.urlopen(req, timeout=40) as r:
+        return json.loads(r.read().decode())
+
+
+def publish(text, image_url=None, link=None):
+    if not (UID and TOK):
+        return {"ok": False, "error": "THREADS_USER_ID / THREADS_ACCESS_TOKEN 미설정"}
+    p = {"access_token": TOK, "text": text[:480]}
+    if image_url:
+        p["media_type"] = "IMAGE"
+        p["image_url"] = image_url
+    else:
+        p["media_type"] = "TEXT"
+        if link:
+            p["link_attachment"] = link
+    try:
+        c = _post("/%s/threads" % UID, p)
+        cid = c.get("id")
+        if not cid:
+            return {"ok": False, "error": "컨테이너 생성 실패", "detail": c}
+        time.sleep(3)   # 미디어 처리 대기
+        r = _post("/%s/threads_publish" % UID,
+                  {"access_token": TOK, "creation_id": cid})
+        return {"ok": True, "id": r.get("id"), "container": cid}
+    except Exception as e:
+        body = ""
+        try:
+            body = e.read().decode()[:300]
+        except Exception:
+            pass
+        return {"ok": False, "error": str(e)[:120], "detail": body}
+
+
+@th_bp.route("/api/th/cb")
+def th_cb():
+    """Meta 리디렉션 콜백 — 검증용. code 를 받아 화면에 표시만 한다."""
+    code = request.args.get("code") or ""
+    err = request.args.get("error_description") or request.args.get("error") or ""
+    if err:
+        return Response("<h3>인증 실패</h3><p>%s</p>" % err[:200],
+                        mimetype="text/html; charset=utf-8")
+    if code:
+        return Response("<h3>코드 수신</h3><p style='word-break:break-all'>%s</p>"
+                        "<p>이 값을 토큰 교환에 사용하세요.</p>" % code[:400],
+                        mimetype="text/html; charset=utf-8")
+    return Response("<h3>Threads callback ready</h3>", mimetype="text/html; charset=utf-8")
+
+
+@th_bp.route("/api/th/status")
+def th_status():
+    return jsonify({"ok": True, "uid_set": bool(UID), "token_set": bool(TOK),
+                    "admin_set": bool(ADMIN)})
+
+
+@th_bp.route("/api/th/post", methods=["POST"])
+def th_post():
+    if not ADMIN or (request.headers.get("X-Admin-Key") or "") != ADMIN:
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    d = request.get_json(silent=True) or {}
+    text = (d.get("text") or "").strip()
+    if not text:
+        return jsonify({"ok": False, "error": "text 필요"}), 400
+    return jsonify(publish(text, d.get("image_url"), d.get("link")))
