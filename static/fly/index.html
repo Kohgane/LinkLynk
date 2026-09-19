@@ -549,7 +549,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0907l";
+  const SWEF_BUILD="0919a";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -642,6 +642,7 @@ function setupTouch(){
 
 const FILMS=[["\uC6D0\uBCF8","Natural"],["\uBE44\uBE44\uB4DC","Vivid"],["\uACE8\uB4E0\uC544\uC6CC","Golden"],["\uC218\uBB35","Ink"],["\uB4DC\uB9BC","Dream"],["\uC544\uBC14\uD0C0","Pandora"],["\uC778\uC149\uC158","Inception"],["\uCF54\uCF54","Coco"],["\uB354 \uD3F4","The Fall"],["\uBD80\uB2E4\uD398\uC2A4\uD2B8","Budapest"],["\uB178\uC744\uAE38","Sunset Drive"],["\uC624\uB85C\uB77C","Aurora"]];
 let filmIdx=0, filmStage=null, cityTiles=null, cityLoading=false;
+const _bareMode=/[?&]bare=1/.test(location.search);
 let _pgTier=0,_pgAcc=0,_pgN=0,_pgFogOff=false,_pgToasted=false;
 function _pgApply(){
   try{
@@ -840,7 +841,7 @@ void main(){
 }`;
     _fogStage=viewer.scene.postProcessStages.add(new Cesium.PostProcessStage({
       fragmentShader:fogfs,
-      uniforms:{u_fogOn:()=>((_pgFogOff||dreamPrim||localStorage.getItem("swef_atmo")==="0")?0:1),
+      uniforms:{u_fogOn:()=>((_bareMode||_pgFogOff||dreamPrim||localStorage.getItem("swef_atmo")==="0")?0:1),
         u_camH:()=>_atmoH, u_upEC:()=>_atmoUp, u_flash:()=>_atmoFlash}}));
   }catch(e){ console.warn("atmo init fail",e); }
   filmStage=viewer.scene.postProcessStages.add(new Cesium.PostProcessStage({
@@ -848,6 +849,7 @@ void main(){
   filmStage.enabled=false;
 }
 function setFilm(i){
+  if(_bareMode) i=0;
   filmIdx=i;
   try{ if(window._lf) window._lf.enabled=(i===2||i===10); }catch(e){}
   /* atmosphereHueShift 오로라 */
@@ -1217,6 +1219,7 @@ function dreamOn(sky){
 const DREAM_SKIES=["/fly/sky/pano.jpg","/fly/sky/aurora.jpg","/fly/sky/sunset.jpg","/fly/sky/islands.jpg","/fly/sky/storm.jpg","/fly/sky/galaxy.jpg","/fly/sky/moonink.jpg","/fly/sky/mars.jpg","/fly/sky/merfolk.jpg","/fly/sky/giants.jpg","/fly/sky/ancient.jpg","/fly/sky/lanterns.jpg","/fly/sky/stormeye.jpg","/fly/sky/icepalace.jpg"];
 let _dreamIdx=0;
 function toggleDream(){
+  if(_bareMode){ toast("bare 모드"); return; }
   const free=localStorage.getItem("swef_gate4")==="1";
   if(dreamPrim){
     if(free){
@@ -1961,6 +1964,26 @@ function buildUI(){
     },{passive:false});
   }
   document.getElementById("btnDream").onclick=toggleDream;
+  if(_bareMode){
+    const f=document.createElement("div");
+    f.style.cssText="position:fixed;top:64px;right:10px;z-index:99999;background:rgba(0,0,0,.75);color:#0f6;font:bold 13px/1.5 monospace;padding:8px 10px;border-radius:10px;pointer-events:none";
+    f.id="bareFps"; document.body.appendChild(f);
+    let fr=0,t0=performance.now(),worst=0,last=performance.now();
+    (function loop(){
+      const n=performance.now(); const d=n-last; last=n;
+      if(d>worst) worst=d;
+      fr++;
+      if(n-t0>=500){
+        const fps=Math.round(fr*1000/(n-t0));
+        let tl="";
+        try{ tl=" | 타일 "+window._gT._statistics.numberOfTilesProcessing; }catch(e){}
+        f.textContent="FPS "+fps+" | 최악 "+Math.round(worst)+"ms"+tl;
+        fr=0; t0=n; worst=0;
+      }
+      requestAnimationFrame(loop);
+    })();
+    setTimeout(()=>toast("🔬 bare 진단 모드 — 코어만 가동"),1500);
+  }
   (function(){
     const P=document.getElementById("vjPanel");
     document.getElementById("btnVj").onclick=()=>{ P.style.display=P.style.display==="block"?"none":"block"; vjRender(); };
