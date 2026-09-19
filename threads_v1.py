@@ -96,3 +96,28 @@ def th_me():
         except Exception:
             pass
         return jsonify({"ok": False, "error": str(e)[:120], "detail": body}), 502
+
+
+@th_bp.route("/api/th/refresh")
+def th_refresh():
+    """장기 토큰 갱신 — 60일마다 필요. 만료 전에 호출하면 60일 연장된다.
+       결과 토큰을 Render 환경변수에 다시 넣어야 반영된다."""
+    if not ADMIN or (request.args.get("key") or "") != ADMIN:
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    if not TOK:
+        return jsonify({"ok": False, "error": "토큰 없음"}), 400
+    u = (API + "/refresh_access_token?grant_type=th_refresh_token"
+         "&access_token=" + TOK)
+    try:
+        with urllib.request.urlopen(u, timeout=30) as r:
+            d = json.loads(r.read().decode())
+        return jsonify({"ok": True, "new_token": d.get("access_token"),
+                        "expires_in_days": round(d.get("expires_in", 0) / 86400),
+                        "note": "이 값을 THREADS_ACCESS_TOKEN 에 다시 넣으세요"})
+    except Exception as e:
+        body = ""
+        try:
+            body = e.read().decode()[:300]
+        except Exception:
+            pass
+        return jsonify({"ok": False, "error": str(e)[:120], "detail": body}), 502
