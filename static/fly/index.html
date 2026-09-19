@@ -549,7 +549,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0919a";
+  const SWEF_BUILD="0919b";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -650,7 +650,10 @@ function _pgApply(){
     if(_pgTier===0){ viewer.resolutionScale=IS_TOUCH?0.65:pcBase; _pgFogOff=false; }
     else if(_pgTier===1){ viewer.resolutionScale=IS_TOUCH?0.6:(pcBase-0.12); _pgFogOff=false;
       if(!_pgToasted){ _pgToasted=true; toast("⚡ 최적화 모드 — 부드러움 우선"); } }
-    else { viewer.resolutionScale=IS_TOUCH?0.55:0.75; _pgFogOff=true; }
+    else {
+      viewer.resolutionScale=IS_TOUCH?0.55:0.75; _pgFogOff=true;
+      try{ if(typeof cloudMode!=="undefined" && cloudMode>0){ cloudMode=0; buildClouds(0); toast("⚡ 구름 일시 해제 — 성능 우선"); } }catch(e){}
+    }
   }catch(e){}
 }
 let _fogStage=null,_atmoH=1000,_atmoFlash=0,_atmoPrevH=0;
@@ -1963,8 +1966,28 @@ function buildUI(){
       e.preventDefault();
     },{passive:false});
   }
+  (function(){
+    let _pzD=0;
+    const dist=e=>Math.hypot(e.touches[0].clientX-e.touches[1].clientX, e.touches[0].clientY-e.touches[1].clientY);
+    const skip=e=>{ const t=e.target&&e.target.tagName; return t==="INPUT"||t==="BUTTON"||t==="SELECT"; };
+    document.addEventListener("touchstart",e=>{
+      if(e.touches.length===2 && !skip(e)) _pzD=dist(e);
+    },{capture:true,passive:true});
+    document.addEventListener("touchmove",e=>{
+      if(e.touches.length===2 && _pzD>0 && !skip(e)){
+        const nd=dist(e);
+        const dz=(nd-_pzD)/Math.max(40,_pzD);
+        let k=200;
+        try{ k=Math.max(60, viewer.camera.positionCartographic.height*0.9); }catch(_){}
+        try{ viewer.camera.moveForward(dz*k*2.2); }catch(_){}
+        _pzD=nd;
+        e.preventDefault();
+      }
+    },{capture:true,passive:false});
+    document.addEventListener("touchend",e=>{ if(e.touches.length<2) _pzD=0; },{capture:true,passive:true});
+  })();
   document.getElementById("btnDream").onclick=toggleDream;
-  if(_bareMode){
+  if(_bareMode||/[?&]fps=1/.test(location.search)){
     const f=document.createElement("div");
     f.style.cssText="position:fixed;top:64px;right:10px;z-index:99999;background:rgba(0,0,0,.75);color:#0f6;font:bold 13px/1.5 monospace;padding:8px 10px;border-radius:10px;pointer-events:none";
     f.id="bareFps"; document.body.appendChild(f);
