@@ -140,3 +140,39 @@ def th_refresh():
         except Exception:
             pass
         return jsonify({"ok": False, "error": str(e)[:120], "detail": body}), 502
+
+
+_TMPL = {
+    "rx": ("해외 나가기 전에 확인하세요.\n\n{q} — {head}\n{src}\n\n"
+           "약 이름만 넣으면 21개국 반입 가능 여부가 5초 만에 나옵니다.\n"
+           "linklynk.onrender.com/next"),
+}
+
+
+@th_bp.route("/api/th/quick", methods=["POST"])
+def th_quick():
+    """약 이름 하나로 카드+문구를 자동 구성해 게시한다."""
+    if not ADMIN or (request.headers.get("X-Admin-Key") or "") != ADMIN:
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    d = request.get_json(silent=True) or {}
+    q = (d.get("q") or "").strip()
+    if not q:
+        return jsonify({"ok": False, "error": "q(약 이름) 필요"}), 400
+    try:
+        from next_v1 import verdict
+        v = verdict(q)
+    except Exception as e:
+        return jsonify({"ok": False, "error": "판정 실패: " + str(e)[:80]}), 500
+    if not v.get("ok"):
+        return jsonify({"ok": False, "error": v.get("error")}), 400
+    src = "UN 국제통제물질 등재" if v.get("incb") else "각국 개별 규제"
+    text = _TMPL["rx"].format(q=q, head=v["head"], src=src)
+    if d.get("text"):
+        text = d["text"]
+    img = ("https://linklynk.onrender.com/next/card/"
+           + urllib.parse.quote(q) + ".png")
+    if d.get("dry"):
+        return jsonify({"ok": True, "dry": True, "text": text, "image_url": img})
+    r = publish(text, img)
+    r["text"] = text
+    return jsonify(r)
