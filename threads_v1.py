@@ -78,3 +78,21 @@ def th_post():
     if not text:
         return jsonify({"ok": False, "error": "text 필요"}), 400
     return jsonify(publish(text, d.get("image_url"), d.get("link")))
+
+
+@th_bp.route("/api/th/me")
+def th_me():
+    """토큰에 물린 계정 확인 — 첫 게시 전에 어느 계정인지 반드시 본다."""
+    if not TOK:
+        return jsonify({"ok": False, "error": "토큰 없음"}), 400
+    u = API + "/me?fields=id,username,name,threads_profile_picture_url&access_token=" + TOK
+    try:
+        with urllib.request.urlopen(u, timeout=30) as r:
+            return jsonify({"ok": True, "me": json.loads(r.read().decode())})
+    except Exception as e:
+        body = ""
+        try:
+            body = e.read().decode()[:300]
+        except Exception:
+            pass
+        return jsonify({"ok": False, "error": str(e)[:120], "detail": body}), 502
