@@ -4,6 +4,7 @@
  */
 (function(){
   "use strict";
+  if(/[?&]bare=1/.test(location.search)){ console.log("[swefm] bare 모드 — 모듈 로딩 생략"); return; }
   const log = (...a)=>console.log("[swefm]",...a);
   function waitViewer(cb, tries){
     tries = tries||0;
