@@ -90,6 +90,72 @@ def dt_cats():
         {"id": c["id"], "ko": c["ko"], "rate": c["rate"], "ex": c["ex"]} for c in CATS]})
 
 
+
+def _dfmt(n):
+    return format(int(n), ",") + "원"
+
+
+@dt_bp.route("/duty/og/<path:name>")
+@dt_bp.route("/duty/card/<path:name>")
+def dt_card(name):
+    """관세 결과 카드. /duty/og/... = 1200x630, /duty/card/... = 1080x1350"""
+    vertical = request.path.startswith("/duty/card")
+    m = re.match(r"^(\d+)-([a-z]+)-([A-Z]{2})", name or "")
+    if not m:
+        return jsonify({"ok": False, "error": "형식: 600000-electronics-US.png"}), 400
+    price, cat, origin = int(m.group(1)), m.group(2), m.group(3)
+    d = calc(price, cat, 0, origin)
+    key = hashlib.md5(("%s|%s|%s|%s" % (price, cat, origin, vertical)).encode()).hexdigest()[:16]
+    path = os.path.join(CACHE, key + ".png")
+    if not os.path.exists(path):
+        _draw_duty(d, price, origin, path, vertical)
+    return send_file(path, mimetype="image/png", max_age=86400)
+
+
+def _draw_duty(d, price, origin, path, vertical):
+    from PIL import Image, ImageDraw, ImageFont
+    F = lambda n: ImageFont.truetype(FONT, n)
+    free = d["free"]
+    col = (110, 220, 180) if free else (240, 176, 76)
+    W, H = (1080, 1350) if vertical else (1200, 630)
+    px = 78 if vertical else 70
+    im = Image.new("RGB", (W, H), (11, 13, 18))
+    dr = ImageDraw.Draw(im)
+    dr.rectangle([0, 0, W, 10 if vertical else 7], fill=col)
+    sc = 1.0 if vertical else 0.78
+    S = lambda n: F(max(18, int(n * sc)))
+
+    y = 118 if vertical else 84
+    dr.text((px, y), "%s %s 직구하면" % (d["cat"], _dfmt(price)), font=S(38), fill=(148, 160, 176))
+    y += int(72 * sc)
+    head = "세금 없음" if free else ("세금 " + _dfmt(d["tax"]))
+    dr.text((px, y), head, font=S(76), fill=col)
+    y += int(112 * sc)
+    sub = ("면세 한도 $%d 이내" % d["limit_usd"]) if free else \
+          ("물품가의 %d%%가 더 붙습니다" % round(d["rate"] * 100))
+    dr.text((px, y), sub, font=S(34), fill=(206, 216, 228))
+    y += int(78 * sc)
+
+    for lab, val in (("과세가격", _dfmt(d["base"])), ("세금", _dfmt(d["tax"])),
+                     ("실제로 내는 돈", _dfmt(d["total"]))):
+        dr.text((px, y), lab, font=S(30), fill=(147, 162, 179))
+        tw = dr.textlength(val, font=S(30))
+        dr.text((W - px - tw, y), val, font=S(30), fill=(230, 238, 246))
+        y += int(54 * sc)
+        dr.line([px, y - 12, W - px, y - 12], fill=(26, 33, 44), width=2)
+
+    y += int(18 * sc)
+    dr.text((px, y), d["note"][:30], font=S(26), fill=(140, 154, 170))
+
+    fy = H - (262 if vertical else 156)
+    dr.text((px, fy), "직구 전 5초면 확인합니다", font=S(42), fill=(230, 238, 246))
+    dr.text((px, fy + int(62 * sc)), "linklynk.onrender.com/duty", font=S(32), fill=(224, 160, 74))
+    dr.text((px, H - (112 if vertical else 62)),
+            "관세청 간이세율 기준 · 실제 세액은 HS코드·FTA에 따라 다름",
+            font=S(24), fill=(96, 110, 126))
+    im.save(path, optimize=True)
+
+
 PAGE = """<!doctype html><html lang="ko"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>이거 직구하면 얼마 뜯기나 — 관세 계산기</title>
