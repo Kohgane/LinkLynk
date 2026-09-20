@@ -482,6 +482,7 @@ async function init(){
       g.preloadWhenHidden = false;
       g.foveatedTimeDelay = 0.1;
       window._gT = g;
+      try{ viewer.scene.globe.show = false; /* 이중 지구 제거 — 구글타일이 지구 전체 담당 */ }catch(e){}
       viewer.scene.primitives.add(g);
       /* globe 유지 — 타일 공백 시 검은 우주 노출 방지 */
       tier = "PHOTOREAL (Google 3D Tiles)";
@@ -549,7 +550,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0920h";
+  const SWEF_BUILD="0920i";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -1882,6 +1883,7 @@ function pickVeh(i){
   }catch(e){}
   const under = layerMode && (veh.cat==="sub" || veh.cat==="tunnel");
   const gl = viewer.scene.globe;
+  gl.show = under; /* 수중 모드에서만 위성지구 부활 (반투명 수면용) */
   gl.translucency.enabled = under;
   gl.translucency.frontFaceAlpha = under ? 0.45 : 1.0;
   viewer.scene.screenSpaceCameraController.enableCollisionDetection = !under && !(layerMode && veh.cat==="ground");
@@ -2074,8 +2076,10 @@ function buildUI(){
         ["엔티티 OFF", ()=>{ try{ viewer.entities.show=false; }catch(e){} }, ()=>{ try{ viewer.entities.show=true; }catch(e){} }],
         ["대기·천체 OFF", ()=>{ try{ const sc2=viewer.scene; sc2.skyAtmosphere.show=false; sc2.skyBox.show=false; if(sc2.sun)sc2.sun.show=false; if(sc2.moon)sc2.moon.show=false; }catch(e){} },
                          ()=>{ try{ const sc2=viewer.scene; sc2.skyAtmosphere.show=true; sc2.skyBox.show=true; if(sc2.sun)sc2.sun.show=true; if(sc2.moon)sc2.moon.show=true; }catch(e){} }],
-        ["지구·타일 OFF", ()=>{ try{ viewer.scene.globe.show=false; if(window._gT)window._gT.show=false; }catch(e){} },
-                         ()=>{ try{ viewer.scene.globe.show=true; if(window._gT)window._gT.show=true; }catch(e){} }]
+        ["위성지구만 OFF", ()=>{ try{ window._pgGl=viewer.scene.globe.show; viewer.scene.globe.show=false; }catch(e){} },
+                          ()=>{ try{ viewer.scene.globe.show=window._pgGl; }catch(e){} }],
+        ["구글타일만 OFF", ()=>{ try{ if(window._gT)window._gT.show=false; }catch(e){} },
+                          ()=>{ try{ if(window._gT)window._gT.show=true; }catch(e){} }]
       ];
       let si=-1, sT=0, sFr=0, res=[];
       const board=document.createElement("div");
