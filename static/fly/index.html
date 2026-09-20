@@ -549,7 +549,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0920d";
+  const SWEF_BUILD="0920e";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -675,7 +675,13 @@ function mbUpdate(){
     if(avg>26 && _pgTier<2){ _pgTier++; _pgApply(); }
     else if(avg<17 && _pgTier>0){ _pgTier--; _pgApply(); }
   }
-  _mbStage.enabled = lvl>0;
+  _mbStage.enabled = _bareMode?false:(lvl>0);
+  try{
+    if(_fogStage){
+      const fogOn = !(_bareMode||_pgFogOff||dreamPrim||localStorage.getItem("swef_atmo")==="0");
+      if(_fogStage.enabled!==fogOn) _fogStage.enabled=fogOn;
+    }
+  }catch(e){}
   if(lvl>0 && _mbPrevV && P){
     const invV=Cesium.Matrix4.inverse(V,_mbTmpA);
     const A=Cesium.Matrix4.multiply(_mbPrevV,invV,_mbTmpB);
@@ -2027,6 +2033,17 @@ function buildUI(){
       else if(e.key==="]"){ _sseBias=Math.min(30,_sseBias+2); ch=true; }
       else if(e.key==="-"){ _resBias=Math.max(-0.5,_resBias-0.05); ch=true; }
       else if(e.key==="="||e.key==="+"){ _resBias=Math.min(0.5,_resBias+0.05); ch=true; }
+      else if(e.key==="0"){
+        try{ const sk=viewer.scene.skyAtmosphere; sk.show=!sk.show; toast("🌍 대기 산란 "+(sk.show?"ON":"OFF")); }catch(_){}
+      }
+      else if(e.key==="9"){
+        try{
+          const sc2=viewer.scene;
+          const on=sc2.skyBox.show;
+          sc2.skyBox.show=!on; if(sc2.sun)sc2.sun.show=!on; if(sc2.moon)sc2.moon.show=!on;
+          toast("✨ 천체 "+(!on?"ON":"OFF"));
+        }catch(_){}
+      }
       if(ch){
         localStorage.setItem("swef_ssebias",String(_sseBias));
         localStorage.setItem("swef_resbias",_resBias.toFixed(2));
