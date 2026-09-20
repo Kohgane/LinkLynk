@@ -90,7 +90,8 @@ def calc(price_krw, cat_id, ship_krw=0, origin="US", fx=None):
     c = _CAT.get(cat_id) or _CAT["etc"]
     base = max(0, int(price_krw)) + max(0, int(ship_krw))   # 과세가격(CIF)
     limit_usd = 200 if origin == "US" else 150
-    f = _fx_refresh()\n    rate_fx = fx or f["usd"]
+    f = _fx_refresh()
+    rate_fx = fx or f["usd"]
     limit_krw = int(limit_usd * rate_fx)
     # 목록통관 면세 판정은 '물품가격' 기준 (운임 제외)
     duty_free = int(price_krw) <= limit_krw
