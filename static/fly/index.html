@@ -510,9 +510,9 @@ async function init(){
   sc.skyAtmosphere.saturationShift = 0.15;
   sc.skyAtmosphere.brightnessShift = 0.02;
   if (!IS_TOUCH){
-    sc.highDynamicRange = true;
-    sc.msaaSamples = 4;
-    sc.globe.maximumScreenSpaceError = 1.6;
+    sc.highDynamicRange = false;
+    sc.msaaSamples = 1;
+    sc.globe.maximumScreenSpaceError = 2.2;
     sc.globe.tileCacheSize = 1500;
     const bl = sc.postProcessStages.bloom;
     bl.enabled = false;
@@ -549,7 +549,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0919b";
+  const SWEF_BUILD="0920a";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -959,8 +959,8 @@ function toggleHQ(){
   if(IS_TOUCH){
     g.maximumScreenSpaceError = hq?2.2:4;
     RES_BASE = hq?0.9:0.7; RES_MOVE = hq?0.7:0.55;
-    viewer.scene.highDynamicRange = hq;
-    viewer.scene.postProcessStages.fxaa.enabled = hq;
+    viewer.scene.highDynamicRange = false;
+    viewer.scene.postProcessStages.fxaa.enabled = (hq && !IS_TOUCH && !window._iGPU);
     viewer.scene.postProcessStages.bloom.enabled = hq;
   } else {
     g.maximumScreenSpaceError = hq?1.1:1.6;
