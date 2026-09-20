@@ -319,7 +319,7 @@
   function capturePhoto(){
     if (!app.viewer) return;
     // §2 preserveDrawingBuffer 없이 scene.render() 직후 toDataURL로 저장한다.
-    app.scene.render();
+    app.viewer.scene.render();
     const link = document.createElement("a");
     link.download = "earthflight-v2.png";
     link.href = app.viewer.canvas.toDataURL("image/png");

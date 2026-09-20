@@ -536,7 +536,6 @@ void main(){ vec2 uv=v_textureCoordinates; vec4 col=texture(colorTexture,uv); ve
     renderJourney();
   });
 
-  app.on("tab", ()=>{});
   app.on("frame", ({ dtMs })=>{
     updateMotionBlur(dtMs);
     updateFog();
