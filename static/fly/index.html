@@ -549,7 +549,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0920c";
+  const SWEF_BUILD="0920d";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -643,11 +643,13 @@ function setupTouch(){
 const FILMS=[["\uC6D0\uBCF8","Natural"],["\uBE44\uBE44\uB4DC","Vivid"],["\uACE8\uB4E0\uC544\uC6CC","Golden"],["\uC218\uBB35","Ink"],["\uB4DC\uB9BC","Dream"],["\uC544\uBC14\uD0C0","Pandora"],["\uC778\uC149\uC158","Inception"],["\uCF54\uCF54","Coco"],["\uB354 \uD3F4","The Fall"],["\uBD80\uB2E4\uD398\uC2A4\uD2B8","Budapest"],["\uB178\uC744\uAE38","Sunset Drive"],["\uC624\uB85C\uB77C","Aurora"]];
 let filmIdx=0, filmStage=null, cityTiles=null, cityLoading=false;
 const _bareMode=/[?&]bare=1/.test(location.search);
+let _sseBias=parseInt(localStorage.getItem("swef_ssebias")||"0");
+let _resBias=parseFloat(localStorage.getItem("swef_resbias")||"0");
 let _pgTier=0,_pgAcc=0,_pgN=0,_pgFogOff=false,_pgToasted=false;
 function _pgApply(){
   try{
-    const pcBase=window._iGPU?0.7:1.0;
-    if(_pgTier===0){ viewer.resolutionScale=IS_TOUCH?0.65:pcBase; _pgFogOff=false; }
+    const pcBase=Math.max(0.3,Math.min(1.2,(window._iGPU?0.7:1.0)+_resBias));
+    if(_pgTier===0){ viewer.resolutionScale=IS_TOUCH?Math.max(0.3,0.65+_resBias):pcBase; _pgFogOff=false; }
     else if(_pgTier===1){ viewer.resolutionScale=IS_TOUCH?0.6:(pcBase-0.14); _pgFogOff=false;
       if(!_pgToasted){ _pgToasted=true; toast("⚡ 최적화 모드 — 부드러움 우선"); } }
     else {
@@ -1429,7 +1431,7 @@ function dynRes(moving,dt){
     if(_spd>1500) dynRes._warp=30;
     else if(dynRes._warp>0) dynRes._warp--;
     const warp = dynRes._warp>0;
-    const want = warp?26:Math.max(5, base+bandAdj+(dreamPrim?4:0));
+    const want = warp?26:Math.max(5, base+bandAdj+(dreamPrim?4:0)+_sseBias);
     if(dynRes._sse===undefined) dynRes._sse=want;
     if(want>=dynRes._sse){ dynRes._sse=want; dynRes._sseT=0; }
     else {
@@ -2011,12 +2013,28 @@ function buildUI(){
         const fps=Math.round(fr*1000/(n-t0));
         let tl="";
         try{ tl=" | 타일 "+window._gT._statistics.numberOfTilesProcessing; }catch(e){}
-        f.textContent="FPS "+fps+" | 최악 "+Math.round(worst)+"ms"+tl;
+        let _sseNow="?";
+        try{ _sseNow=window._gT.maximumScreenSpaceError; }catch(e){}
+        f.textContent="FPS "+fps+" | 최악 "+Math.round(worst)+"ms"+tl+"\n해상도 "+viewer.resolutionScale.toFixed(2)+" | 타일SSE "+_sseNow+"  ( [ ] · - + )";
         fr=0; t0=n; worst=0;
       }
       requestAnimationFrame(loop);
     })();
-    setTimeout(()=>toast("🔬 bare 진단 모드 — 코어만 가동"),1500);
+    f.style.whiteSpace="pre";
+    window.addEventListener("keydown",e=>{
+      let ch=false;
+      if(e.key==="["){ _sseBias=Math.max(-6,_sseBias-2); ch=true; }
+      else if(e.key==="]"){ _sseBias=Math.min(30,_sseBias+2); ch=true; }
+      else if(e.key==="-"){ _resBias=Math.max(-0.5,_resBias-0.05); ch=true; }
+      else if(e.key==="="||e.key==="+"){ _resBias=Math.min(0.5,_resBias+0.05); ch=true; }
+      if(ch){
+        localStorage.setItem("swef_ssebias",String(_sseBias));
+        localStorage.setItem("swef_resbias",_resBias.toFixed(2));
+        _pgApply();
+        toast("🎛 타일±"+_sseBias+" · 해상도"+(_resBias>=0?"+":"")+_resBias.toFixed(2));
+      }
+    });
+    setTimeout(()=>toast("🔬 진단 — [ ] 타일 디테일 · - + 해상도"),1500);
   }
   (function(){
     const P=document.getElementById("vjPanel");
