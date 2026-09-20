@@ -12,7 +12,7 @@
   let dreamPrim = null;
   let dreamSky = "";
   let dreamMat = null;
-  let motionJ = Cesium.Matrix4.clone(Cesium.Matrix4.IDENTITY);
+  let motionJ = null;
   let mbPrevV = null;
   let mbPrevP = null;
   let mbLast = 0;
@@ -20,8 +20,8 @@
   let atmoH = 1000;
   let atmoFlash = 0;
   let atmoPrevH = 0;
-  const atmoUp = new Cesium.Cartesian3(0, 1, 0);
-  const atmoTmp = new Cesium.Cartesian3();
+  let atmoUp = null;
+  let atmoTmp = null;
   let avatarEmoji = "";
   let avatarSize = parseInt(localStorage.getItem("ef_av_size") || "42", 10);
   let avatarPick = localStorage.getItem("ef_av_emoji") || "";
@@ -523,6 +523,9 @@ void main(){ vec2 uv=v_textureCoordinates; vec4 col=texture(colorTexture,uv); ve
   });
 
   app.on("ready", ()=>{
+    motionJ = Cesium.Matrix4.clone(Cesium.Matrix4.IDENTITY);
+    atmoUp = new Cesium.Cartesian3(0, 1, 0);
+    atmoTmp = new Cesium.Cartesian3();
     app.state.vehicle = Object.assign({}, VEHICLES[0]);
     app.state.vehicleIndex = 0;
     setLocalTime(17.5);

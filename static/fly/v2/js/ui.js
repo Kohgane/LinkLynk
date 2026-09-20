@@ -6,6 +6,7 @@
 
   const { DESTS, VEHICLES, FILMS } = app.data;
   let currentCategory = "all";
+  let moduleRailReady = false;
 
   function dn(item){ return item.n; }
   function $(id){ return document.getElementById(id); }
@@ -85,7 +86,7 @@
       '  <div id="timeWrap"><span>☀️</span><input type="range" id="timeSlider" min="0" max="24" step="0.1" value="17.5"><span id="timeLabel">17:30</span></div>',
       '</div>'
     ].join("");
-    ["destCats","destCards","vehCards","filmCards","moduleRail"].forEach((id)=>makeScroller($(id)));
+    ["destCats","destCards","vehCards","filmCards"].forEach((id)=>makeScroller($(id)));
   }
 
   function syncTabs(){
@@ -285,6 +286,10 @@
     renderVehicles();
     renderFilms();
     bindControls();
+    if (!moduleRailReady) {
+      makeScroller($("moduleRail"));
+      moduleRailReady = true;
+    }
     syncTabs();
     syncModeButtons();
     syncTuneInputs();

@@ -269,13 +269,14 @@
     if (!probeEnabled || state.probeRunning || !app.viewer) return;
     state.probeRunning = true;
     const board = $("diag");
+    const scene = app.viewer.scene;
     if (board) board.style.display = "block";
     const steps = [
       ["기준", ()=>{}, ()=>{}],
       ["후처리off", ()=>{ safeRun("probe-post-off", ()=>app.toggleAllPostprocess(false)); }, ()=>{ safeRun("probe-post-on", ()=>app.restoreAllPostprocess()); }],
       ["엔티티off", ()=>{ app.viewer.entities.show = false; }, ()=>{ app.viewer.entities.show = true; }],
-      ["대기off", ()=>{ app.scene.skyAtmosphere.show = false; if (app.scene.sun) app.scene.sun.show = false; if (app.scene.moon) app.scene.moon.show = false; }, ()=>{ app.scene.skyAtmosphere.show = true; if (app.scene.sun) app.scene.sun.show = true; if (app.scene.moon) app.scene.moon.show = true; }],
-      ["위성지구off", ()=>{ state._probeGlobe = app.scene.globe.show; app.scene.globe.show = false; }, ()=>{ app.scene.globe.show = !!state._probeGlobe; }],
+      ["대기off", ()=>{ scene.skyAtmosphere.show = false; if (scene.sun) scene.sun.show = false; if (scene.moon) scene.moon.show = false; }, ()=>{ scene.skyAtmosphere.show = true; if (scene.sun) scene.sun.show = true; if (scene.moon) scene.moon.show = true; }],
+      ["위성지구off", ()=>{ state._probeGlobe = scene.globe.show; scene.globe.show = false; }, ()=>{ scene.globe.show = state._probeGlobe; }],
       ["타일off", ()=>{ if (state.tileset) state.tileset.show = false; }, ()=>{ if (state.tileset) state.tileset.show = true; }]
     ];
     let index = -1;
