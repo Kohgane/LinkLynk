@@ -8,7 +8,7 @@
   let currentCategory = "all";
   let moduleRailReady = false;
 
-  function dn(item){ return item.n; }
+  function displayName(item){ return item.n; }
   function $(id){ return document.getElementById(id); }
 
   function makeScroller(el){
@@ -131,14 +131,14 @@
     const featureIndex = ((seed * 9301 + 49297) % 233280) % DESTS.length;
     const feature = document.createElement("button");
     feature.className = "card accent";
-    feature.textContent = "⭐ 오늘의 명소: " + dn(DESTS[featureIndex]);
+    feature.textContent = "⭐ 오늘의 명소: " + displayName(DESTS[featureIndex]);
     feature.onclick = ()=>{ $("timeSlider").value = "18.2"; app.flyToDest(featureIndex); };
     wrap.appendChild(feature);
     DESTS.forEach((dest, index)=>{
       if (currentCategory !== "all" && dest.c !== currentCategory) return;
       const el = document.createElement("button");
       el.className = "card";
-      el.textContent = dn(dest);
+      el.textContent = displayName(dest);
       el.onclick = ()=>app.flyToDest(index);
       wrap.appendChild(el);
     });
@@ -167,9 +167,9 @@
         el.textContent = "🔒 ???";
         el.style.opacity = "0.5";
       } else if (veh.e.indexOf("img:") === 0) {
-        el.innerHTML = '<img loading="lazy" decoding="async" src="' + veh.e.slice(4) + '" alt=""> ' + dn(veh);
+        el.innerHTML = '<img loading="lazy" decoding="async" src="' + veh.e.slice(4) + '" alt=""> ' + displayName(veh);
       } else {
-        el.textContent = veh.e + " " + dn(veh);
+        el.textContent = veh.e + " " + displayName(veh);
       }
       el.onclick = ()=>{ app.pickVehicle(index); syncTuneInputs(); };
       wrap.appendChild(el);

@@ -416,9 +416,8 @@ void main(){ vec2 uv=v_textureCoordinates; vec4 col=texture(colorTexture,uv); ve
     const cam = viewerOf().camera;
     const V = cam.viewMatrix;
     const P = cam.frustum.projectionMatrix;
-    const now = performance.now();
-    const dt = mbLast ? Math.min(100, now - mbLast) : 16.6;
-    mbLast = now;
+    const dt = dtMs || (mbLast ? Math.min(100, performance.now() - mbLast) : 16.6);
+    mbLast = performance.now();
     if (post.blurLevel > 0 && mbPrevV && P) {
       const invV = Cesium.Matrix4.inverse(V, new Cesium.Matrix4());
       const A = Cesium.Matrix4.multiply(mbPrevV, invV, new Cesium.Matrix4());
@@ -430,7 +429,7 @@ void main(){ vec2 uv=v_textureCoordinates; vec4 col=texture(colorTexture,uv); ve
     if (P) mbPrevP = Cesium.Matrix4.clone(P, mbPrevP || new Cesium.Matrix4());
   }
 
-  function updateFog(){
+  function updateFog(dtMs){
     if (!viewerOf()) return;
     const cam = viewerOf().camera;
     try {
@@ -444,7 +443,7 @@ void main(){ vec2 uv=v_textureCoordinates; vec4 col=texture(colorTexture,uv); ve
         }
       }
       atmoPrevH = atmoH;
-      atmoFlash *= Math.pow(0.02, (app.state.lastFrameStamp || 16.6) / 500);
+      atmoFlash *= Math.pow(0.02, (dtMs || 16.6) / 500);
       if (atmoFlash < 0.002) atmoFlash = 0;
     } catch (_) {}
   }
@@ -538,7 +537,7 @@ void main(){ vec2 uv=v_textureCoordinates; vec4 col=texture(colorTexture,uv); ve
 
   app.on("frame", ({ dtMs })=>{
     updateMotionBlur(dtMs);
-    updateFog();
+    updateFog(dtMs);
     if (dreamPrim) dreamPrim.modelMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(viewerOf().camera.positionWC);
     portalTick();
     updateAvatar();
