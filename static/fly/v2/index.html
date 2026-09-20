@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <link rel="manifest" href="/fly/manifest.json">
+  <meta name="theme-color" content="#000000">
+  <link rel="apple-touch-icon" href="/fly/icon-192.png">
+  <link rel="icon" href="/fly/icon-192.png">
+  <link rel="preconnect" href="https://assets.ion.cesium.com" crossorigin>
+  <link rel="preconnect" href="https://api.cesium.com" crossorigin>
+  <link rel="preconnect" href="https://assets.cesium.com" crossorigin>
+  <title>Earthflight 2.0 — 클린 리빌드</title>
+  <script src="https://cesium.com/downloads/cesiumjs/releases/1.119/Build/Cesium/Cesium.js"></script>
+  <link href="https://cesium.com/downloads/cesiumjs/releases/1.119/Build/Cesium/Widgets/widgets.css" rel="stylesheet">
+  <style>
+    :root{color-scheme:dark}
+    *{box-sizing:border-box}
+    html,body{margin:0;height:100%;overflow:hidden;background:#000;font-family:-apple-system,'Noto Sans KR',sans-serif}
+    body{color:#fff}
+    #cesiumContainer{position:fixed;inset:0}
+    .hud{position:fixed;z-index:20;user-select:none;-webkit-user-select:none}
+    #title{top:14px;left:16px;font-size:15px;letter-spacing:.14em;opacity:.88;font-weight:700;text-shadow:0 1px 6px #000}
+    #tier{top:38px;left:16px;font-size:11px;opacity:.68;color:#ffd166;text-shadow:0 1px 5px #000}
+    #moduleRail{top:68px;left:12px;right:12px;display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;scrollbar-width:none}
+    #moduleRail::-webkit-scrollbar{display:none}
+    #panel{left:0;right:0;bottom:0;padding:10px 12px calc(12px + env(safe-area-inset-bottom));background:linear-gradient(transparent,rgba(0,0,0,.78));display:flex;flex-direction:column;gap:8px}
+    #tabbar,.row,.cards,.chips,.module-row{display:flex;gap:8px;overflow-x:auto;scrollbar-width:none}
+    #tabbar::-webkit-scrollbar,.row::-webkit-scrollbar,.cards::-webkit-scrollbar,.chips::-webkit-scrollbar,.module-row::-webkit-scrollbar{display:none}
+    .tabb,.btn,.chip,.card,.module-btn{flex:0 0 auto;border:1px solid rgba(255,255,255,.16);background:rgba(255,255,255,.10);color:#fff;border-radius:14px;backdrop-filter:blur(10px)}
+    .tabb,.btn,.module-btn{padding:9px 14px;font-size:13px;cursor:pointer}
+    .tabb.on,.btn.on{background:rgba(255,209,102,.92);color:#201300;font-weight:800;border-color:transparent}
+    .module-btn{padding:7px 11px;border-radius:999px;background:rgba(12,16,26,.88)}
+    .module-btn small{opacity:.72}
+    .panel{display:none;flex-direction:column;gap:8px}
+    .panel.show{display:flex}
+    .chips{padding-bottom:2px}
+    .chip{padding:7px 12px;font-size:12px;cursor:pointer;white-space:nowrap}
+    .chip.on{background:rgba(120,180,255,.92);color:#081424;font-weight:800;border-color:transparent}
+    .cards{padding-bottom:4px}
+    .card{padding:9px 14px;font-size:13px;white-space:nowrap;cursor:pointer}
+    .card.on{background:rgba(255,209,102,.92);color:#201300;font-weight:800;border-color:transparent}
+    .card img{height:30px;vertical-align:middle}
+    .accent{background:linear-gradient(135deg,rgba(255,209,102,.96),rgba(255,157,77,.96));color:#281500;border-color:transparent;font-weight:900}
+    .stack{display:flex;flex-direction:column;gap:8px}
+    .control{display:flex;align-items:center;gap:10px;padding:10px 12px;border-radius:14px;background:rgba(12,16,26,.82);border:1px solid rgba(255,255,255,.12)}
+    .control input[type=range]{flex:1}
+    .control output{min-width:44px;text-align:right;font-weight:700}
+    .meta{font-size:12px;opacity:.78;line-height:1.6}
+    #footerRow{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+    #timeWrap{display:flex;align-items:center;gap:8px;flex:1;min-width:180px;padding:8px 12px;border-radius:14px;background:rgba(12,16,26,.82);border:1px solid rgba(255,255,255,.12)}
+    #timeSlider{flex:1}
+    #journeyList{display:flex;flex-direction:column;gap:6px;max-height:28vh;overflow:auto}
+    .journey-item{display:flex;justify-content:space-between;gap:8px;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.06);font-size:13px}
+    .journey-item button{border:none;border-radius:8px;background:rgba(120,200,255,.22);color:#d6f1ff;padding:5px 9px}
+    #avWrap{position:fixed;left:50%;bottom:104px;transform:translateX(-50%);z-index:9;pointer-events:none;font-size:42px;filter:drop-shadow(0 10px 12px rgba(0,0,0,.55));transition:font-size .2s}
+    #diag{top:120px;right:10px;max-width:min(320px,70vw);padding:8px 10px;border-radius:10px;background:rgba(0,0,0,.74);color:#9ff7a8;font:bold 12px/1.55 monospace;white-space:pre-wrap;display:none;pointer-events:none}
+    #toastHost{right:14px;bottom:calc(190px + env(safe-area-inset-bottom));display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+    .toast{padding:10px 14px;border-radius:12px;background:rgba(12,16,26,.92);border:1px solid rgba(255,255,255,.16);box-shadow:0 14px 40px rgba(0,0,0,.35)}
+    #fadeMask,#vignettePulse{position:fixed;inset:0;pointer-events:none;z-index:30;opacity:0}
+    #fadeMask{background:#05070d;transition:opacity .4s ease}
+    #vignettePulse{background:radial-gradient(circle at center, rgba(255,255,255,0) 42%, rgba(0,0,0,.46) 100%);transition:opacity 1s ease}
+    #gauge{position:fixed;right:12px;bottom:110px;z-index:10;width:86px;height:86px;border-radius:50%;display:flex;align-items:center;justify-content:center;flex-direction:column;background:conic-gradient(rgba(90,180,255,.92) 0%, rgba(255,255,255,.12) 0);border:2px solid rgba(255,255,255,.22)}
+    #gauge .in{width:66px;height:66px;border-radius:50%;background:rgba(8,10,20,.82);display:flex;align-items:center;justify-content:center;flex-direction:column}
+    #gKv{font-size:17px;line-height:1}.kd{font-size:9px;opacity:.72}
+    .hidden{display:none!important}
+    @media (max-width:720px){
+      #moduleRail{top:60px}
+      #toastHost{bottom:calc(220px + env(safe-area-inset-bottom))}
+      #avWrap{bottom:140px}
+    }
+  </style>
+</head>
+<body>
+  <div id="cesiumContainer"></div>
+  <div class="hud" id="title">EARTHFLIGHT 2.0</div>
+  <div class="hud" id="tier">booting…</div>
+  <div class="hud" id="moduleRail"></div>
+  <div id="avWrap">✈️</div>
+  <div id="gauge"><div class="in"><div id="gKv">0</div><div class="kd">km/h</div></div></div>
+  <div class="hud" id="diag"></div>
+  <div class="hud" id="panel"></div>
+  <div class="hud" id="toastHost"></div>
+  <div id="fadeMask"></div>
+  <div id="vignettePulse"></div>
+  <script src="/fly/v2/js/data.js"></script>
+  <script src="/fly/v2/js/engine.js"></script>
+  <script src="/fly/v2/js/input.js"></script>
+  <script>
+    (function(){
+      var bare = /[?&]bare=1/.test(location.search);
+      var queue = [];
+      if(!bare) queue.push('/fly/v2/js/features.js');
+      queue.push('/fly/v2/js/ui.js');
+      function next(){
+        if(!queue.length) return;
+        var s = document.createElement('script');
+        s.src = queue.shift();
+        s.onload = next;
+        document.head.appendChild(s);
+      }
+      next();
+    })();
+  </script>
+</body>
+</html>
