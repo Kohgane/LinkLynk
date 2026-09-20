@@ -39,12 +39,20 @@ JEWEL_BASE = 4808000
 JEWEL_FIX = 721200
 
 
+# ★과세환율은 관세청이 주 단위로 고시하며 시중 환율과 다르다(전주 평균).
+#   2026-09-20~26 기준 USD 1,358.72 → $150 = 203,808원 / $200 = 271,744원
+#   시중 환율(1,386원)을 쓰면 오히려 틀린다. 매주 환경변수로 갱신한다.
+#   출처: unipass.customs.go.kr > 정보조회 > 주간환율
+CUSTOMS_FX = float(os.environ.get("CUSTOMS_FX_USD", "1358.72"))
+CUSTOMS_FX_WEEK = os.environ.get("CUSTOMS_FX_WEEK", "2026-09-20~26")
+
+
 def calc(price_krw, cat_id, ship_krw=0, origin="US", fx=None):
     """price: 물품가(원), ship: 운임·보험(원), origin: US면 $200 아니면 $150."""
     c = _CAT.get(cat_id) or _CAT["etc"]
     base = max(0, int(price_krw)) + max(0, int(ship_krw))   # 과세가격(CIF)
     limit_usd = 200 if origin == "US" else 150
-    rate_fx = fx or 1380.0
+    rate_fx = fx or CUSTOMS_FX
     limit_krw = int(limit_usd * rate_fx)
     # 목록통관 면세 판정은 '물품가격' 기준 (운임 제외)
     duty_free = int(price_krw) <= limit_krw
@@ -52,6 +60,7 @@ def calc(price_krw, cat_id, ship_krw=0, origin="US", fx=None):
         return {"ok": True, "free": True, "base": base, "tax": 0,
                 "total": base, "rate": 0.0, "cat": c["ko"],
                 "limit_usd": limit_usd, "limit_krw": limit_krw,
+                "fx": rate_fx, "fx_week": CUSTOMS_FX_WEEK,
                 "note": "목록통관 면세 한도 이내"}
     if c.get("lux") and base > LUX_BASE:
         tax = int(LUX_FIX + (base - LUX_BASE) * LUX_RATE)
@@ -62,6 +71,7 @@ def calc(price_krw, cat_id, ship_krw=0, origin="US", fx=None):
     return {"ok": True, "free": False, "base": base, "tax": tax,
             "total": base + tax, "rate": round(tax / max(base, 1), 4),
             "cat": c["ko"], "limit_usd": limit_usd, "limit_krw": limit_krw,
+            "fx": rate_fx, "fx_week": CUSTOMS_FX_WEEK,
             "note": note}
 
 
@@ -278,7 +288,9 @@ function run(){
     h+='<div class="r"><span>과세가격 (물품+운임)</span><span>'+won(d.base)+'</span></div>';
     h+='<div class="r"><span>세금</span><span>'+won(d.tax)+'</span></div>';
     h+='<div class="r tot"><span>실제로 내는 돈</span><span>'+won(d.total)+'</span></div>';
-    h+='</div><div class="note">'+esc(d.note)+'</div>';
+    h+='</div><div class="note">'+esc(d.note)
+      +'<br>과세환율 '+Number(d.fx).toLocaleString("ko-KR",{maximumFractionDigits:2})
+      +'원/USD ('+esc(d.fx_week)+' 관세청 고시)</div>';
     h+='<div class="share"><button class="p" id="sh">공유</button>'
       +'<button id="cp">링크 복사</button></div>';
     h+='<div class="more">'
