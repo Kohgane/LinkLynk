@@ -32,6 +32,12 @@
   }
 
   /* ── 진행 데이터 수집 ── */
+  const CAP_GODS    = 4;
+  const CAP_KR      = 4;
+  const CAP_PORTALS = 18;
+  const CAP_GATES   = 4;
+  const TOTAL_SLOTS = CAP_GODS + CAP_KR + CAP_PORTALS + CAP_GATES; // 30
+
   function collectData() {
     const gods    = readArr("swef_gods");
     const kr      = readArr("swef_kr");
@@ -44,13 +50,13 @@
     const gate3 = readGate(3);
     const gate4 = readGate(4);
 
-    const godsN    = Math.min(gods.length,    4);
-    const krN      = Math.min(kr.length,      4);
-    const portalsN = Math.min(portals.length, 18);
+    const godsN    = Math.min(gods.length,    CAP_GODS);
+    const krN      = Math.min(kr.length,      CAP_KR);
+    const portalsN = Math.min(portals.length, CAP_PORTALS);
     const gatesN   = [gate1, gate2, gate3, gate4].filter(Boolean).length;
 
     const completed = godsN + krN + portalsN + gatesN;
-    const pct = Math.round(completed / 30 * 100);
+    const pct = Math.round(completed / TOTAL_SLOTS * 100);
 
     const allGates = gate1 && gate2 && gate3 && gate4;
 
@@ -134,7 +140,9 @@
   function buildGaugeSVG(pct) {
     const r = 52, cx = 64, cy = 64, stroke = 10;
     const circ = 2 * Math.PI * r;
-    const dash = (pct / 100) * circ;
+    const MIN_VISIBLE = 0.001;
+    const clampedPct = Math.min(Math.max(pct, 0), 100);
+    const dash = Math.min(Math.max((clampedPct / 100) * circ, MIN_VISIBLE), circ - MIN_VISIBLE);
     return `<svg width="128" height="128" viewBox="0 0 128 128" aria-hidden="true">
   <circle cx="${cx}" cy="${cy}" r="${r}" fill="none"
     stroke="rgba(255,209,102,.15)" stroke-width="${stroke}"/>
@@ -191,7 +199,7 @@ ${d.portalsN < 18 ? `<div class="cdx-hint">차원의 문을 더 발견하라</di
 ${!d.allGates ? `<div class="cdx-hint">전설의 관문을 하나씩 깨워라</div>` : ""}`;
 
     return `
-<div role="dialog" aria-labelledby="cdx-title" class="cdx-box">
+<div role="dialog" aria-modal="true" aria-labelledby="cdx-title" class="cdx-box">
   <button class="cdx-close" aria-label="도감 닫기">✕</button>
   ${banner}
   <h2 id="cdx-title" style="margin:0 0 14px;font-size:17px;color:#ffd166;">📖 탐험 도감</h2>
@@ -211,7 +219,6 @@ ${!d.allGates ? `<div class="cdx-hint">전설의 관문을 하나씩 깨워라</
     const overlay = document.createElement("div");
     overlay.id = PANEL_ID;
     overlay.className = "hidden";
-    overlay.setAttribute("aria-modal", "true");
     document.body.appendChild(overlay);
     return overlay;
   }
