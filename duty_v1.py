@@ -3,7 +3,7 @@
    근거: 관세법 제81조 간이세율 (시행령 별표2), 목록통관 면세한도.
    개인 자가사용 특송·우편 기준. 사업자 수입·대량반입은 대상이 아니다.
 """
-import io, os, re, json, hashlib, threading
+import io, os, re, json, hashlib, threading, threading
 from flask import Blueprint, request, jsonify, Response, send_file
 
 dt_bp = Blueprint("duty", __name__)
@@ -43,8 +43,46 @@ JEWEL_FIX = 721200
 #   2026-09-20~26 기준 USD 1,358.72 → $150 = 203,808원 / $200 = 271,744원
 #   시중 환율(1,386원)을 쓰면 오히려 틀린다. 매주 환경변수로 갱신한다.
 #   출처: unipass.customs.go.kr > 정보조회 > 주간환율
-CUSTOMS_FX = float(os.environ.get("CUSTOMS_FX_USD", "1358.72"))
-CUSTOMS_FX_WEEK = os.environ.get("CUSTOMS_FX_WEEK", "2026-09-20~26")
+_FX = {"usd": float(os.environ.get("CUSTOMS_FX_USD", "1358.72")),
+       "week": os.environ.get("CUSTOMS_FX_WEEK", "2026-09-20~2026-09-26"),
+       "ts": 0.0, "src": "seed"}
+_FX_LOCK = threading.Lock()
+_FX_TTL = 6 * 3600     # 6시간마다 재확인 (고시는 주 1회지만 적용일 전환을 놓치지 않게)
+
+
+def _fx_refresh(force=False):
+    """과세환율 자동 수집. 실패해도 마지막 값을 그대로 쓴다 — 계산이 멈추면 안 된다."""
+    import time as _t
+    with _FX_LOCK:
+        if not force and _t.time() - _FX["ts"] < _FX_TTL:
+            return _FX
+    try:
+        import urllib.request, re as _re, html as _h
+        req = urllib.request.Request(
+            "https://7customs.com/",
+            headers={"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                                   "AppleWebKit/537.36 Chrome/126"})
+        raw = urllib.request.urlopen(req, timeout=25).read().decode("utf-8", "replace")
+        t = _re.sub(r"<(script|style)[^>]*>.*?</\1>", "", raw, flags=_re.S)
+        t = _re.sub(r"\s+", " ", _h.unescape(_re.sub(r"<[^>]+>", " ", t)))
+        mw = _re.search(r"적용기간\s*(\d{4}-\d{2}-\d{2})\s*~\s*(\d{4}-\d{2}-\d{2})", t)
+        mf = _re.search(r"과세환율\(USD\)\s*([0-9,]+\.?[0-9]*)\s*원", t)
+        if mf:
+            v = float(mf.group(1).replace(",", ""))
+            if 500 < v < 3000:                      # 말도 안 되는 값 방어
+                with _FX_LOCK:
+                    _FX["usd"] = v
+                    if mw:
+                        _FX["week"] = mw.group(1) + "~" + mw.group(2)
+                    _FX["ts"] = _t.time()
+                    _FX["src"] = "7customs"
+    except Exception:
+        with _FX_LOCK:
+            _FX["ts"] = _t.time()               # 실패해도 재시도 폭주 방지
+    return _FX
+
+
+CUSTOMS_FX_WEEK = _FX["week"]
 
 
 def calc(price_krw, cat_id, ship_krw=0, origin="US", fx=None):
@@ -52,7 +90,7 @@ def calc(price_krw, cat_id, ship_krw=0, origin="US", fx=None):
     c = _CAT.get(cat_id) or _CAT["etc"]
     base = max(0, int(price_krw)) + max(0, int(ship_krw))   # 과세가격(CIF)
     limit_usd = 200 if origin == "US" else 150
-    rate_fx = fx or CUSTOMS_FX
+    f = _fx_refresh()\n    rate_fx = fx or f["usd"]
     limit_krw = int(limit_usd * rate_fx)
     # 목록통관 면세 판정은 '물품가격' 기준 (운임 제외)
     duty_free = int(price_krw) <= limit_krw
@@ -60,7 +98,7 @@ def calc(price_krw, cat_id, ship_krw=0, origin="US", fx=None):
         return {"ok": True, "free": True, "base": base, "tax": 0,
                 "total": base, "rate": 0.0, "cat": c["ko"],
                 "limit_usd": limit_usd, "limit_krw": limit_krw,
-                "fx": rate_fx, "fx_week": CUSTOMS_FX_WEEK,
+                "fx": rate_fx, "fx_week": f["week"], "fx_src": f["src"],
                 "note": "목록통관 면세 한도 이내"}
     if c.get("lux") and base > LUX_BASE:
         tax = int(LUX_FIX + (base - LUX_BASE) * LUX_RATE)
@@ -71,7 +109,7 @@ def calc(price_krw, cat_id, ship_krw=0, origin="US", fx=None):
     return {"ok": True, "free": False, "base": base, "tax": tax,
             "total": base + tax, "rate": round(tax / max(base, 1), 4),
             "cat": c["ko"], "limit_usd": limit_usd, "limit_krw": limit_krw,
-            "fx": rate_fx, "fx_week": CUSTOMS_FX_WEEK,
+            "fx": rate_fx, "fx_week": f["week"], "fx_src": f["src"],
             "note": note}
 
 
@@ -315,3 +353,13 @@ function run(){
 @dt_bp.route("/duty/")
 def dt_page():
     return Response(PAGE, mimetype="text/html; charset=utf-8")
+
+
+@dt_bp.route("/api/duty/fx")
+def dt_fx():
+    """현재 적용 중인 과세환율. force=1 이면 즉시 재수집."""
+    f = _fx_refresh(force=(request.args.get("force") == "1"))
+    return jsonify({"ok": True, "usd": f["usd"], "week": f["week"],
+                    "src": f["src"],
+                    "limit_150": int(150 * f["usd"]),
+                    "limit_200": int(200 * f["usd"])})
