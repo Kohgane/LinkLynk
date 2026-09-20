@@ -23,14 +23,10 @@
   let atmoUp = null;
   let atmoTmp = null;
   let avatarEmoji = "";
-  let avatarSize = parseInt(localStorage.getItem("ef_av_size") || "42", 10);
+  let avatarSize = parseInt(localStorage.getItem("ef_av_size") || (app.IS_TOUCH ? "42" : "68"), 10);
   let avatarPick = localStorage.getItem("ef_av_emoji") || "";
 
   if (!app.IS_TOUCH && !localStorage.getItem("ef_av_size")) avatarSize = 68;
-  if (!app.IS_TOUCH && avatarSize < 48) {
-    avatarSize = 68;
-    localStorage.setItem("ef_av_size", "68");
-  }
 
   function vjLoad(key){ try { return JSON.parse(localStorage.getItem(key) || "[]"); } catch (_) { return []; } }
   function vjSave(key, value){ localStorage.setItem(key, JSON.stringify(value)); }

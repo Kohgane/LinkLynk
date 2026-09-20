@@ -402,11 +402,12 @@
   }
 
   function setUnderwaterMode(on){
-    if (!app.scene) return;
+    if (!app.viewer) return;
+    const scene = app.viewer.scene;
     // §1 globe는 수중 모드에서 반투명 수면용으로만 일시 허용한다.
-    app.scene.globe.show = !!on;
-    app.scene.globe.translucency.enabled = !!on;
-    app.scene.globe.translucency.frontFaceAlpha = on ? 0.45 : 1.0;
+    scene.globe.show = !!on;
+    scene.globe.translucency.enabled = !!on;
+    scene.globe.translucency.frontFaceAlpha = on ? 0.45 : 1.0;
   }
 
   function tickOrbit(dt){

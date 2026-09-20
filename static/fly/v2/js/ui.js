@@ -7,6 +7,7 @@
   const { DESTS, VEHICLES, FILMS } = app.data;
   let currentCategory = "all";
   let moduleRailReady = false;
+  let moduleSyncTimer = 0;
 
   function displayName(item){ return item.n; }
   function $(id){ return document.getElementById(id); }
@@ -295,7 +296,8 @@
     syncTuneInputs();
     app.vjRender && app.vjRender();
     if (localStorage.getItem("swef_vj_auto") === "1") setTimeout(()=>app.vjTrack(true), 2400);
-    setInterval(syncModuleHook, 1200);
+    if (moduleSyncTimer) clearInterval(moduleSyncTimer);
+    moduleSyncTimer = setInterval(syncModuleHook, 1200);
     syncModuleHook();
     $("btnAtmo").classList.toggle("on", localStorage.getItem("swef_atmo") !== "0");
     const blur = parseInt(localStorage.getItem("swef_mb") || "0", 10);
