@@ -549,7 +549,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0920e";
+  const SWEF_BUILD="0920f";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -2052,6 +2052,42 @@ function buildUI(){
       }
     });
     setTimeout(()=>toast("🔬 진단 — [ ] 타일 디테일 · - + 해상도"),1500);
+    /* ── 자동 순회 프로브: ?probe=1 ── */
+    if(/[?&]probe=1/.test(location.search)){
+      const st=[
+        ["기준(현상태)", ()=>{}, ()=>{}],
+        ["후처리 OFF", ()=>{ try{ const c=viewer.scene.postProcessStages; for(let k=0;k<c.length;k++){ const g=c.get(k); g._probePrev=g.enabled; g.enabled=false; } c.fxaa._probePrev=c.fxaa.enabled; c.fxaa.enabled=false; c.bloom._probePrev=c.bloom.enabled; c.bloom.enabled=false; }catch(e){} },
+                       ()=>{ try{ const c=viewer.scene.postProcessStages; for(let k=0;k<c.length;k++){ const g=c.get(k); if(g._probePrev!==undefined) g.enabled=g._probePrev; } c.fxaa.enabled=c.fxaa._probePrev; c.bloom.enabled=c.bloom._probePrev; }catch(e){} }],
+        ["엔티티 OFF", ()=>{ try{ viewer.entities.show=false; }catch(e){} }, ()=>{ try{ viewer.entities.show=true; }catch(e){} }],
+        ["대기·천체 OFF", ()=>{ try{ const sc2=viewer.scene; sc2.skyAtmosphere.show=false; sc2.skyBox.show=false; if(sc2.sun)sc2.sun.show=false; if(sc2.moon)sc2.moon.show=false; }catch(e){} },
+                         ()=>{ try{ const sc2=viewer.scene; sc2.skyAtmosphere.show=true; sc2.skyBox.show=true; if(sc2.sun)sc2.sun.show=true; if(sc2.moon)sc2.moon.show=true; }catch(e){} }],
+        ["지구·타일 OFF", ()=>{ try{ viewer.scene.globe.show=false; if(window._gT)window._gT.show=false; }catch(e){} },
+                         ()=>{ try{ viewer.scene.globe.show=true; if(window._gT)window._gT.show=true; }catch(e){} }]
+      ];
+      let si=-1, sT=0, sFr=0, res=[];
+      const board=document.createElement("div");
+      board.style.cssText="position:fixed;top:150px;right:10px;z-index:99999;background:rgba(0,0,0,.85);color:#ffd166;font:bold 12px/1.6 monospace;padding:10px 12px;border-radius:10px;white-space:pre;pointer-events:none";
+      document.body.appendChild(board);
+      function step(){
+        if(si>=0){
+          const secs=(performance.now()-sT)/1000;
+          res.push(st[si][0]+": "+Math.round(sFr/secs)+" fps");
+          st[si][2]();
+          board.textContent="🧪 프로브\n"+res.join("\n");
+        }
+        si++;
+        if(si>=st.length){
+          board.textContent="🧪 프로브 완료 — 이 표를 찍어 보내라\n"+res.join("\n");
+          return;
+        }
+        st[si][1]();
+        sT=performance.now(); sFr=0;
+        board.textContent="🧪 프로브 "+(si+1)+"/"+st.length+" — "+st[si][0]+"\n"+res.join("\n");
+        setTimeout(step,8000);
+      }
+      (function cnt(){ sFr++; requestAnimationFrame(cnt); })();
+      setTimeout(step,4000);
+    }
   }
   (function(){
     const P=document.getElementById("vjPanel");
