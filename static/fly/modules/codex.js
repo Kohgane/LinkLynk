@@ -140,7 +140,7 @@
     stroke="rgba(255,209,102,.15)" stroke-width="${stroke}"/>
   <circle cx="${cx}" cy="${cy}" r="${r}" fill="none"
     stroke="#ffd166" stroke-width="${stroke}"
-    stroke-dasharray="${dash.toFixed(2)} ${circ.toFixed(2)}"
+    stroke-dasharray="${dash.toFixed(2)} ${(circ - dash).toFixed(2)}"
     stroke-dashoffset="0"
     stroke-linecap="round"
     transform="rotate(-90 ${cx} ${cy})"/>
@@ -183,13 +183,12 @@ ${d.krN < 4 ? `<div class="cdx-hint">한반도의 숨은 수호자를 찾아라<
 </div>
 ${d.portalsN < 18 ? `<div class="cdx-hint">차원의 문을 더 발견하라</div>` : ""}`;
 
-    const gateDone = d.gate1 && d.gate2 && d.gate3 && d.gate4;
     const row4 = `
 <div class="cdx-item">
   <span>🌠 여정자의 증표 ${d.gatesN}/4</span>
-  ${checkMark(gateDone)}
+  ${checkMark(d.allGates)}
 </div>
-${!gateDone ? `<div class="cdx-hint">전설의 관문을 하나씩 깨워라</div>` : ""}`;
+${!d.allGates ? `<div class="cdx-hint">전설의 관문을 하나씩 깨워라</div>` : ""}`;
 
     return `
 <div role="dialog" aria-labelledby="cdx-title" class="cdx-box">
@@ -220,6 +219,7 @@ ${!gateDone ? `<div class="cdx-hint">전설의 관문을 하나씩 깨워라</di
   /* ── 패널 열기/닫기 ── */
   let panel = null;
   let keyListener = null;
+  let bgListener = null;
 
   function closePanel() {
     if (!panel) return;
@@ -227,6 +227,10 @@ ${!gateDone ? `<div class="cdx-hint">전설의 관문을 하나씩 깨워라</di
     if (keyListener) {
       document.removeEventListener("keydown", keyListener);
       keyListener = null;
+    }
+    if (bgListener) {
+      panel.removeEventListener("click", bgListener);
+      bgListener = null;
     }
   }
 
@@ -242,12 +246,11 @@ ${!gateDone ? `<div class="cdx-hint">전설의 관문을 하나씩 깨워라</di
       if (closeBtn) closeBtn.addEventListener("click", closePanel);
 
       /* 배경 클릭 닫기 */
-      panel.addEventListener("click", function onBg(e) {
-        if (e.target === panel) {
-          closePanel();
-          panel.removeEventListener("click", onBg);
-        }
-      });
+      if (bgListener) panel.removeEventListener("click", bgListener);
+      bgListener = function (e) {
+        if (e.target === panel) closePanel();
+      };
+      panel.addEventListener("click", bgListener);
 
       /* ESC 닫기 */
       if (keyListener) document.removeEventListener("keydown", keyListener);
