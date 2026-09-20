@@ -13,6 +13,8 @@
   function makeScroller(el){
     if (!el) return;
     let dragX = null;
+    let move = null;
+    let up = null;
     el.addEventListener("wheel", (event)=>{
       if (Math.abs(event.deltaY) > Math.abs(event.deltaX)) {
         // §조작 명소/탈것 행은 휠을 가로 스크롤로 변환한다.
@@ -20,9 +22,17 @@
         event.preventDefault();
       }
     }, { passive: false });
-    el.addEventListener("mousedown", (event)=>{ dragX = event.clientX + el.scrollLeft; });
-    window.addEventListener("mousemove", (event)=>{ if (dragX !== null) el.scrollLeft = dragX - event.clientX; });
-    window.addEventListener("mouseup", ()=>{ dragX = null; });
+    el.addEventListener("mousedown", (event)=>{
+      dragX = event.clientX + el.scrollLeft;
+      move = (nextEvent)=>{ if (dragX !== null) el.scrollLeft = dragX - nextEvent.clientX; };
+      up = ()=>{
+        dragX = null;
+        window.removeEventListener("mousemove", move);
+        window.removeEventListener("mouseup", up);
+      };
+      window.addEventListener("mousemove", move);
+      window.addEventListener("mouseup", up);
+    });
   }
 
   function buildShell(){

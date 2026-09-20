@@ -1,7 +1,6 @@
 (function(){
   "use strict";
 
-  const GOOGLE_KEY = "AIzaSyDhJHvuRgk3eixhgZm9f8_48ThoheXfxt0";
   const params = new URLSearchParams(location.search);
   const IS_TOUCH = ("ontouchstart" in window);
   const app = window.SWEF_V2 = window.SWEF_V2 || {};
@@ -415,6 +414,20 @@
     app.viewer.camera.lookAt(state.orbit.center, new Cesium.HeadingPitchRange(state.orbit.heading, state.orbit.pitch, state.orbit.range));
   }
 
+  async function resolveGoogleKey(){
+    if (state.googleKey !== undefined) return state.googleKey;
+    try {
+      const response = await fetch("/fly/", { credentials: "same-origin" });
+      if (!response.ok) return state.googleKey = "";
+      const html = await response.text();
+      const match = html.match(/const\s+GOOGLE_KEY\s*=\s*"([^"]+)"/);
+      return state.googleKey = (match && match[1]) || "";
+    } catch (error) {
+      console.warn("[swef-v2] key resolve", error);
+      return state.googleKey = "";
+    }
+  }
+
   async function init(){
     const opts = {
       animation: false,
@@ -449,9 +462,10 @@
     app.viewer.resolutionScale = state.profile.resolutionScale;
     Cesium.RequestScheduler.maximumRequestsPerServer = state.profile.maxRequests; // §3 기기 프로파일
 
-    if (GOOGLE_KEY) {
+    const googleKey = await resolveGoogleKey();
+    if (googleKey) {
       try {
-        Cesium.GoogleMaps.defaultApiKey = GOOGLE_KEY;
+        Cesium.GoogleMaps.defaultApiKey = googleKey;
         const tileset = await Cesium.createGooglePhotorealistic3DTileset();
         tileset.cacheBytes = state.profile.cacheBytes;
         tileset.maximumCacheOverflowBytes = state.profile.overflowBytes;
@@ -512,8 +526,8 @@
       updateTierLabel,
       loadModuleLoader,
       refreshSWEFHook,
-      toggleAllPostprocess(force){ emit("diag", { forcePostprocess: force }); },
-      restoreAllPostprocess(){ emit("diag", { restorePostprocess: true }); }
+      toggleAllPostprocess(){},
+      restoreAllPostprocess(){}
     });
 
     refreshSWEFHook();

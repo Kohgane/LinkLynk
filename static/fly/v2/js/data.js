@@ -33,7 +33,6 @@ const DESTS = [
   {n:"킬리만자로",c:"s",en:"Kilimanjaro",lon:37.355,lat:-3.067,h:6200,r:12000,p:-14},
   {n:"앙헬폭포",c:"x",en:"Angel Falls",lon:-62.536,lat:5.968,h:1500,r:4200,p:-18},
   {n:"아마존",c:"h",en:"Amazon",lon:-60.025,lat:-3.119,h:1200,r:9000,p:-22},
-,
   {n:"소코트라섬",c:"x",en:"Socotra",lon:53.82,lat:12.51,h:900,r:9000,p:-18},
   {n:"다르바자 불구덩이",c:"x",en:"Darvaza Crater",lon:58.444,lat:40.253,h:400,r:2200,p:-30},
   {n:"레나 석주",c:"x",en:"Lena Pillars",lon:127.4,lat:61.1,h:500,r:5200,p:-20},
