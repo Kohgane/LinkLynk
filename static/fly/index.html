@@ -549,7 +549,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0920g";
+  const SWEF_BUILD="0920h";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -643,6 +643,7 @@ function setupTouch(){
 const FILMS=[["\uC6D0\uBCF8","Natural"],["\uBE44\uBE44\uB4DC","Vivid"],["\uACE8\uB4E0\uC544\uC6CC","Golden"],["\uC218\uBB35","Ink"],["\uB4DC\uB9BC","Dream"],["\uC544\uBC14\uD0C0","Pandora"],["\uC778\uC149\uC158","Inception"],["\uCF54\uCF54","Coco"],["\uB354 \uD3F4","The Fall"],["\uBD80\uB2E4\uD398\uC2A4\uD2B8","Budapest"],["\uB178\uC744\uAE38","Sunset Drive"],["\uC624\uB85C\uB77C","Aurora"]];
 let filmIdx=0, filmStage=null, cityTiles=null, cityLoading=false;
 const _bareMode=/[?&]bare=1/.test(location.search);
+window.addEventListener("error",e=>{ if(!window._lastErr) window._lastErr=(e.message||"?").slice(0,80); });
 let _sseBias=parseInt(localStorage.getItem("swef_ssebias")||"0");
 let _resBias=parseFloat(localStorage.getItem("swef_resbias")||"0");
 let _pgTier=0,_pgAcc=0,_pgN=0,_pgFogOff=false,_pgToasted=false;
@@ -2028,7 +2029,12 @@ function buildUI(){
         try{ tl=" | 타일 "+window._gT._statistics.numberOfTilesProcessing; }catch(e){}
         let _sseNow="?";
         try{ _sseNow=window._gT.maximumScreenSpaceError; }catch(e){}
-        f.textContent="FPS "+fps+" | 최악 "+Math.round(worst)+"ms"+tl+"\n해상도 "+viewer.resolutionScale.toFixed(2)+" | 타일SSE "+_sseNow+"  ( [ ] · - + )";
+        let av="?";
+        try{
+          const aw=document.getElementById("avWrap");
+          av="모드:"+mode+" 숨김:"+(localStorage.getItem("swef_avhide")||"0")+" 표시:"+(aw?aw.style.display||"block":"없음")+" 기체:"+String(_avEmoji).slice(0,28);
+        }catch(e){ av="err:"+e.message.slice(0,30); }
+        f.textContent="FPS "+fps+" | 최악 "+Math.round(worst)+"ms"+tl+"\n해상도 "+viewer.resolutionScale.toFixed(2)+" | 타일SSE "+_sseNow+"  ( [ ] · - + )\nAV "+av+(window._lastErr?("\n⚠ "+window._lastErr):"");
         fr=0; t0=n; worst=0;
       }
       requestAnimationFrame(loop);
