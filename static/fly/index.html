@@ -549,7 +549,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0920f";
+  const SWEF_BUILD="0920g";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -1970,7 +1970,14 @@ function buildUI(){
   });
   const _ahBtn=document.getElementById("btnAvHide");
   if(_ahBtn){
-    const _ahp=()=>_ahBtn.classList.toggle("on",localStorage.getItem("swef_avhide")==="1");
+    const _ahp=()=>{
+      const h=localStorage.getItem("swef_avhide")==="1";
+      _ahBtn.classList.toggle("on",h);
+      _ahBtn.style.background=h?"rgba(255,90,90,.35)":"";
+      _ahBtn.textContent=h?"👻 숨김중":"👻";
+    };
+    if(localStorage.getItem("swef_avhide")==="1")
+      setTimeout(()=>toast("👻 기체 숨김 상태야 — 탈것 탭 👻로 해제"),4000);
     _ahBtn.onclick=()=>{ const h=localStorage.getItem("swef_avhide")==="1";
       localStorage.setItem("swef_avhide",h?"0":"1"); _ahp();
       toast(h?"👻 기체 표시":"👻 기체 숨김"); };
