@@ -537,6 +537,10 @@ async function init(){
     }
     else if(!IS_TOUCH && /intel.*(iris|uhd|hd graphics)/i.test(_rn) && !/arc/i.test(_rn)){
       window._iGPU=true;
+      try{
+        if(_resBias>0){ _resBias=0; localStorage.setItem("swef_resbias","0"); }
+        if(_sseBias<0){ _sseBias=0; localStorage.setItem("swef_ssebias","0"); }
+      }catch(e){}
       viewer.resolutionScale=0.7;
       setTimeout(()=>toast("💻 내장그래픽 감지 — 균형 프로파일로 최적화"),3500);
     }
@@ -550,7 +554,7 @@ async function init(){
     sc.globe.tileCacheSize = 600;
   }
 
-  const SWEF_BUILD="0920i";
+  const SWEF_BUILD="0920j";
   document.getElementById("tier").textContent = tier + " \u00B7 b" + SWEF_BUILD;
   console.log("[SWEF] build", SWEF_BUILD);
   buildUI();
@@ -1339,7 +1343,12 @@ function zenToggle(){
 let _avEmoji="", _avRot=99, _gPct=-1, _gDrift=false;
 let avOn = localStorage.getItem("ef_av_on")!=="0";
 let avSize = parseInt(localStorage.getItem("ef_av_size")||"42");
-try{ if(typeof IS_TOUCH!=="undefined" && !IS_TOUCH && !localStorage.getItem("ef_av_size")) avSize=68; }catch(e){}
+try{
+  if(typeof IS_TOUCH!=="undefined" && !IS_TOUCH){
+    if(!localStorage.getItem("ef_av_size")) avSize=68;
+    else if(avSize<48){ avSize=68; localStorage.setItem("ef_av_size","68"); }
+  }
+}catch(e){}
 let avPick = localStorage.getItem("ef_av_emoji")||"";
 function updateAvatar(){
   const el=document.getElementById("avWrap");
@@ -2034,7 +2043,7 @@ function buildUI(){
         let av="?";
         try{
           const aw=document.getElementById("avWrap");
-          av="모드:"+mode+" 숨김:"+(localStorage.getItem("swef_avhide")||"0")+" 표시:"+(aw?aw.style.display||"block":"없음")+" 기체:"+String(_avEmoji).slice(0,28);
+          av="모드:"+mode+" 숨김:"+(localStorage.getItem("swef_avhide")||"0")+" 표시:"+(aw?aw.style.display||"block":"없음")+" 크기:"+avSize+" 기체:"+String(_avEmoji).slice(0,28);
         }catch(e){ av="err:"+e.message.slice(0,30); }
         f.textContent="FPS "+fps+" | 최악 "+Math.round(worst)+"ms"+tl+"\n해상도 "+viewer.resolutionScale.toFixed(2)+" | 타일SSE "+_sseNow+"  ( [ ] · - + )\nAV "+av+(window._lastErr?("\n⚠ "+window._lastErr):"");
         fr=0; t0=n; worst=0;
