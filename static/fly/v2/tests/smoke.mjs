@@ -53,15 +53,23 @@ function countArrayItems(src, varName) {
   let depth = 0;
   let inStr = false;
   let strChar = "";
+  let escaped = false;
   let count = 0;
   let i = m.index + m[0].length - 1; // position of opening [
   for (; i < src.length; i++) {
     const ch = src[i];
     if (inStr) {
-      if (ch === strChar && src[i - 1] !== "\\") inStr = false;
+      if (escaped) {
+        escaped = false;
+      } else if (ch === "\\") {
+        escaped = true;
+      } else if (ch === strChar) {
+        inStr = false;
+      }
     } else if (ch === '"' || ch === "'" || ch === "`") {
       inStr = true;
       strChar = ch;
+      escaped = false;
     } else if (ch === "[" || ch === "{") {
       depth++;
     } else if (ch === "]" || ch === "}") {

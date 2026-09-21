@@ -43,9 +43,8 @@ function isOutOfScope(request) {
 // Install: pre-cache the app shell
 self.addEventListener("install", (event) => {
   event.waitUntil(
-    caches.open(CACHE).then((cache) => cache.addAll(APP_SHELL))
+    caches.open(CACHE).then((cache) => cache.addAll(APP_SHELL)).then(() => self.skipWaiting())
   );
-  self.skipWaiting();
 });
 
 // Activate: delete old caches
