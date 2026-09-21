@@ -696,7 +696,7 @@ def boim_guide():
 
 @app.route("/robots.txt")
 def _robots():
-    body = ("User-agent: *\n"
+    body = ("User-agent: *\n\n"
             "Disallow: /\n"
             "Disallow: /api/\n"
             "Disallow: /boim/r/\n"
