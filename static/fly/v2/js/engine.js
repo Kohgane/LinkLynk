@@ -177,6 +177,13 @@
     const fade = $("fadeMask");
     const vignette = $("vignettePulse");
     if (!fade || !state.travel) return;
+    if (state.travel.t0 && performance.now() - state.travel.t0 > 6000 && state.travel.phase !== "up") {
+      state.travel.phase = "up";
+      fade.style.transition = "opacity 1s ease";
+      fade.style.opacity = "0";
+      setTimeout(()=>{ state.travel = null; }, 1000);
+      return;
+    }
     if (state.travel.phase === "down") {
       fade.style.transition = "opacity .4s ease";
       fade.style.opacity = "0.88";
@@ -198,7 +205,7 @@
 
   function beginTravel(){
     // §7 이동 시작 시 화면을 페이드 다운해 흐릿한 로딩 노출을 막는다.
-    state.travel = { phase: "down" };
+    state.travel = { phase: "down", t0: performance.now() };
     const fade = $("fadeMask");
     if (fade) {
       fade.style.transition = "opacity .4s ease";
@@ -400,6 +407,7 @@
   function goFree(){
     setMode("free");
     state.orbiting = false;
+    if (state.travel) { const f=$("fadeMask"); if(f){ f.style.transition="opacity .5s ease"; f.style.opacity="0"; } state.travel = null; }
     app.viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
   }
 

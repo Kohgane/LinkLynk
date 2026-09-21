@@ -126,8 +126,8 @@
     const speed = app.currentSpeed() * dt;
     const turn = 1.35 * (veh.ag || 1) * dt;
     const pitch = 0.85 * (veh.ag || 1) * dt;
-    if (keys.w) c.moveForward(speed);
-    if (keys.s) c.moveBackward(speed);
+    const thrust = keys.s ? -0.35 : (keys.w ? 1.7 : 1.0);
+    c.moveForward(speed * thrust);
     if (keys.a) c.moveLeft(speed * 0.7);
     if (keys.d) c.moveRight(speed * 0.7);
     if (keys.q) c.moveDown(speed * 0.5);
