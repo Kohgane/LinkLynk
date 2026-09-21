@@ -193,3 +193,9 @@ INDEXNOW_KEY = "8f3c1a7e5d2b4096a1c7e3f5b9d2a4c6"
 @cb_bp.route("/8f3c1a7e5d2b4096a1c7e3f5b9d2a4c6.txt")
 def cb_indexnow_key():
     return Response(INDEXNOW_KEY, mimetype="text/plain")
+
+
+@cb_bp.route("/googleb66b58b492c65404.html")
+def cb_google_verify():
+    return Response("google-site-verification: googleb66b58b492c65404.html",
+                    mimetype="text/html")
