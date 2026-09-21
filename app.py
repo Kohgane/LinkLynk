@@ -36,6 +36,8 @@ from duty_v1 import dt_bp
 app.register_blueprint(dt_bp)
 from threads_v1 import th_bp
 app.register_blueprint(th_bp)
+from canibring_v1 import cb_bp
+app.register_blueprint(cb_bp)
 app.secret_key = os.environ.get("LINKLYNK_SESSION_SECRET", "dev-secret-change-me")
 from datetime import timedelta
 app.permanent_session_lifetime = timedelta(days=365)  # 로그인 1년 유지 (자동로그인)
