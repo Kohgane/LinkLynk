@@ -465,6 +465,10 @@
     scene.globe.depthTestAgainstTerrain = true;
     scene.globe.maximumScreenSpaceError = IS_TOUCH ? 6 : 3;
     scene.skyAtmosphere.show = true;
+    try { scene.skyAtmosphere.perFragmentAtmosphere = true; } catch (_) {}
+    scene.skyAtmosphere.saturationShift = 0.15;
+    scene.skyAtmosphere.brightnessShift = 0.02;
+    scene.globe.atmosphereLightIntensity = 22;
     scene.fog.enabled = true;
     scene.fog.density = 0.0004;
     scene.globe.show = false; // §1 이중 지구 금지
