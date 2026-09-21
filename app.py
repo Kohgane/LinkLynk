@@ -701,11 +701,11 @@ def _robots():
             "Disallow: /api/\n"
             "Disallow: /boim/r/\n"
             "Disallow: /boim/pay/\n"
-            "Allow: /boim\n"
+            "Allow: /can-i-bring\nAllow: /next\nAllow: /duty\nAllow: /gottago\nAllow: /eats\nAllow: /rx\nAllow: /sitemap-travel.xml\nAllow: /boim\n"
             "Allow: /boim/guide\n"
             "Allow: /boim-manifest.json\n"
             "Allow: /boim-icon-192.png\n"
-            "Sitemap: https://linklynk.onrender.com/sitemap.xml\n")
+            "Sitemap: https://linklynk.onrender.com/sitemap.xml\nSitemap: https://linklynk.onrender.com/sitemap-travel.xml\n")
     return Response(body, mimetype="text/plain")
 
 
