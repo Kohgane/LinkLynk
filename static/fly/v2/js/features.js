@@ -31,7 +31,9 @@
   function vjLoad(key){ try { return JSON.parse(localStorage.getItem(key) || "[]"); } catch (_) { return []; } }
   function vjSave(key, value){ localStorage.setItem(key, JSON.stringify(value)); }
 
+  let lastLocalHours = 12;
   function setLocalTime(hours){
+    lastLocalHours = hours;
     if (!viewerOf()) return;
     const lon = Cesium.Math.toDegrees(viewerOf().camera.positionCartographic.longitude) || 0;
     const utc = hours - lon / 15;
@@ -462,12 +464,12 @@ void main(){ vec2 uv=v_textureCoordinates; vec4 col=texture(colorTexture,uv); ve
     }
     const r = -(app.state.roll || 0);
     const t = performance.now() / 1000;
-    const spd = Math.abs(app.state.speedKmh / 3.6 || 0);
-    const spdN = Math.min(1, spd / 900);
-    // §데이터 이식 보빙·질주 리듬·숙임·부스트 진동을 v2 아바타 DOM에 유지한다.
-    const bob = Math.sin(t * 2.6) * (4.5 * (1 - spdN * 0.75));
-    const gallop = Math.sin(t * 9.0) * (1.6 * spdN);
-    const boost = !!(app.keys && app.keys.shift);
+    const spd = Math.abs(app.state.speedKmh || 0);
+    const spdN = Math.min(1, spd / 6000);
+    // §데이터 이식 보빙·질주 리듬·숙임·부스트 진동 — v2 속도대(km/h) 재조율
+    const bob = Math.sin(t * 2.4) * (6.5 * (1 - spdN * 0.65));
+    const gallop = Math.sin(t * 9.0) * (3.2 * spdN);
+    const boost = !!(app.keys && (app.keys.shift || app.keys.w));
     const shX = boost ? (Math.random() - 0.5) * 2.2 : 0;
     const shY = boost ? (Math.random() - 0.5) * 2.2 : 0;
     const pitchLean = spdN * 6;
@@ -532,6 +534,7 @@ void main(){ vec2 uv=v_textureCoordinates; vec4 col=texture(colorTexture,uv); ve
     renderJourney();
   });
 
+  app.on("arrived", ()=>{ setLocalTime(lastLocalHours); });
   app.on("frame", ({ dtMs })=>{
     updateMotionBlur(dtMs);
     updateFog(dtMs);

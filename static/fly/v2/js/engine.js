@@ -217,6 +217,7 @@
   function markTravelSettling(){
     if (!state.travel) return;
     state.travel.phase = "settling";
+    emit("arrived");
   }
 
   function updateWarpBudget(){
