@@ -3347,6 +3347,14 @@ def fly():
 def fly_slash():
     return send_from_directory("static/fly", "index.html")
 
+@app.route("/fly/v2/")
+def fly_v2():
+    return send_from_directory("static/fly/v2", "index.html")
+
+@app.route("/fly/legacy/")
+def fly_legacy():
+    return send_from_directory("static/fly", "index.html")
+
 @app.route("/fly/<path:fname>")
 def fly_assets(fname):
     return send_from_directory("static/fly", fname)
