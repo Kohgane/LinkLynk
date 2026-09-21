@@ -467,7 +467,8 @@
     const googleKey = await resolveGoogleKey();
     if (googleKey) {
       try {
-        Cesium.GoogleMaps.defaultApiKey = googleKey;
+        if (googleKey) { Cesium.GoogleMaps.defaultApiKey = googleKey; }
+        Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1MDI1ZGE2NC0wOGIyLTRlZWMtOWQ4OS05NWY4ZjMxNjg0ZmIiLCJpZCI6NDA1NTcyLCJpYXQiOjE3NzM4MzA1Mjl9.FCi-lCnBVst8VYPqaiKmOrYnOVD9SLQG6767GTfohH0";
         const tileset = await Cesium.createGooglePhotorealistic3DTileset();
         tileset.cacheBytes = state.profile.cacheBytes;
         tileset.maximumCacheOverflowBytes = state.profile.overflowBytes;
