@@ -30,8 +30,21 @@
     bootedAt: Date.now(),
     signatureReady: false,
     softRenderer: false,
-    rendererName: ""
+    rendererName: "",
+    iGPU: false,
+    sseBand: 1,
+    idleMs: 0,
+    sseBias: 0,
+    resBias: 0,
+    govCalm: 0,
+    govLockUntil: 0,
+    govLastDrop: 0
   };
+  // P0-0921a: v1 승리 세팅 이식 — iGPU 프로파일 · 타일 SSE 고도밴드 · 거버너 히스테리시스 · 다이얼
+  try {
+    state.sseBias = parseInt(localStorage.getItem("swef2_ssebias") || "0", 10) || 0;
+    state.resBias = parseFloat(localStorage.getItem("swef2_resbias") || "0") || 0;
+  } catch (_) {}
   const hooks = app.hooks = app.hooks || { ready: [], frame: [], tab: [], mode: [], diag: [] };
   const D = window.SWEF_DATA || {};
   const diagEnabled = params.get("fps") === "1";
@@ -111,9 +124,11 @@
   function baseResolutionForTier(tier){
     const p = getProfile();
     const softPenalty = state.softRenderer ? Math.min(p.resolutionScale, 0.5) : p.resolutionScale;
-    if (tier <= 0) return softPenalty;
-    if (tier === 1) return Math.max(0.45, softPenalty - (IS_TOUCH ? 0.10 : 0.15));
-    return Math.max(0.40, softPenalty - (IS_TOUCH ? 0.15 : 0.20));
+    const bias = state.resBias || 0;
+    const clamp = (v)=>Math.max(0.3, Math.min(1.2, v + bias));
+    if (tier <= 0) return clamp(softPenalty);
+    if (tier === 1) return clamp(Math.max(0.45, softPenalty - (IS_TOUCH ? 0.10 : 0.15)));
+    return clamp(Math.max(0.40, softPenalty - (IS_TOUCH ? 0.15 : 0.20)));
   }
 
   function syncStageBudget(){
@@ -131,8 +146,11 @@
 
   function evaluateGovernor(){
     const acc = state.govAccum;
+    // 민낯 기준: 이동 커튼·워프 중 프레임은 타일 스트리밍 몫이라 판정에서 뺀다.
+    if (acc && (state.travel || state.warpHold > 0)) { acc.elapsed = 0; acc.sum = 0; acc.count = 0; return; }
     if (!acc || acc.elapsed < 1500) return;
     const avg = acc.sum / Math.max(1, acc.count);
+    const nowMs = performance.now();
     state.govAvg = avg;
     state.govAccum = { elapsed: 0, sum: 0, count: 0 };
     // §4 벽시계 1.5초마다 평균 프레임타임을 평가해 티어를 올리고 되돌린다.
@@ -142,10 +160,21 @@
         state.governorToasted = true;
         toast("⚡ 최적화 모드", 2600);
       }
+      // 복귀 직후 12초 안에 재강등 = 플랩 → 45초간 복귀 금지
+      if (state.govLastDrop && nowMs - state.govLastDrop < 12000) state.govLockUntil = nowMs + 45000;
+      state.govCalm = 0;
       applyGovernorTier();
-    } else if (avg < 17 && state.governorTier > 0) {
-      state.governorTier -= 1;
-      applyGovernorTier();
+    } else if (avg < 18.5 && state.governorTier > 0) {
+      // 60Hz vsync 평균은 16.7~17.5ms라 <17 단발 조건은 사실상 복귀 불능 — 2창(3초) 연속 <18.5로 교체
+      state.govCalm += 1;
+      if (state.govCalm >= 2 && nowMs >= state.govLockUntil) {
+        state.govCalm = 0;
+        state.governorTier -= 1;
+        state.govLastDrop = nowMs;
+        applyGovernorTier();
+      }
+    } else {
+      state.govCalm = 0;
     }
   }
 
@@ -155,7 +184,13 @@
       const dbg = gl && gl.getExtension("WEBGL_debug_renderer_info");
       const name = dbg ? String(gl.getParameter(dbg.UNMASKED_RENDERER_WEBGL) || "") : "";
       state.rendererName = name;
-      if (/swiftshader|llvmpipe/i.test(name)) {
+      if (!IS_TOUCH && /intel.*(iris|uhd|hd graphics)/i.test(name) && !/arc/i.test(name)) {
+        // v1 승리 세팅: 내장그래픽 = 해상도 0.7 기준 + 타일 SSE +5
+        state.iGPU = true;
+        state.profile = Object.assign({}, getProfile(), { resolutionScale: 0.7 });
+        toast("💻 내장그래픽 감지 — 균형 프로파일", 3200);
+      }
+      if (/swiftshader|llvmpipe|software|basic render/i.test(name)) {
         // §3 소프트웨어 렌더러 감지 시 해상도를 강등하고 경고 토스트를 띄운다.
         state.softRenderer = true;
         app.viewer.resolutionScale = 0.5;
@@ -232,7 +267,19 @@
     // §5 1프레임 1500m 이상 워프하면 타일 다이어트 모드로 진입한다.
     if (moved > 1500) state.warpHold = 30;
     else if (state.warpHold > 0) state.warpHold -= 1;
-    const desired = state.warpHold > 0 ? 26 : state.targetSSE;
+    // v1 dynRes 이식: 이동/정지 × 고도밴드(히스테리시스) × 기기 가산. 정지 1.2초 후에만 선명화.
+    const dtMs = state.lastFrameDt || 16.6;
+    if (moved > 0.5) state.idleMs = 0; else state.idleMs = Math.min(60000, (state.idleMs || 0) + dtMs);
+    const alt = app.viewer.camera.positionCartographic.height;
+    if (state.sseBand !== 0 && alt < 450) state.sseBand = 0;
+    else if (state.sseBand !== 2 && alt > 2300) state.sseBand = 2;
+    else if (state.sseBand === 0 && alt > 650) state.sseBand = 1;
+    else if (state.sseBand === 2 && alt < 1800) state.sseBand = 1;
+    const bandAdj = state.sseBand === 0 ? -2 : state.sseBand === 2 ? 3 : 0;
+    const devAdj = (state.iGPU ? 5 : 0) + (IS_TOUCH ? 2 : 0) + (state.softRenderer ? 8 : 0);
+    const moveBase = state.idleMs > 1200 ? 9 : 12;
+    state.targetSSE = Math.max(5, moveBase + bandAdj + devAdj + (state.sseBias || 0));
+    const desired = state.warpHold > 0 ? Math.max(26, state.targetSSE) : state.targetSSE;
     if (state.currentSSE == null) state.currentSSE = desired;
     if (desired >= state.currentSSE) {
       state.currentSSE = desired;
@@ -244,8 +291,9 @@
         state.currentSSE = Math.max(desired, state.currentSSE - 2);
       }
     }
-    tileset.maximumScreenSpaceError = state.currentSSE;
-    tileset.skipLevelOfDetail = state.warpHold > 0;
+    if (tileset.maximumScreenSpaceError !== state.currentSSE) tileset.maximumScreenSpaceError = state.currentSSE;
+    const skip = state.warpHold > 0 || state.sseBand !== 0; // v1: 저고도(밴드0)에서만 skip 해제
+    if (tileset.skipLevelOfDetail !== skip) tileset.skipLevelOfDetail = skip;
   }
 
   function updateDiag(now, dtMs){
@@ -258,11 +306,16 @@
     state.fpsValue = Math.round(state.fpsFrames * 1000 / (now - state.fpsStamp));
     state.fpsStamp = now;
     state.fpsFrames = 0;
-    const tiles = state.tileset && state.tileset._statistics ? state.tileset._statistics.numberOfTilesProcessing : 0;
+    const st = state.tileset && state.tileset._statistics ? state.tileset._statistics : null;
+    const tiles = st ? st.numberOfTilesProcessing : 0;
+    const memMB = st ? Math.round(((st.geometryByteLength || 0) + (st.texturesByteLength || 0)) / 1048576) : 0;
+    const gpuTag = state.softRenderer ? "SOFT" : state.iGPU ? "iGPU" : (IS_TOUCH ? "touch" : "dGPU?");
     state.diagText = [
       "FPS " + state.fpsValue + " | 최악 " + Math.round(state.frameWorst || 0) + "ms",
       "타일 " + tiles + " | 해상도 " + app.viewer.resolutionScale.toFixed(2),
-      "SSE " + state.currentSSE + " | 거버너 " + state.governorTier,
+      "SSE " + state.currentSSE + "→" + state.targetSSE + " b" + state.sseBand + (state.tileset && state.tileset.skipLevelOfDetail ? " skip" : "") + " | 거버너 " + state.governorTier + " (" + Math.round(state.govAvg || 0) + "ms)",
+      "선택 " + (st ? st.selected : 0) + " | 커맨드 " + (st ? st.numberOfCommands : 0) + " | VRAM " + memMB + "MB | " + gpuTag,
+      "다이얼 타일" + (state.sseBias >= 0 ? "+" : "") + state.sseBias + " 해상도" + (state.resBias >= 0 ? "+" : "") + state.resBias.toFixed(2) + "  ( [ ] · - + )",
       "모드 " + state.mode + " | 속도 " + Math.round(state.speedKmh || 0) + " | 키 " + (Object.keys(app.keys || {}).filter((k)=>app.keys[k]).join("") || "없음"),
       window._lastErr ? ("⚠ " + window._lastErr) : "오류 없음"
     ].join("\n");
@@ -502,6 +555,22 @@
 
     scene.globe.tileLoadProgressEvent.addEventListener((count)=>{ state.tileLoadProgress = count; });
     detectRenderer();
+    if (diagEnabled) {
+      // 계기판 다이얼: [ ] 타일 SSE ∓2 · - + 해상도 ∓0.05 (swef2_* 저장, v1 키와 분리)
+      window.addEventListener("keydown", (event)=>safeRun("dial", ()=>{
+        const tag = (event.target && event.target.tagName) || "";
+        if (/INPUT|TEXTAREA|SELECT/.test(tag)) return;
+        let ch = false;
+        if (event.key === "[") { state.sseBias = Math.max(-6, state.sseBias - 2); ch = true; }
+        else if (event.key === "]") { state.sseBias = Math.min(30, state.sseBias + 2); ch = true; }
+        else if (event.key === "-") { state.resBias = Math.max(-0.5, +(state.resBias - 0.05).toFixed(2)); ch = true; }
+        else if (event.key === "=" || event.key === "+") { state.resBias = Math.min(0.5, +(state.resBias + 0.05).toFixed(2)); ch = true; }
+        if (!ch) return;
+        try { localStorage.setItem("swef2_ssebias", String(state.sseBias)); localStorage.setItem("swef2_resbias", state.resBias.toFixed(2)); } catch (_) {}
+        applyGovernorTier();
+        toast("🎛 타일" + (state.sseBias >= 0 ? "+" : "") + state.sseBias + " · 해상도" + (state.resBias >= 0 ? "+" : "") + state.resBias.toFixed(2), 1400);
+      }));
+    }
     applyGovernorTier();
     updateTierLabel();
 
@@ -512,6 +581,7 @@
       const dtMs = state.lastFrameStamp ? Math.min(250, now - state.lastFrameStamp) : 16.6;
       const dt = dtMs / 1000;
       state.lastFrameStamp = now;
+      state.lastFrameDt = dtMs;
       state.govAccum.elapsed += dtMs;
       state.govAccum.sum += dtMs;
       state.govAccum.count += 1;
