@@ -508,6 +508,7 @@ void main(){ vec2 uv=v_textureCoordinates; vec4 col=texture(colorTexture,uv); ve
     toggleDream,
     pickVehicle,
     tuneVehicle,
+    setAvatarSize(px){ avatarSize = Math.max(24, px|0); const v = app.state.vehicle; if (v) app.emit("vehicle", v); },
     applySig,
     vjTrack,
     vjImportFile,

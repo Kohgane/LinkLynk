@@ -265,7 +265,7 @@
     $("custSp").oninput = ()=>{ $("custSpv").textContent = (+$("custSp").value).toFixed(1) + "×"; app.tuneVehicle(parseFloat($("custSp").value), parseFloat($("custAg").value)); };
     $("custAg").oninput = ()=>{ $("custAgv").textContent = (+$("custAg").value).toFixed(1) + "×"; app.tuneVehicle(parseFloat($("custSp").value), parseFloat($("custAg").value)); };
     $("avSizeR2").value = localStorage.getItem("ef_av_size") || (app.IS_TOUCH ? "42" : "68");
-    $("avSizeR2").oninput = ()=>{ localStorage.setItem("ef_av_size", $("avSizeR2").value); };
+    $("avSizeR2").oninput = ()=>{ localStorage.setItem("ef_av_size", $("avSizeR2").value); if (app.setAvatarSize) app.setAvatarSize(parseInt($("avSizeR2").value, 10)); };
     const paintHide = ()=>{
       const hidden = localStorage.getItem("swef_avhide") === "1";
       $("btnAvHide").classList.toggle("on", hidden);

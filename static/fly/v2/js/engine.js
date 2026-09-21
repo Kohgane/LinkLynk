@@ -255,6 +255,7 @@
       "FPS " + state.fpsValue + " | 최악 " + Math.round(state.frameWorst || 0) + "ms",
       "타일 " + tiles + " | 해상도 " + app.viewer.resolutionScale.toFixed(2),
       "SSE " + state.currentSSE + " | 거버너 " + state.governorTier,
+      "모드 " + state.mode + " | 속도 " + Math.round(state.speedKmh || 0) + " | 키 " + (Object.keys(app.keys || {}).filter((k)=>app.keys[k]).join("") || "없음"),
       window._lastErr ? ("⚠ " + window._lastErr) : "오류 없음"
     ].join("\n");
     const box = $("diag");
