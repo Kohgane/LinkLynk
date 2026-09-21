@@ -66,6 +66,7 @@
 
   function on(type, fn){
     (hooks[type] = hooks[type] || []).push(fn);
+    if (type === "ready" && app._readyFired) safeRun("ready#late", ()=>fn(app));
     return ()=>{ hooks[type] = (hooks[type] || []).filter((it)=>it !== fn); };
   }
   function emit(type, detail){
@@ -535,6 +536,7 @@
 
     refreshSWEFHook();
     if (!bareMode) loadModuleLoader();
+    app._readyFired = true;
     emit("ready", app);
     setTimeout(()=>{ state.signatureReady = true; }, 12000);
     goSpace(true);
