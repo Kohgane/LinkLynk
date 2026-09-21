@@ -696,16 +696,32 @@ def boim_guide():
 
 @app.route("/robots.txt")
 def _robots():
-    body = ("User-agent: *\n\n"
-            "Disallow: /\n"
-            "Disallow: /api/\n"
-            "Disallow: /boim/r/\n"
-            "Disallow: /boim/pay/\n"
-            "Allow: /can-i-bring\nAllow: /next\nAllow: /duty\nAllow: /gottago\nAllow: /eats\nAllow: /rx\nAllow: /sitemap-travel.xml\nAllow: /boim\n"
-            "Allow: /boim/guide\n"
-            "Allow: /boim-manifest.json\n"
-            "Allow: /boim-icon-192.png\n"
-            "Sitemap: https://linklynk.onrender.com/sitemap.xml\nSitemap: https://linklynk.onrender.com/sitemap-travel.xml\n")
+    # ★순서가 곧 규칙이다. 순서 매칭 크롤러(first-match)와 구글(longest-match)
+    #   양쪽에서 같은 결과가 나오도록: 민감 경로 차단 → 공개 경로 허용 → 나머지 차단.
+    #   빈 줄은 그룹을 끊으니 규칙 사이에 절대 넣지 않는다.
+    rules = [
+        "User-agent: *",
+        "Disallow: /api/",
+        "Disallow: /boim/r/",
+        "Disallow: /boim/pay/",
+        "Allow: /can-i-bring",
+        "Allow: /next",
+        "Allow: /duty",
+        "Allow: /gottago",
+        "Allow: /eats",
+        "Allow: /rx",
+        "Allow: /sitemap-travel.xml",
+        "Allow: /boim",
+        "Allow: /boim/guide",
+        "Allow: /boim-manifest.json",
+        "Allow: /boim-icon-192.png",
+        "Disallow: /",
+    ]
+    maps = [
+        "Sitemap: https://linklynk.onrender.com/sitemap.xml",
+        "Sitemap: https://linklynk.onrender.com/sitemap-travel.xml",
+    ]
+    body = "\n".join(rules) + "\n\n" + "\n".join(maps) + "\n"
     return Response(body, mimetype="text/plain")
 
 
