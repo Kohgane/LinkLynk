@@ -184,3 +184,12 @@ def cb_sitemap():
            + "".join("<url><loc>%s</loc><changefreq>weekly</changefreq></url>" % u for u in urls)
            + "</urlset>")
     return Response(xml, mimetype="application/xml")
+
+
+# ── IndexNow: Bing·Naver·Yandex 에 새 URL 을 즉시 알린다 (로그인 불필요, 키 파일로 소유 증명)
+INDEXNOW_KEY = "8f3c1a7e5d2b4096a1c7e3f5b9d2a4c6"
+
+
+@cb_bp.route("/8f3c1a7e5d2b4096a1c7e3f5b9d2a4c6.txt")
+def cb_indexnow_key():
+    return Response(INDEXNOW_KEY, mimetype="text/plain")
