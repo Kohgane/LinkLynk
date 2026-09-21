@@ -48,23 +48,30 @@ def verdict(q):
     total = len(rows)
     hard = len(pro) + len(per)
     soft = len(dec) + len(lim)
-    if hard >= 3:
-        head, tone = "%d개국에서 반입이 막힙니다" % hard, "red"
-    elif hard:
-        head, tone = "%d개국에서 사전 허가가 필요합니다" % hard, "red"
-    elif soft >= 3:
-        head, tone = "%d개국에서 신고 대상입니다" % soft, "amber"
+    # ★문구는 개수가 아니라 '가장 강한 등급'으로 정한다.
+    #   반입불가(PROHIBITED)를 "사전 허가 필요"로 쓰면 정반대 정보가 된다(Sudafed 실측).
+    if pro:
+        n = len(pro) + len(per)
+        head, tone = "%d개국에서 반입이 막힙니다" % n, "red"
+        head_en = "Banned or restricted in %d countr%s" % (n, "y" if n == 1 else "ies")
+    elif per:
+        head, tone = "%d개국에서 사전 허가가 필요합니다" % len(per), "red"
+        head_en = "Needs a permit in %d countr%s" % (len(per), "y" if len(per) == 1 else "ies")
     elif soft:
         head, tone = "%d개국에서 신고 대상입니다" % soft, "amber"
+        head_en = "Must be declared in %d countr%s" % (soft, "y" if soft == 1 else "ies")
     else:
         head, tone = "어디든 가져갈 수 있는 몇 안 되는 약", "green"
+        head_en = "One of the few you can take almost anywhere"
     out = {
         "ok": True, "q": q, "slug": slugify(q),
         "ings": ings[:4], "incb": [h["list"] for h in hits[:1]],
         "total": total, "hard": hard, "soft": soft,
-        "head": head, "tone": tone,
+        "head": head, "tone": tone, "head_en": head_en,
         "pro": [r["ko"] for r in pro], "per": [r["ko"] for r in per],
         "dec": [r["ko"] for r in dec][:8],
+        "pro_en": [r["en"] for r in pro], "per_en": [r["en"] for r in per],
+        "dec_en": [r["en"] for r in dec][:8],
         "rows": rows,
     }
     with _lock:
