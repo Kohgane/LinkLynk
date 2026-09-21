@@ -1,0 +1,21 @@
+{
+  "name": "EARTHFLIGHT",
+  "short_name": "SWEF",
+  "display": "standalone",
+  "orientation": "any",
+  "theme_color": "#05070d",
+  "background_color": "#05070d",
+  "start_url": "/fly/v2/",
+  "icons": [
+    {
+      "src": "/fly/v2/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "/fly/v2/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png"
+    }
+  ]
+}
