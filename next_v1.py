@@ -347,3 +347,163 @@ function run(q){
 @nx_bp.route("/next/r/<path:q>")
 def nx_page(q=None):
     return Response(PAGE, mimetype="text/html; charset=utf-8")
+
+# ── English card 1080x1350 + OG 1200x630
+@nx_bp.route("/next/card-en/<path:name>")
+@nx_bp.route("/next/og-en/<path:name>")
+def nx_card_en(name):
+    vertical = request.path.startswith("/next/card-en")
+    q = re.sub(r"\.png$", "", name)
+    d = verdict(q)
+    if not d.get("ok"):
+        return jsonify(d), 400
+    key = hashlib.md5(("en|%s|%s|%s" % (q, d["head_en"], vertical)).encode()).hexdigest()[:16]
+    path = os.path.join(CACHE, key + ".png")
+    if not os.path.exists(path):
+        _card_en(d, path, vertical)
+    return send_file(path, mimetype="image/png", max_age=86400)
+
+
+def _card_en(d, path, vertical):
+    from PIL import Image, ImageDraw, ImageFont
+    C = {"red": (255, 92, 80), "amber": (240, 176, 76), "green": (110, 220, 180)}
+    col = C.get(d["tone"], C["amber"])
+    F = lambda n: ImageFont.truetype(FONT, n)
+    W, H = (1080, 1350) if vertical else (1200, 630)
+    sc = 1.0 if vertical else 0.74
+    S = lambda n: F(max(16, int(n * sc)))
+    px = 78 if vertical else 66
+    im = Image.new("RGB", (W, H), (11, 13, 18))
+    dr = ImageDraw.Draw(im)
+    dr.rectangle([0, 0, W, 10 if vertical else 7], fill=col)
+
+    def wrap(txt, font, maxw):
+        out, line = [], ""
+        for w in txt.split(" "):
+            t = (line + " " + w).strip()
+            if dr.textlength(t, font=font) > maxw and line:
+                out.append(line); line = w
+            else:
+                line = t
+        if line:
+            out.append(line)
+        return out
+
+    y = int(118 * sc) if vertical else 62
+    dr.text((px, y), "Your " + d["q"][:22], font=S(40), fill=(148, 160, 176))
+    y += int(70 * sc)
+    hf = S(70 if len(d["head_en"]) <= 26 else 56)
+    for ln in wrap(d["head_en"], hf, W - 2 * px)[:3]:
+        dr.text((px, y), ln, font=hf, fill=col); y += int(hf.size * 1.2)
+    y += int(24 * sc)
+    ing = " · ".join(d["ings"][:3]) or d["q"]
+    dr.text((px, y), ing[:44], font=S(32), fill=(206, 216, 228)); y += int(56 * sc)
+    if d["incb"]:
+        dr.rounded_rectangle([px, y, W - px, y + int(92 * sc)], radius=12,
+                             fill=(22, 29, 40), outline=(39, 50, 63))
+        dr.text((px + 22, y + int(16 * sc)), "UN-controlled substance (INCB)",
+                font=S(30), fill=(230, 238, 246))
+        dr.text((px + 22, y + int(54 * sc)), "Declare it in every signatory country",
+                font=S(24), fill=(140, 154, 170))
+        y += int(122 * sc)
+    for lab, arr, c in (("Banned / restricted", d.get("pro_en"), (255, 92, 80)),
+                        ("Permit required", d.get("per_en"), (240, 176, 76)),
+                        ("Must declare", d.get("dec_en"), (127, 182, 232))):
+        if not arr or (not vertical and y > H - 190):
+            continue
+        dr.text((px, y), lab, font=S(28), fill=c)
+        names = ", ".join(a.replace("United Arab Emirates", "UAE") for a in arr[:6])
+        for ln in wrap(names, S(28), W - 2 * px)[:2]:
+            y += int(40 * sc)
+            dr.text((px, y), ln, font=S(28), fill=(200, 210, 224))
+        y += int(58 * sc)
+    fy = H - (262 if vertical else 132)
+    dr.text((px, fy), "Check yours in 5 seconds", font=S(42), fill=(230, 238, 246))
+    dr.text((px, fy + int(60 * sc)), "linklynk.onrender.com/next/en", font=S(32), fill=(120, 200, 190))
+    if vertical:
+        dr.line([px, H - 140, W - px, H - 140], fill=(32, 41, 53), width=2)
+        dr.text((px, H - 112), "Source: UN INCB controlled substance lists", font=S(24), fill=(96, 110, 126))
+        dr.text((px, H - 74), "Rules change. Verify with the embassy before you fly.", font=S(24), fill=(96, 110, 126))
+    im.save(path, optimize=True)
+
+
+PAGE_EN = """<!doctype html><html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Can I bring this medicine? — 21 countries in 5 seconds</title>
+<meta name="description" content="Check if your medication is banned or needs a permit in Japan, UAE, Singapore and 18 more countries. Source: UN INCB controlled substance lists.">
+<meta property="og:title" content="Can I bring this medicine abroad?">
+<meta property="og:description" content="Your cold medicine could get you arrested in Japan. Check any medication in 5 seconds.">
+<meta property="og:image" content="https://linklynk.onrender.com/next/og-en/Sudafed.png">
+<meta property="og:image:width" content="1200"><meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<style>
+*{box-sizing:border-box}html,body{max-width:100%;overflow-x:hidden}
+body{margin:0;background:#0b0d12;color:#e9eef5;font:15px/1.65 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif}
+.w{max-width:620px;margin:0 auto;padding:28px 16px 70px}
+h1{font-size:27px;margin:0 0 6px;letter-spacing:-.4px;line-height:1.25}
+.sub{color:#8b98a8;font-size:13.5px;margin:0 0 22px}
+.inp{width:100%;background:#141a24;border:1px solid #27323f;color:#e9eef5;border-radius:13px;padding:15px 16px;font-size:16px;outline:none}
+.go{width:100%;background:#1ab2aa;color:#04211f;border:0;border-radius:13px;padding:15px;font-size:16px;font-weight:700;margin-top:10px;cursor:pointer}
+.ex{display:flex;gap:6px;flex-wrap:wrap;margin-top:12px}
+.ex button{background:#141a24;border:1px solid #27323f;color:#9fb0c2;border-radius:999px;padding:6px 12px;font-size:12.5px;cursor:pointer}
+.hero{margin-top:24px;border-radius:16px;padding:22px 20px;border:1px solid #27323f;background:#111620}
+.hero .n{font-size:28px;font-weight:800;line-height:1.25;margin:4px 0 10px}
+.red .n{color:#ff5c50}.amber .n{color:#f0b04c}.green .n{color:#6edcb4}
+.un{margin-top:12px;font-size:12.5px;color:#8b98a8;background:#161d28;border:1px solid #27323f;border-radius:9px;padding:9px 11px}
+.row{display:flex;gap:10px;padding:11px 2px;border-bottom:1px solid #1a212c}
+.row .c{flex:0 0 130px;font-weight:600;font-size:14px}.row .d{flex:1;font-size:12.5px;color:#93a2b3}
+.lv{display:inline-block;border-radius:6px;padding:1px 7px;font-size:11px;margin-left:6px}
+.PROHIBITED{background:#3a1114;color:#ff8a76}.PERMIT{background:#3a2a11;color:#f0b04c}
+.DECLARE{background:#1b2a3a;color:#7fb6e8}.LIMIT{background:#26223a;color:#a89ae8}
+.sh{display:flex;gap:8px;margin-top:18px}.sh a,.sh button{flex:1;text-align:center;background:#141a24;border:1px solid #27323f;color:#cfdae6;border-radius:12px;padding:13px;font-size:14px;font-weight:600;cursor:pointer;text-decoration:none}
+.warn{margin-top:22px;font-size:12px;color:#7d8a99;line-height:1.75;border-top:1px solid #1a212c;padding-top:16px}
+.warn b{color:#cfdae6}
+</style></head><body><div class="w">
+<h1>Can I bring this medicine abroad?</h1>
+<p class="sub">21 countries · Source: UN INCB controlled substance lists</p>
+<input class="inp" id="q" placeholder="Medicine name (e.g. Sudafed, Adderall, Xanax)" autocomplete="off">
+<button class="go" id="go">Check</button>
+<div class="ex" id="ex"></div>
+<div id="res"></div>
+<p class="warn"><b>This is not legal or medical advice.</b> Rules change often and depend on dose,
+form and quantity. UN-controlled status comes from official INCB lists; country rules are
+reference information that you must confirm. <b>Always verify with the destination country's
+embassy or health authority before you fly.</b> We never say a medicine is "safe" to carry.</p>
+</div><script>
+var EX=["Sudafed","Adderall","Xanax","Ambien","codeine","Tylenol","Benadryl","melatonin"];
+function esc(t){var d=document.createElement("div");d.textContent=t==null?"":t;return d.innerHTML;}
+EX.forEach(function(n){var b=document.createElement("button");b.textContent=n;
+ b.onclick=function(){document.getElementById("q").value=n;run(n);};document.getElementById("ex").appendChild(b);});
+document.getElementById("go").onclick=function(){run(document.getElementById("q").value);};
+document.getElementById("q").addEventListener("keydown",function(e){if(e.key==="Enter")run(this.value);});
+var m=location.pathname.match(/[/]next[/]en[/]r[/](.+)$/);
+if(m){var v=decodeURIComponent(m[1]);document.getElementById("q").value=v;run(v);}
+var LV={PROHIBITED:"Banned",PERMIT:"Permit",DECLARE:"Declare",LIMIT:"Limit"};
+function run(q){q=(q||"").trim();if(q.length<2)return;var R=document.getElementById("res");
+ R.innerHTML='<div class="hero">Checking...</div>';
+ fetch("/api/nx/check?q="+encodeURIComponent(q)).then(function(r){return r.json();}).then(function(d){
+  if(!d.ok){R.innerHTML='<div class="hero">'+esc(d.error||"Not found — try the active ingredient name")+'</div>';return;}
+  var h='<div class="hero '+d.tone+'"><div style="font-size:13px;color:#8b98a8">Your '+esc(d.q)+'</div>';
+  h+='<div class="n">'+esc(d.head_en)+'</div><div style="font-size:13.5px;color:#b9c6d4">'+esc((d.ings||[]).join(" · "))+'</div>';
+  if(d.incb&&d.incb.length)h+='<div class="un">UN-controlled substance — declare it in every signatory country</div>';
+  h+='</div>';
+  var o={PROHIBITED:0,PERMIT:1,DECLARE:2,LIMIT:3,OK:4};
+  (d.rows||[]).slice().sort(function(a,b){return o[a.level]-o[b.level];}).forEach(function(r){
+   if(r.level==="OK")return;
+   h+='<div class="row"><div class="c">'+esc(r.flag)+' '+esc(r.en.replace("United Arab Emirates","UAE"))
+     +'<span class="lv '+r.level+'">'+LV[r.level]+'</span></div><div class="d">'+esc(r.src?"Official source":"")+'</div></div>';});
+  var url=location.origin+"/next/en/r/"+encodeURIComponent(d.q)+"?via=share";
+  h+='<div class="sh"><button id="sb">Share</button><a href="/next/card-en/'+encodeURIComponent(d.q)+'.png" download>Save card</a></div>';
+  R.innerHTML=h;
+  document.getElementById("sb").onclick=function(){var t="My "+d.q+": "+d.head_en+". Check yours:";
+   if(navigator.share)navigator.share({title:"Can I bring this medicine?",text:t,url:url});
+   else{navigator.clipboard.writeText(t+" "+url);this.textContent="Copied";}};
+ }).catch(function(){R.innerHTML='<div class="hero">Request failed</div>';});}
+</script></body></html>"""
+
+
+@nx_bp.route("/next/en")
+@nx_bp.route("/next/en/")
+@nx_bp.route("/next/en/r/<path:q>")
+def nx_page_en(q=None):
+    return Response(PAGE_EN, mimetype="text/html; charset=utf-8")
