@@ -38,7 +38,7 @@
   const probeEnabled = params.get("probe") === "1";
   const bareMode = /[?&]bare=1/.test(location.search);
 
-  Object.assign(app, { params, IS_TOUCH, bareMode, data: D, state });
+  Object.assign(app, { params, IS_TOUCH, bareMode, data: D, state, on, emit, toast });
   window.SWEF = window.SWEF || { viewer: null };
 
   function setLastErr(err){
