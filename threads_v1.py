@@ -176,3 +176,156 @@ def th_quick():
     r = publish(text, img)
     r["text"] = text
     return jsonify(r)
+
+
+# ── 측정 ──────────────────────────────────────────────────────────
+# 올린 뒤 숫자를 본다. 안 보면 관객이 반응한 훅을 영영 못 찾는다.
+
+def _gate():
+    k = request.headers.get("X-Admin-Key") or request.args.get("key") or ""
+    return bool(ADMIN) and k == ADMIN
+
+
+def _get(path):
+    u = API + path + ("&" if "?" in path else "?") + "access_token=" + TOK
+    with urllib.request.urlopen(urllib.request.Request(u), timeout=30) as r:
+        return json.loads(r.read().decode())
+
+
+def _val(it):
+    tv = it.get("total_value")
+    if isinstance(tv, dict) and "value" in tv:
+        return tv["value"]
+    vs = it.get("values") or []
+    if vs and isinstance(vs[0], dict):
+        return vs[0].get("value") or 0
+    return 0
+
+
+_M_FULL = "views,likes,replies,reposts,quotes,shares"
+_M_SAFE = "views,likes,replies"
+_ENG = ("likes", "replies", "reposts", "quotes", "shares")
+
+
+def _insights(mid):
+    """지표 일부가 미지원이면 전체가 400 난다 -> 축소 재시도.
+       둘 다 실패하면 조용히 넘기지 않고 오류를 돌려준다."""
+    err = ""
+    for m in (_M_FULL, _M_SAFE):
+        try:
+            d = _get("/%s/insights?metric=%s" % (mid, m))
+            out = {}
+            for it in (d.get("data") or []):
+                out[it.get("name")] = _val(it)
+            return out
+        except Exception as e:
+            err = str(e)[:80]
+            try:
+                err = e.read().decode()[:200]
+            except Exception:
+                pass
+    return {"_err": err}
+
+
+def _rows(n):
+    uid = _resolve_uid()
+    d = _get("/%s/threads?fields=id,text,media_type,permalink,timestamp&limit=%d"
+             % (uid, n))
+    rows = []
+    for p in (d.get("data") or []):
+        ins = _insights(p.get("id"))
+        v = int(ins.get("views") or 0)
+        e = sum(int(ins.get(k) or 0) for k in _ENG)
+        rows.append({
+            "id": p.get("id"),
+            "when": (p.get("timestamp") or "")[:16].replace("T", " "),
+            "type": p.get("media_type") or "",
+            "views": v, "eng": e,
+            "er": round(e * 100.0 / v, 1) if v else 0.0,
+            "likes": int(ins.get("likes") or 0),
+            "replies": int(ins.get("replies") or 0),
+            "reposts": int(ins.get("reposts") or 0),
+            "shares": int(ins.get("shares") or 0),
+            "text": (p.get("text") or "").replace("\n", " ").strip(),
+            "permalink": p.get("permalink") or "",
+            "err": ins.get("_err") or "",
+        })
+    return rows
+
+
+def _followers():
+    try:
+        d = _get("/%s/threads_insights?metric=followers_count" % _resolve_uid())
+        for it in (d.get("data") or []):
+            return int(_val(it) or 0)
+    except Exception:
+        pass
+    return -1
+
+
+def _txt(rows, fol):
+    L = ["팔로워 %s" % ("확인불가" if fol < 0 else fol), ""]
+    L.append("%-16s %7s %5s %6s  %s" % ("when", "views", "eng", "er%", "text"))
+    L.append("-" * 72)
+    for r in rows:
+        L.append("%-16s %7d %5d %5.1f%%  %s"
+                 % (r["when"], r["views"], r["eng"], r["er"], r["text"][:34]))
+    tv = sum(r["views"] for r in rows)
+    te = sum(r["eng"] for r in rows)
+    L.append("-" * 72)
+    L.append("%d건 · 노출 %d · 반응 %d · 평균 %.1f%%"
+             % (len(rows), tv, te, (te * 100.0 / tv if tv else 0)))
+    bad = [r for r in rows if r["err"]]
+    if bad:
+        L.append("")
+        L.append("insights 오류: " + bad[0]["err"][:200])
+        L.append("-> threads_manage_insights 권한이 토큰에 없을 가능성")
+    return "\n".join(L) + "\n"
+
+
+@th_bp.route("/api/th/posts")
+def th_posts():
+    """게시물 목록만 — insights 없이 빠르게."""
+    if not _gate():
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    if not TOK:
+        return jsonify({"ok": False, "error": "토큰 없음"}), 400
+    n = max(1, min(int(request.args.get("limit") or 25), 50))
+    try:
+        d = _get("/%s/threads?fields=id,text,media_type,permalink,timestamp&limit=%d"
+                 % (_resolve_uid(), n))
+        return jsonify({"ok": True, "posts": d.get("data") or []})
+    except Exception as e:
+        body = ""
+        try:
+            body = e.read().decode()[:300]
+        except Exception:
+            pass
+        return jsonify({"ok": False, "error": str(e)[:120], "detail": body}), 502
+
+
+@th_bp.route("/api/th/stats")
+def th_stats():
+    """게시물 + 지표. fmt=txt 면 터미널용 표로."""
+    if not _gate():
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    if not TOK:
+        return jsonify({"ok": False, "error": "토큰 없음"}), 400
+    n = max(1, min(int(request.args.get("limit") or 25), 50))
+    try:
+        rows = _rows(n)
+    except Exception as e:
+        body = ""
+        try:
+            body = e.read().decode()[:300]
+        except Exception:
+            pass
+        return jsonify({"ok": False, "error": str(e)[:120], "detail": body}), 502
+    fol = _followers()
+    if (request.args.get("fmt") or "") == "txt":
+        return Response(_txt(rows, fol), mimetype="text/plain; charset=utf-8")
+    rows_s = sorted(rows, key=lambda r: r["views"], reverse=True)
+    return jsonify({"ok": True, "followers": fol, "n": len(rows),
+                    "total_views": sum(r["views"] for r in rows),
+                    "total_eng": sum(r["eng"] for r in rows),
+                    "posts": rows_s})
