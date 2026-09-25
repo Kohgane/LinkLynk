@@ -399,3 +399,31 @@ def th_thread():
         if not rr.get("ok"):
             out["reply_error"] = rr.get("error")
     return jsonify(out)
+
+
+@th_bp.route("/api/th/del", methods=["POST"])
+def th_del():
+    """게시물 삭제. 되돌릴 수 없다. 댓글 먼저, 부모 나중 순서로 넣을 것."""
+    if not _gate():
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    d = request.get_json(silent=True) or {}
+    ids = d.get("ids") or ([d["id"]] if d.get("id") else [])
+    if not ids:
+        return jsonify({"ok": False, "error": "ids 필요"}), 400
+    out = []
+    for mid in ids:
+        try:
+            u = API + "/" + str(mid) + "?access_token=" + TOK
+            req = urllib.request.Request(u, method="DELETE")
+            with urllib.request.urlopen(req, timeout=30) as r:
+                out.append({"id": mid, "ok": True,
+                            "resp": json.loads(r.read().decode())})
+        except Exception as e:
+            body = ""
+            try:
+                body = e.read().decode()[:200]
+            except Exception:
+                pass
+            out.append({"id": mid, "ok": False,
+                        "error": str(e)[:100], "detail": body})
+    return jsonify({"ok": True, "results": out})
