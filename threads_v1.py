@@ -329,3 +329,73 @@ def th_stats():
                     "total_views": sum(r["views"] for r in rows),
                     "total_eng": sum(r["eng"] for r in rows),
                     "posts": rows_s})
+
+
+# ── 2차 측정용: 본문 링크 없이 올리고 링크는 첫 댓글로 ────────────
+# 기존 publish() 는 건드리지 않는다. 살아있는 경로다.
+
+def publish2(text, image_url=None, reply_to=None):
+    """link_attachment 를 의도적으로 넣지 않는다 — 그게 이 실험의 변수다."""
+    uid = _resolve_uid()
+    if not (uid and TOK):
+        return {"ok": False, "error": "THREADS_ACCESS_TOKEN 미설정"}
+    p = {"access_token": TOK, "text": text[:480]}
+    if image_url:
+        p["media_type"] = "IMAGE"
+        p["image_url"] = image_url
+    else:
+        p["media_type"] = "TEXT"
+    if reply_to:
+        p["reply_to_id"] = reply_to
+    try:
+        c = _post("/%s/threads" % uid, p)
+        cid = c.get("id")
+        if not cid:
+            return {"ok": False, "error": "컨테이너 생성 실패", "detail": c}
+        time.sleep(3 if image_url else 1)
+        r = _post("/%s/threads_publish" % uid,
+                  {"access_token": TOK, "creation_id": cid})
+        return {"ok": True, "id": r.get("id")}
+    except Exception as e:
+        body = ""
+        try:
+            body = e.read().decode()[:300]
+        except Exception:
+            pass
+        return {"ok": False, "error": str(e)[:120], "detail": body}
+
+
+@th_bp.route("/api/th/thread", methods=["POST"])
+def th_thread():
+    """본문 + 첫 댓글을 한 번에. dry=1 이면 올리지 않고 보여만 준다."""
+    if not _gate():
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    d = request.get_json(silent=True) or {}
+    text = (d.get("text") or "").strip()
+    if not text:
+        return jsonify({"ok": False, "error": "text 필요"}), 400
+    img = d.get("image_url") or None
+    rep = (d.get("reply") or "").strip()
+    if d.get("dry"):
+        return jsonify({"ok": True, "dry": True, "text": text,
+                        "chars": len(text), "image_url": img, "reply": rep})
+    if img:
+        try:
+            with urllib.request.urlopen(img, timeout=20) as r:
+                if r.status != 200:
+                    return jsonify({"ok": False, "error": "이미지 200 아님"}), 400
+        except Exception as e:
+            return jsonify({"ok": False,
+                            "error": "이미지 확인 실패: " + str(e)[:80]}), 400
+    par = publish2(text, img)
+    if not par.get("ok"):
+        return jsonify(par), 502
+    out = {"ok": True, "parent": par.get("id")}
+    if rep:
+        time.sleep(2)
+        rr = publish2(rep, None, par.get("id"))
+        out["reply"] = rr.get("id")
+        out["reply_ok"] = rr.get("ok")
+        if not rr.get("ok"):
+            out["reply_error"] = rr.get("error")
+    return jsonify(out)
