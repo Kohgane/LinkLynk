@@ -468,3 +468,31 @@ def th_hits():
         return jsonify({"ok": True, "total": 0, "note": "아직 클릭 없음 (또는 배포로 초기화)"})
     return jsonify({"ok": True, "total": sum(cnt.values()),
                     "by_slug": cnt, "by_day": day})
+
+
+@th_bp.route("/api/th/hitlog")
+def th_hitlog():
+    """클릭이 사람인지 봇인지 UA 로 가른다. 숫자만 보면 착각한다."""
+    if not _gate():
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    rows, bot, human = [], 0, 0
+    _B = ("bot", "crawler", "spider", "facebookexternalhit", "meta-external",
+          "curl", "python", "wget", "preview", "headless")
+    try:
+        for ln in open(_HITS):
+            p = ln.rstrip("\n").split("\t")
+            if len(p) < 3:
+                continue
+            ua = p[2]
+            u = ua.lower()
+            is_bot = any(b in u for b in _B)
+            if is_bot:
+                bot += 1
+            else:
+                human += 1
+            rows.append({"t": time.strftime("%m-%d %H:%M", time.localtime(int(p[0]))),
+                         "slug": p[1], "bot": is_bot, "ua": ua})
+    except IOError:
+        pass
+    return jsonify({"ok": True, "bot": bot, "human": human,
+                    "last": rows[-30:]})
