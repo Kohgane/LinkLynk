@@ -241,7 +241,7 @@ def _rows(n):
             "when": (p.get("timestamp") or "")[:16].replace("T", " "),
             "type": p.get("media_type") or "",
             "views": v, "eng": e,
-            "er": round(e * 100.0 / v, 1) if v else 0.0,
+            "er": min(round(e * 100.0 / v, 1), 100.0) if v else 0.0,
             "likes": int(ins.get("likes") or 0),
             "replies": int(ins.get("replies") or 0),
             "reposts": int(ins.get("reposts") or 0),
@@ -427,3 +427,44 @@ def th_del():
             out.append({"id": mid, "ok": False,
                         "error": str(e)[:100], "detail": body})
     return jsonify({"ok": True, "results": out})
+
+
+# ── 유입 측정 ─────────────────────────────────────────────────────
+# 노출만 보면 착각한다. 첫 댓글 링크를 실제로 누르는지 센다.
+_HITS = "/tmp/th_hits.log"
+_DEST = {"next": "/next", "duty": "/duty", "rx": "/can-i-bring",
+         "gg": "/gottago", "eats": "/eats"}
+
+
+@th_bp.route("/t/<slug>")
+def th_track(slug):
+    dest = _DEST.get(slug)
+    if not dest:
+        return Response("not found", status=404)
+    try:
+        with open(_HITS, "a") as f:
+            f.write("%d\t%s\t%s\n" % (int(time.time()), slug,
+                                      (request.headers.get("User-Agent") or "")[:60]))
+    except Exception:
+        pass        # 측정 실패가 유입을 막지 않는다
+    from flask import redirect
+    return redirect(dest + "?utm_source=threads", code=302)
+
+
+@th_bp.route("/api/th/hits")
+def th_hits():
+    if not _gate():
+        return jsonify({"ok": False, "error": "unauthorized"}), 401
+    cnt, day = {}, {}
+    try:
+        for ln in open(_HITS):
+            p = ln.rstrip("\n").split("\t")
+            if len(p) < 2:
+                continue
+            cnt[p[1]] = cnt.get(p[1], 0) + 1
+            d = time.strftime("%m-%d", time.localtime(int(p[0])))
+            day[d] = day.get(d, 0) + 1
+    except IOError:
+        return jsonify({"ok": True, "total": 0, "note": "아직 클릭 없음 (또는 배포로 초기화)"})
+    return jsonify({"ok": True, "total": sum(cnt.values()),
+                    "by_slug": cnt, "by_day": day})
