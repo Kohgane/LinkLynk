@@ -459,7 +459,12 @@ void main(){ vec2 uv=v_textureCoordinates; vec4 col=texture(colorTexture,uv); ve
     const emoji = avatarPick || veh.e;
     if (emoji !== avatarEmoji) {
       avatarEmoji = emoji;
-      if (emoji.indexOf("img:") === 0) el.innerHTML = '<img src="' + emoji.slice(4) + '" style="height:' + Math.round(avatarSize * 1.7) + 'px;filter:drop-shadow(0 12px 14px rgba(0,0,0,.6))" alt="">';
+      if (emoji.indexOf("img:") === 0) {
+        // P1-0925: animated WebP (/fly/av/anim/<slug>.webp) first, PNG fallback
+        const png = emoji.slice(4);
+        const anim = png.replace(/\/av\/([a-z0-9_-]+)\.png$/, "/av/anim/$1.webp");
+        el.innerHTML = '<img src="' + anim + '" data-fallback="' + png + '" onerror="if(this.dataset.fallback){this.src=this.dataset.fallback;delete this.dataset.fallback;}" style="height:' + Math.round(avatarSize * 1.7) + 'px;filter:drop-shadow(0 12px 14px rgba(0,0,0,.6))" alt="">';
+      }
       else el.textContent = emoji;
     }
     const r = -(app.state.roll || 0);
