@@ -443,8 +443,9 @@ def th_track(slug):
         return Response("not found", status=404)
     try:
         with open(_HITS, "a") as f:
-            f.write("%d\t%s\t%s\n" % (int(time.time()), slug,
-                                      (request.headers.get("User-Agent") or "")[:60]))
+            f.write("%d\t%s\t%s\t%s\n" % (int(time.time()), slug,
+                                        (request.headers.get("User-Agent") or "")[:60],
+                                        (request.headers.get("Referer") or "-")[:40]))
     except Exception:
         pass        # 측정 실패가 유입을 막지 않는다
     from flask import redirect
@@ -475,7 +476,7 @@ def th_hitlog():
     """클릭이 사람인지 봇인지 UA 로 가른다. 숫자만 보면 착각한다."""
     if not _gate():
         return jsonify({"ok": False, "error": "unauthorized"}), 401
-    rows, bot, human = [], 0, 0
+    rows, bot, human, burst = [], 0, 0, {}
     _B = ("bot", "crawler", "spider", "facebookexternalhit", "meta-external",
           "curl", "python", "wget", "preview", "headless")
     try:
@@ -485,14 +486,21 @@ def th_hitlog():
                 continue
             ua = p[2]
             u = ua.lower()
-            is_bot = any(b in u for b in _B)
-            if is_bot:
-                bot += 1
-            else:
-                human += 1
-            rows.append({"t": time.strftime("%m-%d %H:%M", time.localtime(int(p[0]))),
-                         "slug": p[1], "bot": is_bot, "ua": ua})
+            mn = time.strftime("%m-%d %H:%M", time.localtime(int(p[0])))
+            rows.append({"t": mn, "slug": p[1],
+                         "ua_bot": any(b in u for b in _B), "ua": ua,
+                         "ref": (p[3] if len(p) > 3 else "-")})
+            burst[mn] = burst.get(mn, 0) + 1
     except IOError:
         pass
+    # ★게시 직후 크롤러가 한 분에 몰린다. UA 가 브라우저여도 그건 사람이 아니다.
+    #   같은 분에 3건 이상이면 크롤러 폭발로 본다.
+    for r in rows:
+        r["bot"] = r["ua_bot"] or burst.get(r["t"], 0) >= 3
+        if r["bot"]:
+            bot += 1
+        else:
+            human += 1
     return jsonify({"ok": True, "bot": bot, "human": human,
+                    "note": "burst(같은 분 3건+)은 UA 가 브라우저여도 크롤러로 분류",
                     "last": rows[-30:]})
