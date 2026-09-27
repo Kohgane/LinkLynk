@@ -21,6 +21,21 @@ def slugify(s):
     return s.strip("-")[:48] or "x"
 
 
+
+# ★이 목록에 있는 성분만 "어디든 가져갈 수 있다"고 단정한다.
+#   나머지는 규정 미수록일 수 있으므로 "확인되지 않음"으로 내린다.
+#   각성제·마약성·니코틴·에페드린 계열은 의도적으로 제외한다.
+_GREEN_OK = {
+    "acetaminophen", "paracetamol", "ibuprofen", "dexibuprofen", "naproxen",
+    "aspirin", "diclofenac", "aceclofenac", "celecoxib",
+    "loratadine", "cetirizine", "levocetirizine", "fexofenadine", "ebastine",
+    "famotidine", "omeprazole", "esomeprazole", "lansoprazole", "pantoprazole",
+    "loperamide", "guaifenesin", "dimenhydrinate", "meclizine",
+    "amoxicillin", "azithromycin", "doxycycline",
+    "atorvastatin", "rosuvastatin", "amlodipine", "losartan", "metformin",
+    "levothyroxine", "minoxidil", "oseltamivir",
+}
+
 def verdict(q):
     """성분 기준 판정. 같은 성분이면 같은 결과 → OG 캐시가 유한해진다."""
     k = (q or "").strip().lower()
@@ -40,6 +55,7 @@ def verdict(q):
     if _ko and not _named:
         return {"ok": False, "need_en": True,
                 "error": "한글 약 이름은 성분 확인이 어려워요. 포장에 적힌 영문 성분명을 넣어주세요 (예: acetaminophen, codeine)"}
+    unknown = False
     hits, rows = build_verdict(ings, q)
     pro = [r for r in rows if r["level"] == "PROHIBITED"]
     per = [r for r in rows if r["level"] == "PERMIT"]
@@ -61,13 +77,22 @@ def verdict(q):
         head, tone = "%d개국에서 신고 대상입니다" % soft, "amber"
         head_en = "Must be declared in %d countr%s" % (soft, "y" if soft == 1 else "ies")
     else:
-        head, tone = "어디든 가져갈 수 있는 몇 안 되는 약", "green"
-        head_en = "One of the few you can take almost anywhere"
+        # ★규정 테이블에 안 걸린 것과 '안전한 것'은 다르다.
+        #   성분이 테이블에 아예 없으면 아무것도 안 걸리고, 그게 초록으로 나갔다.
+        #   에페드린·니코틴이 "어디든 가져갈 수 있는 약"으로 찍힌 실측 버그.
+        #   빈 화면보다 잘못된 안심이 나쁘다 → 초록은 검증된 일반약에만 준다.
+        if any((i or "").lower() in _GREEN_OK for i in ings):
+            head, tone = "어디든 가져갈 수 있는 몇 안 되는 약", "green"
+            head_en = "One of the few you can take almost anywhere"
+        else:
+            head, tone = "반입 제한 정보가 확인되지 않았습니다", "amber"
+            head_en = "No restriction data found - verify before you fly"
+            unknown = True
     out = {
         "ok": True, "q": q, "slug": slugify(q),
         "ings": ings[:4], "incb": [h["list"] for h in hits[:1]],
         "total": total, "hard": hard, "soft": soft,
-        "head": head, "tone": tone, "head_en": head_en,
+        "head": head, "tone": tone, "head_en": head_en, "unknown": unknown,
         "pro": [r["ko"] for r in pro], "per": [r["ko"] for r in per],
         "dec": [r["ko"] for r in dec][:8],
         "pro_en": [r["en"] for r in pro], "per_en": [r["en"] for r in per],
