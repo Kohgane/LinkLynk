@@ -104,11 +104,16 @@ def lookup_ko(name):
         return []
     if q in _IDX:
         return list(_IDX[q])
-    # 부분 일치: '타이레놀500' '게보린정' 같은 변형 흡수
+    # 부분 일치 — '긴 키 우선'. 짧은 키가 긴 키를 가로채는 걸 막는다
+    # ('코데인'이 '디히드로코데인'을, '에페드린'이 '슈도에페드린'을 먹던 버그)
+    best = None
     for k, v in _IDX.items():
-        if len(k) >= 2 and (k in q or q in k):
-            return list(v)
-    return []
+        if len(k) < 2:
+            continue
+        if k in q or q in k:
+            if best is None or len(k) > len(best[0]):
+                best = (k, v)
+    return list(best[1]) if best else []
 
 # ── 확장분 (상비약·처방약 다빈도)
 KO_DRUG.update({
@@ -176,6 +181,98 @@ KO_DRUG.update({
     "심비코트": ["budesonide", "formoterol"],
     "니코레트": ["nicotine"],
     "챔픽스": ["varenicline"],
-    "디咪": ["dimenhydrinate"],
+    "보나링": ["dimenhydrinate"],
+})
+_IDX = {norm_ko(k): v for k, v in KO_DRUG.items()}
+
+# ── 한글 성분명 ──────────────────────────────────────────────────
+# 상품명만 있어서 '코데인' '트라마돌' 같은 성분명 검색이 전부 빈손이었다.
+# 여행객은 상품명과 성분명을 둘 다 검색한다.
+KO_DRUG.update({
+    # 마약성 진통
+    "코데인": ["codeine"], "디히드로코데인": ["dihydrocodeine"],
+    "하이드로코돈": ["hydrocodone"], "옥시코돈": ["oxycodone"],
+    "모르핀": ["morphine"], "펜타닐": ["fentanyl"],
+    "트라마돌": ["tramadol"], "부프레노르핀": ["buprenorphine"],
+    "메타돈": ["methadone"], "메사돈": ["methadone"],
+    "페티딘": ["pethidine"], "케타민": ["ketamine"],
+    # 각성제·ADHD
+    "암페타민": ["amphetamine"], "덱스트로암페타민": ["dextroamphetamine"],
+    "리스덱스암페타민": ["lisdexamfetamine"], "메틸페니데이트": ["methylphenidate"],
+    "모다피닐": ["modafinil"], "아르모다피닐": ["armodafinil"],
+    "아토목세틴": ["atomoxetine"],
+    # 수면·항불안
+    "졸피뎀": ["zolpidem"], "조피클론": ["zopiclone"],
+    "에스조피클론": ["eszopiclone"], "트리아졸람": ["triazolam"],
+    "알프라졸람": ["alprazolam"], "디아제팜": ["diazepam"],
+    "로라제팜": ["lorazepam"], "클로나제팜": ["clonazepam"],
+    "에티졸람": ["etizolam"], "멜라토닌": ["melatonin"],
+    # 항우울·정신
+    "설트랄린": ["sertraline"], "에스시탈로프람": ["escitalopram"],
+    "플루옥세틴": ["fluoxetine"], "파록세틴": ["paroxetine"],
+    "부프로피온": ["bupropion"], "미르타자핀": ["mirtazapine"],
+    "쿠에티아핀": ["quetiapine"], "올란자핀": ["olanzapine"],
+    "아리피프라졸": ["aripiprazole"], "가바펜틴": ["gabapentin"],
+    "프레가발린": ["pregabalin"],
+    # 감기·기침·콧물
+    "슈도에페드린": ["pseudoephedrine"], "에페드린": ["ephedrine"],
+    "메틸에페드린": ["dl-methylephedrine"],
+    "덱스트로메토르판": ["dextromethorphan"], "구아이페네신": ["guaifenesin"],
+    "페닐에프린": ["phenylephrine"], "독실아민": ["doxylamine"],
+    # 항히스타민
+    "로라타딘": ["loratadine"], "세티리진": ["cetirizine"],
+    "레보세티리진": ["levocetirizine"], "펙소페나딘": ["fexofenadine"],
+    "클로르페니라민": ["chlorpheniramine"], "디펜히드라민": ["diphenhydramine"],
+    "에바스틴": ["ebastine"],
+    # 해열·진통·소염
+    "아세트아미노펜": ["acetaminophen"], "아세타미노펜": ["acetaminophen"],
+    "파라세타몰": ["acetaminophen"], "이부프로펜": ["ibuprofen"],
+    "덱시부프로펜": ["dexibuprofen"], "나프록센": ["naproxen"],
+    "디클로페낙": ["diclofenac"], "셀레콕시브": ["celecoxib"],
+    "아세클로페낙": ["aceclofenac"],
+    # 위장
+    "오메프라졸": ["omeprazole"], "에스오메프라졸": ["esomeprazole"],
+    "란소프라졸": ["lansoprazole"], "판토프라졸": ["pantoprazole"],
+    "파모티딘": ["famotidine"], "로페라미드": ["loperamide"],
+    "돔페리돈": ["domperidone"], "메토클로프라미드": ["metoclopramide"],
+    # 멀미
+    "스코폴라민": ["scopolamine"], "디멘히드리네이트": ["dimenhydrinate"],
+    "메클리진": ["meclizine"],
+    # 순환·대사
+    "프로프라놀롤": ["propranolol"], "암로디핀": ["amlodipine"],
+    "로사르탄": ["losartan"], "아토르바스타틴": ["atorvastatin"],
+    "로수바스타틴": ["rosuvastatin"], "레보티록신": ["levothyroxine"],
+    # 항생·항바이러스·항말라리아
+    "아목시실린": ["amoxicillin"], "아지트로마이신": ["azithromycin"],
+    "시프로플록사신": ["ciprofloxacin"], "레보플록사신": ["levofloxacin"],
+    "독시사이클린": ["doxycycline"], "세프트리악손": ["ceftriaxone"],
+    "오셀타미비르": ["oseltamivir"], "메플로퀸": ["mefloquine"],
+    "하이드록시클로로퀸": ["hydroxychloroquine"], "아토바쿠온": ["atovaquone"],
+    # 호르몬·기타
+    "테스토스테론": ["testosterone"], "에스트라디올": ["estradiol"],
+    "프레드니솔론": ["prednisolone"], "덱사메타손": ["dexamethasone"],
+    "실데나필": ["sildenafil"], "타다라필": ["tadalafil"],
+    "바르데나필": ["vardenafil"], "피나스테리드": ["finasteride"],
+    "이소트레티노인": ["isotretinoin"], "니코틴": ["nicotine"],
+    "카페인": ["caffeine"], "칸나비디올": ["cannabidiol"],
+    "테트라하이드로칸나비놀": ["tetrahydrocannabinol"],
+    # 해외 브랜드 한글 표기 — 여행객이 이 이름으로 검색한다
+    "애드빌": ["ibuprofen"], "애드빌피엠": ["ibuprofen", "diphenhydramine"],
+    "모트린": ["ibuprofen"], "알리브": ["naproxen"],
+    "타이레놀피엠": ["acetaminophen", "diphenhydramine"],
+    "니퀼": ["acetaminophen", "dextromethorphan", "doxylamine"],
+    "데이퀼": ["acetaminophen", "dextromethorphan", "phenylephrine"],
+    "베나드릴": ["diphenhydramine"], "클라리틴": ["loratadine"],
+    "지르텍": ["cetirizine"], "알레그라": ["fexofenadine"],
+    "수다페드": ["pseudoephedrine"], "슈다페드": ["pseudoephedrine"],
+    "뮤시넥스": ["guaifenesin", "dextromethorphan"],
+    "리탈린": ["methylphenidate"], "콘서타": ["methylphenidate"],
+    "바이반스": ["lisdexamfetamine"], "자낙스": ["alprazolam"],
+    "앰비엔": ["zolpidem"], "발륨": ["diazepam"], "아티반": ["lorazepam"],
+    "퍼코셋": ["oxycodone", "acetaminophen"],
+    "바이코딘": ["hydrocodone", "acetaminophen"],
+    "울트람": ["tramadol"], "드라마민": ["dimenhydrinate"],
+    "펩시드": ["famotidine"], "이모디움": ["loperamide"],
+    "넥시움": ["esomeprazole"], "프릴로섹": ["omeprazole"],
 })
 _IDX = {norm_ko(k): v for k, v in KO_DRUG.items()}
