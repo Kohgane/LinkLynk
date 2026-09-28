@@ -699,23 +699,16 @@ def _robots():
     # ★순서가 곧 규칙이다. 순서 매칭 크롤러(first-match)와 구글(longest-match)
     #   양쪽에서 같은 결과가 나오도록: 민감 경로 차단 → 공개 경로 허용 → 나머지 차단.
     #   빈 줄은 그룹을 끊으니 규칙 사이에 절대 넣지 않는다.
+    # ★화이트리스트 방식을 버린다. 라우트를 새로 만들 때마다 Allow 를 추가해야 했고,
+    #   빠뜨리면 조용히 차단됐다(/ko 19페이지 실측, 세 번째 재발).
+    #   기본 허용 + 막을 것만 명시로 뒤집으면 이 버그 계열이 사라진다.
+    #   /t/ 는 클릭 추적 리다이렉트다. 크롤러가 따라가면 유입 로그가 오염되므로 막는다.
     rules = [
         "User-agent: *",
         "Disallow: /api/",
+        "Disallow: /t/",
         "Disallow: /boim/r/",
         "Disallow: /boim/pay/",
-        "Allow: /can-i-bring",
-        "Allow: /next",
-        "Allow: /duty",
-        "Allow: /gottago",
-        "Allow: /eats",
-        "Allow: /rx",
-        "Allow: /sitemap-travel.xml",
-        "Allow: /boim",
-        "Allow: /boim/guide",
-        "Allow: /boim-manifest.json",
-        "Allow: /boim-icon-192.png",
-        "Disallow: /",
     ]
     maps = [
         "Sitemap: https://linklynk.onrender.com/sitemap.xml",
