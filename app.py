@@ -14,6 +14,7 @@ from flask import Flask, request, jsonify, send_from_directory, session, make_re
 from core import CoupangPartners, is_valid_coupang_url, make_blog_draft, COUPANG_DISCLOSURE, unshorten_coupang, is_short_coupang_link, extract_coupang_url, build_naver_html, zernio_publish
 import store
 from spinads_api_v2 import spinads_bp
+from radar_api_v1 import radar_bp
 
 app = Flask(__name__, static_folder=".")
 
@@ -24,6 +25,7 @@ try:
 except Exception:
     pass
 app.register_blueprint(spinads_bp)
+app.register_blueprint(radar_bp)
 from borderrx_v1 import rx_bp
 app.register_blueprint(rx_bp)
 from gottago_v1 import gg_bp
