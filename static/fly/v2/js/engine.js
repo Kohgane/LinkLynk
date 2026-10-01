@@ -38,8 +38,12 @@
     resBias: 0,
     govCalm: 0,
     govLockUntil: 0,
-    govLastDrop: 0
+    govLastDrop: 0,
+    rafCapMs: 16.7,
+    rafCapDone: false,
+    rafSamples: []
   };
+  // P2-1001: rAF cap probe (iOS Low Power Mode locks rAF to 30Hz; governor must not punish an OS cap)
   // P0-0921a: v1 승리 세팅 이식 — iGPU 프로파일 · 타일 SSE 고도밴드 · 거버너 히스테리시스 · 다이얼
   try {
     state.sseBias = parseInt(localStorage.getItem("swef2_ssebias") || "0", 10) || 0;
@@ -141,6 +145,7 @@
     if (!app.viewer) return;
     app.viewer.resolutionScale = baseResolutionForTier(state.governorTier);
     syncStageBudget();
+    updateTierLabel();
     if (state.governorTier >= 2 && typeof app.setCloudMode === "function") app.setCloudMode(0, true);
   }
 
@@ -149,12 +154,17 @@
     // 민낯 기준: 이동 커튼·워프 중 프레임은 타일 스트리밍 몫이라 판정에서 뺀다.
     if (acc && (state.travel || state.warpHold > 0)) { acc.elapsed = 0; acc.sum = 0; acc.count = 0; return; }
     if (!acc || acc.elapsed < 1500) return;
+    if (!state.rafCapDone) { acc.elapsed = 0; acc.sum = 0; acc.count = 0; return; } // P2-1001: no verdict before the cap is known
     const avg = acc.sum / Math.max(1, acc.count);
     const nowMs = performance.now();
     state.govAvg = avg;
     state.govAccum = { elapsed: 0, sum: 0, count: 0 };
     // §4 벽시계 1.5초마다 평균 프레임타임을 평가해 티어를 올리고 되돌린다.
-    if (avg > 26 && state.governorTier < 2) {
+    // cap-relative thresholds: demote only when avg exceeds the OS cap by 55%+, promote when within 11%
+    const capMs = state.rafCapMs || 16.7;
+    const demoteAt = Math.max(26, capMs * 1.55);
+    const promoteAt = Math.max(18.5, capMs * 1.11);
+    if (avg > demoteAt && state.governorTier < 2) {
       state.governorTier += 1;
       if (!state.governorToasted) {
         state.governorToasted = true;
@@ -164,7 +174,7 @@
       if (state.govLastDrop && nowMs - state.govLastDrop < 12000) state.govLockUntil = nowMs + 45000;
       state.govCalm = 0;
       applyGovernorTier();
-    } else if (avg < 18.5 && state.governorTier > 0) {
+    } else if (avg < promoteAt && state.governorTier > 0) {
       // 60Hz vsync 평균은 16.7~17.5ms라 <17 단발 조건은 사실상 복귀 불능 — 2창(3초) 연속 <18.5로 교체
       state.govCalm += 1;
       if (state.govCalm >= 2 && nowMs >= state.govLockUntil) {
@@ -311,7 +321,7 @@
     const memMB = st ? Math.round(((st.geometryByteLength || 0) + (st.texturesByteLength || 0)) / 1048576) : 0;
     const gpuTag = state.softRenderer ? "SOFT" : state.iGPU ? "iGPU" : (IS_TOUCH ? "touch" : "dGPU?");
     state.diagText = [
-      "FPS " + state.fpsValue + " | 최악 " + Math.round(state.frameWorst || 0) + "ms",
+      "FPS " + state.fpsValue + "/" + Math.round(1000 / (state.rafCapMs || 16.7)) + " | 최악 " + Math.round(state.frameWorst || 0) + "ms",
       "타일 " + tiles + " | 해상도 " + app.viewer.resolutionScale.toFixed(2),
       "SSE " + state.currentSSE + "→" + state.targetSSE + " b" + state.sseBand + (state.tileset && state.tileset.skipLevelOfDetail ? " skip" : "") + " | 거버너 " + state.governorTier + " (" + Math.round(state.govAvg || 0) + "ms)",
       "선택 " + (st ? st.selected : 0) + " | 커맨드 " + (st ? st.numberOfCommands : 0) + " | VRAM " + memMB + "MB | " + gpuTag,
@@ -582,6 +592,21 @@
       const dt = dtMs / 1000;
       state.lastFrameStamp = now;
       state.lastFrameDt = dtMs;
+      if (!state.rafCapDone) {
+        // first 90 frames after boot: median dt decides the cap (16.7 / 33.3 / 41.7 / 8.3)
+        if (state.rafSamples.length < 90) state.rafSamples.push(dtMs);
+        else {
+          const sorted = state.rafSamples.slice().sort((a, b)=>a - b);
+          const med = sorted[45];
+          const cands = [8.33, 11.1, 16.67, 20, 33.33, 41.67];
+          let best = 16.67, bd = 1e9;
+          cands.forEach((c)=>{ const d = Math.abs(med - c); if (d < bd) { bd = d; best = c; } });
+          state.rafCapMs = best;
+          state.rafCapDone = true;
+          state.rafSamples = null;
+          if (best >= 33) toast("🔋 화면 갱신 " + Math.round(1000 / best) + "Hz 제한 감지 (저전력 모드?)", 3600);
+        }
+      }
       state.govAccum.elapsed += dtMs;
       state.govAccum.sum += dtMs;
       state.govAccum.count += 1;
