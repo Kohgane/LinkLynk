@@ -147,13 +147,13 @@ def cb_page(s):
     html = ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1">'
             '<title>%s</title><meta name="description" content="%s">'
-            '<link rel="canonical" href="%s/can-i-bring/%s">'
+            '<link rel="canonical" href="%s/can-i-bring/%s">%s'
             '<meta property="og:title" content="%s"><meta property="og:description" content="%s">'
             '<meta property="og:image" content="%s/next/og-en/%s.png">'
             '<meta name="twitter:card" content="summary_large_image">'
             '<script type="application/ld+json">%s</script>'
             '<style>%s</style></head><body><div class="w">%s</div></body></html>'
-            % (e(title), e(desc), BASE, s, e(title), e(desc), BASE, e(drug), ld, CSS, "".join(body)))
+            % (e(title), e(desc), BASE, s, _alt_en(s), e(title), e(desc), BASE, e(drug), ld, CSS, "".join(body)))
     return Response(html, mimetype="text/html; charset=utf-8")
 
 
@@ -167,10 +167,16 @@ def cb_index():
             '<meta name="viewport" content="width=device-width,initial-scale=1">'
             '<title>Can I bring my medicine abroad? Country-by-country guide</title>'
             '<meta name="description" content="Which medicines are banned or need a permit in Japan, UAE, Singapore, Saudi Arabia and more.">'
+            '<link rel="canonical" href="%s/can-i-bring">'
+            '<link rel="alternate" hreflang="en" href="%s/can-i-bring">'
+            '<link rel="alternate" hreflang="ko" href="%s/ko">'
+            '<link rel="alternate" hreflang="x-default" href="%s/can-i-bring">'
             '<style>%s</style></head><body><div class="w"><h1>Can I bring my medicine abroad?</h1>'
             '<p class="lede">Common medicines that are banned or restricted abroad.</p>%s'
-            '<a class="cta" href="/next/en">Check any medicine in 21 countries</a></div></body></html>'
-            % (CSS, items))
+            '<a class="cta" href="/next/en">Check any medicine in 21 countries</a>'
+            '<p style="margin-top:18px;opacity:.7"><a href="/ko">한국어</a></p>'
+            '</div></body></html>'
+            % (BASE, BASE, BASE, BASE, CSS, items))
     return Response(html, mimetype="text/html; charset=utf-8")
 
 
@@ -180,7 +186,7 @@ def cb_sitemap():
             "%s/gottago/" % BASE, "%s/eats/" % BASE]
     urls += ["%s/can-i-bring/%s" % (BASE, slug(d, c)) for d, c in PAIRS]
     urls += ["%s/ko" % BASE]
-    urls += ["%s/ko/%s" % (BASE, ko_slug(l, c)) for l, q, c in KO_PAIRS]
+    urls += ["%s/ko/%s" % (BASE, _q(ko_slug(l, c))) for l, q, c in KO_PAIRS]
     xml = ('<?xml version="1.0" encoding="UTF-8"?>'
            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
            + "".join("<url><loc>%s</loc><changefreq>weekly</changefreq></url>" % u for u in urls)
@@ -318,7 +324,7 @@ def cb_ko_page(s):
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
         '<title>%s | BorderRx</title>'
         '<meta name="description" content="%s %s 성분 기준으로 확인한 결과입니다. 근거와 출처를 함께 표시합니다.">'
-        '<link rel="canonical" href="%s/ko/%s">'
+        '<link rel="canonical" href="%s/ko/%s">%s'
         '<script type="application/ld+json">%s</script>'
         '<style>%s</style></head><body><div class="w">'
         '<h1>%s</h1>'
@@ -327,7 +333,7 @@ def cb_ko_page(s):
         '<div class="v" style="color:%s">%s</div>'
         '<div class="ing">성분: %s</div></div>'
         % (_h.escape(title), _h.escape(label), _h.escape(kname),
-           BASE, s, faq, CSS, _h.escape(title),
+           BASE, s, _alt_ko(s), faq, CSS, _h.escape(title),
            "규정 확인 권고" if not ver else "공식 출처 확인",
            COL.get(lvl, "#e9eef5"), _h.escape(ansv), _h.escape(ings)))
     if why:
@@ -359,10 +365,60 @@ def cb_ko_index():
             '<title>약 해외 반입 가능 여부 | BorderRx</title>'
             '<meta name="description" content="감기약·ADHD약·수면제를 해외에 가져가도 되는지 '
             '성분 기준으로 확인합니다. 21개국, 출처 표기.">'
-            '<link rel="canonical" href="%s/ko"><style>%s</style></head><body><div class="w">'
+            '<link rel="canonical" href="%s/ko">'
+            '<link rel="alternate" hreflang="ko" href="%s/ko">'
+            '<link rel="alternate" hreflang="en" href="%s/can-i-bring">'
+            '<link rel="alternate" hreflang="x-default" href="%s/can-i-bring">'
+            '<style>%s</style></head><body><div class="w">'
             '<h1>이 약, 가져가도 되나요</h1>'
             '<p class="lede">브랜드가 아니라 성분으로 판정합니다. 21개국, 출처 함께 표기.</p>'
             '<div class="rel">%s</div>'
             '<a class="cta" href="%s/next">약 이름 직접 넣어보기</a>'
-            '</div></body></html>' % (BASE, CSS, items, BASE))
+            '<p style="margin-top:18px;opacity:.7"><a href="%s/can-i-bring">English</a></p>'
+            '</div></body></html>' % (BASE, BASE, BASE, BASE, CSS, items, BASE, BASE))
     return Response(html, mimetype="text/html; charset=utf-8")
+
+
+# ── EN/KO 교차링크 ────────────────────────────────────────
+# 구글이 /ko 를 고아로 본 이유: 들어오는 링크 0개, 번역 관계 신호 0개.
+# 사이트맵에만 있고 링크가 없는 URL 은 후순위로 밀린다.
+import urllib.parse as _up
+
+def _q(p):
+    """사이트맵 규격은 URL 이스케이프를 요구한다. 한글 경로를 인코딩한다."""
+    return _up.quote(p, safe="")
+
+_KO2EN_DRUG = {
+    "감기약 슈도에페드린": "Sudafed", "애더럴": "Adderall",
+    "코데인": "codeine", "트라마돌": "tramadol", "자낙스": "Xanax",
+    "졸피뎀": "Ambien", "멜라토닌": "melatonin", "CBD": "CBD",
+}
+_EN_SET = set(PAIRS)
+
+# KO 슬러그 -> EN 슬러그 (양쪽에 다 있는 조합만)
+_KO2EN, _EN2KO = {}, {}
+for _l, _qq, _c in KO_PAIRS:
+    _d = _KO2EN_DRUG.get(_l)
+    if _d and (_d, _c) in _EN_SET:
+        _ks, _es = ko_slug(_l, _c), slug(_d, _c)
+        _KO2EN[_ks] = _es
+        _EN2KO[_es] = _ks
+
+
+def _alt(ko_s, en_s):
+    """★짝이 없으면 아무것도 내보내지 않는다.
+       틀린 hreflang 쌍은 없는 것보다 나쁘다 — 구글이 두 페이지를 묶어버린다."""
+    if not ko_s or not en_s:
+        return ""
+    return ('<link rel="alternate" hreflang="ko" href="%s/ko/%s">'
+            '<link rel="alternate" hreflang="en" href="%s/can-i-bring/%s">'
+            '<link rel="alternate" hreflang="x-default" href="%s/can-i-bring/%s">'
+            % (BASE, _q(ko_s), BASE, en_s, BASE, en_s))
+
+
+def _alt_ko(s):
+    return _alt(s, _KO2EN.get(s))
+
+
+def _alt_en(s):
+    return _alt(_EN2KO.get(s), s)
