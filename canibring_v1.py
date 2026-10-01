@@ -9,7 +9,7 @@ from next_v1 import verdict
 from borderrx_v1 import COUNTRIES, SRC
 
 cb_bp = Blueprint("canibring", __name__)
-BASE = "https://linklynk.onrender.com"
+BASE = "https://canibringmeds.com"
 _CC = {c[0]: c[3] for c in COUNTRIES}
 
 # (약, 국가코드) — 실제 검색 수요가 있는 조합만
@@ -422,3 +422,110 @@ def _alt_ko(s):
 
 def _alt_en(s):
     return _alt(_EN2KO.get(s), s)
+
+
+# ══════════════════════════════════════════════════════════════
+# canibringmeds.com 전용 홈 + 방법론 페이지
+#
+# ★이 사이트는 YMYL 이다. 약을 들고 국경을 넘어도 되는지 판정한다.
+#   틀리면 사람이 공항에서 구금된다. 구글이 가장 늦게 신뢰하는 분류고,
+#   익명 사이트는 아예 색인이 안 된다. 발행 주체·출처·방법·한계를
+#   명시하는 건 장식이 아니라 입장권이다.
+import os as _os
+
+PUBLISHER = _os.environ.get("CB_PUBLISHER", "alaz ltd")
+CONTACT   = _os.environ.get("CB_CONTACT", "")     # 비어 있으면 연락처 줄을 안 그린다
+
+_ORG = ('{"@context":"https://schema.org","@type":"Organization",'
+        '"name":"%s","url":"%s/","publisher":{"@type":"Organization","name":"%s"}}'
+        % (PUBLISHER, BASE, PUBLISHER))
+
+
+def _foot():
+    c = ('<p><a href="%s/about">How we decide</a> · <a href="%s/ko">한국어</a></p>' % (BASE, BASE))
+    return ('<div class="warn" style="margin-top:28px">'
+            '<b>Reference only.</b> UN-scheduled substances we can state firmly, but '
+            'national rules change and depend on dose and form. Confirm with the '
+            "destination's official guidance or embassy before you fly. "
+            'Talk to a doctor or pharmacist for medical decisions.</div>' + c)
+
+
+def cb_home():
+    """canibringmeds.com 의 루트. ★LinkLynk 앱 UI 가 아니다."""
+    e = _h.escape
+    top = "".join('<a href="%s/can-i-bring/%s">%s → %s</a>'
+                  % (BASE, slug(d, c), e(d), e(_CC.get(c, c))) for d, c in PAIRS[:8])
+    html = (
+        '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<title>Can I bring my medicine abroad? — ingredient-based answers</title>'
+        '<meta name="description" content="Whether a medicine is allowed into a country '
+        'depends on its active ingredient, not its brand. We check the ingredient against '
+        'UN schedules and official national guidance, and show our sources.">'
+        '<link rel="canonical" href="%s/">'
+        '<link rel="alternate" hreflang="en" href="%s/">'
+        '<link rel="alternate" hreflang="ko" href="%s/ko">'
+        '<link rel="alternate" hreflang="x-default" href="%s/">'
+        '<script type="application/ld+json">%s</script>'
+        '<style>%s</style></head><body><div class="w">'
+        '<h1>Can I bring my medicine abroad?</h1>'
+        '<p class="lede">Brand names cross borders. Active ingredients decide whether '
+        'you do. We check the ingredient, name the rule, and link the source.</p>'
+        '<div class="rel">%s</div>'
+        '<p><a href="%s/can-i-bring">All countries and medicines →</a></p>'
+        '<a class="cta" href="%s/next/en">Check any medicine in 21 countries</a>'
+        '%s</div></body></html>'
+        % (BASE, BASE, BASE, BASE, _ORG, CSS, top, BASE, BASE, _foot()))
+    return Response(html, mimetype="text/html; charset=utf-8")
+
+
+@cb_bp.route("/about")
+def cb_about():
+    """어떻게 판정하는지, 무엇을 못 하는지. ★한계를 숨기면 신뢰를 잃는다."""
+    contact = ('<h2>Contact</h2><p>%s</p>' % _h.escape(CONTACT)) if CONTACT else ""
+    html = (
+        '<!doctype html><html lang="en"><head><meta charset="utf-8">'
+        '<meta name="viewport" content="width=device-width,initial-scale=1">'
+        '<title>How we decide — %s</title>'
+        '<meta name="description" content="Our sources, our method, and what this site '
+        'cannot tell you.">'
+        '<link rel="canonical" href="%s/about">'
+        '<script type="application/ld+json">%s</script>'
+        '<style>%s</style></head><body><div class="w">'
+        '<h1>How we decide</h1>'
+        '<p class="lede">Published by %s.</p>'
+
+        '<h2>Ingredient, not brand</h2>'
+        '<p>Customs rules name substances, not products. Sudafed is pseudoephedrine in '
+        'one country and a different formula in another; Adderall is amphetamine salts '
+        'wherever it is sold. We resolve the product to its active ingredient first, then '
+        'look the ingredient up. That is why a brand you consider harmless can still be '
+        'refused entry.</p>'
+
+        '<h2>Where the rules come from</h2>'
+        '<p>Three layers, in this order:</p>'
+        '<p>1. <b>UN scheduling.</b> The INCB Yellow, Green and Red Lists record which '
+        'substances are under international control. This layer is stable and we state it '
+        'plainly.</p>'
+        '<p>2. <b>National guidance.</b> Japan MHLW, Singapore HSA, UAE MOHAP, Saudi SFDA, '
+        'UK Home Office, and equivalent authorities elsewhere. Where a page exists we link '
+        'it directly on the answer.</p>'
+        '<p>3. <b>Nothing.</b> When neither layer covers a combination we say the '
+        'restriction could not be confirmed, and we do not guess. A blank is not a yes.</p>'
+
+        '<h2>What this site cannot tell you</h2>'
+        '<p>It cannot tell you that you will be let through. Officers apply discretion, '
+        'quantity limits and documentation rules that no public page fully captures. It '
+        'cannot account for dose, formulation, or how much you carry — a quantity that is '
+        'fine for personal use may be treated as import. It is not medical advice and not '
+        'legal advice. It is a starting point for the question you then put to the '
+        "destination's own authority.</p>"
+
+        '<h2>When it is wrong</h2>'
+        '<p>Rules change without notice and our pages lag. If you find an answer that no '
+        'longer matches an official source, the official source wins. Treat anything here '
+        'that contradicts an embassy or health ministry as out of date.</p>'
+        '%s'
+        '%s</div></body></html>'
+        % (PUBLISHER, BASE, _ORG, CSS, _h.escape(PUBLISHER), contact, _foot()))
+    return Response(html, mimetype="text/html; charset=utf-8")
