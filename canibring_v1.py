@@ -342,7 +342,11 @@ def cb_ko_page(s):
            COL.get(lvl, "#e9eef5"), _h.escape(ansv), _h.escape(ings)))
     if why:
         html += '<h2>왜 그런가</h2><p>%s</p>' % _h.escape(why)
-    html += '<h2>어떻게 해야 하나</h2><p>%s</p>' % _h.escape(KO_DO[lvl])
+    kdeep = KO_DEEP.get(s)
+    if kdeep:
+        html += kdeep      # ★1차 출처 읽고 직접 쓴 본문
+    else:
+        html += '<h2>어떻게 해야 하나</h2><p>%s</p>' % _h.escape(KO_DO[lvl])
     if src:
         html += ('<h2>출처</h2><p><a href="%s" rel="nofollow noopener" target="_blank">%s 공식 안내</a></p>'
                  % (_h.escape(src), _h.escape(kname)))
@@ -738,4 +742,163 @@ book.</p>
 <p style="opacity:.7">Last checked 2 October 2026. This area changed in December
 2024 and again in March 2025. Treat anything older than that, here or elsewhere,
 as describing a law that has been replaced.</p>
+"""
+
+
+# ══════════════════════════════════════════════════════════════
+# 한글 깊은 본문. 영문판과 같은 1차 출처를 쓰되 한국 독자 기준으로 다시 썼다.
+# ★hreflang 으로 "같은 글"이라고 선언해놨으니 한쪽만 두꺼우면 그 선언이 거짓이 된다.
+KO_DEEP = {}
+
+KO_DEEP["애더럴-일본"] = """
+<h2>처방전과 영문 소견서가 통하지 않는 이유</h2>
+<p>일본은 규제 약물을 서로 다른 법으로 나눠 관리하는데, 애더럴은 그중 반입 경로가
+아예 없는 쪽에 들어갑니다. 마약과 향정신성의약품은 지방후생국장의 사전 허가를 받으면
+개인이 가져갈 수 있습니다. 그런데 암페타민과 메스암페타민은 일본 법에서 마약이 아니라
+<b>각성제</b>이고, 각성제단속법에는 개인 반입을 허가해주는 제도 자체가 없습니다.</p>
+<p>그래서 평소 하던 준비가 전부 소용없습니다. 허가를 내주는 서류가 존재하지 않으니
+처방전도, 번역한 소견서도, 약국 라벨이 붙은 원래 통도 도움이 되지 않습니다. 그것들은
+그 암페타민이 본인 것이라는 증거일 뿐, 가져가도 된다는 허가가 아닙니다.</p>
+
+<h2>수입확인증이 덮지 못하는 것</h2>
+<p>輸入確認証(옛 약감증명)은 수량을 위한 제도이지 품목을 위한 제도가 아닙니다.
+처방약 1개월분, 그 외 의약품 2개월분까지는 증명 없이 가져갈 수 있고 그걸 넘으면
+신청합니다. 이미 가져갈 수 있는 약의 한도를 올려주는 장치이지, 반입 자체가 금지된
+물질을 허용해주지는 못합니다.</p>
+
+<h2>형량</h2>
+<p>각성제단속법상 각성제의 사용·소지·양도·수수는 징역 20년 이하, 벌금 500만엔 이하입니다.
+오키나와과학기술대학원대학이 외국인 교직원·학생용으로 공개한 안내에 적힌 수치입니다.
+교토 유학 프로그램은 더 실무적으로 씁니다 — ADHD 각성제를 &ldquo;어떤 이유로든&rdquo;
+일본에 들여오면 체포·구금 위험이 있다고.</p>
+
+<h2>체류 기간에 따라 답이 갈립니다</h2>
+<p>애더럴은 일본에서 처방되지 않습니다. 그러니 진짜 질문은 현지에서 치료를 받을 수
+있느냐이고, 그 답은 머무는 기간에 따라 완전히 달라집니다. 이 구분을 하는 페이지가
+거의 없습니다.</p>
+<p><b>짧은 여행 — 며칠에서 몇 주.</b> 현지에서 치료를 시작하는 건 현실적으로 어렵습니다.
+콘서타와 바이반스는 2019년 말부터 시행된 유통관리 제도 아래 있고, 처방 의사·조제 약국·
+환자 <b>세 주체가 전부 등록</b>돼 있어야 합니다. 해외에서 받은 진단은 일본 의사가 다시
+확인해야 하며, 단순한 경우도 보험 진료 2~4회가 걸린다고 현지 클리닉은 설명합니다.
+약 없이 다녀오는 일정으로 짜고, 그 얘기를 출국 전에 주치의와 하세요. 도착한 뒤가 아니라.</p>
+<p><b>긴 체류 — 학기, 주재, 이주.</b> 치료는 가능하고 절차도 평범합니다. 콘서타
+(메틸페니데이트 서방정)는 등록 경로로 전 연령 승인돼 있습니다. 스트라테라(아토목세틴)와
+인튜니브(구안파신 서방정)는 전 연령 승인이고 별도 등록이 필요 없습니다. 바이반스는
+6~18세만 승인이라 성인은 일본에서 새로 시작할 수 없습니다. 리탈린은 있지만 기면증용이지
+ADHD용이 아닙니다. 진단서·검사 결과·복용 이력을 챙겨가면 재평가가 짧아집니다.</p>
+
+<h2>같은 여행에서 저지르는 다른 실수</h2>
+<p>애더럴을 두고 가는 판단은 제대로 해놓고 가방에 다른 금지 품목을 같이 넣는 경우가
+많습니다. 슈도에페드린이 든 감기·비염약은 일본에서 따로 규제되고, 코데인이 든 진해·
+진통제도 제한됩니다. 처방약만 보지 말고 상비약 칸을 열어보세요.</p>
+
+<h2>출처</h2>
+<p><a href="https://www.customs.go.jp/tokyo/english/yuubin/mayakuoyobikouseisinyaku.htm" rel="noopener" target="_blank">도쿄세관 — 마약·향정신성의약품·각성제원료</a><br>
+<a href="https://kouseikyoku.mhlw.go.jp/kantoshinetsu/iji/documents/mayaku-keitaiyushutunyu28-eigo.pdf" rel="noopener" target="_blank">후생노동성 간토신에쓰 지방후생국 — 휴대에 의한 마약 수출입 (PDF)</a><br>
+<a href="https://jetprogramusa.org/wp-content/uploads/2025/03/2025-Yunyu-Kakuninsho-Import-of-Medication-Certification-Guide.pdf" rel="noopener" target="_blank">수입확인증 안내서 — 후생노동성 수량 규정 수록 (PDF)</a><br>
+<a href="https://www.oist.jp/resource-center/drugs" rel="noopener" target="_blank">오키나와과학기술대학원대학 — 일본의 약물 관련 법</a><br>
+<a href="https://www.associatedkyotoprogram.org/bringing-medications-japan/" rel="noopener" target="_blank">Associated Kyoto Program — 일본 반입 의약품 안내</a><br>
+<a href="https://imhclinic.jp/en/articles/adhd-in-japan" rel="noopener" target="_blank">IMH 클리닉 도쿄 — 일본의 ADHD 진단과 약물</a></p>
+<p style="opacity:.7">최종 확인 2026년 10월 2일. 위 공식 안내와 이 페이지가 다르면
+공식 안내가 맞고 이 페이지가 낡은 것입니다.</p>
+"""
+
+KO_DEEP["감기약-슈도에페드린-일본"] = """
+<h2>이건 공식 출처끼리 말이 다른 몇 안 되는 경우입니다</h2>
+<p>대부분의 여행 가이드는 슈도에페드린은 일본에 못 가져간다고 단정합니다. 일본 정부
+문서는 그보다 좁게 쓰여 있고, 서로 완전히 일치하지도 않습니다. 틀렸을 때 대가가
+공항 억류라서, 한쪽을 골라 단정하는 대신 각각이 뭐라고 쓰는지 그대로 보여드립니다.</p>
+<p><b>일본 세관</b>은 각성제원료에 대해 &ldquo;의사의 처방에 따라 본인이 직접 휴대하여
+반입하는 경우를 제외하고 일반 개인의 수입을 금지한다&rdquo;고 씁니다. 전면 금지가 아니라
+조건부 금지입니다.</p>
+<p><b>후생노동성 지방후생국</b>은 한 발 더 나가 기준을 제시합니다. 에페드린 또는
+메틸에페드린을 10% 이하로 함유한 제제는 개인의 약용 목적이면 사전 허가 없이 가능하고,
+그 이상은 수입 허가가 필요합니다.</p>
+<p><b>제3자 가이드</b>는, 외국인 거주자용으로 쓰인 것들을 포함해, 수도에페드린 제품은
+처방이 있어도 개인 반입이 안 된다고 씁니다.</p>
+
+<h2>어느 쪽으로 읽어도 예외가 없는 것</h2>
+<p>세 가지는 모든 공식 출처에 공통으로 나오고 예외가 없습니다.</p>
+<p><b>본인이 직접 들고 들어가야 합니다.</b> 다른 사람이 대신 가져다줄 수 없습니다.</p>
+<p><b>우편으로는 안 됩니다.</b> 해외에서 국제우편으로 주문하는 것은 전면 금지이고,
+세관은 필요한 허가 없이 들어온 우편물은 반입도 반송도 되지 않는다고 명시합니다.</p>
+<p><b>처방이 있어야 합니다.</b> 약국 선반에서 산 일반의약품 상자는 세관이 말하는 조건을
+충족하지 않습니다. 같은 성분이 다른 나라에서 전문의약품이더라도 마찬가지입니다.</p>
+
+<h2>그래도 &ldquo;두고 가라&rdquo;가 합리적인 조언인 이유</h2>
+<p>10% 기준은 성분이 아니라 <b>제품</b>의 속성입니다. 지금 들고 있는 상자의 함량을
+본인이 알아야 하고, 그 면제 규정이 전제하는 처방을 갖고 있어야 하고, 창구에서 통역을
+끼고 둘 다 설명할 수 있어야 합니다. 유학 담당 부서들이 그냥 가져가지 말라고 하는 건
+위 세 가지 해석 중 어느 쪽이 맞아도 안전한 답이기 때문입니다. 여행 중에 꼭 필요한 약이
+아니라면, 도착해서 일본 감기약을 사는 게 가장 싸고 확실합니다.</p>
+
+<h2>브랜드가 아니라 성분표를 보세요</h2>
+<p>브랜드 이름은 나라를 건너면 같은 성분을 뜻하지 않습니다. 그리고 복합 감기약에는
+따로 규제되는 성분이 섞여 들어가는 일이 잦습니다 — 코데인이 대표적인데, 일본은 이걸
+마약으로 분류해서 지방후생국장의 사전 허가를 요구하고 처리에 2주쯤 걸립니다.
+실제로 가방에 넣을 그 상자의 성분표를 읽으세요.</p>
+
+<h2>흡입기: 확인 못 했고, 못 했다고 씁니다</h2>
+<p>코 흡입기는 각성제 계열 성분이 들어 있을 수 있다는 이유로 일본 여행 안내에서 반복해서
+언급됩니다. 어떤 물질이 문제인지, 어떻게 분류되는지는 일본 공식 출처로 확인하지
+못했습니다. 그래서 괜찮다고도 금지라고도 쓰지 않겠습니다. 흡입기는 알약과 별개의 질문으로
+두고, 위 규정이 알아서 덮어주겠거니 하지 말고 출국 전에 지방후생국에 물어보세요.</p>
+
+<h2>출처</h2>
+<p><a href="https://www.customs.go.jp/tokyo/english/yuubin/mayakuoyobikouseisinyaku.htm" rel="noopener" target="_blank">도쿄세관 — 마약·향정신성의약품·각성제원료</a><br>
+<a href="https://kouseikyoku.mhlw.go.jp/kantoshinetsu/iji/documents/mayaku-keitaiyushutunyu28-eigo.pdf" rel="noopener" target="_blank">후생노동성 간토신에쓰 지방후생국 — 휴대에 의한 마약 수출입 (PDF)</a><br>
+<a href="https://jetprogramusa.org/wp-content/uploads/2025/03/2025-Yunyu-Kakuninsho-Import-of-Medication-Certification-Guide.pdf" rel="noopener" target="_blank">수입확인증 안내서 — 후생노동성 수량 규정 수록 (PDF)</a><br>
+<a href="https://www.oist.jp/resource-center/drugs" rel="noopener" target="_blank">오키나와과학기술대학원대학 — 일본의 약물 관련 법</a><br>
+<a href="https://www.associatedkyotoprogram.org/bringing-medications-japan/" rel="noopener" target="_blank">Associated Kyoto Program — 일본 반입 의약품 안내</a><br>
+<a href="https://imhclinic.jp/en/articles/adhd-in-japan" rel="noopener" target="_blank">IMH 클리닉 도쿄 — 일본의 ADHD 진단과 약물</a></p>
+<p style="opacity:.7">최종 확인 2026년 10월 2일. 위 공식 안내와 이 페이지가 다르면
+공식 안내가 맞고 이 페이지가 낡은 것입니다.</p>
+"""
+
+KO_DEEP["CBD-일본"] = """
+<h2>법이 바뀌었고, 검색해서 나오는 글 대부분은 옛 법 기준입니다</h2>
+<p>일본은 예전에 이걸 식물 부위로 판단했습니다. 대마 줄기와 씨앗에서 뽑은 제품은 되고
+잎·꽃에서 뽑은 건 안 되는 식이었습니다. 그 기준은 없어졌습니다. 2024년 12월 12일 시행된
+개정 대마단속법은 어느 부위에서 왔든 <b>완성품에 THC가 얼마나 남아 있는지</b>로
+판단합니다. &ldquo;줄기·씨앗 유래인지 확인하세요&rdquo;라고 적힌 글은 이미 없어진 법을
+설명하고 있는 겁니다.</p>
+
+<h2>기준치</h2>
+<p>잔류 THC 한도는 제형별로 정해져 있고, 낮습니다.</p>
+<p><b>상온에서 액체인 유지류와 분말</b> — 10 ppm (0.001%)</p>
+<p><b>수용액</b> — 0.1 ppm (0.00001%)</p>
+<p><b>그 외 전부</b> — 1 ppm (0.0001%)</p>
+<p>같은 법의 2단계는 2025년 3월 1일 시행돼 공급 측에 허가·검사 의무를 추가했습니다.</p>
+
+<h2>현지에서 합법인 제품이 일본 기준의 300배일 수 있는 이유</h2>
+<p>미국과 유럽 상당수는 THC 0.3% 이하를 헴프로 정의하고, 제품은 그 한도까지 합법적으로
+팔립니다. 단위를 바꿔보면 0.3%는 <b>3,000 ppm</b>입니다. 일본의 CBD 오일 한도는 10 ppm
+입니다. 산 곳에서 완벽히 합법이고 라벨에 적힌 그대로인 제품이 일본 기준의 삼백 배일 수
+있습니다. 포장을 아무리 봐도 이건 알 수 없습니다. 라벨의 &ldquo;THC-free&rdquo;는 마케팅
+문구이지 일본 기준으로 측정한 값이 아닙니다.</p>
+
+<h2>이제 사용 자체가 범죄입니다</h2>
+<p>같은 개정으로 대마 사용죄가 신설됐습니다. 그전까지 법은 소지·양도·재배를 다뤘고 사용
+자체는 따로 처벌하지 않았습니다. 지금은 처벌합니다. 여행자에게 이게 중요한 이유는,
+&ldquo;입국 전에 썼을 뿐&rdquo;이라는 설명이 더는 성립하지 않기 때문입니다.</p>
+
+<h2>세관이 요구하는 서류</h2>
+<p>CBD 제품이 통관되려면 여행자에게 요구되는 서류는 제조증명서와 시험기관의 성분분석서
+입니다. THC 함량이 적힌 문서여야 합니다. 이건 출국 전에 제조사에서 받아둬야 하는
+것이고, 공항에서 만들 수 없으며, 제품 판매 페이지 캡처는 대체가 되지 않습니다.</p>
+
+<h2>확인하지 못한 것</h2>
+<p>이 한도가 상업적 수입이 아니라 개인이 소량 휴대하는 경우에 어떻게 적용되는지,
+여행자가 실제로 매번 분석서를 요구받는지는 일본 공식 출처로 확인하지 못했습니다.
+그 빈칸을 추측으로 채우지 않겠습니다. 그 제품이 꼭 필요하다면 예약 전에 지방후생국
+마약단속부에 문의하세요.</p>
+
+<h2>출처</h2>
+<p><a href="https://www.mhlw.go.jp/stf/newpage_43079.html" rel="noopener" target="_blank">후생노동성 — 개정 대마단속법 단계별 시행 안내</a><br>
+<a href="https://health-beauty-soleil.jp/news/%E3%80%90thc%E6%AE%8B%E7%95%99%E9%99%90%E5%BA%A6%E5%80%A4%E7%99%BA%E8%A1%A8%E3%80%91%E3%80%8C%E5%A4%A7%E9%BA%BB%E5%8F%96%E7%B7%A0%E6%B3%95%E5%8F%8A%E3%81%B3%E9%BA%BB%E8%96%AC%E5%8F%8A%E3%81%B3/" rel="noopener" target="_blank">마루노우치 소레이유 법률사무소 — THC 잔류 한도치와 2024년 12월 12일 시행</a><br>
+<a href="https://www.customs.go.jp/tokyo/english/yuubin/mayakuoyobikouseisinyaku.htm" rel="noopener" target="_blank">도쿄세관 — 마약·향정신성의약품·각성제원료</a><br>
+<a href="https://www.associatedkyotoprogram.org/bringing-medications-japan/" rel="noopener" target="_blank">Associated Kyoto Program — 일본 반입 의약품 안내</a></p>
+<p style="opacity:.7">최종 확인 2026년 10월 2일. 이 영역은 2024년 12월과 2025년 3월에
+연달아 바뀌었습니다. 그보다 오래된 설명은 여기든 다른 곳이든 이미 교체된 법을
+설명하는 것으로 보세요.</p>
 """
