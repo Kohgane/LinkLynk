@@ -928,6 +928,8 @@ _FACT = {
     "uae_rxage": {"en": "issued within the last three months and stamped by the issuing facility",
                   "ko": "3개월 이내 발급 + 의료기관 직인"},
     "cod_cls":   {"en": "Narcotic Schedule II", "ko": "마약 스케줄 II"},
+    "tram_cls":  {"en": "a controlled drug (CD)", "ko": "통제 의약품(CD)"},
+    "uae_count": {"en": "more than two hundred", "ko": "200개가 넘는"},
     "uae_listd": {"en": "15 September 2022",    "ko": "2022년 9월 15일"},
     "checked":   {"en": "2 October 2026",    "ko": "2026년 10월 2일"},
 }
@@ -987,6 +989,7 @@ _SRCFOR = {
  "adderall-to-japan": "jp", "sudafed-to-japan": "jp", "cbd-to-japan": "jp_cbd",
  "애더럴-일본": "jp", "감기약-슈도에페드린-일본": "jp", "CBD-일본": "jp_cbd",
  "codeine-to-united-arab-emirates": "uae", "코데인-UAE": "uae",
+ "tramadol-to-united-arab-emirates": "uae",
 }
 
 _NOTE = {
@@ -1118,6 +1121,53 @@ UAE가 모르핀 계열 오피오이드에 적용하는 것과 같은 등급이�
 UAE 공식 출처 네 곳 중 어디도 형량을 명시하지 않습니다. 그래서 출처를 댈 수 없는 숫자를
 옮겨 적지 않겠습니다. 정확한 문장은 더 좁고, 그걸로 충분합니다 &mdash; 통제 대상이고,
 사전 승인이 필요하고, 무료이며, 아마 이미 갖고 있을 처방전이면 됩니다.</p>
+"""
+
+
+DEEP["tramadol-to-united-arab-emirates"] = """
+<h2>A lower tier than codeine &mdash; and it changes nothing for you</h2>
+<p>The Emirates Drug Establishment&rsquo;s list classifies tramadol as
+<b>{{tram_cls}}</b>, a step below the Narcotic Schedule II tier it applies to codeine.
+Travellers reasonably read that as the easier case. It is not. The permit a traveller
+needs is the same one, from the same ministry, with the same documents and the same
+quantity ceiling. The tiers exist to govern how these medicines are registered,
+stocked and prescribed inside the UAE. They do not sort travellers into a strict lane
+and a relaxed lane.</p>
+<p>If you take anything useful from this page, take that. People get caught by
+assuming the class of their medicine tells them how much care to apply at the border.
+It does not.</p>
+
+<h2>What you actually have to do</h2>
+<p>Apply to the Ministry of Health and Prevention before you fly. The permit is free.
+It wants a prescription {{uae_rxage}}, naming the patient, the medicine with its dose
+and dosage form, the duration of treatment, the date of issue and the prescribing
+physician. A medical report issued within the last year can be supplied alongside it,
+and you will need your passport. The allowance is {{uae_qty}}.</p>
+
+<h2>Why tramadol specifically catches people out</h2>
+<p>Tramadol is prescribed casually in much of the world &mdash; after dental work, for
+back pain, for a sports injury &mdash; and it is rarely described to the patient as an
+opioid. It ends up in a wash bag the way ibuprofen does, and the person carrying it has
+never once thought of it as a controlled substance. The UAE has thought about it a
+great deal. That gap between how the medicine is treated where it was prescribed and
+how it is treated on arrival is where the trouble sits, and it is a gap no amount of
+good faith closes at the counter.</p>
+
+<h2>Do not reason from the class. Check the list.</h2>
+<p>The controlled and semi-controlled list runs to {{uae_count}} entries, last updated
+{{uae_listd}}. It is published by the Emirates Drug Establishment, while the permit
+application still runs on the Ministry of Health and Prevention service &mdash; the UAE
+is moving pharmaceutical regulation between the two, and for now each holds a different
+half. Look your own medicine up by its active ingredient in that list rather than
+deciding by category, and if a guide points you at only one of the two bodies, it is
+describing half of the system.</p>
+
+<h2>What we are not telling you</h2>
+<p>Pages about Dubai routinely attach specific prison terms to arriving without
+approval. None of the official UAE sources we read state a penalty, so we are not
+repeating figures we cannot trace to one. The accurate version is narrow and enough to
+act on: tramadol is controlled, advance approval is required, the approval costs
+nothing, and the paperwork is a prescription you most likely already hold.</p>
 """
 
 # ── 배포 시점 검증. 키를 틀리면 여기서 죽는다.
