@@ -56,7 +56,7 @@
       '  <div class="stack">',
       '    <div class="control"><span>⚙️ 속도</span><input type="range" id="custSp" min="0.1" max="8" step="0.1" value="1"><output id="custSpv">1.0×</output></div>',
       '    <div class="control"><span>🌀 민첩</span><input type="range" id="custAg" min="0.3" max="3" step="0.1" value="1"><output id="custAgv">1.0×</output></div>',
-      '    <div class="control"><span>🛩 크기</span><input type="range" id="avSizeR2" min="24" max="140" step="2" value="44"><button class="btn" id="btnAvHide">👻</button></div>',
+      '    <div class="control"><span>🛩 크기</span><input type="range" id="avSizeR2" min="24" max="220" step="2" value="84"><button class="btn" id="btnAvHide">👻</button></div>',
       '  </div>',
       '</div>',
       '<div class="panel" id="panelUser">',
@@ -264,7 +264,7 @@
     $("vjFile").onchange = ()=>{ if ($("vjFile").files[0]) app.vjImportFile($("vjFile").files[0]); $("vjFile").value = ""; };
     $("custSp").oninput = ()=>{ $("custSpv").textContent = (+$("custSp").value).toFixed(1) + "×"; app.tuneVehicle(parseFloat($("custSp").value), parseFloat($("custAg").value)); };
     $("custAg").oninput = ()=>{ $("custAgv").textContent = (+$("custAg").value).toFixed(1) + "×"; app.tuneVehicle(parseFloat($("custSp").value), parseFloat($("custAg").value)); };
-    $("avSizeR2").value = localStorage.getItem("ef_av_size") || (app.IS_TOUCH ? "42" : "68");
+    $("avSizeR2").value = localStorage.getItem("ef_av_size") || (app.IS_TOUCH ? "84" : "96");
     $("avSizeR2").oninput = ()=>{ localStorage.setItem("ef_av_size", $("avSizeR2").value); if (app.setAvatarSize) app.setAvatarSize(parseInt($("avSizeR2").value, 10)); };
     const paintHide = ()=>{
       const hidden = localStorage.getItem("swef_avhide") === "1";

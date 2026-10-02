@@ -23,10 +23,10 @@
   let atmoUp = null;
   let atmoTmp = null;
   let avatarEmoji = "";
-  let avatarSize = parseInt(localStorage.getItem("ef_av_size") || (app.IS_TOUCH ? "42" : "68"), 10);
+  let avatarSize = parseInt(localStorage.getItem("ef_av_size") || (app.IS_TOUCH ? "84" : "96"), 10); // P4-1002
   let avatarPick = localStorage.getItem("ef_av_emoji") || "";
 
-  if (!app.IS_TOUCH && !localStorage.getItem("ef_av_size")) avatarSize = 68;
+  if (!app.IS_TOUCH && !localStorage.getItem("ef_av_size")) avatarSize = 96;
 
   function vjLoad(key){ try { return JSON.parse(localStorage.getItem(key) || "[]"); } catch (_) { return []; } }
   function vjSave(key, value){ localStorage.setItem(key, JSON.stringify(value)); }
@@ -92,15 +92,16 @@ void main(){ vec2 uv=v_textureCoordinates; vec4 col=texture(colorTexture,uv); if
   function ensureFogStage(){
     if (post.fog) return post.fog;
     const fogfs = `uniform sampler2D colorTexture; uniform sampler2D depthTexture;
-uniform float u_fogOn; uniform float u_camH; uniform vec3 u_upEC; uniform float u_flash; in vec2 v_textureCoordinates;
-void main(){ vec2 uv=v_textureCoordinates; vec4 col=texture(colorTexture,uv); vec3 c=col.rgb; float d=czm_readDepth(depthTexture,uv); if(u_fogOn>0.5 && d<0.9999999){ vec4 eye=czm_windowToEyeCoordinates(gl_FragCoord.xy, d); float dist=length(eye.xyz); vec3 vdir=eye.xyz/max(dist,1.0); float hFrag=u_camH + dot(vdir,u_upEC)*dist; float hAvg=max(1.0,(u_camH+hFrag)*0.5); float density=0.000022*exp(-hAvg/1600.0); float fog=1.0-exp(-density*dist); float sunAmt=pow(max(dot(vdir,czm_sunDirectionEC),0.0),8.0); vec3 fogCol=mix(vec3(0.60,0.71,0.90), vec3(1.0,0.80,0.58), sunAmt); c=mix(c,fogCol,clamp(fog,0.0,0.85)); } if(u_flash>0.001){ c=mix(c,vec3(0.96,0.97,1.0),u_flash*0.8); c*=1.0+u_flash*0.25; } out_FragColor=vec4(c,col.a); }`;
+uniform float u_fogOn; uniform float u_camH; uniform vec3 u_upEC; uniform float u_flash; uniform float u_gold; in vec2 v_textureCoordinates;
+void main(){ vec2 uv=v_textureCoordinates; vec4 col=texture(colorTexture,uv); vec3 c=col.rgb; float d=czm_readDepth(depthTexture,uv); if(u_fogOn>0.5 && d<0.9999999){ vec4 eye=czm_windowToEyeCoordinates(gl_FragCoord.xy, d); float dist=length(eye.xyz); vec3 vdir=eye.xyz/max(dist,1.0); float hFrag=u_camH + dot(vdir,u_upEC)*dist; float hAvg=max(1.0,(u_camH+hFrag)*0.5); float density=0.000022*exp(-hAvg/1600.0); float fog=1.0-exp(-density*dist); float sunAmt=pow(max(dot(vdir,czm_sunDirectionEC),0.0),8.0); vec3 fogCol=mix(vec3(0.60,0.71,0.90), vec3(1.0,0.80,0.58), max(sunAmt,u_gold)); float far=smoothstep(25000.0,70000.0,dist); c=mix(c,fogCol,clamp(max(fog,far),0.0,1.0)); } if(u_flash>0.001){ c=mix(c,vec3(0.96,0.97,1.0),u_flash*0.8); c*=1.0+u_flash*0.25; } out_FragColor=vec4(c,col.a); }`;
     post.fog = viewerOf().scene.postProcessStages.add(new Cesium.PostProcessStage({
       fragmentShader: fogfs,
       uniforms: {
         u_fogOn: ()=>((app.state.fogSuppressed || localStorage.getItem("swef_atmo") === "0" || dreamPrim) ? 0 : 1),
         u_camH: ()=>atmoH,
         u_upEC: ()=>atmoUp,
-        u_flash: ()=>atmoFlash
+        u_flash: ()=>atmoFlash,
+        u_gold: ()=>{ const h = lastLocalHours % 24; const d1 = Math.abs(h - 6.5), d2 = Math.abs(h - 17.75); return Math.max(0, 1 - Math.min(d1, d2) / 1.75) * 0.85; } // P4-1002: horizon fog tint follows dawn/dusk
       }
     }));
     post.fog.enabled = true;
