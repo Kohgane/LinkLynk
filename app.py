@@ -3399,6 +3399,12 @@ _CB_EXACT = {"/", "/can-i-bring", "/can-i-bring/", "/ko", "/ko/",
 _CB_PREFIX = ("/can-i-bring/", "/ko/", "/next/")
 _BOTH = {"/robots.txt"}       # 호스트마다 제 내용을 낸다. 절대 안 넘긴다
 
+# ★IndexNow 키 파일은 양쪽 호스트가 각자 200 으로 내야 한다.
+#   제출한 URL 과 같은 호스트에서 키가 안 나오면 소유 증명 실패다.
+#   301 은 실패로 친다 — 도메인 옮기면서 조용히 끊겨 있었다.
+from canibring_v1 import INDEXNOW_KEY as _INKEY
+_KEEP = ("/%s.txt" % _INKEY,)
+
 # ★카드 이미지는 옛 주소에 그대로 둔다.
 #   쓰레드 게시가 이 URL 을 200 으로 사전 확인한다. 301 로 바꾸면 게시가 막힌다.
 _STAY = ("/next/card", "/next/og")
@@ -3431,6 +3437,8 @@ def _split_hosts():
             return Response(_CB_ROBOTS, mimetype="text/plain; charset=utf-8")
         if p == "/":
             return _cb_home()         # ★앱 UI 가 아니라 BorderRx 홈
+        if p in _KEEP:
+            return None               # 이 호스트가 직접 낸다
         if not _is_cb(p):
             return _rd(_to(APP_HOST, p), 301)
         return None
