@@ -129,7 +129,7 @@ def cb_page(s):
                     'and declare it.</p>' % e(drug))
     deep = DEEP.get(s)
     if deep:
-        body.append(deep)      # ★1차 출처 읽고 직접 쓴 본문
+        body.append(_fill(s, deep, "en"))
     else:
         body.append('<h2>What to do</h2><p>%s</p>' % e(DO[lvl]))
     src = SRC.get(cc)
@@ -344,7 +344,7 @@ def cb_ko_page(s):
         html += '<h2>왜 그런가</h2><p>%s</p>' % _h.escape(why)
     kdeep = KO_DEEP.get(s)
     if kdeep:
-        html += kdeep      # ★1차 출처 읽고 직접 쓴 본문
+        html += _fill(s, kdeep, "ko")
     else:
         html += '<h2>어떻게 해야 하나</h2><p>%s</p>' % _h.escape(KO_DO[lvl])
     if src:
@@ -562,7 +562,7 @@ They are not permission to bring it.</p>
 <h2>What the import certificate does not cover</h2>
 <p>Japan's Yunyu Kakunin-sho (import confirmation, formerly called Yakkan
 Shoumei) exists for quantity, not for category. The Ministry of Health, Labour
-and Welfare allows a one-month supply of prescription medicine and a two-month
+and Welfare allows a {{qty_rx}} of prescription medicine and a {{qty_other}}
 supply of other medicines with no certificate at all; above those amounts you
 apply for one. The certificate raises the ceiling on medicines you are already
 allowed to carry. It cannot authorise a substance whose import is prohibited
@@ -570,8 +570,7 @@ outright.</p>
 
 <h2>The penalty</h2>
 <p>Under the Stimulants Control Law, use, possession, transfer or receipt of
-stimulants is punishable by imprisonment with work for up to 20 years and a fine
-of up to &yen;5 million, as published by the Okinawa Institute of Science and
+stimulants is punishable by {{stim_pen}}, as published by the Okinawa Institute of Science and
 Technology for its international staff and students. Study-abroad offices state
 the practical consequence plainly: the Associated Kyoto Program tells students
 that bringing ADHD stimulants into Japan &ldquo;for any reason&rdquo; risks
@@ -586,7 +585,7 @@ start treatment in Japan. Concerta and Vyvanse are governed by a
 proper-distribution system in force since late 2019 that requires three separate
 registrations: the prescribing doctor, the dispensing pharmacy, and the patient.
 A diagnosis made abroad has to be re-confirmed by a doctor in Japan first, and
-clinics describe two to four insured visits even for a straightforward case.
+clinics describe {{visits}} even for a straightforward case.
 Plan the trip without the medication, and raise that with your own prescriber
 before you go rather than after you land.</p>
 <p><b>A long stay &mdash; a semester, a posting, a move.</b> Treatment is
@@ -630,7 +629,7 @@ where the individual carries them into Japan in person as prescribed by a
 physician.&rdquo; That is a conditional ban, not an absolute one.</p>
 <p><b>A Ministry of Health, Labour and Welfare regional bureau</b> goes further
 and sets a threshold: personal pharmaceutical use is allowed without advance
-permission where the preparation contains no more than 10% ephedrine or
+permission where the preparation contains no more than {{pse_pct}} ephedrine or
 methylephedrine. Above that, an import licence is required.</p>
 <p><b>Third-party guides</b>, including ones written for foreign residents, say
 pseudoephedrine products such as Sudafed and Actifed cannot be imported for
@@ -697,16 +696,16 @@ it was written for a law that no longer applies.</p>
 <h2>The thresholds</h2>
 <p>Residual THC limits are set by product form, and they are low:</p>
 <p><b>Oils and fats that are liquid at room temperature, and powders</b> &mdash;
-10 ppm (0.001%).</p>
-<p><b>Water-soluble solutions</b> &mdash; 0.1 ppm (0.00001%).</p>
-<p><b>Everything else</b> &mdash; 1 ppm (0.0001%).</p>
+{{thc_oil}}.</p>
+<p><b>Water-soluble solutions</b> &mdash; {{thc_aq}}.</p>
+<p><b>Everything else</b> &mdash; {{thc_other}}.</p>
 <p>A second phase of the same law took effect on 1 March 2025, adding licensing
 and testing requirements on the supply side.</p>
 
 <h2>Why a product that is legal at home can be 300 times over the limit</h2>
 <p>In the United States and much of Europe, hemp is defined as cannabis
-containing no more than 0.3% THC, and products are sold lawfully at that
-ceiling. Convert the units: 0.3% is 3,000 ppm. Japan&rsquo;s limit for a CBD oil
+containing no more than {{hemp_pct}} THC, and products are sold lawfully at that
+ceiling. Convert the units: {{hemp_pct}} is {{hemp_ppm}}. Japan&rsquo;s limit for a CBD oil
 is 10 ppm. A bottle that is entirely legal where you bought it, labelled as hemp
 and marketed as non-intoxicating, can sit three hundred times above the Japanese
 threshold and still be exactly what the label says. Nothing about the packaging
@@ -762,12 +761,12 @@ KO_DEEP["애더럴-일본"] = """
 
 <h2>수입확인증이 덮지 못하는 것</h2>
 <p>輸入確認証(옛 약감증명)은 수량을 위한 제도이지 품목을 위한 제도가 아닙니다.
-처방약 1개월분, 그 외 의약품 2개월분까지는 증명 없이 가져갈 수 있고 그걸 넘으면
+처방약 {{qty_rx}}, 그 외 의약품 {{qty_other}}까지는 증명 없이 가져갈 수 있고 그걸 넘으면
 신청합니다. 이미 가져갈 수 있는 약의 한도를 올려주는 장치이지, 반입 자체가 금지된
 물질을 허용해주지는 못합니다.</p>
 
 <h2>형량</h2>
-<p>각성제단속법상 각성제의 사용·소지·양도·수수는 징역 20년 이하, 벌금 500만엔 이하입니다.
+<p>각성제단속법상 각성제의 사용·소지·양도·수수는 {{stim_pen}}입니다.
 오키나와과학기술대학원대학이 외국인 교직원·학생용으로 공개한 안내에 적힌 수치입니다.
 교토 유학 프로그램은 더 실무적으로 씁니다 — ADHD 각성제를 &ldquo;어떤 이유로든&rdquo;
 일본에 들여오면 체포·구금 위험이 있다고.</p>
@@ -779,7 +778,7 @@ KO_DEEP["애더럴-일본"] = """
 <p><b>짧은 여행 — 며칠에서 몇 주.</b> 현지에서 치료를 시작하는 건 현실적으로 어렵습니다.
 콘서타와 바이반스는 2019년 말부터 시행된 유통관리 제도 아래 있고, 처방 의사·조제 약국·
 환자 <b>세 주체가 전부 등록</b>돼 있어야 합니다. 해외에서 받은 진단은 일본 의사가 다시
-확인해야 하며, 단순한 경우도 보험 진료 2~4회가 걸린다고 현지 클리닉은 설명합니다.
+확인해야 하며, 단순한 경우도 {{visits}}가 걸린다고 현지 클리닉은 설명합니다.
 약 없이 다녀오는 일정으로 짜고, 그 얘기를 출국 전에 주치의와 하세요. 도착한 뒤가 아니라.</p>
 <p><b>긴 체류 — 학기, 주재, 이주.</b> 치료는 가능하고 절차도 평범합니다. 콘서타
 (메틸페니데이트 서방정)는 등록 경로로 전 연령 승인돼 있습니다. 스트라테라(아토목세틴)와
@@ -812,7 +811,7 @@ KO_DEEP["감기약-슈도에페드린-일본"] = """
 반입하는 경우를 제외하고 일반 개인의 수입을 금지한다&rdquo;고 씁니다. 전면 금지가 아니라
 조건부 금지입니다.</p>
 <p><b>후생노동성 지방후생국</b>은 한 발 더 나가 기준을 제시합니다. 에페드린 또는
-메틸에페드린을 10% 이하로 함유한 제제는 개인의 약용 목적이면 사전 허가 없이 가능하고,
+메틸에페드린을 {{pse_pct}} 이하로 함유한 제제는 개인의 약용 목적이면 사전 허가 없이 가능하고,
 그 이상은 수입 허가가 필요합니다.</p>
 <p><b>제3자 가이드</b>는, 외국인 거주자용으로 쓰인 것들을 포함해, 수도에페드린 제품은
 처방이 있어도 개인 반입이 안 된다고 씁니다.</p>
@@ -865,14 +864,14 @@ KO_DEEP["CBD-일본"] = """
 
 <h2>기준치</h2>
 <p>잔류 THC 한도는 제형별로 정해져 있고, 낮습니다.</p>
-<p><b>상온에서 액체인 유지류와 분말</b> — 10 ppm (0.001%)</p>
-<p><b>수용액</b> — 0.1 ppm (0.00001%)</p>
-<p><b>그 외 전부</b> — 1 ppm (0.0001%)</p>
+<p><b>상온에서 액체인 유지류와 분말</b> — {{thc_oil}}</p>
+<p><b>수용액</b> — {{thc_aq}}</p>
+<p><b>그 외 전부</b> — {{thc_other}}</p>
 <p>같은 법의 2단계는 2025년 3월 1일 시행돼 공급 측에 허가·검사 의무를 추가했습니다.</p>
 
 <h2>현지에서 합법인 제품이 일본 기준의 300배일 수 있는 이유</h2>
-<p>미국과 유럽 상당수는 THC 0.3% 이하를 헴프로 정의하고, 제품은 그 한도까지 합법적으로
-팔립니다. 단위를 바꿔보면 0.3%는 <b>3,000 ppm</b>입니다. 일본의 CBD 오일 한도는 10 ppm
+<p>미국과 유럽 상당수는 THC {{hemp_pct}} 이하를 헴프로 정의하고, 제품은 그 한도까지 합법적으로
+팔립니다. 단위를 바꿔보면 {{hemp_pct}}는 <b>{{hemp_ppm}}</b>입니다. 일본의 CBD 오일 한도는 10 ppm
 입니다. 산 곳에서 완벽히 합법이고 라벨에 적힌 그대로인 제품이 일본 기준의 삼백 배일 수
 있습니다. 포장을 아무리 봐도 이건 알 수 없습니다. 라벨의 &ldquo;THC-free&rdquo;는 마케팅
 문구이지 일본 기준으로 측정한 값이 아닙니다.</p>
@@ -902,3 +901,112 @@ KO_DEEP["CBD-일본"] = """
 연달아 바뀌었습니다. 그보다 오래된 설명은 여기든 다른 곳이든 이미 교체된 법을
 설명하는 것으로 보세요.</p>
 """
+
+
+# ══════════════════════════════════════════════════════════════
+# 사실을 한 곳에 모은다.
+#
+# ★왜: 같은 숫자를 영문·한글 두 본문에 손으로 써두면, 일본이 규정을 바꿀 때
+#   한쪽만 고쳐도 아무 에러가 안 난다. 조용히 틀린 채로 서 있는다.
+#   죽은 출처 링크를 두 군데서 고친 게 정확히 그 버그였다.
+# ★안 하는 것: 산문은 단일화하지 않는다. 그건 기계번역이고, 이 주제에서
+#   "조건부 금지"가 "금지"로 눌리는 순간 사람이 공항에서 잡힌다.
+_FACT = {
+    "stim_pen":  {"en": "imprisonment with work for up to 20 years and a fine of up to &yen;5 million",
+                  "ko": "징역 20년 이하, 벌금 500만엔 이하"},
+    "qty_rx":    {"en": "one-month supply",  "ko": "1개월분"},
+    "qty_other": {"en": "two-month",         "ko": "2개월분"},
+    "visits":    {"en": "two to four insured visits", "ko": "보험 진료 2~4회"},
+    "pse_pct":   {"en": "10%",               "ko": "10%"},
+    "thc_oil":   {"en": "10 ppm (0.001%)",   "ko": "10 ppm (0.001%)"},
+    "thc_aq":    {"en": "0.1 ppm (0.00001%)","ko": "0.1 ppm (0.00001%)"},
+    "thc_other": {"en": "1 ppm (0.0001%)",   "ko": "1 ppm (0.0001%)"},
+    "hemp_pct":  {"en": "0.3%",              "ko": "0.3%"},
+    "hemp_ppm":  {"en": "3,000 ppm",         "ko": "3,000 ppm"},
+    "checked":   {"en": "2 October 2026",    "ko": "2026년 10월 2일"},
+}
+
+_SRCSET = {
+ "jp": [
+  ("https://www.customs.go.jp/tokyo/english/yuubin/mayakuoyobikouseisinyaku.htm",
+   {"en": "Tokyo Customs &mdash; narcotics, psychotropic drugs and raw materials for stimulants",
+    "ko": "도쿄세관 — 마약·향정신성의약품·각성제원료"}),
+  ("https://kouseikyoku.mhlw.go.jp/kantoshinetsu/iji/documents/mayaku-keitaiyushutunyu28-eigo.pdf",
+   {"en": "MHLW Kanto-Shinetsu Regional Bureau &mdash; import/export of narcotics by carrying (PDF)",
+    "ko": "후생노동성 간토신에쓰 지방후생국 — 휴대에 의한 마약 수출입 (PDF)"}),
+  ("https://jetprogramusa.org/wp-content/uploads/2025/03/2025-Yunyu-Kakuninsho-Import-of-Medication-Certification-Guide.pdf",
+   {"en": "Yunyu Kakunin-sho import-of-medication guide, reproducing the MHLW quantity rules (PDF)",
+    "ko": "수입확인증 안내서 — 후생노동성 수량 규정 수록 (PDF)"}),
+  ("https://www.oist.jp/resource-center/drugs",
+   {"en": "Okinawa Institute of Science and Technology &mdash; drugs and the law in Japan",
+    "ko": "오키나와과학기술대학원대학 — 일본의 약물 관련 법"}),
+  ("https://www.associatedkyotoprogram.org/bringing-medications-japan/",
+   {"en": "Associated Kyoto Program &mdash; bringing medications into Japan",
+    "ko": "Associated Kyoto Program — 일본 반입 의약품 안내"}),
+  ("https://imhclinic.jp/en/articles/adhd-in-japan",
+   {"en": "IMH Clinic Tokyo &mdash; ADHD diagnosis and medication in Japan",
+    "ko": "IMH 클리닉 도쿄 — 일본의 ADHD 진단과 약물"}),
+ ],
+ "jp_cbd": [
+  ("https://www.mhlw.go.jp/stf/newpage_43079.html",
+   {"en": "Ministry of Health, Labour and Welfare &mdash; phased enforcement of the revised Cannabis Control Act",
+    "ko": "후생노동성 — 개정 대마단속법 단계별 시행 안내"}),
+  ("https://health-beauty-soleil.jp/news/%E3%80%90thc%E6%AE%8B%E7%95%99%E9%99%90%E5%BA%A6%E5%80%A4%E7%99%BA%E8%A1%A8%E3%80%91%E3%80%8C%E5%A4%A7%E9%BA%BB%E5%8F%96%E7%B7%A0%E6%B3%95%E5%8F%8A%E3%81%B3%E9%BA%BB%E8%96%AC%E5%8F%8A%E3%81%B3/",
+   {"en": "Marunouchi Soleil Law Office &mdash; THC residual limit values and the 12 December 2024 date",
+    "ko": "마루노우치 소레이유 법률사무소 — THC 잔류 한도치와 2024년 12월 12일 시행"}),
+  ("https://www.customs.go.jp/tokyo/english/yuubin/mayakuoyobikouseisinyaku.htm",
+   {"en": "Tokyo Customs &mdash; narcotics, psychotropic drugs and raw materials for stimulants",
+    "ko": "도쿄세관 — 마약·향정신성의약품·각성제원료"}),
+  ("https://www.associatedkyotoprogram.org/bringing-medications-japan/",
+   {"en": "Associated Kyoto Program &mdash; bringing medications into Japan",
+    "ko": "Associated Kyoto Program — 일본 반입 의약품 안내"}),
+ ],
+}
+
+_SRCFOR = {
+ "adderall-to-japan": "jp", "sudafed-to-japan": "jp", "cbd-to-japan": "jp_cbd",
+ "애더럴-일본": "jp", "감기약-슈도에페드린-일본": "jp", "CBD-일본": "jp_cbd",
+}
+
+_NOTE = {
+ "en": ('<p style="opacity:.7">Last checked %s. Where the official pages above '
+        'disagree with this one, they are right and we are out of date.</p>'),
+ "ko": ('<p style="opacity:.7">최종 확인 %s. 위 공식 안내와 이 페이지가 다르면 '
+        '공식 안내가 맞고 이 페이지가 낡은 것입니다.</p>'),
+}
+
+
+def _srcblk(slug, lang):
+    key = _SRCFOR.get(slug)
+    if not key:
+        return ""
+    head = "Sources" if lang == "en" else "출처"
+    rows = "<br>".join('<a href="%s" rel="noopener" target="_blank">%s</a>' % (u, lab[lang])
+                       for u, lab in _SRCSET[key])
+    return "<h2>%s</h2><p>%s</p>%s" % (head, rows, _NOTE[lang] % _FACT["checked"][lang])
+
+
+def _fill(slug, tpl, lang):
+    """{{키}} 를 채우고 출처 블록을 정본으로 갈아끼운다.
+       ★없는 키는 조용히 넘기지 않고 터뜨린다. 그게 이 리팩터의 핵심."""
+    import re as _re
+    for h in ("<h2>Sources</h2>", "<h2>출처</h2>"):
+        i = tpl.find(h)
+        if i >= 0:
+            tpl = tpl[:i]
+            break
+    tpl = tpl + _srcblk(slug, lang)
+
+    def rep(m):
+        k = m.group(1)
+        if k not in _FACT:
+            raise KeyError("본문에 없는 사실 키: %s (%s/%s)" % (k, slug, lang))
+        return _FACT[k][lang]
+    return _re.sub(r"\{\{([a-z_]+)\}\}", rep, tpl)
+
+
+# ── 배포 시점 검증. 키를 틀리면 여기서 죽는다.
+for _s, _t in list(DEEP.items()):
+    _fill(_s, _t, "en")
+for _s, _t in list(KO_DEEP.items()):
+    _fill(_s, _t, "ko")
