@@ -592,20 +592,27 @@
       const dt = dtMs / 1000;
       state.lastFrameStamp = now;
       state.lastFrameDt = dtMs;
-      if (!state.rafCapDone) {
-        // first 90 frames after boot: median dt decides the cap (16.7 / 33.3 / 41.7 / 8.3)
-        if (state.rafSamples.length < 90) state.rafSamples.push(dtMs);
-        else {
-          const sorted = state.rafSamples.slice().sort((a, b)=>a - b);
-          const med = sorted[45];
-          const cands = [8.33, 11.1, 16.67, 20, 33.33, 41.67];
-          let best = 16.67, bd = 1e9;
-          cands.forEach((c)=>{ const d = Math.abs(med - c); if (d < bd) { bd = d; best = c; } });
+      // P3-1002: rolling cap probe - re-evaluated every 90 frames so a Low Power toggle mid-session is tracked
+      if (!state.rafSamples) state.rafSamples = [];
+      state.rafSamples.push(dtMs);
+      if (state.rafSamples.length >= 90) {
+        const sorted = state.rafSamples.slice().sort((a, b)=>a - b);
+        const med = sorted[45], spread = sorted[81] - sorted[9];
+        state.rafSamples = [];
+        const cands = [8.33, 11.1, 16.67, 20, 33.33, 41.67];
+        let best = 16.67, bd = 1e9;
+        cands.forEach((c)=>{ const d = Math.abs(med - c); if (d < bd) { bd = d; best = c; } });
+        const prev = state.rafCapMs || 16.67;
+        // faster evidence always wins; slower only when the cadence is tight (an OS cap, not a GPU stall)
+        const accept = !state.rafCapDone || best < prev * 0.8 || (best > prev * 1.2 && spread < 6);
+        if (accept && best !== prev) {
           state.rafCapMs = best;
-          state.rafCapDone = true;
-          state.rafSamples = null;
-          if (best >= 33) toast("🔋 화면 갱신 " + Math.round(1000 / best) + "Hz 제한 감지 (저전력 모드?)", 3600);
+          if (best >= 33) toast("\ud83d\udd0b \ud654\uba74 \uac31\uc2e0 " + Math.round(1000 / best) + "Hz \uc81c\ud55c \uac10\uc9c0 (\uc800\uc804\ub825 \ubaa8\ub4dc?)", 3600);
+          else if (state.rafCapDone) toast("\u26a1 \ud654\uba74 \uac31\uc2e0 " + Math.round(1000 / best) + "Hz \ubcf5\uadc0", 2200);
+          state.govCalm = 0;
+          if (best > prev && state.governorTier > 0) { state.governorTier = 0; state.govLockUntil = 0; applyGovernorTier(); } // a slower OS cap is not a GPU stall: undo any demotion it caused
         }
+        state.rafCapDone = true;
       }
       state.govAccum.elapsed += dtMs;
       state.govAccum.sum += dtMs;
