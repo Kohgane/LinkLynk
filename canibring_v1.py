@@ -1862,16 +1862,20 @@ def _bridge(lvl, cc, lang):
                        '<a href="%s">소견서 양식</a>.</p>' % (extra, lurl))
 
     # DECLARE · LIMIT · OK — 들고 타는 사람들. 포장과 서류에서 걸린다.
+    # ★허가가 필요 없는 경우에도 그 나라의 절차 페이지는 읽을 값이 있다.
+    #   "허가 불필요"라는 사실 자체가 거기 적혀 있기 때문이다(태국 향정 2~4종).
     if lang == "en":
+        more = (' <a href="%s">And the destination&rsquo;s own procedure</a>.' % kurl) if kurl else ""
         return _BOX % ("#27323f", "#8b98a8", "If you are carrying it, carry the paperwork too",
                        '<p style="margin:0">Original labelled packaging, the prescription, and a '
                        'letter naming the active ingredient in generic form &mdash; control lists '
                        'are written in generic names, not brands. '
-                       '<a href="%s">What the letter must say</a>.</p>' % lurl)
+                       '<a href="%s">What the letter must say</a>.%s</p>' % (lurl, more))
+    more = (' <a href="%s">그리고 이 나라의 절차</a>.' % kurl) if kurl else ""
     return _BOX % ("#27323f", "#8b98a8", "들고 탈 거라면 서류도 같이",
                    '<p style="margin:0">원래 라벨이 붙은 포장, 처방전, 그리고 성분을 '
                    '일반명으로 적은 소견서. 통제 목록은 상품명이 아니라 일반명으로 쓰여 '
-                   '있습니다. <a href="%s">소견서에 무엇을 적어야 하나</a>.</p>' % lurl)
+                   '있습니다. <a href="%s">소견서에 무엇을 적어야 하나</a>.%s</p>' % (lurl, more))
 
 
 def cb_kit(s, lang):
@@ -1919,3 +1923,225 @@ for _s, _v in list(KIT_KO.items()):
     _fill(_s, _v[2], "ko")
     assert _SRCFOR.get(_s), "출처 미등록: %s" % _s
 assert set(KIT_ALT) == set(KIT_EN) and set(KIT_ALT.values()) == set(KIT_KO), "EN/KO 짝이 안 맞는다"
+# ══ 태국 — 창구가 둘로 갈린다. 거기서 사람들이 틀린다 ══
+_FACT.update({
+    "th_qty":    {"en": "30 days of prescribed usage", "ko": "처방된 용법으로 30일분"},
+    "th_lead":   {"en": "around two weeks before you travel, and not more than one month ahead",
+                  "ko": "출국 2주 전쯤 — 1개월보다 더 일찍은 안 된다"},
+    "th_mail":   {"en": "tnarcotics@fda.moph.go.th", "ko": "tnarcotics@fda.moph.go.th"},
+    "th_tel":    {"en": "+66 2590 7346", "ko": "+66 2590 7346"},
+    "th_portal": {"en": "permitfortraveler.fda.moph.go.th", "ko": "permitfortraveler.fda.moph.go.th"},
+    "th_banned": {"en": "prohibited, and determined to have no medical use in Thailand",
+                  "ko": "금지 — 태국에서 의학적 용도가 없다고 판정된 것들"},
+    "th_disc":   {"en": "The Thai FDA guidance puts the ceiling at 30 days for both routes. "
+                        "A Royal Thai Embassy page states 90 days for narcotics and 30 for "
+                        "psychotropics. We use the stricter figure and we are telling you the two "
+                        "official pages disagree, because you are the one standing at the counter",
+                  "ko": "태국 FDA 지침은 두 경로 모두 30일분으로 적고, 주스웨덴 태국대사관 "
+                        "페이지는 마약 90일분·향정신성 30일분으로 적는다. 우리는 더 엄격한 쪽을 "
+                        "쓰고, 공식 출처 둘이 어긋난다는 사실을 그대로 알린다. 창구에 서는 건 "
+                        "당신이기 때문이다"},
+})
+
+_SRCSET.update({
+ "th_permit": [
+  ("https://permitfortraveler.fda.moph.go.th/permit_new/home/Main",
+   {"en": "Thai FDA Narcotics Control Division &mdash; permit portal for travellers, with the drug-category lookup",
+    "ko": "태국 FDA 마약단속부 — 여행자 허가 포털 및 약물 분류 조회"}),
+  ("https://image.mfa.go.th/mfa/0/kjBTSaxCcf/Consular/Custom/medication.pdf",
+   {"en": "Thai FDA &mdash; guidance for travellers under treatment carrying personal medications (PDF)",
+    "ko": "태국 FDA — 치료 중 여행자의 개인 의약품 지참 지침 (PDF)"}),
+  ("https://image.mfa.go.th/mfa/0/SRBviAC5gs/Medications/One-page-THAI-FDA.pdf",
+   {"en": "Thai FDA &mdash; one-page traveller procedure, four steps (PDF)",
+    "ko": "태국 FDA — 여행자 절차 1페이지 요약, 4단계 (PDF)"}),
+  ("https://en.fda.moph.go.th/entrepreneurs-narcotic-drugs-and-psychotropic-substances/psychotropic-substances-01",
+   {"en": "Thai FDA &mdash; the four psychotropic categories and what is in each",
+    "ko": "태국 FDA — 향정신성 4개 분류와 각 분류의 수록 물질"}),
+  ("https://thaiembassy.se/en/tourism/restricted-medicine/",
+   {"en": "Royal Thai Embassy &mdash; restricted medicine, traveller summary",
+    "ko": "주스웨덴 태국대사관 — 제한 의약품 여행자 안내"}),
+ ],
+})
+
+_SRCFOR.update({"permit-thailand": "th_permit", "승인-태국": "th_permit"})
+KIT_ALT["permit-thailand"] = "승인-태국"
+_KITCC["TH"] = ("permit-thailand", "승인-태국")
+
+KIT_EN["permit-thailand"] = (
+ "Bringing medicine into Thailand &mdash; which route applies to you",
+ "Thailand runs two separate routes under two separate acts. One needs a permit before you "
+ "fly; the other needs only a prescription. Most travellers guess wrong about which one they are on.",
+ """
+<h2>Two acts, two routes, and most people pick the wrong one</h2>
+<p>Thailand does not have a single medication rule. It has two, written under two different laws,
+and which one applies to you depends on how your medicine is scheduled &mdash; not on how serious
+it feels. Getting this wrong in either direction costs you: one way you skip a permit you needed,
+the other way you spend three weeks applying for a permit that does not exist for your drug.</p>
+
+<h2>Route A &mdash; narcotic drugs of Category 2: permit required</h2>
+<p>Under the Narcotics Act B.E. 2522, a traveller carrying a Category 2 narcotic must hold a
+permit issued by the Thai FDA <i>before</i> travelling. Category 2 is where the opioids sit:
+codeine, dihydrocodeine, dextropropoxyphene, fentanyl, hydrocodone, hydromorphone, methadone,
+morphine, oxycodone and pethidine are the examples the FDA itself gives.</p>
+<p>&bull; Apply {{th_lead}}. Both ends of that window matter &mdash; too early is also refused.<br>
+&bull; Form IC-1 is the application to carry in; OC-1 is to carry out.<br>
+&bull; Limit: {{th_qty}}.<br>
+&bull; On arrival you must present the medicine, the documents and the permit at the Customs
+Department <b>Red Channel</b>. Not the green one. Walking through the nothing-to-declare lane with
+a Category 2 narcotic is the mistake that turns paperwork into an incident.</p>
+
+<h2>Route B &mdash; psychotropic substances of Categories 2, 3 and 4: no permit</h2>
+<p>Under the Psychotropic Substances Act B.E. 2518, these need <b>no permit at all</b>. A
+certificate or prescription from the prescribing physician is enough, up to {{th_qty}}. The FDA
+goes further: carried that way, they are <i>considered personal belongings</i>, and you do not
+have to declare them at the Red Channel.</p>
+<p>This is the half nobody gets right. The substances here include zolpidem, methylphenidate,
+midazolam, nitrazepam, phentermine, temazepam, triazolam, buprenorphine and ketamine (Category 2);
+pentazocine and the barbiturates pentobarbital and amobarbital (Category 3); and alprazolam,
+bromazepam, chlordiazepoxide, clonazepam, clorazepate, diazepam, lorazepam, oxazepam and
+phenobarbital (Category 4). <b>Pseudoephedrine is in Category 2</b> &mdash; which means the cold
+medicine everyone assumes is banned is in fact allowed with a prescription, and the real problem is
+that almost nobody has a prescription for a cold medicine they bought off a shelf.</p>
+
+<h2>What is not a route</h2>
+<p>Narcotics of Category 1 and psychotropics of Category 1 are {{th_banned}}. The FDA's own examples
+are amphetamine, dexamphetamine, cathinone and THC. No permit is issued, no letter helps, and no
+amount of lead time changes it. If your medicine is here, the only useful conversation is with your
+prescriber about an alternative &mdash; which is the FDA's own advice too.</p>
+<p>The specific pages: <a href="/can-i-bring/adderall-to-thailand">Adderall and amphetamine</a>
+&middot; <a href="/can-i-bring/sudafed-to-thailand">Sudafed and pseudoephedrine</a>.</p>
+
+<h2>The quantity figure, and why we are showing you the disagreement</h2>
+<p>{{th_disc}}.</p>
+
+<h2>The document people do not know about</h2>
+<p>For the Route A permit, the Thai FDA asks for three things: the application form, a medical
+prescription, and &mdash; this is the one &mdash; a <b>certificate issued by a competent authority
+of the country of departure</b> confirming that you are legally authorised to carry the medication
+for personal use. That is a government document, not a note from your doctor, and the FDA publishes
+a model form for it. Start on that first; it is the step with the longest tail.</p>
+
+<h2>What the prescription itself must state</h2>
+<p>Both routes require the same content in the prescription or physician's certificate:</p>
+<p>&bull; your name and address<br>
+&bull; the identified medical condition<br>
+&bull; the name of each medication and why it was prescribed<br>
+&bull; the posology and the total amount prescribed<br>
+&bull; the prescribing physician's name, address and licence number</p>
+<p>Our <a href="/can-i-bring/doctors-letter">letter template</a> carries these fields. Keep the
+prescription or certificate with you for the whole stay, not just at the airport.</p>
+
+<h2>Three small rules that catch people</h2>
+<p>&bull; Keep the medicine in its original prescription container with the contents clearly
+marked.<br>
+&bull; You may not sell or supply your medication to anyone else in Thailand.<br>
+&bull; Check the category before each trip rather than relying on last time &mdash; the FDA's
+lookup tool at {{th_portal}} exists for exactly this.</p>
+
+<h2>Where to ask, and a warning about the links</h2>
+<p>Questions go to {{th_mail}} or {{th_tel}}. One caution on sources: the FDA reorganised this part
+of its website, and the form-download link printed inside its own guidance document now returns a
+404. Start from the portal rather than from any direct form link you find, including an older one
+of ours if we ever let one rot.</p>
+""")
+
+KIT_KO["승인-태국"] = (
+ "태국에 약 가져가기 — 내 약은 어느 창구인가",
+ "태국은 법이 둘이고 창구가 둘이다. 한쪽은 출국 전 허가가 필요하고 다른 쪽은 처방전만 "
+ "있으면 된다. 대부분의 여행자가 자기가 어느 쪽인지 틀리게 안다.",
+ """
+<h2>법이 둘, 창구가 둘, 그리고 사람들은 틀린 쪽을 고른다</h2>
+<p>태국에는 의약품 규정이 하나가 아닙니다. 서로 다른 두 법 아래 두 개가 있고, 어느 쪽이
+적용되는지는 내 약이 어떻게 분류돼 있느냐로 갈립니다 — 약이 얼마나 센 느낌인지와는 상관이
+없습니다. 어느 방향으로 틀려도 대가가 있습니다. 한쪽으로 틀리면 필요한 허가를 빼먹고,
+반대로 틀리면 내 약에는 존재하지도 않는 허가를 3주 동안 신청하고 있습니다.</p>
+
+<h2>A 경로 — 마약 2종: 사전 허가 필수</h2>
+<p>마약법(B.E. 2522)상 마약 2종을 지참하는 여행자는 <b>출국 전에</b> 태국 FDA가 발급한 허가를
+손에 들고 있어야 합니다. 2종에는 오피오이드가 모여 있습니다 — FDA가 직접 든 예가 코데인,
+디하이드로코데인, 덱스트로프로폭시펜, 펜타닐, 하이드로코돈, 하이드로모르폰, 메타돈, 모르핀,
+옥시코돈, 페티딘입니다.</p>
+<p>&bull; 신청 시점은 {{th_lead}}. 양쪽 끝이 다 중요합니다 — 너무 일찍도 반려됩니다.<br>
+&bull; 반입 신청은 Form IC-1, 반출은 OC-1.<br>
+&bull; 수량 한도: {{th_qty}}.<br>
+&bull; 입국 시 약·서류·허가서를 세관 <b>레드채널</b>에 제시해야 합니다. 그린채널이 아닙니다.
+마약 2종을 들고 신고 없음 통로로 걸어 들어가는 것이, 서류 문제를 사건으로 바꾸는 바로 그
+실수입니다.</p>
+
+<h2>B 경로 — 향정신성 2·3·4종: 허가 불필요</h2>
+<p>향정신성의약품법(B.E. 2518)상 이쪽은 <b>허가가 아예 필요 없습니다.</b> 처방 의사의
+소견서나 처방전만 있으면 {{th_qty}}까지 됩니다. FDA 문서는 한 걸음 더 나갑니다 — 그렇게
+지참하면 <i>개인 소지품으로 본다</i>고, 레드채널 신고 의무도 없다고 적습니다.</p>
+<p>아무도 제대로 모르는 쪽이 이 절반입니다. 여기 들어가는 성분은 졸피뎀, 메틸페니데이트,
+미다졸람, 니트라제팜, 펜터민, 테마제팜, 트리아졸람, 부프레노르핀, 케타민(2종) · 펜타조신과
+바르비투르계 펜토바르비탈·아모바르비탈(3종) · 알프라졸람, 브로마제팜, 클로르디아제폭사이드,
+클로나제팜, 클로라제페이트, 디아제팜, 로라제팜, 옥사제팜, 페노바르비탈(4종)입니다.
+<b>슈도에페드린이 2종에 있습니다</b> — 모두가 금지라고 믿는 그 감기약이 실제로는 처방전만
+있으면 허용이고, 진짜 문제는 선반에서 그냥 사 온 감기약에 처방전을 가진 사람이 거의 없다는
+점입니다.</p>
+
+<h2>경로가 아닌 것</h2>
+<p>마약 1종과 향정신성 1종은 {{th_banned}}. FDA가 든 예가 암페타민, 덱스암페타민, 카티논,
+THC입니다. 허가가 발급되지 않고, 소견서로도 안 되고, 아무리 일찍 신청해도 달라지지
+않습니다. 내 약이 여기 있으면 쓸 만한 대화 상대는 하나뿐입니다 — 대체약을 아는 처방 의사.
+그게 FDA 문서 자체의 권고이기도 합니다.</p>
+<p>해당 페이지: <a href="/ko/애더럴-태국">애더럴·암페타민</a> &middot;
+<a href="/ko/감기약-슈도에페드린-태국">감기약·슈도에페드린</a>.</p>
+
+<h2>수량 숫자, 그리고 불일치를 왜 그대로 보여주는가</h2>
+<p>{{th_disc}}.</p>
+
+<h2>사람들이 모르는 서류 하나</h2>
+<p>A 경로 허가에 태국 FDA가 요구하는 건 셋입니다. 신청서, 처방전, 그리고 — 이게 그 하나인데
+— <b>출발국 관할 당국이 발급한 증명서</b>로, 본인이 그 약을 개인용으로 지참할 법적 권한이
+있음을 확인하는 문서입니다. 의사 메모가 아니라 <b>정부 문서</b>이고, FDA가 양식 견본을
+배포합니다. 여기부터 시작하세요. 가장 오래 끌리는 단계입니다.</p>
+
+<h2>처방전에 들어가야 하는 내용</h2>
+<p>두 경로 모두 처방전·소견서에 같은 내용을 요구합니다.</p>
+<p>&bull; 본인 이름과 주소<br>
+&bull; 확인된 질환<br>
+&bull; 각 약의 이름과 처방 이유<br>
+&bull; 용법·용량과 처방 총량<br>
+&bull; 처방 의사의 이름·주소·면허번호</p>
+<p><a href="/ko/소견서">소견서 양식</a>에 이 항목들이 들어 있습니다. 처방전이나 증명서는
+공항에서만이 아니라 <b>체류 기간 전체</b> 동안 소지하세요.</p>
+
+<h2>사람 잡는 작은 규정 셋</h2>
+<p>&bull; 약은 원래 조제 용기에, 내용물이 명확히 표시된 상태로 둡니다.<br>
+&bull; 태국에서 내 약을 다른 사람에게 판매·제공할 수 없습니다.<br>
+&bull; 지난번을 믿지 말고 매 여행마다 분류를 다시 확인하세요 — {{th_portal}} 의 조회 도구가
+정확히 이 용도로 있습니다.</p>
+
+<h2>문의처, 그리고 링크에 대한 경고</h2>
+<p>문의는 {{th_mail}} 또는 {{th_tel}}. 출처에 관한 주의 하나 — FDA가 이 부분 웹사이트를
+개편해서, <b>자기 지침 문서 안에 인쇄된 양식 다운로드 링크가 지금 404</b>입니다. 어디서 찾은
+양식 직링크든 믿지 말고 포털에서 시작하세요. 나중에 우리 링크가 썩으면 그것도
+포함해서입니다.</p>
+""")
+
+# ── 태국 허브 배포 시점 검증 + 이 버그 종류를 구조적으로 죽인다.
+#
+# ★왜: _fill 의 치환 정규식은 [a-z_]+ 다. 숫자가 든 키({{th_cat1}})는
+#   "없는 키"로 터지지도 않고 그냥 본문에 날것으로 찍혀 나간다. 기존
+#   검증기는 못 잡는 구멍이었다. 아래 두 검사가 그걸 닫는다.
+import re as _re_v
+
+for _k in _FACT:
+    assert _re_v.fullmatch(r"[a-z_]+", _k), \
+        "사실 키에 _fill 이 못 받는 문자가 있다(숫자 금지): %s" % _k
+
+for _s, _v in list(KIT_EN.items()):
+    _o = _fill(_s, _v[2], "en")
+    assert "{{" not in _o, "치환 안 된 자리표시자가 남았다: %s/en" % _s
+    assert _SRCFOR.get(_s), "출처 미등록: %s" % _s
+for _s, _v in list(KIT_KO.items()):
+    _o = _fill(_s, _v[2], "ko")
+    assert "{{" not in _o, "치환 안 된 자리표시자가 남았다: %s/ko" % _s
+    assert _SRCFOR.get(_s), "출처 미등록: %s" % _s
+for _s, _t in list(DEEP.items()):
+    assert "{{" not in _fill(_s, _t, "en"), "치환 안 된 자리표시자: %s/en" % _s
+for _s, _t in list(KO_DEEP.items()):
+    assert "{{" not in _fill(_s, _t, "ko"), "치환 안 된 자리표시자: %s/ko" % _s
+assert set(KIT_ALT) == set(KIT_EN) and set(KIT_ALT.values()) == set(KIT_KO), "EN/KO 짝이 안 맞는다"
+assert "TH" in _KITCC and _KITCC["TH"][0] in KIT_EN, "태국 허브가 다리에 연결되지 않았다"
