@@ -100,6 +100,9 @@ border-radius:12px;padding:15px;text-decoration:none;margin:26px 0 8px}
 @cb_bp.route("/can-i-bring/<path:s>")
 def cb_page(s):
     s = s.strip("/").lower()
+    _k = cb_kit(s, "en")
+    if _k is not None:
+        return _k
     if s not in _BY_SLUG:
         return Response("Not found", status=404)
     drug, cc = _BY_SLUG[s]
@@ -136,6 +139,7 @@ def cb_page(s):
     if src:
         body.append('<p>Official source for %s: <a href="%s" rel="nofollow noopener" target="_blank">%s</a></p>'
                     % (e(cname), e(src), e(src.split("/")[2])))
+    body.append(_bridge(lvl, cc, "en"))
     body.append('<a class="cta" href="/next/en/r/%s">Check %s in 21 countries</a>' % (e(drug), e(drug)))
     if others or same_c:
         body.append('<div class="rel"><h2>Related</h2>')
@@ -191,6 +195,8 @@ def cb_sitemap():
     urls += ["%s/can-i-bring/%s" % (BASE, slug(d, c)) for d, c in PAIRS]
     urls += ["%s/ko" % BASE]
     urls += ["%s/ko/%s" % (BASE, _q(ko_slug(l, c))) for l, q, c in KO_PAIRS]
+    urls += ["%s/can-i-bring/%s" % (BASE, k) for k in KIT_EN]
+    urls += ["%s/ko/%s" % (BASE, _q(k)) for k in KIT_KO]
     xml = ('<?xml version="1.0" encoding="UTF-8"?>'
            '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">'
            + "".join("<url><loc>%s</loc><changefreq>weekly</changefreq></url>" % u for u in urls)
@@ -302,6 +308,9 @@ def _ko_why(ings, cc):
 @cb_bp.route("/ko/<path:s>")
 def cb_ko_page(s):
     s = s.strip("/")
+    _k = cb_kit(s, "ko")
+    if _k is not None:
+        return _k
     if s not in _KO_BY_SLUG:
         return Response("Not found", status=404)
     label, q, cc = _KO_BY_SLUG[s]
@@ -350,6 +359,7 @@ def cb_ko_page(s):
     if src:
         html += ('<h2>출처</h2><p><a href="%s" rel="nofollow noopener" target="_blank">%s 공식 안내</a></p>'
                  % (_h.escape(src), _h.escape(kname)))
+    html += _bridge(lvl, cc, "ko")
     html += ('<a class="cta" href="%s/next">약 이름 하나로 21개국 한 번에 보기</a>' % BASE)
     if rel:
         html += '<div class="rel"><h2>함께 보면 좋은 것</h2>' + "".join(
@@ -1257,3 +1267,655 @@ for _s, _t in list(DEEP.items()):
     _fill(_s, _t, "en")
 for _s, _t in list(KO_DEEP.items()):
     _fill(_s, _t, "ko")
+# ══════════════════════════════════════════════════════════════════════
+# 다리 — 판정에서 행동으로
+#
+# ★왜 필요한가: 영문 22페이지 중 PROHIBITED 14 · PERMIT 7 · LIMIT 1 이다.
+#   즉 21명 중 21명이 "그냥 들고 타면 안 된다"는 답을 받는다. 그 사람에게
+#   필요한 건 약이 아니라 서류다. 약은 우리가 팔 수 없고(약사법·각국 법),
+#   서류 절차 안내는 팔 수 있다. 다리는 거기에 놓는다.
+#
+# ★절대 하지 않는 것: 금지 성분에 대해 "허가를 받으면 된다"고 말하는 것.
+#   일본 각성제(애더럴)·슈도에페드린은 수입확인증이 발급되지 않는다.
+#   PROHIBITED 와 PERMIT 의 안내문은 반드시 갈라야 한다.
+# ══════════════════════════════════════════════════════════════════════
+
+_FACT.update({
+    # 싱가포르 HSA (hsa.gov.sg 2026-10-02 확인)
+    "sg_portal": {"en": "go.gov.sg/hsa-ptm", "ko": "go.gov.sg/hsa-ptm"},
+    "sg_lead":   {"en": "at least two weeks before you arrive",
+                  "ko": "입국 최소 2주 전"},
+    "sg_qty":    {"en": "three months&rsquo; supply", "ko": "3개월분"},
+    "sg_label":  {"en": "the patient&rsquo;s name, the medication name and the quantity, "
+                        "applied by the dispensing pharmacy",
+                  "ko": "조제 약국이 붙인 환자 이름·약품명·수량"},
+    # 일본 후생노동성 수입확인증 (impconf.mhlw.go.jp / JET 안내서 2026-10-02 확인)
+    "jp_portal": {"en": "impconf.mhlw.go.jp", "ko": "impconf.mhlw.go.jp"},
+    "jp_mail":   {"en": "yakkan@mhlw.go.jp", "ko": "yakkan@mhlw.go.jp"},
+    "jp_lead":   {"en": "at least one month before departure &mdash; processing can take up to four weeks",
+                  "ko": "출국 최소 한 달 전 — 심사에 최대 4주가 걸린다"},
+    "jp_ext":    {"en": "24 items of any single product", "ko": "품목당 24개"},
+})
+
+_SRCSET.update({
+ "sg_permit": [
+  ("https://www.hsa.gov.sg/travelling-with-medication-and-medical-devices/personal-medications/",
+   {"en": "Health Sciences Authority &mdash; travelling with medication to Singapore",
+    "ko": "싱가포르 보건과학청(HSA) — 의약품 지참 입국 안내"}),
+  ("https://go.gov.sg/hsa-ptm",
+   {"en": "HSA &mdash; application form for bringing in personal medication",
+    "ko": "HSA — 개인 의약품 반입 신청 양식"}),
+ ],
+ "jp_permit": [
+  ("https://impconf.mhlw.go.jp/aicpte/page/login.jsp?lang=en",
+   {"en": "Ministry of Health, Labour and Welfare &mdash; import confirmation online system",
+    "ko": "후생노동성 — 의약품등 수입확인 온라인 시스템"}),
+  ("https://www.mhlw.go.jp/stf/seisakunitsuite/bunya/kenkou_iryou/iyakuhin/kojinyunyu/topics/tp010401-1.html",
+   {"en": "MHLW &mdash; personal import of medicines",
+    "ko": "후생노동성 — 의약품등의 개인 수입"}),
+  ("https://jetprogramusa.org/wp-content/uploads/2025/03/2025-Yunyu-Kakuninsho-Import-of-Medication-Certification-Guide.pdf",
+   {"en": "Yunyu Kakunin-sho guide, reproducing the MHLW quantity thresholds (PDF)",
+    "ko": "수입확인증 안내서 — 후생노동성 수량 기준 수록 (PDF)"}),
+  ("https://www.customs.go.jp/tokyo/english/yuubin/mayakuoyobikouseisinyaku.htm",
+   {"en": "Tokyo Customs &mdash; narcotics, psychotropics and stimulant raw materials",
+    "ko": "도쿄세관 — 마약·향정신성의약품·각성제원료"}),
+ ],
+ "ae_permit": [
+  ("https://u.ae/en/information-and-services/health-and-fitness/Health-and-wellbeing/drugs-and-controlled-medicines",
+   {"en": "UAE Government portal &mdash; drugs and controlled medicines",
+    "ko": "UAE 정부 포털 — 약물과 통제 의약품"}),
+  ("https://www.ede.gov.ae/documents/61005/0/Controlled+and+semi-controlled+medicines+list.pdf",
+   {"en": "Emirates Drug Establishment &mdash; controlled and semi-controlled medicines list (PDF)",
+    "ko": "에미리트 의약품청(EDE) — 통제·준통제 의약품 목록 (PDF)"}),
+ ],
+ "letter": [
+  ("https://www.gov.uk/travelling-controlled-drugs",
+   {"en": "UK Government &mdash; travelling with controlled medicine, and what the prescriber&rsquo;s letter must state",
+    "ko": "영국 정부 — 통제 의약품 지참 여행과 처방자 소견서 필수 기재 사항"}),
+  ("https://www.hsa.gov.sg/travelling-with-medication-and-medical-devices/personal-medications/",
+   {"en": "Health Sciences Authority &mdash; prescription or doctor&rsquo;s letter and original labelled packaging",
+    "ko": "싱가포르 보건과학청(HSA) — 처방전·소견서와 원포장 라벨 요건"}),
+  ("https://www.incb.org/incb/en/narcotic-drugs/Yellowlist/yellow-list.html",
+   {"en": "International Narcotics Control Board &mdash; Yellow List, narcotic drugs under international control",
+    "ko": "UN 국제마약통제위원회 — 국제 통제 마약 옐로리스트"}),
+  ("https://wwwnc.cdc.gov/travel/page/pack-smart",
+   {"en": "US Centers for Disease Control and Prevention &mdash; packing medicines for travel",
+    "ko": "미국 질병통제예방센터(CDC) — 여행용 의약품 포장 안내"}),
+ ],
+})
+
+_SRCFOR.update({
+ "permit-japan": "jp_permit",
+ "permit-singapore": "sg_permit",
+ "permit-united-arab-emirates": "ae_permit",
+ "doctors-letter": "letter",
+ "승인-일본": "jp_permit",
+ "승인-싱가포르": "sg_permit",
+ "승인-UAE": "ae_permit",
+ "소견서": "letter",
+})
+
+# ── 승인 절차 허브. 판정 페이지 21개가 여기로 모인다.
+KIT_EN, KIT_KO, KIT_ALT = {}, {}, {}
+
+KIT_ALT["permit-japan"] = "승인-일본"
+KIT_ALT["permit-singapore"] = "승인-싱가포르"
+KIT_ALT["permit-united-arab-emirates"] = "승인-UAE"
+KIT_ALT["doctors-letter"] = "소견서"
+
+KIT_EN["permit-japan"] = (
+ "How to get a Yunyu Kakunin-sho for Japan",
+ "Japan's import confirmation certificate for medicine: when you need one, when no "
+ "certificate can be issued at all, how to apply and how long it takes.",
+ """
+<h2>What the certificate is</h2>
+<p>A Yunyu Kakunin-sho (&#36664;&#20837;&#30906;&#35469;&#35388;, also written <i>yakkan shoumei</i>) is
+a confirmation from Japan's Ministry of Health, Labour and Welfare that the medicine you are
+carrying is for your own treatment and not for sale. It is not a licence to import a banned
+substance. It is a statement that your quantity is personal.</p>
+
+<h2>When you need one</h2>
+<p>Below certain quantities, confirmation at customs on arrival is normally enough. You need the
+certificate when you exceed them:</p>
+<p>&bull; more than a {{qty_rx}} of a prescription medicine<br>
+&bull; more than a {{qty_other}} supply of a non-prescription medicine<br>
+&bull; more than {{jp_ext}} of an external-use product</p>
+
+<h2>When no certificate will be issued</h2>
+<p>This is the part that gets travellers arrested. Japan does not issue an import confirmation for
+substances it prohibits outright, and the prohibition covers medicines that are ordinary
+prescriptions or even over-the-counter products elsewhere. Stimulants and stimulant raw materials
+are the main trap: amphetamine-based ADHD medication and pseudoephedrine cold medicine both fall
+in this group, and no application, letter or declaration opens that door. The penalty for
+stimulants is {{stim_pen}}.</p>
+<p>If your medicine is in that group, the certificate route is not a slower path to the same
+destination &mdash; it is a closed door. Read the specific page instead:
+<a href="/can-i-bring/adderall-to-japan">Adderall</a> &middot;
+<a href="/can-i-bring/sudafed-to-japan">Sudafed and pseudoephedrine</a> &middot;
+<a href="/can-i-bring/cbd-to-japan">CBD</a>.</p>
+
+<h2>Narcotics and psychotropics are a separate route</h2>
+<p>If you carry a narcotic or psychotropic medicine for your own treatment &mdash; not an excess
+quantity of an ordinary drug, but a controlled one &mdash; permission to import by carrying is
+handled by the narcotics control department of the regional health bureau, not by the ordinary
+import confirmation. Ask about your specific medicine before you assume which form applies.</p>
+
+<h2>How to apply</h2>
+<p>Applications go through the ministry's online system at
+<a href="https://impconf.mhlw.go.jp/aicpte/page/login.jsp?lang=en" rel="noopener" target="_blank">{{jp_portal}}</a>.
+Questions go to {{jp_mail}}. Apply {{jp_lead}}, so a trip booked three weeks out is already
+too late for anything that needs the certificate.</p>
+<p>The application asks what the product is, what is in it, how much you are bringing and when you
+are travelling. Have your prescription or a doctor's letter ready to attach, with the active
+ingredient named in generic form &mdash; the officer reading your file works from the ingredient,
+not the brand. Our <a href="/can-i-bring/doctors-letter">doctor's letter template</a> covers
+the fields that get asked for.</p>
+
+<h2>At the airport</h2>
+<p>Carry the certificate with you on arrival. Not in checked baggage, not in an email you plan to
+open on airport wi-fi. The guidance is blunt about this: if it is required, you must have it with
+you when you arrive.</p>
+""")
+
+KIT_EN["permit-singapore"] = (
+ "How to get HSA approval to bring medicine into Singapore",
+ "Singapore's Health Sciences Authority approval for personal medication: who needs it, "
+ "the application form, the two-week lead time and the three-month quantity limit.",
+ """
+<h2>Who needs approval</h2>
+<p>Singapore's Health Sciences Authority requires prior approval for medicines containing
+controlled substances. The authoritative list is Appendix A of HSA's document guide for bringing in
+personal medications, which draws on the Second and Third Schedules to the Misuse of Drugs
+Regulations and the First Schedule to the Health Products (Therapeutic Products) Regulations 2016.
+Check your medicine against that appendix by active ingredient, not by brand name.</p>
+
+<h2>If no approval is needed</h2>
+<p>You may bring up to {{sg_qty}} of a medicine that is neither controlled nor prohibited. That
+ceiling applies to the quantity you carry, not to the length of your trip.</p>
+
+<h2>How to apply</h2>
+<p>The application form is at
+<a href="https://go.gov.sg/hsa-ptm" rel="noopener" target="_blank">{{sg_portal}}</a>.
+Submit it {{sg_lead}}, which HSA asks for so there is time to process it. An application filed
+from the departure lounge is not an application.</p>
+
+<h2>What to carry regardless</h2>
+<p>&bull; A copy of a valid prescription, or a doctor's letter from your country of residence.<br>
+&bull; Each medicine in its original container or packaging, labelled with {{sg_label}}.</p>
+<p>The labelling requirement is the one travellers break without noticing: decanting a month of
+tablets into an unlabelled weekly organiser removes the only proof that the medicine is yours and
+was dispensed to you. Carry the original box even if you also carry an organiser. Our
+<a href="/can-i-bring/doctors-letter">doctor's letter template</a> covers the fields HSA and
+other authorities ask for.</p>
+
+<h2>Where the hard cases are</h2>
+<p>Approval is a process for controlled medicines, not a workaround for prohibited ones. Cannabis
+derivatives are the clearest example &mdash; Singapore's ban covers them regardless of THC content,
+so no approval is available. The individual pages are more specific:
+<a href="/can-i-bring/adderall-to-singapore">Adderall</a> &middot;
+<a href="/can-i-bring/codeine-to-singapore">codeine</a> &middot;
+<a href="/can-i-bring/ambien-to-singapore">Ambien</a> &middot;
+<a href="/can-i-bring/cbd-to-singapore">CBD</a>.</p>
+""")
+
+KIT_EN["permit-united-arab-emirates"] = (
+ "How to get UAE approval to bring medicine in",
+ "The UAE controlled and semi-controlled medicines list, the prior-approval requirement, "
+ "how recent your prescription must be and how much you may carry.",
+ """
+<h2>Three categories, not two</h2>
+<p>The UAE sorts medicines into controlled, semi-controlled and uncontrolled. {{uae_count}}
+substances sit on the controlled and semi-controlled list published by the Emirates Drug
+Establishment, in the edition dated {{uae_listd}}. Opioid painkillers, benzodiazepines, sleep
+medication and ADHD stimulants are spread across those categories, so a medicine being routine at
+home says nothing about which category it lands in here.</p>
+
+<h2>Prior approval</h2>
+<p>For a controlled or semi-controlled medicine you need approval from the health authority
+<i>before</i> you travel. There is no counter at the airport that issues it. Travellers have been
+detained over quantities they considered obviously personal, which is the risk this step exists to
+remove.</p>
+
+<h2>Your prescription has an expiry for this purpose</h2>
+<p>The prescription must be {{uae_rxage}}. A repeat prescription from last year, or a photo of a
+label, does not meet that. Get a fresh one before you fly even if your medication has not
+changed.</p>
+
+<h2>How much you may carry</h2>
+<p>{{uae_qty}}. Work out the figure for your own trip and carry that, not a round number. An
+excess is the thing an officer can see at a glance.</p>
+
+<h2>What to have on you</h2>
+<p>The approval, the recent stamped prescription, and the medicine in its original labelled
+packaging. A letter from your prescriber naming the active ingredient in generic form closes the
+gap between the brand on your box and the substance on the UAE's list &mdash; our
+<a href="/can-i-bring/doctors-letter">template</a> covers it.</p>
+<p>Specific medicines: <a href="/can-i-bring/codeine-to-united-arab-emirates">codeine</a> &middot;
+<a href="/can-i-bring/tramadol-to-united-arab-emirates">tramadol</a> &middot;
+<a href="/can-i-bring/xanax-to-united-arab-emirates">Xanax</a> &middot;
+<a href="/can-i-bring/valium-to-united-arab-emirates">Valium</a> &middot;
+<a href="/can-i-bring/ambien-to-united-arab-emirates">Ambien</a> &middot;
+<a href="/can-i-bring/adderall-to-united-arab-emirates">Adderall</a> &middot;
+<a href="/can-i-bring/cbd-to-united-arab-emirates">CBD</a>.</p>
+""")
+KIT_EN["doctors-letter"] = (
+ "Doctor's letter for travelling with medication &mdash; what it must say",
+ "A customs officer works from the active ingredient, not your brand name. The fields a "
+ "prescriber's letter must carry, and a template you can hand your doctor.",
+ """
+<h2>Why the brand name is the problem</h2>
+<p>Control lists are written in generic names. The UN narcotics and psychotropics lists, the UAE's
+controlled-substances list, Japan's stimulant schedules and Singapore's Misuse of Drugs Regulations
+all name substances, not products. An officer holding a letter that says &ldquo;Adderall&rdquo; is
+looking at a list that says &ldquo;amphetamine&rdquo;. A letter that names only the brand asks the
+officer to do the translation, and the officer is not obliged to do it in your favour.</p>
+<p>Name the active ingredient in generic form, with the strength and the daily dose. That single
+habit resolves most of what goes wrong at a border with legitimate medicine.</p>
+
+<h2>The minimum the letter must state</h2>
+<p>The UK Home Office is the most explicit about this, and its four requirements are a good floor
+anywhere:</p>
+<p>&bull; your name<br>
+&bull; the dates you are travelling<br>
+&bull; a list of your medicine, including how much you have, the doses and the strength<br>
+&bull; the signature of the person who prescribed it</p>
+
+<h2>What to add beyond the floor</h2>
+<p>&bull; the generic (INN) name of each active ingredient, alongside the brand<br>
+&bull; your date of birth and passport number, so the letter ties to the document you present<br>
+&bull; the condition being treated, in one line<br>
+&bull; the prescriber's licence or registration number, facility name and a contact number<br>
+&bull; the total quantity carried and the number of days of treatment it covers &mdash; stating the
+arithmetic yourself stops the officer from doing it</p>
+<p>Written on the prescriber's letterhead, dated, signed. An unsigned printout is a draft.</p>
+
+<h2>Template</h2>
+<p>Hand this to your doctor rather than asking them to compose one. Replace everything in square
+brackets.</p>
+<pre style="background:#111620;border:1px solid #27323f;border-radius:10px;padding:16px;
+overflow-x:auto;font-size:13px;line-height:1.6;color:#c9d4e0;white-space:pre-wrap">[PRESCRIBER LETTERHEAD]
+
+[Date]
+
+TO WHOM IT MAY CONCERN &mdash; TRAVELLER CARRYING PRESCRIBED MEDICATION
+
+Patient:        [Full name as printed in passport]
+Date of birth:  [YYYY-MM-DD]
+Passport no.:   [Number]
+Travelling to:  [Country]   Dates: [YYYY-MM-DD] to [YYYY-MM-DD]
+
+The above patient is under my care for [condition, one line]. The
+medication listed below is prescribed for this patient's own
+treatment and the quantity carried corresponds to the duration of
+travel stated above.
+
+  1. Brand name:        [Brand]
+     Active ingredient: [Generic / INN name]
+     Strength:          [e.g. 10 mg per tablet]
+     Dose:              [e.g. 1 tablet twice daily]
+     Quantity carried:  [e.g. 60 tablets = 30 days]
+
+  2. [repeat per medicine]
+
+This patient requires this medication for the duration of travel.
+I can be contacted at the number below for verification.
+
+[Prescriber name]
+[Qualification]
+[Licence / registration number]
+[Facility name and address]
+[Telephone]   [Email]
+
+[Signature]</pre>
+
+<h2>What the letter does not replace</h2>
+<p>A letter is not an import permit. Where a country requires prior approval, the letter is an
+attachment to that application, not an alternative to it &mdash;
+<a href="/can-i-bring/permit-japan">Japan</a>,
+<a href="/can-i-bring/permit-singapore">Singapore</a> and
+<a href="/can-i-bring/permit-united-arab-emirates">the UAE</a> each run their own process. And no
+letter makes a prohibited substance importable; for those the useful conversation is with your
+prescriber about an alternative that is legal where you are going.</p>
+
+<h2>Keep the original packaging</h2>
+<p>Singapore states the requirement plainly &mdash; each medicine in its original container,
+labelled with {{sg_label}} &mdash; and it is good practice everywhere. Decanting a trip's worth of
+tablets into an unlabelled organiser destroys the link between the medicine and the prescription.
+Carry the box as well as the organiser.</p>
+
+<h2>Three months is the recurring ceiling</h2>
+<p>The quantity limits are set independently by each country, but three of the strictest converge
+near the same figure: the UK allows up to three months' supply, Singapore {{sg_qty}}, and the UAE
+{{uae_qty}}. It is not a universal rule and it is not a defence anywhere, but if you are packing
+more than three months of a controlled medicine you are outside what the strict jurisdictions
+contemplate, and that is worth knowing before you pack rather than after.</p>
+""")
+
+KIT_KO["승인-일본"] = (
+ "일본 수입확인증(輸入確認証) 받는 방법",
+ "일본에 약을 가져갈 때 필요한 수입확인증 — 언제 필요하고, 언제 아예 발급되지 않으며, "
+ "어디에 어떻게 신청하고 얼마나 걸리는지.",
+ """
+<h2>수입확인증이 무엇인가</h2>
+<p>수입확인증(輸入確認証, 야칸쇼메이)은 지참한 약이 본인 치료용이고 판매용이 아니라는 것을
+일본 후생노동성이 확인해 주는 서류입니다. <b>금지 성분을 들여올 수 있게 해 주는 허가가
+아닙니다.</b> 수량이 개인용 범위라는 확인일 뿐입니다.</p>
+
+<h2>언제 필요한가</h2>
+<p>아래 수량을 넘지 않으면 보통 공항 세관 확인으로 끝납니다. 넘으면 수입확인증이 필요합니다.</p>
+<p>&bull; 처방약 {{qty_rx}}을 넘는 경우<br>
+&bull; 비처방약 {{qty_other}}을 넘는 경우<br>
+&bull; 외용제 {{jp_ext}}을 넘는 경우</p>
+
+<h2>아예 발급되지 않는 경우</h2>
+<p>여기서 사람이 잡힙니다. 일본이 전면 금지하는 성분에는 수입확인증이 발급되지 않습니다.
+그리고 그 금지 목록에는 다른 나라에서는 평범한 처방약이거나 심지어 약국에서 그냥 사는 약이
+들어 있습니다. 각성제와 각성제원료가 대표적입니다 — 암페타민계 ADHD 약과 슈도에페드린
+감기약이 둘 다 여기 해당하고, 신청서·소견서·신고 그 무엇으로도 열리지 않습니다. 각성제
+위반 처벌은 {{stim_pen}}입니다.</p>
+<p>내 약이 이 그룹이면 수입확인증은 "느린 우회로"가 아니라 닫힌 문입니다. 해당 페이지를
+보세요: <a href="/ko/애더럴-일본">애더럴</a> &middot;
+<a href="/ko/감기약-슈도에페드린-일본">감기약·슈도에페드린</a> &middot;
+<a href="/ko/CBD-일본">CBD</a>.<br>
+마약·향정신성 쪽은 <a href="/ko/코데인-일본">코데인</a> &middot;
+<a href="/ko/트라마돌-일본">트라마돌</a> &middot;
+<a href="/ko/졸피뎀-일본">졸피뎀</a>.</p>
+
+<h2>마약·향정신성은 별도 절차다</h2>
+<p>치료용으로 마약이나 향정신성의약품을 직접 지참하는 경우는 — 일반 약을 수량 초과로
+가져가는 것과 다릅니다 — 지방후생국 마약단속부의 휴대 수입 허가를 받습니다. 일반
+수입확인증과 창구가 다릅니다. 내 약이 어느 쪽인지 먼저 확인하세요.</p>
+
+<h2>신청 방법</h2>
+<p>후생노동성 온라인 시스템
+<a href="https://impconf.mhlw.go.jp/aicpte/page/login.jsp?lang=en" rel="noopener" target="_blank">{{jp_portal}}</a>
+에서 신청합니다. 문의는 {{jp_mail}}. 신청 시점은 {{jp_lead}} — 3주 뒤 출발하는 일정이면
+수입확인증이 필요한 약은 이미 늦었습니다.</p>
+<p>신청서는 제품이 무엇이고 무엇이 들었고 얼마나 가져가고 언제 여행하는지를 묻습니다.
+처방전이나 영문 소견서를 첨부할 수 있게 준비하고, <b>성분명을 일반명(제네릭)으로</b>
+적으세요. 서류를 읽는 담당자는 상품명이 아니라 성분으로 판단합니다.
+<a href="/ko/소견서">소견서 양식</a>에 필요한 항목을 정리해 두었습니다.</p>
+
+<h2>공항에서</h2>
+<p>확인증은 몸에 들고 입국합니다. 수탁 수하물에 넣지 말고, 공항 와이파이로 열어 보겠다는
+생각으로 메일에만 두지 마세요. 안내문 표현이 단호합니다 — 필요한 경우 반드시 소지해야 합니다.</p>
+""")
+
+KIT_KO["승인-싱가포르"] = (
+ "싱가포르 HSA 의약품 반입 승인받는 방법",
+ "싱가포르 보건과학청 사전 승인 — 누가 받아야 하고, 신청 양식은 어디 있고, "
+ "2주 전 제출과 3개월분 수량 제한.",
+ """
+<h2>누가 승인을 받아야 하나</h2>
+<p>싱가포르 보건과학청(HSA)은 통제물질이 든 의약품에 사전 승인을 요구합니다. 기준 목록은
+HSA 개인 의약품 반입 안내서의 부록 A이고, 이는 오용약물규정 제2·3표와 2016년
+건강제품(치료제)규정 제1표에서 가져온 것입니다. <b>상품명이 아니라 성분으로</b> 대조하세요.</p>
+
+<h2>승인이 필요 없는 경우</h2>
+<p>통제물질도 금지물질도 아닌 약은 {{sg_qty}}까지 가져갈 수 있습니다. 이 상한은 여행 기간이
+아니라 지참 수량에 걸립니다.</p>
+
+<h2>신청 방법</h2>
+<p>신청 양식은 <a href="https://go.gov.sg/hsa-ptm" rel="noopener" target="_blank">{{sg_portal}}</a>
+에 있습니다. {{sg_lead}}에 제출하라고 HSA가 명시합니다. 심사 시간을 두라는 뜻입니다.
+출국 게이트에서 넣는 신청은 신청이 아닙니다.</p>
+
+<h2>승인과 무관하게 챙길 것</h2>
+<p>&bull; 거주국에서 발급한 유효한 처방전 사본 또는 의사 소견서<br>
+&bull; 약은 원래 용기·포장 그대로, {{sg_label}}이 붙은 상태</p>
+<p>여행자가 모르고 어기는 쪽은 라벨 요건입니다. 한 달치 알약을 라벨 없는 요일별 약통에
+옮겨 담으면, 그 약이 내 것이고 내게 조제되었다는 유일한 증거가 사라집니다. 약통을 쓰더라도
+원래 상자를 같이 가져가세요. <a href="/ko/소견서">소견서 양식</a>에 요구 항목을
+정리했습니다.</p>
+
+<h2>어려운 경우</h2>
+<p>승인은 통제 의약품을 위한 절차이고, 금지 의약품의 우회로가 아닙니다. 대마 유래 성분이
+가장 분명한 예입니다 — 싱가포르 금지는 THC 함량과 무관하게 적용되어 승인 자체가 없습니다.
+개별 페이지가 더 구체적입니다:
+<a href="/ko/애더럴-싱가포르">애더럴</a> &middot;
+<a href="/ko/콘서타-싱가포르">콘서타</a> &middot;
+<a href="/ko/졸피뎀-싱가포르">졸피뎀</a> &middot;
+<a href="/ko/CBD-싱가포르">CBD</a>.</p>
+""")
+
+KIT_KO["승인-UAE"] = (
+ "UAE 의약품 반입 승인받는 방법",
+ "UAE 통제·준통제 의약품 목록, 사전 승인 요건, 처방전 발급 시점 요건과 허용 수량.",
+ """
+<h2>분류가 둘이 아니라 셋이다</h2>
+<p>UAE는 의약품을 통제·준통제·비통제로 나눕니다. 에미리트 의약품청(EDE)이 공표한
+통제·준통제 목록에 {{uae_count}} 물질이 올라 있고, 판본 날짜는 {{uae_listd}}입니다.
+오피오이드 진통제·벤조디아제핀·수면제·ADHD 각성제가 이 분류들에 흩어져 있어서, 집에서
+평범한 약이라는 사실은 여기서 어느 칸에 떨어지는지에 대해 아무것도 알려주지 않습니다.</p>
+
+<h2>사전 승인</h2>
+<p>통제·준통제 의약품은 <b>출국 전에</b> 보건당국 승인을 받아야 합니다. 공항에 발급 창구가
+없습니다. 본인은 당연히 개인용이라고 생각한 수량 때문에 구금된 사례가 보고되어 있고, 이
+절차는 바로 그 위험을 없애기 위해 있습니다.</p>
+
+<h2>처방전에도 유효기간이 있다</h2>
+<p>처방전은 {{uae_rxage}} 조건을 만족해야 합니다. 작년에 받은 반복 처방이나 약 라벨 사진은
+해당하지 않습니다. 약이 그대로라도 출국 전에 새로 받으세요.</p>
+
+<h2>허용 수량</h2>
+<p>{{uae_qty}}입니다. 내 일정으로 직접 계산해서 그 수량만 가져가세요. 어림수로 넉넉히
+담은 초과분은 담당자 눈에 한 번에 보이는 바로 그것입니다.</p>
+
+<h2>몸에 지닐 것</h2>
+<p>승인서, 직인이 있는 최근 처방전, 원래 라벨이 붙은 포장. 성분을 일반명으로 적은 소견서가
+내 상자의 상품명과 UAE 목록의 물질명 사이 간극을 메웁니다 —
+<a href="/ko/소견서">양식</a>에 정리해 두었습니다.</p>
+<p>개별 약: <a href="/ko/코데인-UAE">코데인</a> &middot;
+<a href="/ko/자낙스-UAE">자낙스</a>.</p>
+""")
+
+KIT_KO["소견서"] = (
+ "약 가지고 출국할 때 쓰는 영문 소견서 — 무엇을 적어야 하나",
+ "세관 담당자는 상품명이 아니라 성분으로 판단합니다. 소견서에 반드시 들어가야 하는 항목과 "
+ "의사에게 그대로 건넬 수 있는 영문 양식.",
+ """
+<h2>상품명이 문제인 이유</h2>
+<p>통제 목록은 일반명으로 쓰여 있습니다. UN 마약·향정신성 목록, UAE 통제물질 목록, 일본
+각성제 분류, 싱가포르 오용약물규정 모두 제품이 아니라 성분을 적습니다.
+"Adderall"이라고 쓰인 소견서를 든 담당자는 "amphetamine"이라고 쓰인 목록을 보고 있습니다.
+상품명만 적은 소견서는 그 번역을 담당자에게 맡기는 것이고, 담당자가 내게 유리한 쪽으로
+해 줄 의무는 없습니다.</p>
+<p>성분을 일반명으로, 함량과 1일 용량까지 적으세요. 정당한 약이 국경에서 꼬이는 일의
+대부분이 이 습관 하나로 정리됩니다.</p>
+
+<h2>최소한 들어가야 하는 것</h2>
+<p>영국 내무부가 이 부분을 가장 명확하게 규정하고 있고, 그 네 항목은 어디서든 통하는
+하한선입니다.</p>
+<p>&bull; 본인 이름<br>
+&bull; 여행 날짜<br>
+&bull; 약 목록 — 수량·용량·함량 포함<br>
+&bull; 처방한 사람의 서명</p>
+
+<h2>하한선 위에 더할 것</h2>
+<p>&bull; 성분별 일반명(INN) — 상품명과 나란히<br>
+&bull; 생년월일과 여권번호 — 제시하는 신분증과 소견서가 서로 연결되도록<br>
+&bull; 치료 중인 질환, 한 줄<br>
+&bull; 처방자의 면허·등록번호, 의료기관명, 연락 가능한 전화번호<br>
+&bull; 지참 총수량과 그것이 며칠분인지 — 계산을 내가 적어두면 담당자가 계산하지 않습니다</p>
+<p>의료기관 레터헤드에, 날짜를 적고, 서명까지. 서명 없는 출력물은 초안입니다.</p>
+
+<h2>양식</h2>
+<p>의사에게 "써 주세요"라고 부탁하지 말고 이것을 그대로 건네세요. 대괄호만 채우면 됩니다.</p>
+<pre style="background:#111620;border:1px solid #27323f;border-radius:10px;padding:16px;
+overflow-x:auto;font-size:13px;line-height:1.6;color:#c9d4e0;white-space:pre-wrap">[PRESCRIBER LETTERHEAD]
+
+[Date]
+
+TO WHOM IT MAY CONCERN &mdash; TRAVELLER CARRYING PRESCRIBED MEDICATION
+
+Patient:        [여권 영문 이름]
+Date of birth:  [YYYY-MM-DD]
+Passport no.:   [여권번호]
+Travelling to:  [국가]   Dates: [YYYY-MM-DD] to [YYYY-MM-DD]
+
+The above patient is under my care for [질환, 한 줄]. The
+medication listed below is prescribed for this patient's own
+treatment and the quantity carried corresponds to the duration of
+travel stated above.
+
+  1. Brand name:        [상품명]
+     Active ingredient: [성분 일반명 / INN]
+     Strength:          [예: 10 mg per tablet]
+     Dose:              [예: 1 tablet twice daily]
+     Quantity carried:  [예: 60 tablets = 30 days]
+
+  2. [약마다 반복]
+
+This patient requires this medication for the duration of travel.
+I can be contacted at the number below for verification.
+
+[의사 이름]
+[전문 과목]
+[면허 / 등록번호]
+[의료기관명 및 주소]
+[전화]   [이메일]
+
+[서명]</pre>
+
+<h2>소견서가 대신하지 못하는 것</h2>
+<p>소견서는 수입 허가가 아닙니다. 사전 승인을 요구하는 나라에서 소견서는 그 신청서에
+<b>첨부하는 서류</b>이고, 신청 대신 쓰는 서류가 아닙니다 —
+<a href="/ko/승인-일본">일본</a>,
+<a href="/ko/승인-싱가포르">싱가포르</a>,
+<a href="/ko/승인-UAE">UAE</a>가 각자 다른 절차를 돌립니다. 그리고 어떤 소견서도 금지
+성분을 반입 가능하게 만들지 못합니다. 그 경우 정말 도움이 되는 상대는 세관이 아니라,
+목적지에서 합법인 대체약을 아는 처방 의사입니다.</p>
+
+<h2>원래 포장을 버리지 마라</h2>
+<p>싱가포르는 요건을 명문으로 적어 두었습니다 — 약은 원래 용기에, {{sg_label}}이 붙은
+상태로. 어디서든 좋은 습관입니다. 여행 분량을 라벨 없는 약통에 옮겨 담으면 약과 처방을
+잇는 연결이 끊어집니다. 약통과 함께 상자도 가져가세요.</p>
+
+<h2>3개월이 반복해서 나오는 상한이다</h2>
+<p>수량 제한은 나라마다 따로 정하지만, 엄격한 쪽 세 곳이 비슷한 숫자로 모입니다. 영국은
+3개월분까지, 싱가포르는 {{sg_qty}}, UAE는 {{uae_qty}}입니다. 보편 규칙이 아니고 어디서도
+면책 사유가 아니지만, 통제 의약품을 3개월분 넘게 담고 있다면 엄격한 관할들이 상정하는
+범위 밖이라는 뜻입니다. 짐을 싼 뒤가 아니라 싸기 전에 알아야 하는 사실입니다.</p>
+""")
+# ── 판정 → 행동. 레벨마다 다른 말을 한다.
+_KITCC = {"JP": ("permit-japan", "승인-일본"),
+          "SG": ("permit-singapore", "승인-싱가포르"),
+          "AE": ("permit-united-arab-emirates", "승인-UAE")}
+
+_BOX = ('<div style="border-radius:14px;padding:18px 20px;background:#111620;'
+        'border:1px solid %s;margin:24px 0"><div style="font-weight:700;color:%s;'
+        'margin-bottom:6px">%s</div>%s</div>')
+
+
+def _bridge(lvl, cc, lang):
+    """★PROHIBITED 와 PERMIT 은 절대 같은 말을 하지 않는다.
+       금지 성분에 "허가받으면 된다"고 하면 사람이 공항에서 잡힌다."""
+    kit = _KITCC.get(cc)
+    ks = (kit[0] if lang == "en" else kit[1]) if kit else None
+    kurl = ("/can-i-bring/%s" % ks) if (ks and lang == "en") else (("/ko/%s" % ks) if ks else None)
+    lurl = "/can-i-bring/doctors-letter" if lang == "en" else "/ko/소견서"
+
+    if lvl == "PERMIT" and kurl:
+        if lang == "en":
+            return _BOX % ("#6b5a2a", "#f0b04c", "Approval has to be in hand before you board",
+                           '<p style="margin:0">There is no counter at the airport that issues it. '
+                           '<a href="%s">The application process, the lead time and what to attach</a> '
+                           '&mdash; and a <a href="%s">letter template</a> for your prescriber.</p>'
+                           % (kurl, lurl))
+        return _BOX % ("#6b5a2a", "#f0b04c", "승인은 출국 전에 손에 들고 있어야 한다",
+                       '<p style="margin:0">공항에 발급 창구가 없습니다. '
+                       '<a href="%s">신청 절차·소요 기간·첨부 서류</a>와 '
+                       '<a href="%s">의사에게 건넬 영문 소견서 양식</a>.</p>' % (kurl, lurl))
+
+    if lvl == "PERMIT":
+        # ★허가 절차를 우리가 확인하지 않은 나라다. 없는 절차를 지어내지 않는다.
+        if lang == "en":
+            return _BOX % ("#6b5a2a", "#f0b04c", "Clear it before you fly, not at the border",
+                           '<p style="margin:0">This one needs authorisation, a local prescription, '
+                           'or both &mdash; which of those depends on the country, so ask the '
+                           'authority named in the sources below before you book. Carry the original '
+                           'labelled packaging, the prescription, and a prescriber&rsquo;s letter '
+                           'naming the generic ingredient. '
+                           '<a href="%s">Letter template</a>.</p>' % lurl)
+        return _BOX % ("#6b5a2a", "#f0b04c", "국경이 아니라 출국 전에 정리할 일이다",
+                       '<p style="margin:0">허가가 필요한지, 현지 처방이 필요한지, 둘 다인지는 '
+                       '나라마다 다릅니다. 예약 전에 아래 출처의 담당 기관에 확인하세요. 원래 '
+                       '라벨이 붙은 포장, 처방전, 성분 일반명을 적은 소견서를 함께 가져갑니다. '
+                       '<a href="%s">소견서 양식</a>.</p>' % lurl)
+
+    if lvl == "PROHIBITED":
+        if lang == "en":
+            extra = (' A permit does not exist for this one &mdash; '
+                     '<a href="%s">why no certificate is issued</a>.' % kurl) if kurl else ""
+            return _BOX % ("#6e3a35", "#ff5c50", "Paperwork will not fix this one",
+                           '<p style="margin:0">Applying for approval is not a slower route to the '
+                           'same destination.%s What does help: a prescriber&rsquo;s letter naming '
+                           'your condition and the generic ingredient, and a conversation with that '
+                           'prescriber about what is legal where you are going. '
+                           '<a href="%s">Letter template</a>.</p>' % (extra, lurl))
+        extra = (' 이 성분에는 허가가 존재하지 않습니다 — '
+                 '<a href="%s">왜 발급되지 않는가</a>.' % kurl) if kurl else ""
+        return _BOX % ("#6e3a35", "#ff5c50", "서류로 해결되는 문제가 아니다",
+                       '<p style="margin:0">승인 신청은 같은 목적지로 가는 느린 길이 아닙니다.%s '
+                       '도움이 되는 것은 질환과 성분 일반명을 적은 의사 소견서, 그리고 '
+                       '목적지에서 합법인 대체약에 대해 그 의사와 나누는 상담입니다. '
+                       '<a href="%s">소견서 양식</a>.</p>' % (extra, lurl))
+
+    # DECLARE · LIMIT · OK — 들고 타는 사람들. 포장과 서류에서 걸린다.
+    if lang == "en":
+        return _BOX % ("#27323f", "#8b98a8", "If you are carrying it, carry the paperwork too",
+                       '<p style="margin:0">Original labelled packaging, the prescription, and a '
+                       'letter naming the active ingredient in generic form &mdash; control lists '
+                       'are written in generic names, not brands. '
+                       '<a href="%s">What the letter must say</a>.</p>' % lurl)
+    return _BOX % ("#27323f", "#8b98a8", "들고 탈 거라면 서류도 같이",
+                   '<p style="margin:0">원래 라벨이 붙은 포장, 처방전, 그리고 성분을 '
+                   '일반명으로 적은 소견서. 통제 목록은 상품명이 아니라 일반명으로 쓰여 '
+                   '있습니다. <a href="%s">소견서에 무엇을 적어야 하나</a>.</p>' % lurl)
+
+
+def cb_kit(s, lang):
+    """승인 절차 허브 페이지를 그린다. 본문은 _fill 을 거쳐 출처가 정본으로 붙는다."""
+    tbl = KIT_EN if lang == "en" else KIT_KO
+    if s not in tbl:
+        return None
+    title, desc, tpl = tbl[s]
+    e = _h.escape
+    if lang == "en":
+        can, alt, lede = ("%s/can-i-bring/%s" % (BASE, s), _alt(KIT_ALT.get(s), s),
+                          "Primary sources only. Where the official page disagrees with this one, it is right.")
+        back = '<p style="margin-top:30px"><a href="/can-i-bring">&larr; All medicines and countries</a></p>'
+        warn = ('<div class="warn"><b>Not legal or medical advice.</b> Procedures and quantities '
+                'change, and an authority can decide differently on your particular case. Confirm '
+                'with the authority named above before you rely on any of this.</div>')
+        lng = "en"
+    else:
+        _en = next((k for k, v in KIT_ALT.items() if v == s), None)
+        can, alt, lede = ("%s/ko/%s" % (BASE, _q(s)), _alt(s, _en),
+                          "1차 출처만 씁니다. 공식 안내와 이 페이지가 다르면 공식 안내가 맞습니다.")
+        back = '<p style="margin-top:30px"><a href="/ko">&larr; 약·국가 전체 보기</a></p>'
+        warn = ('<div class="warn"><b>이 페이지는 법률·의학 조언이 아닙니다.</b> 절차와 수량은 '
+                '바뀌고, 당국은 개별 사안을 다르게 판단할 수 있습니다. 여기에 의존하기 전에 '
+                '위에 적힌 당국에 직접 확인하세요.</div>')
+        lng = "ko"
+    body = _fill(s, tpl, lang)
+    html = ('<!doctype html><html lang="%s"><head><meta charset="utf-8">'
+            '<meta name="viewport" content="width=device-width,initial-scale=1">'
+            '<title>%s</title><meta name="description" content="%s">'
+            '<link rel="canonical" href="%s">%s'
+            '<meta property="og:title" content="%s"><meta property="og:description" content="%s">'
+            '<style>%s</style></head><body><div class="w"><h1>%s</h1>'
+            '<p class="lede">%s</p>%s%s%s</div></body></html>'
+            % (lng, e(title), e(desc), can, alt, e(title), e(desc), CSS,
+               title, e(lede), body, back, warn))
+    return Response(html, mimetype="text/html; charset=utf-8")
+
+
+# ── 배포 시점 검증. 사실 키를 틀리면 임포트에서 죽는다.
+for _s, _v in list(KIT_EN.items()):
+    _fill(_s, _v[2], "en")
+    assert _SRCFOR.get(_s), "출처 미등록: %s" % _s
+for _s, _v in list(KIT_KO.items()):
+    _fill(_s, _v[2], "ko")
+    assert _SRCFOR.get(_s), "출처 미등록: %s" % _s
+assert set(KIT_ALT) == set(KIT_EN) and set(KIT_ALT.values()) == set(KIT_KO), "EN/KO 짝이 안 맞는다"
