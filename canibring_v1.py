@@ -27,7 +27,7 @@ PAIRS = [
 # 조합별 고유 설명 — 얇은 페이지 방지의 핵심. 보수적으로 쓴다.
 WHY = {
     ("pseudoephedrine", "JP"): "Japan treats pseudoephedrine as a stimulant precursor. Cold medicines containing it, including Sudafed and some Vicks products, cannot be brought in even with a prescription.",
-    ("pseudoephedrine", "TH"): "Thailand controls pseudoephedrine as a precursor chemical. Carrying pseudoephedrine cold medicine is not advised.",
+    ("pseudoephedrine", "TH"): "Thailand lists pseudoephedrine as a Category 2 psychotropic substance, not a banned drug: up to 30 days' supply is allowed with a prescription, and no permit is required. The problem is that pseudoephedrine cold medicine is usually bought over the counter, so most travellers carry it with no prescription at all.",
     ("dextroamphetamine", "JP"): "Amphetamine-based ADHD medication is prohibited in Japan and cannot be imported even with a doctor's prescription. Possession is a criminal offence.",
     ("dextroamphetamine", "SG"): "Amphetamine is strictly controlled in Singapore. Personal import is generally not permitted.",
     ("dextroamphetamine", "AE"): "The UAE prohibits amphetamine-based medication. Travellers have faced detention over ADHD medication.",
@@ -268,7 +268,7 @@ KO_DO = {
 
 KO_WHY = {
     ("pseudoephedrine", "JP"): "일본은 슈도에페드린을 각성제 원료로 취급합니다. 이 성분이 든 감기약은 처방전이 있어도 반입할 수 없습니다. 한국 약국에서 흔히 파는 코감기약에 들어 있어 가장 많이 걸리는 성분입니다.",
-    ("pseudoephedrine", "TH"): "태국은 슈도에페드린을 전구물질로 통제합니다. 이 성분이 든 감기약은 가져가지 않는 편이 안전합니다.",
+    ("pseudoephedrine", "TH"): "태국은 슈도에페드린을 향정신성 2종으로 분류합니다. 금지가 아니라 처방전이 있으면 30일분까지 허용이고 사전 허가도 필요 없습니다. 함정은 이 감기약을 보통 처방 없이 사기 때문에, 대부분의 여행자가 처방전 없이 들고 간다는 점입니다.",
     ("dihydrocodeine", "JP"): "코푸시럽에 든 디히드로코데인은 UN 국제통제물질 목록에 오른 마약류입니다. 한국에서 처방 없이 살 수 있다는 점 때문에 감각이 무뎌지기 쉽습니다.",
     ("dextroamphetamine", "JP"): "암페타민 계열 ADHD 약은 일본에서 반입이 금지됩니다. 본국 처방전이 있어도 예외가 아니며, 소지 자체가 형사 문제가 됩니다.",
     ("dextroamphetamine", "SG"): "싱가포르는 암페타민을 엄격히 통제합니다. 개인 반입은 원칙적으로 허용되지 않습니다.",

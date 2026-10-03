@@ -164,6 +164,7 @@ def national_rules(ings, raw):
 #   모두 "확인 권고" 대상으로 표시된다(verified=False).
 _EXTRA_RULES = {
     "codeine": {
+        "TH": ("PERMIT", "마약 2종. 출국 전 태국 FDA 사전 허가(IC-1) + 세관 레드채널 신고 필수", False),
         "AE": ("PROHIBITED", "코데인 함유 감기약 반입 억류 사례 다수", False),
         "SA": ("PROHIBITED", "마약류로 취급. 처방전 지참해도 억류 위험", False),
         "QA": ("PERMIT", "사전 허가 및 처방전 원본 필요", False),
@@ -177,16 +178,19 @@ _EXTRA_RULES = {
         "SG": ("PERMIT", "사전 승인 필요", False),
         "TH": ("DECLARE", "처방전 지참 권장", False)},
     "diazepam": {
+        "TH": ("LIMIT", "향정신성 4종. 처방전 동반 30일분까지, 사전 허가 불필요", False),
         "AE": ("PERMIT", "향정신성. 사전 허가 필요", False),
         "SA": ("PERMIT", "처방전 원본 및 사전 허가", False),
         "QA": ("PERMIT", "사전 허가 필요", False),
         "SG": ("PERMIT", "사전 승인 필요", False),
         "RU": ("PERMIT", "처방전 및 신고 필요", False)},
     "alprazolam": {
+        "TH": ("LIMIT", "향정신성 4종. 처방전 동반 30일분까지, 사전 허가 불필요", False),
         "AE": ("PERMIT", "향정신성. 사전 허가 필요", False),
         "SA": ("PERMIT", "사전 허가 필요", False),
         "SG": ("PERMIT", "사전 승인 필요", False)},
     "zolpidem": {
+        "TH": ("LIMIT", "향정신성 2종. 처방전 동반 30일분까지, 사전 허가 불필요", False),
         "AE": ("PERMIT", "수면제. 처방전 및 사전 허가", False),
         "SA": ("PERMIT", "사전 허가 필요", False),
         "SG": ("PERMIT", "사전 승인 필요", False),
@@ -194,15 +198,15 @@ _EXTRA_RULES = {
     "methylphenidate": {
         "AE": ("PROHIBITED", "반입 불가", False),
         "SA": ("PROHIBITED", "반입 불가", False),
-        "TH": ("PERMIT", "사전 허가 필요", False),
+        "TH": ("LIMIT", "향정신성 2종. 사전 허가 불필요, 처방전·소견서로 30일분까지", False),
         "TW": ("PERMIT", "사전 신고 필요", False)},
     "dextroamphetamine": {
         "AE": ("PROHIBITED", "반입 불가", False),
         "SA": ("PROHIBITED", "반입 불가", False),
-        "TH": ("PROHIBITED", "반입 불가", False),
+        "TH": ("PROHIBITED", "마약 1종. 태국에서 의학적 용도가 없다고 판정돼 허가 제도 자체가 없다", False),
         "SG": ("PROHIBITED", "반입 불가", False)},
     "pseudoephedrine": {
-        "TH": ("PROHIBITED", "각성제 원료로 통제", False),
+        "TH": ("LIMIT", "향정신성 2종. 처방전 동반 30일분까지. 처방 없는 일반 감기약 지참이 문제가 된다", False),
         "ID": ("LIMIT", "수량 제한", False),
         "AE": ("DECLARE", "성분 표기된 포장 지참 권장", False),
         "MX": ("PROHIBITED", "반입 불가", False)},
