@@ -2145,3 +2145,186 @@ for _s, _t in list(KO_DEEP.items()):
     assert "{{" not in _fill(_s, _t, "ko"), "치환 안 된 자리표시자: %s/ko" % _s
 assert set(KIT_ALT) == set(KIT_EN) and set(KIT_ALT.values()) == set(KIT_KO), "EN/KO 짝이 안 맞는다"
 assert "TH" in _KITCC and _KITCC["TH"][0] in KIT_EN, "태국 허브가 다리에 연결되지 않았다"
+# ══ 태국 개별 페이지 심화. 허브는 절차, 여기는 성분별 판정 근거 ══
+_SRCFOR.update({
+    "adderall-to-thailand": "th_permit",
+    "sudafed-to-thailand":  "th_permit",
+    "애더럴-태국":              "th_permit",
+    "감기약-슈도에페드린-태국":       "th_permit",
+})
+
+DEEP["adderall-to-thailand"] = """
+<h2>What Thailand calls it</h2>
+<p>Amphetamine and dexamphetamine are <b>Narcotic Category 1</b> under the Narcotics Act
+B.E. 2522. The Thai FDA lists them by name as examples of what travellers are forbidden to
+transport into or out of Thailand, and gives the reason in a single phrase: these substances are
+{{th_banned}}.</p>
+<p>That phrase is the whole page. &ldquo;No medical use&rdquo; is not a comment on your diagnosis
+&mdash; it is the legal finding that closes the door, because Thailand's permit system exists only
+for substances it accepts as medicine.</p>
+
+<h2>Why no amount of paperwork opens it</h2>
+<p>Thailand's traveller permit covers exactly two groups: narcotic Category 2, and psychotropic
+Categories 2, 3 and 4. Category 1 is in neither. There is no application form for it, no lead
+time that helps, and no doctor's letter that converts it. Travellers sometimes assume the
+permit route is simply slower for stricter drugs; here it does not exist at all.
+<a href="/can-i-bring/permit-thailand">The two routes, and which one your medicine is on</a>.</p>
+
+<h2>The useful fact: methylphenidate is on the other side of the line</h2>
+<p>Methylphenidate &mdash; Concerta, Ritalin &mdash; is <b>psychotropic Category 2</b> in Thailand,
+which is the group that needs <i>no permit at all</i>: a certificate or prescription from the
+prescribing physician, and up to {{th_qty}}. Same condition, same treatment goal, completely
+different legal position at the border.</p>
+<p>So an ADHD traveller to Thailand is not out of options. The option is a conversation with the
+prescriber about a different molecule for the trip, held well before departure rather than at the
+airport. Lisdexamfetamine (Vyvanse) is not a way around this &mdash; it is a prodrug that the body
+converts to dexamfetamine, so treat it as sitting with the amphetamines and confirm it against the
+FDA's own lookup at {{th_portal}} before you rely on anything here.</p>
+
+<h2>What to do before you fly</h2>
+<p>&bull; Leave it at home. Do not pack it in checked baggage &ldquo;to be safe&rdquo; &mdash;
+there is no safe side of this one.<br>
+&bull; Do not have it posted to you in Thailand. Mail is an import in its own right and gets the
+same answer, without you there to explain.<br>
+&bull; Carry a letter from your prescriber describing the condition and the treatment you are
+<i>not</i> carrying. It explains a gap in your medication history to a doctor in Thailand if you
+need care. <a href="/can-i-bring/doctors-letter">What that letter should say</a>.<br>
+&bull; Ask the prescriber in the same appointment whether a Category 2&ndash;4 alternative or a
+non-stimulant is reasonable for the length of your trip.</p>
+<p>Questions about a specific product go to the Thai FDA Narcotics Control Division at
+{{th_mail}} or {{th_tel}}. They answer about substances; they do not pre-clear a traveller
+over email.</p>
+"""
+
+KO_DEEP["애더럴-태국"] = """
+<h2>태국은 이걸 뭐라고 분류하나</h2>
+<p>암페타민과 덱스암페타민은 마약법(B.E. 2522)상 <b>마약 1종</b>입니다. 태국 FDA는 여행자가
+태국으로 반입·반출할 수 없는 물질의 예로 이 둘을 이름까지 적어 두고, 이유를 한 문장으로
+답니다 — {{th_banned}}.</p>
+<p>그 한 문장이 이 페이지의 전부입니다. "의학적 용도가 없다"는 건 내 진단에 대한 평가가
+아니라, <b>허가 제도 자체를 닫는 법적 판단</b>입니다. 태국의 허가 제도는 태국이 의약품으로
+인정한 물질에만 존재하기 때문입니다.</p>
+
+<h2>어떤 서류로도 열리지 않는 이유</h2>
+<p>태국 여행자 허가가 덮는 건 딱 두 그룹입니다 — 마약 2종, 그리고 향정신성 2·3·4종. 1종은
+둘 중 어디에도 없습니다. 신청 양식이 없고, 일찍 신청해도 소용없고, 소견서로 바뀌지도
+않습니다. 더 센 약은 허가 절차가 더 까다로울 뿐이라고 생각하는 분이 많지만, 여기서는 절차가
+아예 없습니다. <a href="/ko/승인-태국">두 경로와 내 약이 어느 쪽인지</a>.</p>
+
+<h2>쓸 수 있는 사실: 메틸페니데이트는 선 반대편에 있다</h2>
+<p>메틸페니데이트 — 콘서타, 리탈린 — 는 태국에서 <b>향정신성 2종</b>이고, 이 그룹은
+<i>허가가 전혀 필요 없습니다</i>. 처방 의사의 소견서나 처방전, 그리고 {{th_qty}}까지면
+됩니다. 같은 질환, 같은 치료 목적인데 국경에서의 법적 위치가 완전히 다릅니다.</p>
+<p>그래서 태국에 가는 ADHD 환자에게 선택지가 없는 게 아닙니다. 선택지는 <b>여행 기간용으로
+다른 성분을 쓸지 처방 의사와 상의하는 것</b>이고, 그 대화는 공항이 아니라 출국 한참 전에
+해야 합니다. 리스덱스암페타민(비반스)은 우회로가 아닙니다 — 체내에서 덱스암페타민으로
+전환되는 전구약물이라 암페타민 쪽으로 보고, 이 페이지를 믿기 전에 {{th_portal}} 의 FDA
+조회로 직접 확인하세요.</p>
+
+<h2>출국 전에 할 것</h2>
+<p>&bull; 두고 갑니다. "혹시 모르니" 수탁 수하물에 넣는 것도 안 됩니다 — 이 건에는 안전한
+쪽이 없습니다.<br>
+&bull; 태국으로 우편 발송하지 마세요. 우편도 그 자체로 수입이고 같은 답이 나오는데, 설명할
+사람이 그 자리에 없습니다.<br>
+&bull; 질환과 <i>지금 안 가져가는</i> 치료 내용을 적은 처방 의사 소견서를 챙기세요. 현지에서
+진료를 받아야 할 때 복약 공백을 설명해 줍니다.
+<a href="/ko/소견서">소견서에 무엇을 적어야 하나</a>.<br>
+&bull; 같은 진료에서 2~4종 대체약이나 비자극성 약이 여행 기간에 적절한지 함께 물어보세요.</p>
+<p>특정 제품 문의는 태국 FDA 마약단속부 {{th_mail}} 또는 {{th_tel}}. 물질에 대해서는
+답해 주지만, 메일로 여행자를 사전 승인해 주지는 않습니다.</p>
+"""
+
+DEEP["sudafed-to-thailand"] = """
+<h2>The short version, and we had this wrong until yesterday</h2>
+<p>Pseudoephedrine is not banned in Thailand. The Thai FDA lists it as a <b>Category 2 psychotropic
+substance</b>, by name, alongside zolpidem, methylphenidate and ketamine. Category 2 is in the group
+travellers may carry: a certificate or prescription from the prescribing physician, up to
+{{th_qty}}, <b>no permit required</b>, and the FDA's own guidance says medicines carried that way
+are considered personal belongings with nothing to declare at the Customs Red Channel.</p>
+<p>This page said &ldquo;banned&rdquo; until we read the Thai FDA's classification page directly.
+Most guides still say it. If you are reading a page that tells you pseudoephedrine is prohibited in
+Thailand, including an older version of this one, it is working from the wrong category.</p>
+
+<h2>So where is the actual risk</h2>
+<p>In the prescription you probably do not have. Being a Category 2 psychotropic makes
+pseudoephedrine a <i>controlled medicine</i> in Thailand &mdash; and in most of the world it is a
+box off a pharmacy shelf. That mismatch is the whole problem. The traveller carrying Sudafed from
+home is carrying a Thai controlled substance with no document tying it to a prescriber, which is
+exactly the case the 30-day rule does not cover.</p>
+<p>The molecule is fine. The paperwork is what is missing.</p>
+
+<h2>What to do, in order</h2>
+<p>&bull; Ask your doctor for a prescription or certificate that names <b>pseudoephedrine</b> as the
+active ingredient, with the strength, the dose, the total quantity and the number of days it
+covers. Brand name alone does not do the job &mdash; the Thai list is written in substances.
+<a href="/can-i-bring/doctors-letter">Template</a>.<br>
+&bull; Keep it in the original labelled box. The Thai FDA requires the original container with
+contents clearly marked, and the box is what connects the prescription to the pills.<br>
+&bull; Stay inside {{th_qty}}, counted for your own trip rather than rounded up.<br>
+&bull; If getting a prescription for a cold medicine is more trouble than it is worth &mdash; which
+is a reasonable conclusion &mdash; leave it and pick a decongestant without pseudoephedrine in it,
+with a pharmacist, before you fly.</p>
+
+<h2>Read the ingredient panel, not the front of the box</h2>
+<p>This is where people get caught without meaning to. Pseudoephedrine hides inside combination
+cold and flu products whose front label advertises something else entirely, and the traveller who
+carefully left the Sudafed at home brings three days of a multi-symptom product that contains it.
+Check the active-ingredients panel of everything in the washbag, not just the thing you think of as
+the decongestant.</p>
+
+<h2>The quantity figure</h2>
+<p>{{th_disc}}.</p>
+<p>Procedure and the two routes: <a href="/can-i-bring/permit-thailand">bringing medicine into
+Thailand</a>. For a specific product, the FDA's lookup is at {{th_portal}} and the Narcotics
+Control Division answers at {{th_mail}}.</p>
+"""
+
+KO_DEEP["감기약-슈도에페드린-태국"] = """
+<h2>결론부터, 그리고 우리도 어제까지 틀렸다</h2>
+<p>슈도에페드린은 태국에서 금지가 아닙니다. 태국 FDA는 이 성분을 <b>향정신성 2종</b>에
+졸피뎀·메틸페니데이트·케타민과 나란히 <b>이름까지 적어</b> 올려놨습니다. 2종은 여행자가
+지참할 수 있는 그룹입니다 — 처방 의사의 소견서나 처방전, {{th_qty}}까지,
+<b>사전 허가 불필요</b>. 그렇게 지참한 약은 개인 소지품으로 보고 세관 레드채널 신고 의무도
+없다고 FDA 지침이 직접 적습니다.</p>
+<p>이 페이지는 어제까지 "반입이 막힙니다"라고 띄우고 있었습니다. 태국 FDA 분류 페이지를
+직접 읽고 고쳤습니다. 대부분의 안내 글이 아직 금지라고 씁니다. 슈도에페드린이 태국에서
+금지라고 적힌 페이지를 보고 있다면 — 이 페이지의 옛 버전을 포함해서 — 틀린 분류를 보고
+쓴 글입니다.</p>
+
+<h2>그럼 실제 위험은 어디에 있나</h2>
+<p>아마 당신에게 없을 그 처방전에 있습니다. 향정신성 2종이라는 건 태국에서 이 성분이
+<i>통제 의약품</i>이라는 뜻이고, 세계 대부분에서 이건 약국 선반에서 그냥 집어오는 상자입니다.
+그 불일치가 문제의 전부입니다. 집에서 사 온 감기약을 들고 가는 여행자는, 처방자와 연결되는
+서류가 전혀 없는 태국 통제물질을 들고 가는 것이고, 그게 바로 30일 규정이 덮어주지 않는
+경우입니다.</p>
+<p>성분은 문제가 없습니다. 없는 건 서류입니다.</p>
+
+<h2>순서대로 할 것</h2>
+<p>&bull; 의사에게 <b>슈도에페드린</b>을 성분명으로 적은 처방전이나 소견서를 받으세요. 함량,
+1회 용량, 총 지참 수량, 며칠분인지까지. 상품명만으로는 안 됩니다 — 태국 목록은 성분으로
+쓰여 있습니다. <a href="/ko/소견서">양식</a>.<br>
+&bull; 원래 라벨 상자에 그대로 둡니다. 태국 FDA는 내용물이 명확히 표시된 원래 용기를
+요구하고, 처방전과 알약을 잇는 게 바로 그 상자입니다.<br>
+&bull; {{th_qty}} 안에서, 내 일정으로 계산한 수량만 가져갑니다.<br>
+&bull; 감기약 하나 때문에 처방전을 받는 게 번거롭다고 판단되면 — 합리적인 결론입니다 —
+두고 가고, 출국 전에 약사와 상의해 슈도에페드린이 안 든 코막힘약을 고르세요.</p>
+
+<h2>상자 앞면이 아니라 성분표를 봐라</h2>
+<p>모르고 걸리는 지점이 여기입니다. 슈도에페드린은 앞면에 전혀 다른 걸 광고하는 종합
+감기약 안에 숨어 있습니다. 슈다페드는 꼼꼼히 두고 온 사람이, 그 성분이 든 종합감기약
+3일분을 들고 갑니다. 세면백에 든 모든 약의 <b>주성분표</b>를 확인하세요. 내가 "코막힘약"
+이라고 생각하는 그것만이 아니라.</p>
+
+<h2>수량 숫자</h2>
+<p>{{th_disc}}.</p>
+<p>절차와 두 경로: <a href="/ko/승인-태국">태국에 약 가져가기</a>. 특정 제품은
+{{th_portal}} 의 FDA 조회, 문의는 마약단속부 {{th_mail}}.</p>
+"""
+
+# ── 태국 심화 4페이지 배포 시점 재검증 (위 검증기 이후에 추가됐으므로 다시 돈다)
+for _s in ("adderall-to-thailand", "sudafed-to-thailand"):
+    assert _s in DEEP and _SRCFOR.get(_s), "영문 태국 심화 누락: %s" % _s
+    assert "{{" not in _fill(_s, DEEP[_s], "en"), "치환 안 된 자리표시자: %s/en" % _s
+for _s in ("애더럴-태국", "감기약-슈도에페드린-태국"):
+    assert _s in KO_DEEP and _SRCFOR.get(_s), "한글 태국 심화 누락: %s" % _s
+    assert "{{" not in _fill(_s, KO_DEEP[_s], "ko"), "치환 안 된 자리표시자: %s/ko" % _s
