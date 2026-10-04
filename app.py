@@ -3460,8 +3460,11 @@ def _split_hosts():
 # ★원칙: 로그가 실패해도 페이지는 떠야 한다. 예외는 전부 삼킨다.
 import hashlib as _hl, re as _re_h, threading as _th
 
+# ★borderrx-selfcheck: 우리가 배포 검증할 때 쓰는 UA. 사람으로 세면 측정이 오염된다.
+#   2026-10-02~04 에 실제로 그렇게 오염됐고(humans 925 중 상당수), 그래서 넣었다.
 _BOT = _re_h.compile(r"bot|crawl|spider|slurp|bing|yandex|baidu|duckduck|"
                      r"facebookexternalhit|headless|preview|monitor|"
+                     r"borderrx-selfcheck|"
                      r"curl|wget|python-requests|go-http|java/", _re_h.I)
 _HITS_READY = [False]
 _SKIP = ("/robots.txt", "/sitemap", "/favicon", "/apple-touch", "/manifest")
@@ -3545,6 +3548,9 @@ def _cb_stats():
         return jsonify(error=str(e)[:160]), 500
 
 
+# ★측정 기준 시각. 이전 데이터는 자체 점검 요청에 오염돼 있어 판정에 쓰지 않는다.
+_MEASURE_FROM = "2026-10-04T10:00:00+00:00"
+
 # 허브 페이지 = 판정에서 행동으로 넘어간 사람들. 수익화 판단은 이 비율로 한다.
 _HUB_LIKE = ("/can-i-bring/permit-", "/can-i-bring/doctors-letter", "/ko/승인-", "/ko/소견서")
 
@@ -3596,8 +3602,25 @@ def _cb_pulse():
                           or path like '/ko/승인-%'
                           or path = '/ko/소견서')""")
                 hub = int((cur.fetchone() or {}).get("n") or 0)
+                # ★판정용 숫자. 루트는 스캐너 자리라 빼고, 자기 참조는 내부 클릭이라 뺀다.
+                cur.execute("""select
+                      count(*) filter (where at > now() - interval '7 days')  r7,
+                      count(*) filter (where at > now() - interval '28 days') r28,
+                      count(*) filter (where at > %s::timestamptz)            rclean
+                    from cb_hits
+                    where not bot and path <> '/'
+                      and ref not in ('canibringmeds.com','www.canibringmeds.com',
+                                      'canibringmeds.com:80','linklynk.onrender.com')""",
+                    (_MEASURE_FROM,))
+                rd = dict(cur.fetchone() or {})
         h28 = int(tot.get("h28") or 0)
         return jsonify(
+            # ★readers = 루트와 자기 참조를 뺀 수. 판정은 이 숫자로 한다.
+            #   humans 는 원시값이다. 스캐너·자체점검이 섞여 있을 수 있다.
+            readers_7d=int(rd.get("r7") or 0),
+            readers_28d=int(rd.get("r28") or 0),
+            measure_from=_MEASURE_FROM,
+            readers_since_clean=int(rd.get("rclean") or 0),
             humans_7d=int(tot.get("h7") or 0),
             humans_28d=h28,
             uniques_7d=int(tot.get("u7") or 0),
