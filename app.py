@@ -3543,3 +3543,70 @@ def _cb_stats():
         return jsonify(days=days_rows, top_paths=top, referrers=refs)
     except Exception as e:
         return jsonify(error=str(e)[:160]), 500
+
+
+# 허브 페이지 = 판정에서 행동으로 넘어간 사람들. 수익화 판단은 이 비율로 한다.
+_HUB_LIKE = ("/can-i-bring/permit-", "/can-i-bring/doctors-letter", "/ko/승인-", "/ko/소견서")
+
+
+@app.route("/api/cb/pulse")
+def _cb_pulse():
+    """공개 집계. ★숫자만 낸다 — IP 해시·UA·참조 전체 경로는 절대 안 나간다.
+       robots.txt 가 /api/ 를 막으므로 색인되지 않는다."""
+    import os as _os
+    try:
+        import psycopg2, psycopg2.extras
+        with psycopg2.connect(_os.environ["DATABASE_URL"]) as cn:
+            with cn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute("""select
+                      count(*) filter (where not bot and at > now() - interval '7 days')  h7,
+                      count(*) filter (where not bot and at > now() - interval '28 days') h28,
+                      count(*) filter (where bot     and at > now() - interval '7 days')  b7,
+                      count(distinct iph) filter (where not bot and at > now() - interval '7 days') u7,
+                      min(at)::text first_at, max(at)::text last_at
+                    from cb_hits""")
+                tot = dict(cur.fetchone() or {})
+                cur.execute("""select path, count(*) n from cb_hits
+                               where not bot and at > now() - interval '28 days'
+                               group by 1 order by n desc limit 10""")
+                top = [dict(r) for r in cur.fetchall()]
+                cur.execute("""select coalesce(nullif(ref,''),'(direct)') ref, count(*) n
+                               from cb_hits where not bot and at > now() - interval '28 days'
+                               group by 1 order by n desc limit 8""")
+                refs = [dict(r) for r in cur.fetchall()]
+                # 크롤러 계열별 개수. "구글이 긁고 있나"가 색인 신호다. UA 원문은 안 낸다.
+                cur.execute("""select case
+                        when ua ilike '%googlebot%'    then 'google'
+                        when ua ilike '%bingbot%'      then 'bing'
+                        when ua ilike '%yeti%'
+                          or ua ilike '%naver%'        then 'naver'
+                        when ua ilike '%yandex%'       then 'yandex'
+                        when ua ilike '%duckduck%'     then 'duckduckgo'
+                        when ua ilike '%baidu%'        then 'baidu'
+                        else 'other' end fam, count(*) n
+                      from cb_hits where bot and at > now() - interval '7 days'
+                      group by 1 order by n desc""")
+                crawl = [dict(r) for r in cur.fetchall()]
+                # ★파라미터 없는 execute 에서는 psycopg2 가 % 를 처리하지 않는다.
+                #   그래서 %% 가 아니라 % 를 쓴다. %% 로 쓰면 LIKE 가 깨진다.
+                cur.execute("""select count(*) n from cb_hits
+                      where not bot and at > now() - interval '28 days'
+                        and (path like '/can-i-bring/permit-%'
+                          or path = '/can-i-bring/doctors-letter'
+                          or path like '/ko/승인-%'
+                          or path = '/ko/소견서')""")
+                hub = int((cur.fetchone() or {}).get("n") or 0)
+        h28 = int(tot.get("h28") or 0)
+        return jsonify(
+            humans_7d=int(tot.get("h7") or 0),
+            humans_28d=h28,
+            uniques_7d=int(tot.get("u7") or 0),
+            bots_7d=int(tot.get("b7") or 0),
+            crawlers_7d=crawl,
+            hub_hits_28d=hub,
+            hub_share_28d=(round(hub * 100.0 / h28, 1) if h28 else None),
+            top_paths_28d=top,
+            referrers_28d=refs,
+            first_hit=tot.get("first_at"), last_hit=tot.get("last_at"))
+    except Exception as e:
+        return jsonify(error=str(e)[:160]), 500
