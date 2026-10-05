@@ -365,3 +365,11 @@ _AE_FIX = {
 for _k, _v in _AE_FIX.items():
     NATIONAL.setdefault(_k, {})["AE"] = _v
 
+
+# national_rules() merges NATIONAL_ONLY after NATIONAL, so NATIONAL_ONLY wins.
+# Mirror the corrections into it so the two tables cannot disagree.
+_SYNC_ONLY = (("JP", _JP_FIX), ("AE", _AE_FIX))
+for _cc, _fx in _SYNC_ONLY:
+    for _k, _v in _fx.items():
+        if _k in NATIONAL_ONLY and _cc in NATIONAL_ONLY[_k]:
+            NATIONAL_ONLY[_k][_cc] = _v
