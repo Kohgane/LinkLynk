@@ -22,11 +22,23 @@ PAIRS = [
     ("Xanax", "AE"), ("Ambien", "AE"), ("Ambien", "SG"), ("Valium", "AE"),
     ("CBD", "SG"), ("CBD", "AE"), ("CBD", "JP"), ("CBD", "CN"),
     ("melatonin", "GB"), ("melatonin", "DE"),
+    ("Concerta", "JP"),
+    ("codeine", "JP"),
+    ("Ambien", "JP"),
+    ("tramadol", "JP"),
+    ("Xanax", "JP"),
+    ("Valium", "JP"),
 ]
 
 # 조합별 고유 설명 — 얇은 페이지 방지의 핵심. 보수적으로 쓴다.
 WHY = {
-    ("pseudoephedrine", "JP"): "Japan treats pseudoephedrine as a stimulant precursor. Cold medicines containing it, including Sudafed and some Vicks products, cannot be brought in even with a prescription.",
+    ("methylphenidate", "JP"): "Japan classifies methylphenidate as a psychotropic, not a stimulant. The Narcotics Control Department lists it among the substances that need no import permission at all, alongside zolpidem and alprazolam. What still applies is the ordinary ceiling on prescription medicines: up to one month's supply without an import certificate. Adderall is the opposite case under Japanese law, and the two are constantly confused.",
+    ("codeine", "JP"): "Codeine is a narcotic in Japan, so the ordinary import-certificate route does not cover it: you apply to the Narcotics Control Department for permission before you travel. One threshold decides many cases - preparations containing 1% or less of codeine are excluded from control, which is why some low-dose cough preparations pass and prescription-strength ones do not.",
+    ("zolpidem", "JP"): "Zolpidem is a psychotropic in Japan and needs no advance permission. The limit that applies is the general one for prescription medicines: one month's supply without an import certificate. Carry the prescription and the original packaging.",
+    ("tramadol", "JP"): "Japan's Narcotics Control Department states plainly that tramadol is not a narcotic, and it does not appear on the controlled substances list. That makes it an ordinary prescription medicine: up to one month's supply without an import certificate. Several Gulf states take the opposite view, so a traveller routing through Dubai or Riyadh faces a different rule on the same pills.",
+    ("alprazolam", "JP"): "Alprazolam is a psychotropic in Japan and needs no advance permission from the Narcotics Control Department. The ordinary prescription-medicine ceiling applies: one month's supply without an import certificate.",
+    ("diazepam", "JP"): "Diazepam is a psychotropic in Japan and needs no advance permission. Up to one month's supply may be brought in without an import certificate. Carry the prescription.",
+    ("pseudoephedrine", "JP"): "Japan controls pseudoephedrine as a stimulant raw material, which puts it under the Narcotics Control Department rather than the ordinary import-certificate route: permission has to be obtained before you travel. One threshold decides many cases - preparations containing 10% or less of ephedrine or pseudoephedrine are excluded from control. Standard Sudafed tablets sit above that line, so for most travellers the practical answer is to leave them at home and buy a Japanese cold medicine on arrival.",
     ("pseudoephedrine", "TH"): "Thailand lists pseudoephedrine as a Category 2 psychotropic substance, not a banned drug: up to 30 days' supply is allowed with a prescription, and no permit is required. The problem is that pseudoephedrine cold medicine is usually bought over the counter, so most travellers carry it with no prescription at all.",
     ("dextroamphetamine", "JP"): "Amphetamine-based ADHD medication is prohibited in Japan and cannot be imported even with a doctor's prescription. Possession is a criminal offence.",
     ("dextroamphetamine", "SG"): "Amphetamine is strictly controlled in Singapore. Personal import is generally not permitted.",
@@ -273,18 +285,18 @@ KO_DO = {
 }
 
 KO_WHY = {
-    ("pseudoephedrine", "JP"): "일본은 슈도에페드린을 각성제 원료로 취급합니다. 이 성분이 든 감기약은 처방전이 있어도 반입할 수 없습니다. 한국 약국에서 흔히 파는 코감기약에 들어 있어 가장 많이 걸리는 성분입니다.",
+    ("pseudoephedrine", "JP"): "일본은 슈도에페드린을 각성제 원료로 통제합니다. 일반 의약품용 약감증명이 아니라 마약단속부 사전 허가 대상이라, 출국 전에 허가를 받아야 합니다. 기준선은 10%입니다. 에페드린·슈도에페드린 10% 이하 함유 제제는 통제에서 제외됩니다. 한국 약국의 코감기약 상당수가 이 선을 넘기 때문에, 실무적으로는 두고 가고 현지에서 사는 편이 안전합니다.",
     ("pseudoephedrine", "TH"): "태국은 슈도에페드린을 향정신성 2종으로 분류합니다. 금지가 아니라 처방전이 있으면 30일분까지 허용이고 사전 허가도 필요 없습니다. 함정은 이 감기약을 보통 처방 없이 사기 때문에, 대부분의 여행자가 처방전 없이 들고 간다는 점입니다.",
     ("dihydrocodeine", "JP"): "코푸시럽에 든 디히드로코데인은 UN 국제통제물질 목록에 오른 마약류입니다. 한국에서 처방 없이 살 수 있다는 점 때문에 감각이 무뎌지기 쉽습니다.",
     ("dextroamphetamine", "JP"): "암페타민 계열 ADHD 약은 일본에서 반입이 금지됩니다. 본국 처방전이 있어도 예외가 아니며, 소지 자체가 형사 문제가 됩니다.",
     ("dextroamphetamine", "SG"): "싱가포르는 암페타민을 엄격히 통제합니다. 개인 반입은 원칙적으로 허용되지 않습니다.",
     ("dextroamphetamine", "TH"): "태국에서 암페타민은 1종 마약으로 분류됩니다. 개인 반입이 허용되지 않습니다.",
-    ("methylphenidate", "JP"): "메틸페니데이트는 일본에서 각성제로 통제됩니다. 등록 의사 제도를 통해 일본 내 처방은 가능하지만, 개인이 들고 들어가는 것은 원칙적으로 안 됩니다.",
+    ("methylphenidate", "JP"): "일본은 메틸페니데이트를 각성제가 아니라 향정신성 의약품으로 분류합니다. 마약단속부는 사전 허가가 필요 없는 성분으로 명시하고 있습니다. 적용되는 제한은 일반 처방약 기준인 1개월분까지이며, 그 범위 안이면 약감증명도 필요 없습니다. 애더럴은 정반대로 반입 자체가 금지돼 있어 둘을 혼동하기 쉽습니다.",
     ("methylphenidate", "SG"): "싱가포르는 메틸페니데이트를 통제 약물로 다룹니다. 반입 전 보건과학청(HSA) 승인이 필요합니다.",
-    ("codeine", "JP"): "코데인은 마약류로 분류됩니다. 함량과 제형에 따라 취급이 달라지므로, 코데인이 든 진통제·기침약은 성분표를 먼저 확인해야 합니다.",
+    ("codeine", "JP"): "코데인은 일본에서 마약으로 분류되어, 일반 의약품용 약감증명이 아니라 마약단속부 사전 허가를 받아야 합니다. 기준선이 하나 있습니다. 코데인 1% 이하 함유 제제는 통제 대상에서 제외됩니다. 저용량 기침약이 통과하고 처방 강도 제제가 막히는 이유가 이것입니다.",
     ("codeine", "AE"): "UAE는 코데인을 엄격히 통제합니다. 사전 승인 없이 코데인이 든 진통제나 기침약을 가져갔다가 구금된 사례가 보고돼 있습니다.",
-    ("tramadol", "JP"): "트라마돌은 마약성 진통제로 통제 대상입니다. 처방전과 영문 소견서 없이 가져가지 마세요.",
-    ("zolpidem", "JP"): "졸피뎀은 향정신성 의약품으로 통제됩니다. 처방전과 함께, 개인 사용 분량으로만 반입할 수 있습니다.",
+    ("tramadol", "JP"): "일본 마약단속부는 트라마돌이 마약이 아니라고 명시하고 있고, 통제물질 목록에도 없습니다. 일반 처방약으로 취급되어 1개월분까지는 약감증명 없이 가져갈 수 있습니다. 다만 UAE와 사우디는 정반대로 엄격히 통제하므로, 경유지가 있으면 그쪽 기준을 따로 확인해야 합니다.",
+    ("zolpidem", "JP"): "졸피뎀은 일본에서 향정신성 의약품이며 사전 허가는 필요 없습니다. 적용되는 제한은 일반 처방약 기준인 1개월분까지입니다. 처방전과 원래 포장을 함께 지참하세요.",
     ("zolpidem", "SG"): "싱가포르는 졸피뎀을 통제 약물로 다룹니다. 처방전 지참이 필수이며 수량 제한이 있습니다.",
     ("alprazolam", "AE"): "UAE는 알프라졸람(자낙스)을 통제 물질로 다룹니다. 사전 승인 없이 반입하면 문제가 됩니다.",
     ("melatonin", "GB"): "영국에서 멜라토닌은 처방 의약품입니다. 미국·캐나다·호주에서는 마트 영양제 코너에 있어 같은 알약이라도 신분이 달라집니다.",

@@ -336,3 +336,19 @@ function run(){
 }
 Q.addEventListener("keydown",function(e){if(e.key==="Enter")run();});
 </script></body></html>"""
+
+# JP verdicts corrected. Sources: MHLW personal-import notice,
+#   NCD Controlled Substances List 2024-12-12. N=narcotic SRM=stimulant raw material P=psychotropic.
+#   The import/export ban mark applies to amphetamine only.
+_JP_FIX = {
+    "pseudoephedrine": ("PERMIT", "각성제원료(SRM). 출국 전 후생노동성 마약단속부 사전 허가 필요. 수도에페드린 10% 이하 함유 제제는 통제 대상에서 제외", True),
+    "methylphenidate": ("LIMIT", "향정신성(P). 사전 허가 불필요. 처방약은 1개월분까지 약감증명도 불필요", True),
+    "codeine": ("PERMIT", "마약(N). 출국 전 마약단속부 사전 허가 필요. 코데인 1% 이하 함유 제제는 통제 대상에서 제외", True),
+    "zolpidem": ("LIMIT", "향정신성(P). 사전 허가 불필요. 처방약은 1개월분까지 약감증명도 불필요", True),
+    "tramadol": ("LIMIT", "마약단속부가 마약이 아니라고 명시. 일반 처방약으로 1개월분까지 약감증명 불필요", True),
+    "alprazolam": ("LIMIT", "향정신성(P). 사전 허가 불필요. 처방약은 1개월분까지 약감증명도 불필요", True),
+    "diazepam": ("LIMIT", "향정신성(P). 사전 허가 불필요. 처방약은 1개월분까지 약감증명도 불필요", True),
+}
+for _k, _v in _JP_FIX.items():
+    NATIONAL.setdefault(_k, {})["JP"] = _v
+
