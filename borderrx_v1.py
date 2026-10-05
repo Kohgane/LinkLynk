@@ -352,3 +352,16 @@ _JP_FIX = {
 for _k, _v in _JP_FIX.items():
     NATIONAL.setdefault(_k, {})["JP"] = _v
 
+# AE verdicts corrected against the Emirates Drug Establishment list of
+#   controlled and semi-controlled medicines, published 2025-12-29 (content dated 2022-09-15).
+#   Only cannabis-class and a small prohibited set are barred; the rest are admissible
+#   with a prescription or an attested medical report, capped at the stay or three months.
+_AE_FIX = {
+    "codeine": ("PERMIT", "마약 스케줄 II. 체류기간 또는 3개월 중 짧은 쪽까지 허용. 처방전 또는 공증 소견서 필수", True),
+    "tramadol": ("PERMIT", "통제 의약품(CD). 체류기간 또는 3개월 중 짧은 쪽까지 허용. 처방전 또는 공증 소견서 필수", True),
+    "dextroamphetamine": ("PERMIT", "향정신성 스케줄 II(덱삼페타민). 체류기간 또는 3개월 중 짧은 쪽까지 허용. 처방전 또는 공증 소견서 필수", True),
+    "methylphenidate": ("PERMIT", "향정신성 스케줄 II. 체류기간 또는 3개월 중 짧은 쪽까지 허용. 처방전 또는 공증 소견서 필수", True),
+}
+for _k, _v in _AE_FIX.items():
+    NATIONAL.setdefault(_k, {})["AE"] = _v
+
