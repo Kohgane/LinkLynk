@@ -219,6 +219,12 @@ def cb_google_verify():
                     mimetype="text/html")
 
 
+@cb_bp.route("/naver4bb0a34297d9200fa0c6f1417f6d6e3f.html")
+def cb_naver_verify():
+    return Response("naver-site-verification: naver4bb0a34297d9200fa0c6f1417f6d6e3f.html",
+                    mimetype="text/html")
+
+
 # ── 한국어 트랙 ──────────────────────────────────────────────────
 # 닥터나우 질문 1건이 8개월간 1,839명을 모았다. 그 수요는 한국어 검색에 있는데
 # 위 26개 페이지는 전부 영어였다. 같은 판정 엔진에 한국어 문안을 붙인다.
@@ -477,6 +483,7 @@ def cb_home():
         '<!doctype html><html lang="en"><head><meta charset="utf-8">'
         '<meta name="viewport" content="width=device-width,initial-scale=1">'
         '<title>Can I bring my medicine abroad? — ingredient-based answers</title>'
+        '<meta name="naver-site-verification" content="545a10d00ecef01274542750c9054dc4b9b4f8db">'
         '<meta name="description" content="Whether a medicine is allowed into a country '
         'depends on its active ingredient, not its brand. We check the ingredient against '
         'UN schedules and official national guidance, and show our sources.">'

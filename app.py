@@ -3403,7 +3403,10 @@ _BOTH = {"/robots.txt"}       # 호스트마다 제 내용을 낸다. 절대 안
 #   제출한 URL 과 같은 호스트에서 키가 안 나오면 소유 증명 실패다.
 #   301 은 실패로 친다 — 도메인 옮기면서 조용히 끊겨 있었다.
 from canibring_v1 import INDEXNOW_KEY as _INKEY
-_KEEP = ("/%s.txt" % _INKEY,)
+_NAVER_HTML = "/naver4bb0a34297d9200fa0c6f1417f6d6e3f.html"
+_KEEP = ("/%s.txt" % _INKEY,
+         "/googleb66b58b492c65404.html",
+         _NAVER_HTML)
 
 # ★카드 이미지는 옛 주소에 그대로 둔다.
 #   쓰레드 게시가 이 URL 을 200 으로 사전 확인한다. 301 로 바꾸면 게시가 막힌다.
