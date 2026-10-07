@@ -40,6 +40,8 @@ from threads_v1 import th_bp
 app.register_blueprint(th_bp)
 from canibring_v1 import cb_bp
 app.register_blueprint(cb_bp)
+from parking_v1 import pk_bp
+app.register_blueprint(pk_bp)
 app.secret_key = os.environ.get("LINKLYNK_SESSION_SECRET", "dev-secret-change-me")
 from datetime import timedelta
 app.permanent_session_lifetime = timedelta(days=365)  # 로그인 1년 유지 (자동로그인)
@@ -3415,7 +3417,13 @@ _STAY = ("/next/card", "/next/og")
 _CB_ROBOTS = ("User-agent: *\n"
               "Disallow: /api/\n"
               "Disallow: /t/\n\n"
-              "Sitemap: https://canibringmeds.com/sitemap-travel.xml\n")
+              "Sitemap: https://canibringmeds.com/sitemap-travel.xml\n"
+              "Sitemap: https://canibringmeds.com/sitemap-parking.xml\n")
+
+
+# ★주차 테스트(2주). 버릴 때 이 두 줄과 parking_v1.py 만 지운다.
+_CB_EXACT = _CB_EXACT | {"/sitemap-parking.xml", "/parking", "/parking/"}
+_CB_PREFIX = _CB_PREFIX + ("/parking/",)
 
 
 def _is_cb(p):
