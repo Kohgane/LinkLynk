@@ -265,6 +265,19 @@
     emit("arrived");
   }
 
+  const SPACE_ON = 320000, SPACE_OFF = 240000; // metres: enter orbit view above 320 km, leave below 240 km
+  function updateSpaceView(){
+    if (!app.viewer) return;
+    const h = app.viewer.camera.positionCartographic.height;
+    const want = state.spaceView ? (h > SPACE_OFF) : (h > SPACE_ON);
+    if (want === state.spaceView) return;
+    state.spaceView = want;
+    const scene = app.viewer.scene;
+    scene.globe.show = want || !!state.underwater;
+    if (state.tileset) state.tileset.show = !want;
+    emit("diag", { reason: "spaceView" });
+  }
+
   function updateWarpBudget(){
     const tileset = state.tileset;
     if (!tileset || !app.viewer) return;
@@ -463,7 +476,7 @@
     setMode("space");
     state.orbiting = false;
     app.viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
-    const dst = Cesium.Cartesian3.fromDegrees(127, 20, 22000000);
+    const dst = Cesium.Cartesian3.fromDegrees(127, 20, 12000000);
     if (instant) app.viewer.camera.setView({ destination: dst });
     else flyToCartesian(dst, { duration: 4.6 });
   }
@@ -479,7 +492,8 @@
     if (!app.viewer) return;
     const scene = app.viewer.scene;
     // §1 globe는 수중 모드에서 반투명 수면용으로만 일시 허용한다.
-    scene.globe.show = !!on;
+    state.underwater = !!on;
+    scene.globe.show = !!on || !!state.spaceView;
     scene.globe.translucency.enabled = !!on;
     scene.globe.translucency.frontFaceAlpha = on ? 0.45 : 1.0;
   }
@@ -537,6 +551,24 @@
     scene.fog.density = 0.0004;
     scene.globe.show = false; // §1 이중 지구 금지
     app.viewer.clock.shouldAnimate = true;
+    // P5-1007: orbit view. Globe carries NASA day/night imagery and is visible only above SPACE_ON; the Google tileset only below.
+    // The two never render together (§1 stays intact: one Earth at a time).
+    try {
+      const gibs = (layer, date, ext, maxL)=>new Cesium.UrlTemplateImageryProvider({
+        url: "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/" + layer + "/default/" + date + "/GoogleMapsCompatible_Level" + maxL + "/{z}/{y}/{x}." + ext,
+        maximumLevel: maxL, credit: "NASA GIBS"
+      });
+      const dayL = app.viewer.imageryLayers.addImageryProvider(gibs("BlueMarble_ShadedRelief_Bathymetry", "2004-08", "jpeg", 8));
+      const nightL = app.viewer.imageryLayers.addImageryProvider(gibs("VIIRS_Black_Marble", "2016-01-01", "png", 8));
+      dayL.brightness = 1.05; dayL.contrast = 1.1;
+      nightL.dayAlpha = 0.0; nightL.nightAlpha = 1.0; nightL.brightness = 1.8;
+      scene.globe.showGroundAtmosphere = true;
+      scene.globe.nightFadeOutDistance = 1.0e7;
+      scene.globe.nightFadeInDistance = 5.0e7;
+      scene.globe.maximumScreenSpaceError = 4;
+      state.spaceLayers = { day: dayL, night: nightL };
+    } catch (error) { console.warn("[swef-v2] space layers", error); }
+    state.spaceView = false;
 
     state.profile = getProfile();
     app.viewer.resolutionScale = state.profile.resolutionScale;
@@ -618,6 +650,7 @@
       state.govAccum.sum += dtMs;
       state.govAccum.count += 1;
       evaluateGovernor();
+      updateSpaceView();
       updateWarpBudget();
       tickOrbit(dt);
       updateTravelCurtain();
