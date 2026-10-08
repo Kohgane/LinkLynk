@@ -273,6 +273,12 @@
     if (want === state.spaceView) return;
     state.spaceView = want;
     const scene = app.viewer.scene;
+    const fade = $("fadeMask");
+    if (fade && !state.travel) {
+      fade.style.transition = "opacity .16s ease";
+      fade.style.opacity = "0.9";
+      setTimeout(()=>{ fade.style.transition = "opacity .32s ease"; fade.style.opacity = "0"; }, 180);
+    }
     scene.globe.show = want || !!state.underwater;
     if (state.tileset) state.tileset.show = !want;
     emit("diag", { reason: "spaceView" });
@@ -476,9 +482,10 @@
     setMode("space");
     state.orbiting = false;
     app.viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
-    const dst = Cesium.Cartesian3.fromDegrees(127, 20, 12000000);
-    if (instant) app.viewer.camera.setView({ destination: dst });
-    else flyToCartesian(dst, { duration: 4.6 });
+    const dst = Cesium.Cartesian3.fromDegrees(127, 22, 9000000); // P6-1008 orbit framing
+    const ori = { heading: 0, pitch: Cesium.Math.toRadians(-38), roll: 0 };
+    if (instant) app.viewer.camera.setView({ destination: dst, orientation: ori });
+    else flyToCartesian(dst, { duration: 4.6, orientation: ori });
   }
 
   function goFree(){
