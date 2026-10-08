@@ -13,6 +13,8 @@
   let dreamSky = "";
   let dreamMat = null;
   let dreamAuto = false; // P8-1008: 현재 돔이 자동 하늘인지(수동 드림/포털이면 false)
+  let dreamHemi = false; // P11-1009: 현재 돔이 반구(자동 하늘)인지 — 전구(수동 드림)와 다르면 재생성
+  const SKY_MAX_H = 25000; // P11-1009: 자동 돔은 25km 아래에서만. 위에선 Cesium 대기(지평선 딥이 커져 돔 가장자리가 드러남)
   let motionJ = null;
   let mbPrevV = null;
   let mbPrevP = null;
@@ -159,11 +161,12 @@ void main(){ vec2 uv=v_textureCoordinates; vec4 col=texture(colorTexture,uv); ve
   function skyAutoOn(){ return localStorage.getItem("swef_skyauto") !== "0"; }
   function skyAutoTick(){
     if (!viewerOf()) return;
-    if (app.state.spaceView || !skyAutoOn()) { if (dreamPrim && dreamAuto) dreamOff(); return; }
+    const camH = viewerOf().camera.positionCartographic.height;
+    if (app.state.spaceView || camH > SKY_MAX_H || !skyAutoOn()) { if (dreamPrim && dreamAuto) dreamOff(); return; }
     if (dreamPrim && !dreamAuto) return;
     const want = skyForHour(lastLocalHours);
     if (dreamPrim && dreamSky === want) return;
-    dreamOn(want);
+    dreamOn(want, true);
     dreamAuto = true;
     const btn = document.getElementById("btnDream");
     if (btn) btn.classList.remove("on");
@@ -182,7 +185,12 @@ void main(){ vec2 uv=v_textureCoordinates; vec4 col=texture(colorTexture,uv); ve
     if (btn) btn.classList.remove("on");
   }
 
-  function dreamOn(sky){
+  function dreamOn(sky, hemi){
+    hemi = !!hemi;
+    if (dreamPrim && dreamHemi !== hemi) { // P11-1009: 반구↔전구 전환은 재생성
+      viewerOf().scene.primitives.remove(dreamPrim);
+      dreamPrim = null; dreamMat = null; dreamSky = "";
+    }
     if (dreamPrim && dreamSky === sky) return;
     if (dreamPrim && dreamMat) {
       dreamMat.uniforms.image = sky;
@@ -201,7 +209,8 @@ void main(){ vec2 uv=v_textureCoordinates; vec4 col=texture(colorTexture,uv); ve
       geometryInstances: new Cesium.GeometryInstance({
         geometry: new Cesium.EllipsoidGeometry({
           radii: new Cesium.Cartesian3(400000, 400000, 400000),
-          vertexFormat: Cesium.VertexFormat.POSITION_AND_ST
+          vertexFormat: Cesium.VertexFormat.POSITION_AND_ST,
+          maximumCone: hemi ? (Math.PI * 0.5 + 0.105) : Math.PI // P11-1009: 자동 하늘은 지평선 6° 아래까지만 — 구름바다 '벽' 금지
         })
       }),
       appearance: appa,
@@ -209,6 +218,7 @@ void main(){ vec2 uv=v_textureCoordinates; vec4 col=texture(colorTexture,uv); ve
       allowPicking: false
     }));
     dreamSky = sky;
+    dreamHemi = hemi;
     applyPostprocessState();
     const btn = document.getElementById("btnDream");
     if (btn) btn.classList.add("on");
