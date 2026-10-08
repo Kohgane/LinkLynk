@@ -202,8 +202,9 @@ def cb_index():
 
 @cb_bp.route("/sitemap-travel.xml")
 def cb_sitemap():
-    urls = ["%s/next/en" % BASE, "%s/can-i-bring" % BASE,
-            "%s/gottago/" % BASE, "%s/eats/" % BASE]
+    # ★gottago/eats 를 뺀다. 이 호스트에선 linklynk 로 301 되므로
+    #   사이트맵이 튕기는 주소를 광고하는 꼴이었다. 저쪽 사이트맵으로 옮겼다.
+    urls = ["%s/next/en" % BASE, "%s/can-i-bring" % BASE]
     urls += ["%s/can-i-bring/%s" % (BASE, slug(d, c)) for d, c in PAIRS]
     urls += ["%s/ko" % BASE]
     urls += ["%s/ko/%s" % (BASE, _q(ko_slug(l, c))) for l, q, c in KO_PAIRS]

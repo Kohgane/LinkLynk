@@ -724,8 +724,15 @@ def _robots():
 
 @app.route("/sitemap.xml")
 def _sitemap():
+    # ★앱 랜딩 4장을 넣는다. 지금까지 어느 사이트맵에도 없었다.
+    #   gottago/eats 는 canibringmeds 여행 사이트맵에 있었지만 거기선 301 된다.
+    #   TWA assetlinks 가 이 호스트에만 있으므로 페이지는 여기 남긴다.
     urls = ["https://linklynk.onrender.com/boim",
-            "https://linklynk.onrender.com/boim/guide"]
+            "https://linklynk.onrender.com/boim/guide",
+            "https://linklynk.onrender.com/gottago",
+            "https://linklynk.onrender.com/eats",
+            "https://linklynk.onrender.com/majak",
+            "https://linklynk.onrender.com/hwatu"]
     x = ['<?xml version="1.0" encoding="UTF-8"?>',
          '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
     for u in urls:
@@ -3414,6 +3421,16 @@ _KEEP = ("/%s.txt" % _INKEY,
 #   쓰레드 게시가 이 URL 을 200 으로 사전 확인한다. 301 로 바꾸면 게시가 막힌다.
 _STAY = ("/next/card", "/next/og")
 
+# ★슬래시 쌍둥이. 두 주소가 같은 바이트를 내는데 canonical 이 없어
+#   구글이 "표준 없는 중복"으로 버렸다(2026-10-07 GSC 알림).
+#   canonical 태그보다 301 이 강한 신호다. 호스트별로 나눠 두 번 튀기는 걸 막는다.
+#   ★전역 규칙으로 안 하는 이유: Flask 가 '/foo/' 로 등록한 라우트는
+#   '/foo' 를 '/foo/' 로 308 보낸다. 거기에 반대 301 을 걸면 무한 루프다.
+#   아래는 실측으로 양쪽 다 200 인 것만 명시한다.
+_SLASH_CB  = {"/next/": "/next", "/next/en/": "/next/en"}
+_SLASH_APP = {"/gottago/": "/gottago", "/eats/": "/eats",
+              "/majak/": "/majak", "/hwatu/": "/hwatu"}
+
 _CB_ROBOTS = ("User-agent: *\n"
               "Disallow: /api/\n"
               "Disallow: /t/\n\n"
@@ -3448,6 +3465,8 @@ def _split_hosts():
             return Response(_CB_ROBOTS, mimetype="text/plain; charset=utf-8")
         if p == "/":
             return _cb_home()         # ★앱 UI 가 아니라 BorderRx 홈
+        if p in _SLASH_CB:
+            return _rd(_to(CB_HOST, _SLASH_CB[p]), 301)
         if p in _KEEP:
             return None               # 이 호스트가 직접 낸다
         if not _is_cb(p):
@@ -3457,6 +3476,8 @@ def _split_hosts():
     if h == APP_HOST:
         if p in _BOTH or p == "/" or p.startswith(_STAY):
             return None
+        if p in _SLASH_APP:
+            return _rd(_to(APP_HOST, _SLASH_APP[p]), 301)
         if _is_cb(p):                 # 구글이 이미 아는 26개를 새 주소로 넘긴다
             return _rd(_to(CB_HOST, p), 301)
     return None
