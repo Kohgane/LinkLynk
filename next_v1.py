@@ -152,7 +152,9 @@ def _draw(d, path):
     if d["incb"]:
         dr.text((70, y), "UN 국제통제물질 — 협약 가입국 전체 신고 대상",
                 font=F(24), fill=(150, 164, 180)); y += 44
-    names = (d["pro"] + d["per"] + d["dec"])[:7]
+    # ★rx 를 빼면 한글 OG 카드에서 영국·독일이 통째로 사라진다(2026-10-09 실측).
+    #   .get 을 쓰는 이유: 배포 전 쪨시 dict 에는 rx 키가 없다.
+    names = (d["pro"] + d["per"] + d.get("rx", []) + d["dec"])[:7]
     if names:
         dr.text((70, y), "  ".join(names)[:40], font=F(24), fill=(150, 164, 180))
     dr.text((70, 474), "약 이름만 넣으면 5초 만에 확인", font=F(30), fill=(230, 238, 246))
@@ -222,6 +224,8 @@ def _card(d, path):
     y += 20
     lab = [("반입 불가", d["pro"], (255, 92, 80)),
            ("사전 허가", d["per"], (240, 176, 76)),
+           # ★마젠타 = COL["RX"] #e79ac9. 등급 순서대로 허가 다음, 신고 앞이다.
+           ("현지 처방", d.get("rx", []), (231, 154, 201)),
            ("신고 대상", d["dec"], (127, 182, 232))]
     for name_, arr, c in lab:
         if not arr:
