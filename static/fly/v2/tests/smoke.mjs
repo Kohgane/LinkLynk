@@ -3,7 +3,8 @@
 // Run: node static/fly/v2/tests/smoke.mjs
 // No external dependencies, no browser required.
 
-import { readFileSync } from "fs";
+import { execFileSync } from "child_process";
+import { readFileSync, readdirSync } from "fs";
 import { fileURLToPath } from "url";
 import { dirname, resolve } from "path";
 
@@ -150,6 +151,59 @@ const storageKeys = [
 ];
 for (const key of storageKeys) {
   result(`"${key}" 존재`, allSource.includes(key));
+}
+
+// ─── Check 6: v2 추가 불변식 ───────────────────────────────────────────────────
+console.log("\n[6] v2 추가 불변식");
+const featuresSrc = sources["features.js"] || readFile("features.js");
+const uiSrc = sources["ui.js"] || readFile("ui.js");
+
+const patchTags = ["P0-0921a", "P2-1001", "P3-1002", "P5-1007", "P6-1008", "P7-1008"];
+for (const tag of patchTags) {
+  result(`engine.js patch tag "${tag}"`, engineSrc.includes(tag));
+}
+result("engine.js SPACE_ON = 320000", engineSrc.includes("SPACE_ON = 320000"));
+result("engine.js SPACE_OFF = 240000", engineSrc.includes("SPACE_OFF = 240000"));
+result(
+  "engine.js globe.show = want || !!state.underwater",
+  engineSrc.includes("globe.show = want || !!state.underwater")
+);
+
+const preRenderMatch = engineSrc.match(
+  /scene\.preRender\.addEventListener\(\(\)=>safeRun\("preRender", \(\)=>\{[\s\S]*?\}\)\);/
+);
+if (!preRenderMatch) {
+  result("preRender 핸들러 내 updateSpaceView()/updateWarpBudget() 순서", false, "preRender block not found");
+} else {
+  const preRenderBlock = preRenderMatch[0];
+  const iSpace = preRenderBlock.indexOf("updateSpaceView()");
+  const iWarp = preRenderBlock.indexOf("updateWarpBudget()");
+  result(
+    "preRender: updateSpaceView() before updateWarpBudget()",
+    iSpace >= 0 && iWarp >= 0 && iSpace < iWarp,
+    iSpace >= 0 && iWarp >= 0 ? `space=${iSpace}, warp=${iWarp}` : "one or both calls missing"
+  );
+}
+
+result('features.js contains "u_camH<80000.0"', featuresSrc.includes("u_camH<80000.0"));
+result('features.js contains "uniform float u_gold"', featuresSrc.includes("uniform float u_gold"));
+result('features.js contains "data-fallback"', featuresSrc.includes("data-fallback"));
+result('ui.js avSizeR2 max 220', /id="avSizeR2"[^>]*max="220"/.test(uiSrc));
+
+// ─── Check 7: node --check ────────────────────────────────────────────────────
+console.log("\n[7] node --check (static/fly/v2/js/*.js)");
+const jsFiles = readdirSync(ROOT).filter((name) => name.endsWith(".js")).sort();
+for (const f of jsFiles) {
+  const filePath = resolve(ROOT, f);
+  let ok = false;
+  let err = "";
+  try {
+    execFileSync(process.execPath, ["--check", filePath], { stdio: "pipe" });
+    ok = true;
+  } catch (e) {
+    err = String((e && (e.stderr || e.stdout)) || e).split("\n")[0];
+  }
+  result(`node --check ${f}`, ok, ok ? "" : err);
 }
 
 // ─── Summary ─────────────────────────────────────────────────────────────────

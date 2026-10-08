@@ -1,28 +1,29 @@
-name: Fly Smoke
+name: Fly v2 Smoke
 
 on:
+  pull_request:
+    paths:
+      - static/fly/v2/**
+      - .github/workflows/fly-smoke.yml
   push:
-  schedule:
-    - cron: '0 0 * * *'
-  workflow_dispatch:
+    branches:
+      - main
+    paths:
+      - static/fly/v2/**
+      - .github/workflows/fly-smoke.yml
 
 permissions:
   contents: read
 
 jobs:
-  fly-smoke:
+  smoke:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - name: Setup Node
+        uses: actions/setup-node@v4
         with:
-          python-version: '3.x'
-
-      - name: Install requests
-        run: python -m pip install --upgrade pip requests
-
-      - name: Run fly smoke test
-        run: python tests/fly_smoke.py
+          node-version: "20"
+      - name: Run fly v2 smoke
+        run: node static/fly/v2/tests/smoke.mjs
