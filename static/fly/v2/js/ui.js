@@ -76,6 +76,7 @@
       '    <button class="btn" id="btnDream">🌌 드림스카이</button>',
       '    <button class="btn" id="btnMb">💫 <span id="mbLbl">블러 OFF</span></button>',
       '    <button class="btn" id="btnAtmo">🌫 대기</button>',
+      '    <button class="btn" id="btnSkyAuto">🌅 하늘 자동</button>',
       '  </div>',
       '</div>',
       '<div id="footerRow">',
@@ -258,6 +259,13 @@
       $("btnAtmo").classList.toggle("on", !on);
       app.toast(!on ? "🌫 대기 ON" : "🌫 대기 OFF");
     };
+    $("btnSkyAuto").onclick = ()=>{ // P8-1008
+      const on = localStorage.getItem("swef_skyauto") !== "0";
+      localStorage.setItem("swef_skyauto", on ? "0" : "1");
+      $("btnSkyAuto").classList.toggle("on", !on);
+      if (app.skyAutoTick) app.skyAutoTick();
+      app.toast(!on ? "🌅 하늘 자동 ON" : "🌅 하늘 자동 OFF (Cesium 대기)");
+    };
     $("btnTrackHere").onclick = ()=>app.vjTrack(false);
     $("btnJourneyRefresh").onclick = ()=>app.vjRender();
     $("btnImportStars").onclick = ()=>$("vjFile").click();
@@ -300,6 +308,7 @@
     moduleSyncTimer = setInterval(syncModuleHook, 1200);
     syncModuleHook();
     $("btnAtmo").classList.toggle("on", localStorage.getItem("swef_atmo") !== "0");
+    $("btnSkyAuto").classList.toggle("on", localStorage.getItem("swef_skyauto") !== "0");
     const blur = parseInt(localStorage.getItem("swef_mb") || "0", 10);
     $("mbLbl").textContent = ["블러 OFF", "블러 180°", "블러 360°"][blur];
     $("btnMb").classList.toggle("on", blur > 0);

@@ -12,6 +12,7 @@
   let dreamPrim = null;
   let dreamSky = "";
   let dreamMat = null;
+  let dreamAuto = false; // P8-1008: 현재 돔이 자동 하늘인지(수동 드림/포털이면 false)
   let motionJ = null;
   let mbPrevV = null;
   let mbPrevP = null;
@@ -148,8 +149,29 @@ void main(){ vec2 uv=v_textureCoordinates; vec4 col=texture(colorTexture,uv); ve
     setCloudMode((app.state.cloudMode + 1) % 3);
   }
 
+  // P8-1008 SKYDOME: 시간대별 파노라마 하늘. 우주뷰(GIBS 지구)에서는 끈다.
+  const SKY_BANDS = [[0,4.5,"galaxy"],[4.5,6,"aurora"],[6,7.25,"sunset"],[7.25,16.75,"pano"],[16.75,19,"sunset"],[19,21.5,"moonink"],[21.5,24,"galaxy"]];
+  function skyForHour(h){
+    h = ((h % 24) + 24) % 24;
+    for (const b of SKY_BANDS) if (h >= b[0] && h < b[1]) return "/fly/sky/" + b[2] + ".jpg";
+    return "/fly/sky/pano.jpg";
+  }
+  function skyAutoOn(){ return localStorage.getItem("swef_skyauto") !== "0"; }
+  function skyAutoTick(){
+    if (!viewerOf()) return;
+    if (app.state.spaceView || !skyAutoOn()) { if (dreamPrim && dreamAuto) dreamOff(); return; }
+    if (dreamPrim && !dreamAuto) return;
+    const want = skyForHour(lastLocalHours);
+    if (dreamPrim && dreamSky === want) return;
+    dreamOn(want);
+    dreamAuto = true;
+    const btn = document.getElementById("btnDream");
+    if (btn) btn.classList.remove("on");
+  }
+
   function dreamOff(){
     if (!dreamPrim) return;
+    dreamAuto = false;
     viewerOf().scene.primitives.remove(dreamPrim);
     dreamPrim = null;
     dreamSky = "";
@@ -194,15 +216,18 @@ void main(){ vec2 uv=v_textureCoordinates; vec4 col=texture(colorTexture,uv); ve
 
   function toggleDream(){
     const free = localStorage.getItem("swef_gate4") === "1";
-    if (dreamPrim) {
-      if (!free) return dreamOff();
+    if (dreamPrim && !dreamAuto) {
+      if (!free) { dreamOff(); skyAutoTick(); return; }
       app.state.dreamIndex = ((app.state.dreamIndex || 0) + 1) % DREAM_SKIES.length;
-      if (app.state.dreamIndex === 0) return dreamOff();
+      if (app.state.dreamIndex === 0) { dreamOff(); skyAutoTick(); return; }
       dreamOn(DREAM_SKIES[app.state.dreamIndex]);
       return app.toast("🌌 세계 " + (app.state.dreamIndex + 1) + "/" + DREAM_SKIES.length);
     }
+    dreamAuto = false; // P8-1008: 자동 하늘 위에서 누르면 수동 드림 1번부터
     app.state.dreamIndex = 0;
     dreamOn(DREAM_SKIES[0]);
+    const dbtn = document.getElementById("btnDream");
+    if (dbtn) dbtn.classList.add("on");
     if (!free) app.toast("🌌 드림스카이 — 여정을 쌓으면 더 많은 세계가 열린다");
   }
 
@@ -250,6 +275,7 @@ void main(){ vec2 uv=v_textureCoordinates; vec4 col=texture(colorTexture,uv); ve
     for (const portal of PORTALS) {
       if (!portal._pos || Cesium.Cartesian3.distance(cam, portal._pos) >= 420) continue;
       app.state.portalCooldown = 1200;
+      dreamAuto = false; // P8-1008
       dreamOn(portal.sky);
       const key = portal.lat.toFixed(3) + "," + portal.lon.toFixed(3);
       let pv = [];
@@ -514,6 +540,8 @@ void main(){ vec2 uv=v_textureCoordinates; vec4 col=texture(colorTexture,uv); ve
     setCloudMode,
     cycleCloudMode,
     toggleDream,
+    skyAutoTick,
+    skyForHour,
     pickVehicle,
     tuneVehicle,
     setAvatarSize(px){ avatarSize = Math.max(24, px|0); const v = app.state.vehicle; if (v) app.emit("vehicle", v); },
@@ -544,6 +572,7 @@ void main(){ vec2 uv=v_textureCoordinates; vec4 col=texture(colorTexture,uv); ve
   app.on("frame", ({ dtMs })=>{
     updateMotionBlur(dtMs);
     updateFog(dtMs);
+    skyAutoTick(); // P8-1008
     if (dreamPrim) dreamPrim.modelMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(viewerOf().camera.positionWC);
     portalTick();
     updateAvatar();
