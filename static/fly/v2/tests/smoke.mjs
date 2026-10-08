@@ -158,7 +158,7 @@ console.log("\n[6] v2 추가 불변식");
 const featuresSrc = sources["features.js"] || readFile("features.js");
 const uiSrc = sources["ui.js"] || readFile("ui.js");
 
-const patchTags = ["P0-0921a", "P2-1001", "P3-1002", "P5-1007", "P6-1008", "P7-1008"];
+const patchTags = ["P0-0921a", "P2-1001", "P3-1002", "P5-1007", "P6-1008", "P7-1008", "P8-1008", "P9-1008"];
 for (const tag of patchTags) {
   result(`engine.js patch tag "${tag}"`, engineSrc.includes(tag));
 }
