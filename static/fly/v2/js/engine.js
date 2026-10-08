@@ -222,7 +222,7 @@
     const fade = $("fadeMask");
     const vignette = $("vignettePulse");
     if (!fade || !state.travel) return;
-    if (state.travel.t0 && performance.now() - state.travel.t0 > 6000 && state.travel.phase !== "up") {
+    if (state.travel.t0 && performance.now() - state.travel.t0 > 2200 && state.travel.phase !== "up") { // P7-1008: curtain cap 6s -> 2.2s
       state.travel.phase = "up";
       fade.style.transition = "opacity 1s ease";
       fade.style.opacity = "0";
@@ -231,10 +231,10 @@
     }
     if (state.travel.phase === "down") {
       fade.style.transition = "opacity .4s ease";
-      fade.style.opacity = "0.88";
+      fade.style.opacity = "0.35";
       state.travel.phase = "hold";
     } else if (state.travel.phase === "settling") {
-      fade.style.opacity = "0.56";
+      fade.style.opacity = "0.25";
       if (state.warpHold <= 0 && state.currentSSE <= state.targetSSE && state.tileLoadProgress <= 1) {
         state.travel.phase = "up";
         fade.style.transition = "opacity 1s ease";
@@ -255,7 +255,7 @@
     if (fade) {
       fade.style.transition = "opacity .4s ease";
       fade.style.opacity = "0";
-      requestAnimationFrame(()=>{ fade.style.opacity = "0.88"; state.travel.phase = "hold"; });
+      requestAnimationFrame(()=>{ fade.style.opacity = "0.35"; state.travel.phase = "hold"; });
     }
   }
 
@@ -624,6 +624,7 @@
     updateTierLabel();
 
     state.govAccum = { elapsed: 0, sum: 0, count: 0 };
+    state.bootStamp = performance.now();
     // §9 preRender 리스너는 반드시 try/catch 래퍼로 감싼다.
     scene.preRender.addEventListener(()=>safeRun("preRender", ()=>{
       const now = performance.now();
@@ -643,7 +644,8 @@
         cands.forEach((c)=>{ const d = Math.abs(med - c); if (d < bd) { bd = d; best = c; } });
         const prev = state.rafCapMs || 16.67;
         // faster evidence always wins; slower only when the cadence is tight (an OS cap, not a GPU stall)
-        const accept = !state.rafCapDone || best < prev * 0.8 || (best > prev * 1.2 && spread < 6);
+        const quiet = (performance.now() - (state.bootStamp || 0)) > 8000 && !(state.tileset && state.tileset._statistics && state.tileset._statistics.numberOfTilesProcessing > 0);
+        const accept = !state.rafCapDone ? (best <= 16.67 || quiet) : (best < prev * 0.8 || (best > prev * 1.2 && spread < 6 && quiet));
         if (accept && best !== prev) {
           state.rafCapMs = best;
           if (best >= 33) toast("\ud83d\udd0b \ud654\uba74 \uac31\uc2e0 " + Math.round(1000 / best) + "Hz \uc81c\ud55c \uac10\uc9c0 (\uc800\uc804\ub825 \ubaa8\ub4dc?)", 3600);
@@ -651,7 +653,7 @@
           state.govCalm = 0;
           if (best > prev && state.governorTier > 0) { state.governorTier = 0; state.govLockUntil = 0; applyGovernorTier(); } // a slower OS cap is not a GPU stall: undo any demotion it caused
         }
-        state.rafCapDone = true;
+        if (accept || state.rafCapDone) state.rafCapDone = true; // P7: no verdict until the first probe is trusted
       }
       state.govAccum.elapsed += dtMs;
       state.govAccum.sum += dtMs;
