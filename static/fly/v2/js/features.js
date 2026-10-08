@@ -110,7 +110,7 @@ void main(){ vec2 uv=v_textureCoordinates; vec4 col=texture(colorTexture,uv); ve
   }
 
   function applyPostprocessState(){
-    if (post.film) post.film.enabled = post.filmIndex > 0 && !app.state.postprocessSuspended;
+    if (post.film) post.film.enabled = post.filmIndex > 0 && !app.state.postprocessSuspended && !app.state.spaceView; // P9-1008: 우주뷰에선 필름 OFF
     if (post.motionBlur) post.motionBlur.enabled = post.blurLevel > 0 && !app.state.postprocessSuspended;
     if (post.fog) post.fog.enabled = !app.state.postprocessSuspended && localStorage.getItem("swef_atmo") !== "0" && !app.state.fogSuppressed && !dreamPrim;
   }
@@ -153,7 +153,7 @@ void main(){ vec2 uv=v_textureCoordinates; vec4 col=texture(colorTexture,uv); ve
   const SKY_BANDS = [[0,4.5,"galaxy"],[4.5,6,"aurora"],[6,7.25,"sunset"],[7.25,16.75,"pano"],[16.75,19,"sunset"],[19,21.5,"moonink"],[21.5,24,"galaxy"]];
   function skyForHour(h){
     h = ((h % 24) + 24) % 24;
-    for (const b of SKY_BANDS) if (h >= b[0] && h < b[1]) return "/fly/sky/" + b[2] + ".jpg";
+    for (const b of SKY_BANDS) if (h >= b[0] && h < b[1]) return "/fly/sky/" + b[2] + "_4k.jpg"; // P9-1008: 4096x2048
     return "/fly/sky/pano.jpg";
   }
   function skyAutoOn(){ return localStorage.getItem("swef_skyauto") !== "0"; }
