@@ -7,9 +7,11 @@ LinkLynk — 백엔드 API 서버 (멀티테넌트)
 - 링크 히스토리 + 링크인바이오 프로필
 """
 import os
+import tempfile
 import threading
+import urllib.request
 from functools import wraps
-from flask import Flask, request, jsonify, send_from_directory, session, make_response, Response
+from flask import Flask, request, jsonify, send_from_directory, send_file, session, make_response, Response
 
 from core import CoupangPartners, is_valid_coupang_url, make_blog_draft, COUPANG_DISCLOSURE, unshorten_coupang, is_short_coupang_link, extract_coupang_url, build_naver_html, zernio_publish
 import store
@@ -194,6 +196,121 @@ def apple_icon():
 @app.route("/favicon-32.png")
 def favicon():
     return send_from_directory(".", "favicon-32.png", mimetype="image/png")
+
+GIBS_LAYERS = {
+    "BlueMarble_ShadedRelief_Bathymetry": {"date": "2004-08", "ext": "jpeg"},
+    "VIIRS_Black_Marble": {"date": "2016-01-01", "ext": "png"},
+}
+
+
+def _gibs_cache_dir():
+    return os.environ.get("GIBS_CACHE_DIR", "/tmp/gibs_cache")
+
+
+def _gibs_cache_limit_bytes():
+    try:
+        max_mb = int(os.environ.get("GIBS_CACHE_MB", "300"))
+    except (TypeError, ValueError):
+        max_mb = 300
+    return max(max_mb, 1) * 1024 * 1024
+
+
+def _gibs_cache_path(layer, z, x, y, ext):
+    base = os.path.join(_gibs_cache_dir(), layer, str(z), str(x))
+    return os.path.join(base, f"{y}.{ext}")
+
+
+def _gibs_prune_cache(cache_dir, limit_bytes):
+    if not os.path.isdir(cache_dir):
+        return
+    files = []
+    for root, _, filenames in os.walk(cache_dir):
+        for name in filenames:
+            path = os.path.join(root, name)
+            try:
+                files.append((os.path.getmtime(path), os.path.getsize(path), path))
+            except OSError:
+                continue
+    total = sum(size for _, size, _ in files)
+    if total <= limit_bytes:
+        return
+    files.sort(key=lambda item: item[0])
+    for _, size, path in files:
+        if total <= limit_bytes:
+            break
+        try:
+            os.remove(path)
+        except OSError:
+            pass
+        total -= size
+
+
+def fetch_upstream_tile(layer, z, x, y, ext):
+    cfg = GIBS_LAYERS.get(layer)
+    if not cfg:
+        raise ValueError("unknown layer")
+    if ext != cfg["ext"]:
+        raise ValueError("unsupported ext")
+    url = (
+        f"https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/{layer}/default/"
+        f"{cfg['date']}/GoogleMapsCompatible_Level8/{z}/{y}/{x}.{ext}"
+    )
+    req = urllib.request.Request(url, headers={"User-Agent": "LinkLynk-GIBS/1.0"})
+    with urllib.request.urlopen(req, timeout=8) as resp:
+        return resp.read()
+
+
+@app.route("/fly/tiles/<layer>/<int:z>/<int:y>/<int:x>.<ext>")
+def fly_tile_proxy(layer, z, y, x, ext):
+    cfg = GIBS_LAYERS.get(layer)
+    if not cfg:
+        return ("", 404)
+    ext = (ext or "").lower()
+    if ext != cfg["ext"]:
+        return ("", 404)
+    if not (0 <= z <= 8):
+        return ("", 404)
+    max_index = 1 << z
+    if not (0 <= x < max_index and 0 <= y < max_index):
+        return ("", 404)
+
+    cache_path = _gibs_cache_path(layer, z, x, y, ext)
+    os.makedirs(os.path.dirname(cache_path), exist_ok=True)
+    if os.path.exists(cache_path):
+        with open(cache_path, "rb") as handle:
+            payload = handle.read()
+        response = Response(payload, mimetype=f"image/{'jpeg' if ext == 'jpeg' else 'png'}")
+        response.headers["Cache-Control"] = "public, max-age=604800"
+        response.headers["X-Cache"] = "HIT"
+        return response
+
+    try:
+        tile_data = fetch_upstream_tile(layer, z, x, y, ext)
+    except Exception:
+        return Response("Bad Gateway", status=502)
+
+    tmp_path = None
+    try:
+        with tempfile.NamedTemporaryFile(prefix="gibs-", suffix=".tmp", dir=os.path.dirname(cache_path), delete=False) as handle:
+            tmp_path = handle.name
+            handle.write(tile_data)
+        os.replace(tmp_path, cache_path)
+        _gibs_prune_cache(_gibs_cache_dir(), _gibs_cache_limit_bytes())
+    except Exception:
+        if tmp_path and os.path.exists(tmp_path):
+            try:
+                os.remove(tmp_path)
+            except OSError:
+                pass
+        return Response("Bad Gateway", status=502)
+
+    with open(cache_path, "rb") as handle:
+        payload = handle.read()
+    response = Response(payload, mimetype=f"image/{'jpeg' if ext == 'jpeg' else 'png'}")
+    response.headers["Cache-Control"] = "public, max-age=604800"
+    response.headers["X-Cache"] = "MISS"
+    return response
+
 
 @app.route("/api/health")
 def health():
