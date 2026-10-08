@@ -525,11 +525,13 @@
     }
   }
 
+  const ION_TOKEN = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1MDI1ZGE2NC0wOGIyLTRlZWMtOWQ4OS05NWY4ZjMxNjg0ZmIiLCJpZCI6NDA1NTcyLCJpYXQiOjE3NzM4MzA1Mjl9.FCi-lCnBVst8VYPqaiKmOrYnOVD9SLQG6767GTfohH0"; // P10-1009
   async function init(){
     const opts = {
       animation: false,
       timeline: false,
       baseLayerPicker: false,
+      baseLayer: false, // P10-1009: layers are added explicitly below
       geocoder: false,
       homeButton: false,
       sceneModePicker: false,
@@ -540,6 +542,7 @@
       requestRenderMode: false,
       contextOptions: { webgl: { preserveDrawingBuffer: false } } // §2 preserveDrawingBuffer 금지
     };
+    Cesium.Ion.defaultAccessToken = ION_TOKEN; // P10-1009
     app.viewer = new Cesium.Viewer("cesiumContainer", opts);
     app.scene = app.viewer.scene;
     const scene = app.scene;
@@ -561,19 +564,29 @@
     // P5-1007: orbit view. Globe carries NASA day/night imagery and is visible only above SPACE_ON; the Google tileset only below.
     // The two never render together (§1 stays intact: one Earth at a time).
     try {
+      // P10-1009: GIBS goes through our same-origin disk-cached proxy (/fly/tiles, PR #29) — no cross-origin, no NASA rate limits.
       const gibs = (layer, date, ext, maxL)=>new Cesium.UrlTemplateImageryProvider({
-        url: "https://gibs.earthdata.nasa.gov/wmts/epsg3857/best/" + layer + "/default/" + date + "/GoogleMapsCompatible_Level" + maxL + "/{z}/{y}/{x}." + ext,
+        url: "/fly/tiles/" + layer + "/{z}/{y}/{x}." + ext,
         maximumLevel: maxL, credit: "NASA GIBS"
       });
       const dayL = app.viewer.imageryLayers.addImageryProvider(gibs("BlueMarble_ShadedRelief_Bathymetry", "2004-08", "jpeg", 8));
       const nightL = app.viewer.imageryLayers.addImageryProvider(gibs("VIIRS_Black_Marble", "2016-01-01", "png", 8));
       dayL.brightness = 1.05; dayL.contrast = 1.1;
       nightL.dayAlpha = 0.0; nightL.nightAlpha = 1.0; nightL.brightness = 1.8;
+      // P10-1009: full-resolution day imagery (Bing Aerial via Cesium ion) between Blue Marble base and Black Marble night.
+      // Blue Marble stays underneath as the fallback if ion is unreachable.
+      try {
+        Cesium.Ion.defaultAccessToken = ION_TOKEN;
+        const bingL = Cesium.ImageryLayer.fromProviderAsync(Cesium.IonImageryProvider.fromAssetId(2));
+        bingL.brightness = 1.04; bingL.contrast = 1.08;
+        app.viewer.imageryLayers.add(bingL, 1);
+        state.spaceLayers = { bing: bingL };
+      } catch (error) { console.warn("[swef-v2] bing layer", error); }
       scene.globe.showGroundAtmosphere = true;
       scene.globe.nightFadeOutDistance = 1.0e7;
       scene.globe.nightFadeInDistance = 5.0e7;
       scene.globe.maximumScreenSpaceError = 4;
-      state.spaceLayers = { day: dayL, night: nightL };
+      state.spaceLayers = Object.assign(state.spaceLayers || {}, { day: dayL, night: nightL });
     } catch (error) { console.warn("[swef-v2] space layers", error); }
     state.spaceView = false;
 
@@ -585,7 +598,7 @@
     if (googleKey) {
       try {
         if (googleKey) { Cesium.GoogleMaps.defaultApiKey = googleKey; }
-        Cesium.Ion.defaultAccessToken = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJqdGkiOiI1MDI1ZGE2NC0wOGIyLTRlZWMtOWQ4OS05NWY4ZjMxNjg0ZmIiLCJpZCI6NDA1NTcyLCJpYXQiOjE3NzM4MzA1Mjl9.FCi-lCnBVst8VYPqaiKmOrYnOVD9SLQG6767GTfohH0";
+        Cesium.Ion.defaultAccessToken = ION_TOKEN;
         const tileset = await Cesium.createGooglePhotorealistic3DTileset();
         tileset.cacheBytes = state.profile.cacheBytes;
         tileset.maximumCacheOverflowBytes = state.profile.overflowBytes;
