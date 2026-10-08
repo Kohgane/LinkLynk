@@ -373,3 +373,27 @@ for _cc, _fx in _SYNC_ONLY:
     for _k, _v in _fx.items():
         if _k in NATIONAL_ONLY and _cc in NATIONAL_ONLY[_k]:
             NATIONAL_ONLY[_k][_cc] = _v
+
+
+# ══════════════════════════════════════════════════════════════
+# ★RX 등급 (2026-10-09). "수입 허가 제도가 없는데 현지에서는 처방 대상"
+#   영국·독일 멜라토닌이 PERMIT 으로 찍혀 있었고, 그 결과 페이지가
+#   "출국 전 도착국 보건당국의 승인을 받으세요"라고 했다. 그런 창구가 없다.
+#   없는 절차를 찾아가라고 보내는 건 BorderRx 가 막으라고 만들어진 오답이다.
+RANK["RX"] = 2.5      # PERMIT(3) 보다 약하고 DECLARE(2) 보다 무겁다
+
+_RX_FIX = {
+    "melatonin": {
+        "GB": ("RX", "처방 의약품. 수입 허가 제도는 없고 현지에서 사려면 영국 처방이 필요", False),
+        "DE": ("RX", "용량에 따라 처방 대상. 수입 허가 제도는 없음", False)},
+}
+for _k, _v in _RX_FIX.items():
+    NATIONAL.setdefault(_k, {}).update(_v)
+
+# ★national_rules() 가 NATIONAL 다음에 NATIONAL_ONLY 를 덮어쓴다.
+#   지난번 tramadol/AE 에서 한쪽만 보고 당했다. 양쪽을 맞춰 둔다.
+for _k, _v in _RX_FIX.items():
+    if _k in NATIONAL_ONLY:
+        for _cc, _r in _v.items():
+            if _cc in NATIONAL_ONLY[_k]:
+                NATIONAL_ONLY[_k][_cc] = _r

@@ -2348,3 +2348,49 @@ for _s in ("adderall-to-thailand", "sudafed-to-thailand"):
 for _s in ("애더럴-태국", "감기약-슈도에페드린-태국"):
     assert _s in KO_DEEP and _SRCFOR.get(_s), "한글 태국 심화 누락: %s" % _s
     assert "{{" not in _fill(_s, KO_DEEP[_s], "ko"), "치환 안 된 자리표시자: %s/ko" % _s
+
+
+# ══════════════════════════════════════════════════════════════
+# ★RX 등급 표시 (2026-10-09). borderrx_v1 의 RANK["RX"] 와 짝이다.
+#   ★딕셔너리를 순회하는 코드가 한 곳도 없는 걸 확인하고 키만 더한다.
+#   색은 마젠타다. 빨강·호박·파랑·보라·초록이 이미 쓰였고, 심각도 축의
+#   중간색을 쓰면 호박(PERMIT)과 헷갈린다. RX 는 '더 약한 허가'가 아니라
+#   종류가 다른 장애물이라 계열을 달리하는 게 맞다.
+LV["RX"] = "Prescription required there"
+COL["RX"] = "#e79ac9"
+DO["RX"] = ("There is no import permit to apply for. Bring your own supply with the "
+            "prescription and the original labelled packaging. The catch is at the other "
+            "end: a pharmacy there will not sell you more without a prescription written "
+            "in that country, so take enough for the whole trip.")
+KO_LV["RX"] = "현지에서 처방 대상입니다"
+KO_DO["RX"] = ("신청할 수입 허가 제도가 없습니다. 본인 처방분을 처방전과 원래 라벨이 "
+               "붙은 포장 그대로 가져가면 됩니다. 문제는 도착한 다음입니다 — 현지 "
+               "약국은 그 나라 의사의 처방 없이는 더 팔지 않으므로, 여행 기간 전체에 "
+               "쓸 만큼을 챙겨 가세요.")
+
+# ★_bridge 를 감싼다. 모듈 전역 이름을 다시 묶으므로 이후 호출은 이쪽을 탄다.
+#   원본은 PERMIT/PROHIBITED 세 갈래뿐이라 RX 는 아무 박스도 못 받는다.
+_bridge_before_rx = _bridge
+
+
+def _bridge(lvl, cc, lang):
+    if lvl == "RX":
+        lurl = "/can-i-bring/doctors-letter" if lang == "en" else "/ko/소견서"
+        if lang == "en":
+            return _BOX % ("#6b3a55", "#e79ac9",
+                           "Nothing to apply for &mdash; but you cannot buy it there either",
+                           '<p style="margin:0">No permit exists for this one, so there is no '
+                           'paperwork to file before you fly. It is prescription-only at your '
+                           'destination, which means a pharmacy there will turn you away without '
+                           'a local prescription. Carry enough for the whole trip in the original '
+                           'labelled packaging, with your prescription and a prescriber&rsquo;s '
+                           'letter naming the generic ingredient. '
+                           '<a href="%s">Letter template</a>.</p>' % lurl)
+        return _BOX % ("#6b3a55", "#e79ac9",
+                       "신청할 것은 없지만, 현지에서 살 수도 없다",
+                       '<p style="margin:0">이 성분에는 허가 제도가 없어서 출국 전에 낼 서류가 '
+                       '없습니다. 대신 도착지에서 처방 대상이라 현지 약국은 그 나라 처방전 없이 '
+                       '팔지 않습니다. 여행 기간 전체에 쓸 분량을 원래 라벨이 붙은 포장 그대로, '
+                       '처방전과 성분 일반명을 적은 소견서와 함께 가져가세요. '
+                       '<a href="%s">소견서 양식</a>.</p>' % lurl)
+    return _bridge_before_rx(lvl, cc, lang)
