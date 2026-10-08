@@ -442,6 +442,8 @@ def _card_en(d, path, vertical):
         y += int(122 * sc)
     for lab, arr, c in (("Banned / restricted", d.get("pro_en"), (255, 92, 80)),
                         ("Permit required", d.get("per_en"), (240, 176, 76)),
+                        # ★RX 줄이 없으면 영국·독일이 카드에서 통째로 사라진다.
+                        ("Prescription only", d.get("rx_en"), (231, 154, 201)),
                         ("Must declare", d.get("dec_en"), (127, 182, 232))):
         if not arr or (not vertical and y > H - 190):
             continue

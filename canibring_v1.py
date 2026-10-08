@@ -2362,7 +2362,9 @@ DO["RX"] = ("There is no import permit to apply for. Bring your own supply with 
             "prescription and the original labelled packaging. The catch is at the other "
             "end: a pharmacy there will not sell you more without a prescription written "
             "in that country, so take enough for the whole trip.")
-KO_LV["RX"] = "현지에서 처방 대상입니다"
+# ★"%s에서 %s" 템플릿에 들어가므로 여기서 '에서'로 시작하면 조사가 겹친다.
+#   실측: "영국에서 현지에서 처방 대상입니다". 나머지 5등급과 어미를 맞춘다.
+KO_LV["RX"] = "처방 대상 의약품입니다"
 KO_DO["RX"] = ("신청할 수입 허가 제도가 없습니다. 본인 처방분을 처방전과 원래 라벨이 "
                "붙은 포장 그대로 가져가면 됩니다. 문제는 도착한 다음입니다 — 현지 "
                "약국은 그 나라 의사의 처방 없이는 더 팔지 않으므로, 여행 기간 전체에 "
