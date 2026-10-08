@@ -1,0 +1,135 @@
+{
+  "v": 1,
+  "skies": {
+    "ancient": {
+      "src": "/fly/sky/ancient.jpg",
+      "m": "/fly/sky/m/ancient.jpg",
+      "w": 2048,
+      "h": 1024,
+      "hours": null,
+      "mood": "fantasy"
+    },
+    "aurora": {
+      "src": "/fly/sky/aurora.jpg",
+      "m": "/fly/sky/m/aurora.jpg",
+      "w": 2048,
+      "h": 1024,
+      "hours": [
+        4,
+        5.5
+      ],
+      "mood": "night"
+    },
+    "galaxy": {
+      "src": "/fly/sky/galaxy.jpg",
+      "m": "/fly/sky/m/galaxy.jpg",
+      "w": 2048,
+      "h": 1024,
+      "hours": [
+        0,
+        4
+      ],
+      "mood": "night"
+    },
+    "giants": {
+      "src": "/fly/sky/giants.jpg",
+      "m": "/fly/sky/m/giants.jpg",
+      "w": 2048,
+      "h": 1024,
+      "hours": null,
+      "mood": "fantasy"
+    },
+    "icepalace": {
+      "src": "/fly/sky/icepalace.jpg",
+      "m": "/fly/sky/m/icepalace.jpg",
+      "w": 2048,
+      "h": 1024,
+      "hours": null,
+      "mood": "fantasy"
+    },
+    "islands": {
+      "src": "/fly/sky/islands.jpg",
+      "m": "/fly/sky/m/islands.jpg",
+      "w": 2048,
+      "h": 1024,
+      "hours": null,
+      "mood": "fantasy"
+    },
+    "lanterns": {
+      "src": "/fly/sky/lanterns.jpg",
+      "m": "/fly/sky/m/lanterns.jpg",
+      "w": 2048,
+      "h": 1024,
+      "hours": [
+        19,
+        21
+      ],
+      "mood": "dusk"
+    },
+    "mars": {
+      "src": "/fly/sky/mars.jpg",
+      "m": "/fly/sky/m/mars.jpg",
+      "w": 2048,
+      "h": 1024,
+      "hours": null,
+      "mood": "fantasy"
+    },
+    "merfolk": {
+      "src": "/fly/sky/merfolk.jpg",
+      "m": "/fly/sky/m/merfolk.jpg",
+      "w": 2048,
+      "h": 1024,
+      "hours": null,
+      "mood": "fantasy"
+    },
+    "moonink": {
+      "src": "/fly/sky/moonink.jpg",
+      "m": "/fly/sky/m/moonink.jpg",
+      "w": 2048,
+      "h": 1024,
+      "hours": [
+        21,
+        24
+      ],
+      "mood": "night"
+    },
+    "pano": {
+      "src": "/fly/sky/pano.jpg",
+      "m": "/fly/sky/m/pano.jpg",
+      "w": 2048,
+      "h": 1024,
+      "hours": [
+        5.5,
+        17
+      ],
+      "mood": "day"
+    },
+    "storm": {
+      "src": "/fly/sky/storm.jpg",
+      "m": "/fly/sky/m/storm.jpg",
+      "w": 2048,
+      "h": 1024,
+      "hours": null,
+      "mood": "fantasy"
+    },
+    "stormeye": {
+      "src": "/fly/sky/stormeye.jpg",
+      "m": "/fly/sky/m/stormeye.jpg",
+      "w": 2048,
+      "h": 1024,
+      "hours": null,
+      "mood": "fantasy"
+    },
+    "sunset": {
+      "src": "/fly/sky/sunset.jpg",
+      "m": "/fly/sky/m/sunset.jpg",
+      "w": 2048,
+      "h": 1024,
+      "hours": [
+        17,
+        19
+      ],
+      "mood": "dusk"
+    }
+  }
+}
