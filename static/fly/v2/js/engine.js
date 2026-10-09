@@ -553,7 +553,8 @@
     scene.globe.depthTestAgainstTerrain = true;
     scene.globe.maximumScreenSpaceError = IS_TOUCH ? 6 : 3;
     scene.skyAtmosphere.show = true;
-    try { scene.skyAtmosphere.perFragmentAtmosphere = true; } catch (_) {}
+    try { scene.skyAtmosphere.perFragmentAtmosphere = !IS_TOUCH; } catch (_) {} // P12-1009: per-fragment atmosphere is a phone GPU hog
+    scene.screenSpaceCameraController.enableInputs = false; // P12-1009: input.js owns touch/mouse; Cesium's controller was double-handling (pan+zoom on 1-finger)
     scene.skyAtmosphere.saturationShift = 0.15;
     scene.skyAtmosphere.brightnessShift = 0.02;
     scene.globe.atmosphereLightIntensity = 22;
@@ -579,13 +580,15 @@
         Cesium.Ion.defaultAccessToken = ION_TOKEN;
         const bingL = Cesium.ImageryLayer.fromProviderAsync(Cesium.IonImageryProvider.fromAssetId(2));
         bingL.brightness = 1.04; bingL.contrast = 1.08;
+        bingL.readyEvent.addEventListener(()=>{ if (state.spaceLayers && state.spaceLayers.day) state.spaceLayers.day.show = false; }); // P12-1009: one day layer, not two
         app.viewer.imageryLayers.add(bingL, 1);
         state.spaceLayers = { bing: bingL };
       } catch (error) { console.warn("[swef-v2] bing layer", error); }
       scene.globe.showGroundAtmosphere = true;
       scene.globe.nightFadeOutDistance = 1.0e7;
       scene.globe.nightFadeInDistance = 5.0e7;
-      scene.globe.maximumScreenSpaceError = 4;
+      scene.globe.maximumScreenSpaceError = IS_TOUCH ? 6 : 4; // P12-1009
+      scene.globe.tileCacheSize = IS_TOUCH ? 60 : 100;
       state.spaceLayers = Object.assign(state.spaceLayers || {}, { day: dayL, night: nightL });
     } catch (error) { console.warn("[swef-v2] space layers", error); }
     state.spaceView = false;

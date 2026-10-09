@@ -67,9 +67,15 @@
       lastX = touch.clientX;
       lastY = touch.clientY;
       // §조작 한 손가락 드래그는 조작 패드 없이 화면 전체에서 시선 조작을 맡는다.
-      app.viewer.camera.lookRight(dx * 0.004);
-      app.viewer.camera.lookUp(-dy * 0.004);
-      clampPitch(app.viewer.camera);
+      if (app.state.mode === "tour" && app.state.orbit) {
+        // P12-1009: 투어 궤도에선 카메라를 직접 돌리지 않고 궤도 파라미터를 돌린다 (tickOrbit의 lookAt과 싸우지 않음)
+        app.state.orbit.heading += dx * 0.005;
+        app.state.orbit.pitch = Math.max(Cesium.Math.toRadians(-85), Math.min(Cesium.Math.toRadians(-4), app.state.orbit.pitch - dy * 0.004));
+      } else {
+        app.viewer.camera.lookRight(dx * 0.004);
+        app.viewer.camera.lookUp(-dy * 0.004);
+        clampPitch(app.viewer.camera);
+      }
       event.preventDefault();
     }, { passive: false });
     document.addEventListener("touchstart", (event)=>{
@@ -87,7 +93,13 @@
       try { step = Math.max(60, app.viewer.camera.positionCartographic.height * 0.9); }
       catch (_) {}
       // §조작 두 손가락 핀치는 document 레벨 캡처로 전진/후진을 수행한다.
-      app.viewer.camera.moveForward(dz * step * 2.2);
+      if (app.state.mode === "tour" && app.state.orbit) {
+        // P12-1009: 투어에선 궤도 반경을 줄이고 늘린다
+        const o = app.state.orbit; const base = o.range0 || (o.range0 = o.range);
+        o.range = Math.max(base * 0.25, Math.min(base * 5, o.range * (1 - dz * 1.4)));
+      } else {
+        app.viewer.camera.moveForward(dz * step * 2.2);
+      }
       pinchDistance = next;
       event.preventDefault();
     }, { capture: true, passive: false });
