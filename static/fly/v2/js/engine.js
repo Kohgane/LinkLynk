@@ -446,6 +446,71 @@
     document.head.appendChild(script);
   }
 
+
+  // ─── P13-1009 CINE: cinematic camera tween ──────────────────────────────────
+  // pos(t): great-circle between start and end ground points, height = lerp + bump·sin(πt)
+  // gaze(t): slides from the ground under the start to the target; camera always looks at it (up = local surface normal)
+  const _c3 = { a: new Cesium.Cartesian3(), b: new Cesium.Cartesian3(), c: new Cesium.Cartesian3(), d: new Cesium.Cartesian3() };
+  function easeInOut(t){ return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2; }
+  function slerpUnit(a, b, t, out){
+    const dot = Math.max(-1, Math.min(1, Cesium.Cartesian3.dot(a, b)));
+    const om = Math.acos(dot);
+    if (om < 1e-6) return Cesium.Cartesian3.clone(a, out);
+    const so = Math.sin(om);
+    const wa = Math.sin((1 - t) * om) / so, wb = Math.sin(t * om) / so;
+    out.x = a.x * wa + b.x * wb; out.y = a.y * wa + b.y * wb; out.z = a.z * wa + b.z * wb;
+    return out;
+  }
+  function posFromHPR(center, heading, pitch, range){
+    // camera position for lookAt(center, HPR) — mirrors Cesium's offset convention
+    const enu = Cesium.Transforms.eastNorthUpToFixedFrame(center);
+    const cp = Math.cos(pitch);
+    const local = new Cesium.Cartesian3(-range * cp * Math.sin(heading), -range * cp * Math.cos(heading), -range * Math.sin(pitch));
+    return Cesium.Matrix4.multiplyByPoint(enu, local, new Cesium.Cartesian3());
+  }
+  function cineFly(opts){
+    // opts: { endPos, gazeEnd, duration?, bump?, onComplete }
+    const cam = app.viewer.camera;
+    const ellipsoid = Cesium.Ellipsoid.WGS84;
+    const startPos = Cesium.Cartesian3.clone(cam.positionWC);
+    const c0 = ellipsoid.cartesianToCartographic(startPos), c1 = ellipsoid.cartesianToCartographic(opts.endPos);
+    const u0 = Cesium.Cartesian3.normalize(startPos, new Cesium.Cartesian3());
+    const u1 = Cesium.Cartesian3.normalize(opts.endPos, new Cesium.Cartesian3());
+    const ground = Cesium.Cartesian3.distance(ellipsoid.cartographicToCartesian(new Cesium.Cartographic(c0.longitude, c0.latitude, 0)), ellipsoid.cartographicToCartesian(new Cesium.Cartographic(c1.longitude, c1.latitude, 0)));
+    let gaze0 = new Cesium.Cartesian3();
+    const ray = new Cesium.Ray(startPos, cam.directionWC);
+    const hit = Cesium.IntersectionTests.rayEllipsoid(ray, ellipsoid);
+    if (hit) Cesium.Ray.getPoint(ray, hit.start, gaze0); else ellipsoid.cartographicToCartesian(new Cesium.Cartographic(c0.longitude, c0.latitude, 0), gaze0);
+    const bump = opts.bump != null ? opts.bump : Math.min(420000, Math.max(12000, ground * 0.22));
+    const dur = opts.duration || Math.min(9.5, Math.max(4.2, 3.2 + ground / 2.2e6));
+    state.cine = { t0: performance.now(), dur, u0, u1, h0: c0.height, h1: c1.height, bump, gaze0, gaze1: opts.gazeEnd ? Cesium.Cartesian3.clone(opts.gazeEnd) : null, dirEnd: opts.dirEnd ? Cesium.Cartesian3.normalize(opts.dirEnd, new Cesium.Cartesian3()) : null, onComplete: opts.onComplete || null };
+    cam.lookAtTransform(Cesium.Matrix4.IDENTITY);
+  }
+  function tickCine(now){
+    const c = state.cine;
+    if (!c) return;
+    const raw = Math.min(1, (now - c.t0) / (c.dur * 1000));
+    const t = easeInOut(raw);
+    const u = slerpUnit(c.u0, c.u1, t, _c3.a);
+    const h = c.h0 + (c.h1 - c.h0) * t + c.bump * Math.sin(Math.PI * t);
+    const carto = Cesium.Ellipsoid.WGS84.cartesianToCartographic(u, new Cesium.Cartographic());
+    carto.height = h;
+    const pos = Cesium.Ellipsoid.WGS84.cartographicToCartesian(carto, _c3.b);
+    // gaze slides a little ahead of the camera: by mid-flight it is already on the target
+    const g = Math.min(1, easeInOut(Math.min(1, raw * 1.6)));
+    let dir;
+    if (c.dirEnd) { // direction mode (space hop): slerp from "look at the ground start point" to the final view direction
+      const d0 = Cesium.Cartesian3.normalize(Cesium.Cartesian3.subtract(c.gaze0, pos, _c3.c), _c3.c);
+      dir = slerpUnit(d0, c.dirEnd, g, _c3.d);
+    } else {
+      const gaze = Cesium.Cartesian3.lerp(c.gaze0, c.gaze1, g, _c3.c);
+      dir = Cesium.Cartesian3.normalize(Cesium.Cartesian3.subtract(gaze, pos, _c3.d), _c3.d);
+    }
+    const up = Cesium.Ellipsoid.WGS84.geodeticSurfaceNormal(pos, new Cesium.Cartesian3());
+    app.viewer.camera.setView({ destination: pos, orientation: { direction: dir, up } });
+    if (raw >= 1) { state.cine = null; if (c.onComplete) c.onComplete(); }
+  }
+
   function flyToCartesian(destination, options){
     if (!app.viewer) return;
     beginTravel();
@@ -471,10 +536,14 @@
     };
     if (typeof app.applySig === "function") app.applySig(d);
     beginTravel();
-    app.viewer.camera.flyToBoundingSphere(new Cesium.BoundingSphere(state.orbit.center, d.r), {
-      duration: 5,
-      offset: new Cesium.HeadingPitchRange(state.orbit.heading, state.orbit.pitch, d.r),
-      complete: ()=>{ state.orbiting = true; markTravelSettling(); }
+    state.warpHold = Math.max(state.warpHold || 0, 30);
+    state.orbiting = false;
+    // P13-1009: cinematic arc that lands exactly on the orbit pose; tickOrbit continues from there
+    const landing = posFromHPR(state.orbit.center, Cesium.Math.toRadians(20), state.orbit.pitch, d.r);
+    cineFly({
+      endPos: landing,
+      gazeEnd: state.orbit.center,
+      onComplete: ()=>{ state.orbit.heading = Cesium.Math.toRadians(20); state.orbiting = true; markTravelSettling(); }
     });
   }
 
@@ -484,13 +553,19 @@
     app.viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
     const dst = Cesium.Cartesian3.fromDegrees(127, 22, 9000000); // P6-1008 orbit framing
     const ori = { heading: 0, pitch: Cesium.Math.toRadians(-38), roll: 0 };
-    if (instant) app.viewer.camera.setView({ destination: dst, orientation: ori });
-    else flyToCartesian(dst, { duration: 4.6, orientation: ori });
+    if (instant) { app.viewer.camera.setView({ destination: dst, orientation: ori }); return; }
+    // P13-1009: tween up with the gaze on Earth (the old flyTo could point at empty space mid-flight)
+    beginTravel();
+    state.warpHold = Math.max(state.warpHold || 0, 30);
+    // final view direction (pitch -38° at 9,000 km frames the limb low in the shot); mid-flight the view slerps from the ground to it
+    const dirEnd = Cesium.Matrix4.multiplyByPointAsVector(Cesium.Transforms.eastNorthUpToFixedFrame(dst), new Cesium.Cartesian3(0, Math.cos(ori.pitch), Math.sin(ori.pitch)), new Cesium.Cartesian3());
+    cineFly({ endPos: dst, dirEnd, duration: 5.2, bump: 0, onComplete: ()=>markTravelSettling() });
   }
 
   function goFree(){
     setMode("free");
     state.orbiting = false;
+    state.cine = null; // P13-1009
     if (state.travel) { const f=$("fadeMask"); if(f){ f.style.transition="opacity .5s ease"; f.style.opacity="0"; } state.travel = null; }
     app.viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
   }
@@ -506,6 +581,7 @@
   }
 
   function tickOrbit(dt){
+    if (state.cine) return; // P13-1009: the tween owns the camera
     if (state.mode !== "tour" || !state.orbiting || !state.orbit) return;
     state.orbit.heading += 0.1 * dt;
     app.viewer.camera.lookAt(state.orbit.center, new Cesium.HeadingPitchRange(state.orbit.heading, state.orbit.pitch, state.orbit.range));
@@ -677,6 +753,7 @@
       evaluateGovernor();
       updateSpaceView();
       updateWarpBudget();
+      tickCine(now); // P13-1009
       tickOrbit(dt);
       updateTravelCurtain();
       state.speedKmh = currentSpeed() * 3.6;
