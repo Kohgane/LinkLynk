@@ -158,7 +158,7 @@ void main(){ vec2 uv=v_textureCoordinates; vec4 col=texture(colorTexture,uv); ve
     for (const b of SKY_BANDS) if (h >= b[0] && h < b[1]) return "/fly/sky/" + b[2] + "_4k.jpg"; // P9-1008: 4096x2048
     return "/fly/sky/pano.jpg";
   }
-  function skyAutoOn(){ return localStorage.getItem("swef_skyauto") !== "0"; }
+  function skyAutoOn(){ return localStorage.getItem("swef_skyauto") === "1"; } // P14-1009: opt-in (default = Cesium atmosphere + fog)
   function skyAutoTick(){
     if (!viewerOf()) return;
     const camH = viewerOf().camera.positionCartographic.height;

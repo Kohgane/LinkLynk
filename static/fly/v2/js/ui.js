@@ -260,7 +260,7 @@
       app.toast(!on ? "🌫 대기 ON" : "🌫 대기 OFF");
     };
     $("btnSkyAuto").onclick = ()=>{ // P8-1008
-      const on = localStorage.getItem("swef_skyauto") !== "0";
+      const on = localStorage.getItem("swef_skyauto") === "1"; // P14-1009
       localStorage.setItem("swef_skyauto", on ? "0" : "1");
       $("btnSkyAuto").classList.toggle("on", !on);
       if (app.skyAutoTick) app.skyAutoTick();
@@ -308,7 +308,7 @@
     moduleSyncTimer = setInterval(syncModuleHook, 1200);
     syncModuleHook();
     $("btnAtmo").classList.toggle("on", localStorage.getItem("swef_atmo") !== "0");
-    $("btnSkyAuto").classList.toggle("on", localStorage.getItem("swef_skyauto") !== "0");
+    $("btnSkyAuto").classList.toggle("on", localStorage.getItem("swef_skyauto") === "1");
     const blur = parseInt(localStorage.getItem("swef_mb") || "0", 10);
     $("mbLbl").textContent = ["블러 OFF", "블러 180°", "블러 360°"][blur];
     $("btnMb").classList.toggle("on", blur > 0);
