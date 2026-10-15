@@ -35,6 +35,51 @@
   function vjSave(key, value){ localStorage.setItem(key, JSON.stringify(value)); }
 
   let lastLocalHours = 12;
+  // P15-1015 COCKPIT
+  const AIRCRAFT_RE = /jet|fighter|plane|rocket|heli|biplane|shuttle|airliner|glider|drone/i;
+  let roll = 0, turnRate = 0, fovCur = 0, mbBoostSaved = null;
+  function isAircraft(veh){ return !!(veh && AIRCRAFT_RE.test(veh.en || "")); }
+  function cockpitOn(){ return localStorage.getItem("swef_cockpit") !== "0" && app.state.mode === "free" && isAircraft(app.state.vehicle); }
+  function cockpitTick(dtMs){
+    const on = cockpitOn();
+    const img = document.getElementById("cockpit"), hud = document.getElementById("hud2"), bb = document.getElementById("btnBoost");
+    if (img) img.classList.toggle("on", on);
+    if (hud) hud.classList.toggle("on", on);
+    if (bb) bb.classList.toggle("on", app.state.mode === "free");
+    const cam = viewerOf().camera;
+    const dt = Math.min(0.1, dtMs / 1000);
+    // bank: turn impulse (rad this frame) -> smoothed turn rate -> roll target, decays to level
+    const imp = app.state.turnImpulse || 0; app.state.turnImpulse = 0;
+    turnRate = turnRate * 0.82 + (imp / Math.max(dt, 0.008)) * 0.18;
+    const rollTarget = on ? Math.max(-0.55, Math.min(0.55, -turnRate * 0.35)) : 0;
+    roll += (rollTarget - roll) * Math.min(1, dt * 5);
+    if (Math.abs(roll) > 0.0005 || Math.abs(cam.roll) > 0.0005) {
+      if (app.state.mode === "free" && !app.state.cine) cam.setView({ orientation: { heading: cam.heading, pitch: cam.pitch, roll } });
+    }
+    // boost: FOV punch + motion blur while held
+    const boost = !!app.state.boost && app.state.mode === "free";
+    const fovTarget = boost ? 1.22 : 1.0472;
+    if (!fovCur) fovCur = cam.frustum.fov || 1.0472;
+    fovCur += (fovTarget - fovCur) * Math.min(1, dt * 4);
+    if (cam.frustum && Math.abs((cam.frustum.fov || 0) - fovCur) > 0.0005) cam.frustum.fov = fovCur;
+    if (boost && mbBoostSaved === null) { mbBoostSaved = post.blurLevel; if (post.blurLevel < 2) setMotionBlurLevel(2); }
+    if (!boost && mbBoostSaved !== null) { setMotionBlurLevel(mbBoostSaved); mbBoostSaved = null; }
+    // HUD
+    if (on && hud) {
+      const h = Math.round(cam.positionCartographic.height / 10) * 10;
+      const kmh = Math.round(app.state.speedKmh || 0);
+      const a = document.getElementById("h2Alt"), sp = document.getElementById("h2Spd"), st = document.getElementById("h2State");
+      if (a) a.textContent = h.toLocaleString();
+      if (sp) sp.textContent = kmh.toLocaleString();
+      if (st) { const label = boost ? "MAX AFTERBURNER" : (kmh > 900 ? "MIL POWER" : ""); if (st.textContent !== label) st.textContent = label; st.classList.toggle("ab", boost); }
+    }
+  }
+  function toggleCockpit(){
+    const next = localStorage.getItem("swef_cockpit") === "0" ? "1" : "0";
+    localStorage.setItem("swef_cockpit", next);
+    const b = document.getElementById("btnCockpit"); if (b) b.classList.toggle("on", next !== "0");
+    app.toast(next !== "0" ? "🛩 콕핏 ON — 항공기 탈것에서 1인칭" : "🛩 콕핏 OFF");
+  }
   function setLocalTime(hours){
     lastLocalHours = hours;
     if (!viewerOf()) return;
@@ -487,7 +532,7 @@ void main(){ vec2 uv=v_textureCoordinates; vec4 col=texture(colorTexture,uv); ve
     const el = document.getElementById("avWrap");
     if (!el) return;
     // §데이터 이식 👻 숨김과 PC 기본 68px 규칙을 유지한다.
-    if (app.state.mode !== "free" || localStorage.getItem("swef_avhide") === "1") {
+    if (app.state.mode !== "free" || localStorage.getItem("swef_avhide") === "1" || cockpitOn()) { // P15-1015: first person hides the avatar
       el.style.display = "none";
       return;
     }
@@ -549,6 +594,7 @@ void main(){ vec2 uv=v_textureCoordinates; vec4 col=texture(colorTexture,uv); ve
     setAtmosphereEnabled,
     setCloudMode,
     cycleCloudMode,
+    toggleCockpit,
     toggleDream,
     skyAutoTick,
     skyForHour,
@@ -585,6 +631,7 @@ void main(){ vec2 uv=v_textureCoordinates; vec4 col=texture(colorTexture,uv); ve
     skyAutoTick(); // P8-1008
     if (dreamPrim) dreamPrim.modelMatrix = Cesium.Transforms.eastNorthUpToFixedFrame(viewerOf().camera.positionWC);
     portalTick();
+    cockpitTick(dtMs); // P15-1015
     updateAvatar();
     applyPostprocessState();
   });

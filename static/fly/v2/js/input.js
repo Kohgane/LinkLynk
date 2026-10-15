@@ -37,6 +37,7 @@
       app.viewer.camera.lookRight(dx * 0.0035);
       app.viewer.camera.lookUp(-dy * 0.0035);
       clampPitch(app.viewer.camera);
+      app.state.turnImpulse = (app.state.turnImpulse || 0) + dx * 0.0035; // P15-1015 bank
     });
     window.addEventListener("mouseup", ()=>{ dragging = false; });
   }
@@ -75,6 +76,7 @@
         app.viewer.camera.lookRight(dx * 0.004);
         app.viewer.camera.lookUp(-dy * 0.004);
         clampPitch(app.viewer.camera);
+        app.state.turnImpulse = (app.state.turnImpulse || 0) + dx * 0.004; // P15-1015 bank
       }
       event.preventDefault();
     }, { passive: false });
@@ -151,8 +153,19 @@
     clampPitch(c);
   }
 
+  function bindBoost(){ // P15-1015: hold BOOST
+    const b = document.getElementById("btnBoost");
+    if (!b) return;
+    const on = (e)=>{ app.state.boost = true; b.classList.add("hot"); if (e) e.preventDefault(); };
+    const off = ()=>{ app.state.boost = false; b.classList.remove("hot"); };
+    b.addEventListener("touchstart", on, { passive: false });
+    b.addEventListener("touchend", off); b.addEventListener("touchcancel", off);
+    b.addEventListener("mousedown", on); window.addEventListener("mouseup", off);
+  }
+
   app.on("ready", ()=>{
     bindKeyboard();
+    bindBoost();
     bindPointerLook(app.viewer.canvas);
     bindTouchLook(app.viewer.canvas);
     bindWheel(app.viewer.canvas);

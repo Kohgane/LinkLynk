@@ -77,6 +77,7 @@
       '    <button class="btn" id="btnMb">💫 <span id="mbLbl">블러 OFF</span></button>',
       '    <button class="btn" id="btnAtmo">🌫 대기</button>',
       '    <button class="btn" id="btnSkyAuto">🌅 하늘 자동</button>',
+      '    <button class="btn" id="btnCockpit">🛩 콕핏</button>',
       '  </div>',
       '</div>',
       '<div id="footerRow">',
@@ -253,6 +254,8 @@
       $("btnMb").classList.toggle("on", next > 0);
       app.toast("💫 " + $("mbLbl").textContent);
     };
+    $("btnCockpit").onclick = ()=>app.toggleCockpit(); // P15-1015
+    $("btnCockpit").classList.toggle("on", localStorage.getItem("swef_cockpit") !== "0");
     $("btnAtmo").onclick = ()=>{
       const on = localStorage.getItem("swef_atmo") !== "0";
       app.setAtmosphereEnabled(!on);

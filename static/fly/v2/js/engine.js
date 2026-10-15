@@ -405,7 +405,7 @@
     const h = Math.max(viewer.camera.positionCartographic.height, 1);
     const base = Math.min(Math.max(h * 0.45, 60), 200000);
     const cap = Math.max(85, Math.min(8000, h * 0.6));
-    return Math.min(base * (veh.sp || 1) * (app.keys && app.keys.shift ? 2.2 : 1), cap);
+    return Math.min(base * (veh.sp || 1) * ((app.keys && app.keys.shift) || state.boost ? 2.2 : 1), cap); // P15-1015 boost
   }
 
   function capturePhoto(){
