@@ -3782,3 +3782,13 @@ def _cb_pulse():
             first_hit=tot.get("first_at"), last_hit=tot.get("last_at"))
     except Exception as e:
         return jsonify(error=str(e)[:160]), 500
+
+
+# ══════════════════════════════════════════════════════════════
+# 페이지 메타 주입 (seo_v1). 라우트 추가·사이트맵 교체도 그 안에서 한다.
+# ★실패해도 앱은 뜬다. 메타가 안 붙는 것보다 장사가 멈추는 게 나쁘다.
+try:
+    import seo_v1 as _seo_v1
+    _seo_v1.register(app)
+except Exception as _e:
+    print("[seo_v1] 미적용:", _e)
