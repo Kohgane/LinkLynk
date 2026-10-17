@@ -265,7 +265,7 @@
     emit("arrived");
   }
 
-  const SPACE_ON = 320000, SPACE_OFF = 240000; // metres: enter orbit view above 320 km, leave below 240 km
+  const SPACE_ON = 45000, SPACE_OFF = 30000; // P16-1017: globe takes over above 45 km (was 320 km) — the Google tileset turned into a floating slab in black up there
   function updateSpaceView(){
     if (!app.viewer) return;
     const h = app.viewer.camera.positionCartographic.height;
