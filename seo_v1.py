@@ -34,7 +34,7 @@ def _og(name):
 
 # ★이 호스트에서 200 으로 사는 페이지. 사이트맵이 이걸로 다시 만들어진다.
 #   canibringmeds 로 301 되는 경로(/next, /can-i-bring, /ko, /about,
-#   /parking)는 넣지 않는다 — 넣으면 "리다이렉트됨" 경고만 쌓이다.
+#   /parking)는 넣지 않는다 — 넣으면 "리다이렉트됨" 경고만 쌓인다.
 SITEMAP_PATHS = ["/", "/boim", "/boim/guide", "/gottago", "/eats", "/majak",
                  "/hwatu", "/gov", "/duty", "/gift", "/dwaeji", "/rx",
                  "/aiknows", "/fly", "/sky"]
@@ -45,7 +45,7 @@ SITEMAP_PATHS = ["/", "/boim", "/boim/guide", "/gottago", "/eats", "/majak",
 META = {
     "/": (
         "LinkLynk — 쿠팡 링크, 딸깍 한 번에",
-        "상품을 찾아 제��� 링크를 자동으로 만들고, 고지문구까지 주소에 맞춰 붙여주는 도구.",
+        "상품을 찾아 제휴 링크를 자동으로 만들고, 고지문구까지 주소에 맞춰 붙여주는 도구.",
         _og("home"), "website"),
     "/aiknows": (
         "AI는 이 가게를 알까? — 브랜드 AI 노출 확인",
@@ -121,7 +121,7 @@ _FORCE_IMG = {"/majak": _og("majak")}
 #
 #   방식은 /sky 가 이미 쓰던 것을 그대로 쓴다(static/sky/index.html:166):
 #   기본 숨김 → 설치된 앱(standalone) 안이 아닐 때만 보인다.
-#   여기에 안드로이드일 때만, 을 더한다. iOS·데스크통에선 눌러도 못 깐다.
+#   여기에 안드로이드일 때만, 을 더한다. iOS·데스크톱에선 눌러도 못 깐다.
 _PLAY = {
     "/majak": "app.jeoseungmajak.twa",
     "/hwatu": "app.jeoseunghwatu.twa",
@@ -161,7 +161,7 @@ def _play_html(path):
         '});}catch(e){}})();</script>' % (url, label))
 
 
-# ★h1 이 아예 없는 페이지. 전부 캔버스/앱 셸이라 화면에 제목 븘록이 없다.
+# ★h1 이 아예 없는 페이지. 전부 캔버스/앱 셸이라 화면에 제목 블록이 없다.
 #   화면에 보이는 워드마크와 같은 문구만 쓴다 — 다른 말을 숨기면 클로킹이다.
 _HIDDEN_H1 = {
     "/": "LinkLynk — 쿠팡 링크, 딸깍 한 번에",
@@ -261,7 +261,7 @@ def build_tags(path, html):
 
 
 def apply(html, path):
-    # 정사각 아이콘은 카드로 쓰던 곳은 1200x630 으로 갈아끼운다
+    # 정사각 아이콘을 카드로 쓰던 곳은 1200x630 으로 갈아끼운다
     force = _FORCE_IMG.get(path)
     if force:
         import re as _re
@@ -307,7 +307,7 @@ def register(app):
 
     ★왜 app.py 를 안 고치나
       app.py 는 3800줄이다. 한 줄 넣자고 그 파일을 통째로 다시 올리는 건
-      사고가 나기 좋은 방식이다. 라우트 추가도 사이트맵을 교체도
+      사고가 나기 좋은 방식이다. 라우트 추가도 사이트맵 교체도
       Flask 객체에 밖에서 붙일 수 있다.
     """
     from flask import request, Response, send_file
@@ -327,9 +327,9 @@ def register(app):
         app.add_url_rule("/og/<name>.png", "_seo_og_card", _og_card)
 
     # ── 사이트맵 교체 ──────────────────────────────────────────
-    # ★2026-10-14 실측: 사이트맵이 6장뿐이었다. 200 으로 사는 페이지가 15장인데
-    #   9장은 어느 사이트맵에도 없어 구글이 존재 자체를 몰등다.
-    #   라우트를 새로 만들지 않고 기존 뱴 함수만 갈아끼운다.
+    # ★2026-10-14 실측: 6장뿐이었다. 200 으로 사는 페이지가 15장인데
+    #   9장은 어느 사이트맵에도 없어 구글이 존재 자체를 몰랐다.
+    #   라우트를 새로 만들지 않고 기존 뷰 함수만 갈아끼운다.
     def _sitemap_full():
         x = ['<?xml version="1.0" encoding="UTF-8"?>',
              '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
@@ -357,7 +357,7 @@ def register(app):
             h = (request.host or "").split(":")[0].lower()
             if h not in (APP_HOST, "127.0.0.1", "localhost"):
                 return resp
-            # send_static_file 은 파일 래퍼�x 그냥 읽으면 터진다
+            # send_static_file 은 파일 래퍼라 그냥 읽으면 터진다
             if getattr(resp, "direct_passthrough", False):
                 resp.direct_passthrough = False
             body = resp.get_data(as_text=True)
