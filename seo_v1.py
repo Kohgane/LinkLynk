@@ -291,6 +291,20 @@ def apply(html, path):
                         '%s</h1>' % h1 + html[k + 1:])
 
     j = html.lower().rfind("</body>")
+
+    # ★검색 질의에 답하는 본문. 도구 UI 아래, 앱 간 링크 위에 들어간다.
+    #   도구 페이지는 입력 폼뿐이라 구글에 보여줄 글이 없었다 — 그래서
+    #   크롤은 되는데 색인이 안 됐다. 숫자는 전부 계산 엔진에서 가져온다.
+    if j >= 0:
+        try:
+            import seo_content
+            art, mark = seo_content.html_for(path)
+            if art and mark and mark not in html:
+                html = html[:j] + art + html[j:]
+                j = html.lower().rfind("</body>")
+        except Exception:
+            pass
+
     if path in _FOOTER_ON and "같이 쓰는 도구" not in html:
         if j >= 0:
             html = html[:j] + _footer_html(path) + html[j:]
