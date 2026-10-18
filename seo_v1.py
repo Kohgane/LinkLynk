@@ -39,6 +39,20 @@ SITEMAP_PATHS = ["/", "/boim", "/boim/guide", "/gottago", "/eats", "/majak",
                  "/hwatu", "/gov", "/duty", "/gift", "/dwaeji", "/rx",
                  "/aiknows", "/fly", "/sky"]
 
+# ★네이버 서치어드바이저 소유확인 (2026-10-18)
+#
+#   레포에 있던 naver4bb0a343... 는 예전 등록 건이다. 이번 등록은 키가 다르다.
+#   네이버는 두 방식을 다 받으므로 둘 다 올린다 — 한쪽이 어긋나도 통과하게.
+#     1) 루트에 확인 파일: 내용은 "naver-site-verification: <파일명>.html"
+#        (기존 canibring_v1.py 의 같은 라우트에서 형식을 확인했다)
+#     2) 홈 <head> 에 메타 태그
+#
+#   ★왜 네이버인가: 블로거 주간 통계 실측(2026-10-17) 결과
+#     검색 유입이 네이버뿐이고 구글은 0이었다. 한국어 도구들이
+#     받아야 할 검색은 네이버 쪽이다.
+NAVER_VERIFY_FILE = "naver36a99fe04f2625ff21c627d46ea58cd5"
+NAVER_VERIFY_META = "38a3d06ff4395796f19911773183c59eee8a9859"
+
 
 # path -> (제목, 설명, og이미지, 타입)
 #   제목/설명은 페이지에 실제로 적힌 문장에서 가져왔다. 새로 지어내지 않는다.
@@ -273,6 +287,10 @@ def apply(html, path):
             html, count=1, flags=_re.I)
 
     tags = build_tags(path, html)
+    # ★네이버 소유확인 메타는 홈에만. 확인 파일과 둘 중 하나만 통과해도 된다.
+    if path == "/" and "naver-site-verification" not in html:
+        tags += ('<meta name="naver-site-verification" content="%s" />'
+                 % NAVER_VERIFY_META)
     i = html.lower().find("</head>")
     if tags and i >= 0:
         html = html[:i] + tags + html[i:]
@@ -339,6 +357,15 @@ def register(app):
 
     if "_seo_og_card" not in app.view_functions:
         app.add_url_rule("/og/<name>.png", "_seo_og_card", _og_card)
+
+    # ── 네이버 소유확인 파일 ────────────────────────────────────
+    def _naver_verify():
+        return Response("naver-site-verification: %s.html" % NAVER_VERIFY_FILE,
+                        mimetype="text/html; charset=utf-8")
+
+    if "_seo_naver_verify" not in app.view_functions:
+        app.add_url_rule("/%s.html" % NAVER_VERIFY_FILE,
+                         "_seo_naver_verify", _naver_verify)
 
     # ── 사이트맵 교체 ──────────────────────────────────────────
     # ★2026-10-14 실측: 6장뿐이었다. 200 으로 사는 페이지가 15장인데
