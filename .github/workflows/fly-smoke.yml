@@ -1,7 +1,14 @@
 name: Fly Smoke
 
 on:
+  pull_request:
+    paths:
+      - static/fly/v2/**
   push:
+    branches:
+      - main
+    paths:
+      - static/fly/v2/**
   schedule:
     - cron: '0 0 * * *'
   workflow_dispatch:
@@ -26,3 +33,16 @@ jobs:
 
       - name: Run fly smoke test
         run: python tests/fly_smoke.py
+
+  fly-v2-smoke:
+    if: github.event_name == 'pull_request' || github.event_name == 'push'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+      - name: Run fly v2 smoke
+        run: node static/fly/v2/tests/smoke.mjs
