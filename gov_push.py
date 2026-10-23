@@ -32,17 +32,33 @@ def _pem(k):
     if not v:
         return ""
     if "-----BEGIN" in v:
+        if not _valid_pem(v):
+            return ""
         return v if v.endswith("\n") else v + "\n"
     try:
         import base64
         d = base64.b64decode(v, validate=True).decode("utf-8")
-        return d if "-----BEGIN" in d else ""
+        return d if _valid_pem(d) else ""
     except Exception:
         return ""
 
 
+def _valid_pem(v):
+    """BEGIN/END 가 짝으로 있고 본문이 실제로 들어있어야 유효로 본다.
+    ★첫 줄만 붙여넣어도 통과하던 거짓 양성을 막는다."""
+    if "-----BEGIN" not in v or "-----END" not in v:
+        return False
+    try:
+        body = v.split("-----\n", 1)[1].rsplit("-----END", 1)[0]
+    except Exception:
+        return False
+    return len(body.strip()) >= 200
+
+
 def template_code():
-    return _env("AIT_NOTIF_TEMPLATE")
+    """환경변수에 다른 값이 이어붙어 들어오는 사고를 자동 교정한다.
+    템플릿 코드에는 공백·줄바꿈이 들어갈 수 없으므로 첫 토큰만 쓴다."""
+    return (_env("AIT_NOTIF_TEMPLATE").split() or [""])[0]
 
 
 def _mtls_ready():
@@ -137,7 +153,8 @@ def run(limit=MAX_PER_CALL):
     """크론에서 부른다. 설정이 없으면 셀 뿐 쏘지 않는다."""
     pend = due_today()
     if not pend:
-        return {"ok": True, "pending": 0, "sent": 0, "armed": _mtls_ready()}
+        return {"ok": True, "pending": 0, "sent": 0, "armed": _mtls_ready(),
+                "diag": diag()}
     if not _mtls_ready():
         return {"ok": True, "pending": len(pend), "sent": 0, "armed": False,
                 "note": "AIT_NOTIF_TEMPLATE / AIT_MTLS_* 미설정 — 발송 건너뜀"}
@@ -203,3 +220,26 @@ def register(app):
         r = jsonify({"ok": ok, "n": len(items)})
         r.headers["Access-Control-Allow-Origin"] = "*"
         return r
+
+
+def diag():
+    """설정 점검용. 비밀값은 절대 내보내지 않고 길이와 유효성만 돌려준다."""
+    out = {"template": template_code(),
+           "template_raw_len": len(_env("AIT_NOTIF_TEMPLATE"))}
+    for k, label in (("AIT_MTLS_CERT_PEM", "cert"), ("AIT_MTLS_KEY_PEM", "key")):
+        raw = _env(k)
+        pem = _pem(k)
+        out[label] = {"raw_len": len(raw), "valid": bool(pem)}
+    if out["cert"]["valid"] and out["key"]["valid"]:
+        try:
+            _ctx_t = _ctx()
+            for f in _ctx_t[1:]:
+                try: os.unlink(f)
+                except Exception: pass
+            out["handshake_ready"] = True
+        except Exception as e:
+            out["handshake_ready"] = False
+            out["handshake_error"] = type(e).__name__
+    else:
+        out["handshake_ready"] = False
+    return out
