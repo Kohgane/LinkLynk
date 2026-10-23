@@ -1428,7 +1428,9 @@ def gov_config_api():
     _ad = _ait_ad("PENALTY_AD_GROUP_ID", "PENALTY_AD_MODE", test_id="ait-ad-test-banner-id")
     if len(_ad) < 8:
         _ad = ""
-    resp = jsonify({"ok": True, "banner_ad_group_id": _ad})
+    _tpl = (os.environ.get("AIT_NOTIF_TEMPLATE") or "").strip()
+    resp = jsonify({"ok": True, "banner_ad_group_id": _ad,
+                    "notif_template_code": _tpl})
     resp.headers["Access-Control-Allow-Origin"] = "*"
     return resp
 
@@ -3792,3 +3794,24 @@ try:
     _seo_v1.register(app)
 except Exception as _e:
     print("[seo_v1] 미적용:", _e)
+
+
+# ══════════════════════════════════════════════════════════════
+# 과태료레이더 기한 푸시 (gov_push). 구독 수신 라우트와 발송 크론.
+# ★실패해도 앱은 뜬다. 푸시가 안 나가는 것보다 장사가 멈추는 게 나쁘다.
+try:
+    import gov_push as _gov_push
+    _gov_push.register(app)
+
+    @app.route("/api/gov/cron/push", methods=["POST", "GET"])
+    def gov_push_cron():
+        """기한 임박자에게 푸시. GOV_PUSH_KEY 환경변수와 일치해야 실행."""
+        ck = os.environ.get("GOV_PUSH_KEY", "").strip()
+        if not ck or request.args.get("key") != ck:
+            return jsonify({"ok": False}), 403
+        try:
+            return jsonify(_gov_push.run())
+        except Exception as e:
+            return jsonify({"ok": False, "error": str(e)[:200]}), 500
+except Exception as _e:
+    print("[gov_push] 미적용:", _e)
