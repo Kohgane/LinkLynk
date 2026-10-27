@@ -8,6 +8,7 @@
     mode: "tour",
     currentTab: "explore",
     travel: null,
+    clip: null, // P17-1027 arrival clip in flight
     governorTier: 0,
     governorToasted: false,
     frameWorst: 0,
@@ -529,9 +530,94 @@
     }, options || {}));
   }
 
+  // P17-1027 CINE CLIPS: pre-rendered 720x1280 arrival clips (static/fly/v2/cine/) play over the canvas while the live
+  // tiles sharpen underneath; the clip's last frame is exactly the orbit landing pose (heading 20°, pitch d.p, range d.r),
+  // so the cross-fade lands on the same view tickOrbit continues from. Portrait only; opt-out swef_cine=0; fallback = P13 arc.
+  const CINE_BASE = "/fly/v2/cine/";
+  let clipManifest = null;
+  function clipSlug(d){ return String(d.en || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); }
+  function cineClipsOn(){
+    try { if (localStorage.getItem("swef_cine") === "0") return false; } catch (_) {}
+    return window.innerHeight > window.innerWidth;
+  }
+  function loadClipManifest(){
+    if (clipManifest) return;
+    clipManifest = {};
+    fetch(CINE_BASE + "manifest.json", { cache: "no-cache" }).then((r)=>r.ok ? r.json() : null)
+      .then((j)=>{ if (j && j.clips) clipManifest = j.clips; }).catch(()=>{});
+  }
+  function clipFor(d){ const c = clipManifest && clipManifest[clipSlug(d)]; return (c && c.mp4) ? c : null; }
+  function clipVideo(){
+    let v = $("cineVid");
+    if (!v) {
+      v = document.createElement("video");
+      v.id = "cineVid"; v.muted = true; v.playsInline = true; v.setAttribute("playsinline", ""); v.setAttribute("muted", ""); v.preload = "auto";
+      document.body.appendChild(v);
+    }
+    return v;
+  }
+  function landOnOrbit(pose){
+    const o = state.orbit; if (!o) return;
+    const p = pose || o;
+    app.viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
+    app.viewer.camera.lookAt(o.center, new Cesium.HeadingPitchRange(p.heading, p.pitch, p.range));
+    app.viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
+  }
+  function playArrivalClip(d, clip, onFallback){
+    const v = clipVideo();
+    let settled = false;
+    const finish = (ok)=>{
+      if (settled) return; settled = true; clearTimeout(timer);
+      v.oncanplaythrough = null; v.onerror = null;
+      if (ok) begin(); else onFallback();
+    };
+    const timer = setTimeout(()=>finish(false), 2600); // slow network: give up on the clip, fly the arc
+    v.onerror = ()=>finish(false);
+    v.oncanplaythrough = ()=>finish(true);
+    if (v.getAttribute("src") !== clip.mp4) { v.src = clip.mp4; v.load(); }
+    else { try { v.currentTime = 0; } catch (_) {} if (v.readyState >= 3) finish(true); }
+    function begin(){
+      state.cine = null; state.orbiting = false;
+      // live camera waits where the clip ends (manifest endRange/endPitch, default = orbit pose) so those tiles sharpen under the clip
+      const endPose = { heading: Cesium.Math.toRadians(20), pitch: clip.endPitch != null ? Cesium.Math.toRadians(clip.endPitch) : state.orbit.pitch, range: clip.endRange || state.orbit.range };
+      landOnOrbit(endPose);
+      state.warpHold = 0;
+      state.travel = null;
+      const fade = $("fadeMask"); if (fade) { fade.style.transition = "opacity .3s ease"; fade.style.opacity = "0"; }
+      v.classList.add("on");
+      const pl = v.play(); if (pl && pl.catch) pl.catch(()=>endArrivalClip());
+      state.clip = { v, dest: d, clip, endPose, t0: performance.now() };
+      v.onended = ()=>endArrivalClip();
+      state.clipTimer = setTimeout(()=>endArrivalClip(), ((clip.dur || 6) + 1.5) * 1000); // stalled video safety
+    }
+  }
+  function endArrivalClip(silent){
+    if (!state.clip) return;
+    const { v, endPose } = state.clip; state.clip = null; clearTimeout(state.clipTimer);
+    v.onended = null; v.classList.remove("on");
+    setTimeout(()=>{ try { v.pause(); } catch (_) {} }, 900);
+    if (silent || !state.orbit) return;
+    state.orbit.heading = Cesium.Math.toRadians(20);
+    const vig = $("vignettePulse"); if (vig) { vig.style.opacity = "0.92"; setTimeout(()=>{ vig.style.opacity = "0"; }, 120); }
+    if (endPose && endPose.range > state.orbit.range * 1.05) {
+      // the clip ended short of the orbit pose: finish the approach live (short straight-in arc onto the orbit pose)
+      landOnOrbit(endPose);
+      state.travel = { phase: "hold", t0: performance.now() };
+      const landing = posFromHPR(state.orbit.center, state.orbit.heading, state.orbit.pitch, state.orbit.range);
+      cineFly({ endPos: landing, gazeEnd: state.orbit.center, duration: 2.6, bump: 0,
+        onComplete: ()=>{ state.orbit.heading = Cesium.Math.toRadians(20); state.orbiting = true; markTravelSettling(); } });
+      return;
+    }
+    landOnOrbit();
+    state.orbiting = true;
+    emit("arrived");
+  }
+  app.endArrivalClip = endArrivalClip;
+
   function flyToDest(index){
     const d = D.DESTS[index];
     if (!d || !app.viewer) return;
+    endArrivalClip(true); // P17-1027: a new destination cancels a clip in flight
     state.currentDest = d;
     setMode("tour");
     app.viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
@@ -547,14 +633,18 @@
     state.orbiting = false;
     // P13-1009: cinematic arc that lands exactly on the orbit pose; tickOrbit continues from there
     const landing = posFromHPR(state.orbit.center, Cesium.Math.toRadians(20), state.orbit.pitch, d.r);
-    cineFly({
+    const startArc = ()=>cineFly({
       endPos: landing,
       gazeEnd: state.orbit.center,
       onComplete: ()=>{ state.orbit.heading = Cesium.Math.toRadians(20); state.orbiting = true; markTravelSettling(); }
     });
+    const clip = cineClipsOn() ? clipFor(d) : null; // P17-1027
+    if (clip) { playArrivalClip(d, clip, ()=>{ beginTravel(); state.warpHold = Math.max(state.warpHold || 0, 30); startArc(); }); return; }
+    startArc();
   }
 
   function goSpace(instant){
+    endArrivalClip(true); // P17-1027
     setMode("space");
     state.orbiting = false;
     app.viewer.camera.lookAtTransform(Cesium.Matrix4.IDENTITY);
@@ -570,6 +660,7 @@
   }
 
   function goFree(){
+    endArrivalClip(true); // P17-1027
     setMode("free");
     state.orbiting = false;
     state.cine = null; // P13-1009
@@ -645,6 +736,7 @@
     scene.fog.density = 0.0004;
     scene.globe.show = false; // §1 이중 지구 금지
     app.viewer.clock.shouldAnimate = true;
+    loadClipManifest(); // P17-1027
     // P5-1007: orbit view. Globe carries NASA day/night imagery and is visible only above SPACE_ON; the Google tileset only below.
     // The two never render together (§1 stays intact: one Earth at a time).
     try {
