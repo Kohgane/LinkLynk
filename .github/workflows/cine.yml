@@ -1,0 +1,44 @@
+name: cine clips
+# Renders SWEF v2 arrival clips from open data (Copernicus DEM 30m + Sentinel-2 + NASA Blue Marble) with headless Blender,
+# then commits them to static/fly/v2/cine/ (Render redeploys on push). Public repo => Actions minutes are free.
+on:
+  workflow_dispatch:
+    inputs:
+      max:  { description: "clips per run", default: "3" }
+      only: { description: "comma-separated slugs (optional)", default: "" }
+  schedule:
+    - cron: "17 18 * * *"   # 03:17 KST daily, 3 missing clips per night
+  push:
+    branches: [main]
+    paths: ["tools/cine/**"]
+permissions:
+  contents: write
+concurrency:
+  group: cine
+  cancel-in-progress: false
+jobs:
+  render:
+    runs-on: ubuntu-latest
+    timeout-minutes: 345
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.13" }
+      - name: system libs
+        run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libegl1 libsm6 > /dev/null
+      - name: python libs
+        run: pip install -q "bpy==5.2.3" numpy scipy pillow rasterio
+      - name: render
+        env:
+          DEM_N: "1600"
+          TEX_MAX: "8192"
+        run: python tools/cine/batch.py --max "${{ github.event.inputs.max || '3' }}" --only "${{ github.event.inputs.only || '' }}" --res 720 --samples 16
+      - name: commit clips
+        run: |
+          git config user.name "swef-cine-bot"
+          git config user.email "cine@users.noreply.github.com"
+          git add static/fly/v2/cine
+          git diff --cached --quiet && { echo "no new clips"; exit 0; }
+          git commit -m "cine: arrival clips (auto-rendered from open data)"
+          git pull --rebase origin main
+          git push origin HEAD:main
