@@ -80,6 +80,7 @@
       '    <button class="btn" id="btnCockpit">🛩 콕핏</button>',
       '    <button class="btn" id="btnGrade">🎞 감성</button>',
       '  </div>',
+      '  <div id="buildTag" style="font-size:10px;opacity:.5;letter-spacing:.2em;margin-top:6px;text-align:right">BUILD P20 · 2026-10-28</div>',
       '</div>',
       '<div id="footerRow">',
       '  <button class="btn on" id="btnTour">투어</button>',
