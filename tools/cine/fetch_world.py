@@ -18,9 +18,26 @@ bbox = [lon-dlon, lat-dlat, lon+dlon, lat+dlat]
 dst_crs = "EPSG:4326"
 def grid_transform(n): return rasterio.transform.from_bounds(*bbox, n, n)
 
+# P23-1028: inside the contiguous US we take USGS 3DEP (10 m DEM) + The National Map orthoimagery (~1 m) — public domain, no key
+US = (-125.0 <= bbox[0]) and (bbox[2] <= -66.5) and (24.0 <= bbox[1]) and (bbox[3] <= 49.5)
+def arcgis_image(base, extra, w, h, fmt):
+    u = f"{base}?bbox={bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]}&bboxSR=4326&imageSR=4326&size={w},{h}&format={fmt}&f=image{extra}"
+    return urllib.request.urlopen(u, timeout=180).read()
+
 # --- DEM: Copernicus GLO-30 tiles are 1x1 degree COGs ---
 dem = np.zeros((N, N), np.float32); dem_hit = np.zeros((N, N), bool)
-for la in range(math.floor(bbox[1]), math.floor(bbox[3])+1):
+if US:
+    try:
+        import io as _io
+        raw = arcgis_image("https://elevation.nationalmap.gov/arcgis/rest/services/3DEPElevation/ImageServer/exportImage", "&pixelType=F32&noDataInterpretation=esriNoDataMatchAny&interpolation=RSP_BilinearInterpolation", min(N, 4096), min(N, 4096), "tiff")
+        with rasterio.open(_io.BytesIO(raw)) as src:
+            a = src.read(1).astype(np.float32)
+        if a.shape != (N, N):
+            from PIL import Image as _I; a = np.asarray(_I.fromarray(a).resize((N, N), _I.BILINEAR), np.float32)
+        ok = np.isfinite(a) & (a > -1000); dem[ok] = a[ok]; dem_hit |= ok
+        print("dem usgs-3dep", int(ok.sum()))
+    except Exception as e: print("3dep miss", str(e)[:80])
+for la in (range(math.floor(bbox[1]), math.floor(bbox[3])+1) if dem_hit.mean() < 0.999 else []):
     for lo in range(math.floor(bbox[0]), math.floor(bbox[2])+1):
         ns = ("N%02d" % la) if la >= 0 else ("S%02d" % -la); ew = ("E%03d" % lo) if lo >= 0 else ("W%03d" % -lo)
         name = f"Copernicus_DSM_COG_10_{ns}_00_{ew}_00_DEM"
@@ -39,8 +56,22 @@ np.save(f"{slug}/dem.npy", dem)
 q = {"collections":["sentinel-2-l2a"], "bbox":bbox, "datetime":"2023-01-01T00:00:00Z/2026-12-31T00:00:00Z",
      "query":{"eo:cloud_cover":{"lt":12}}, "limit":100, "sortby":[{"field":"properties.eo:cloud_cover","direction":"asc"}]}
 req = urllib.request.Request("https://earth-search.aws.element84.com/v1/search", data=json.dumps(q).encode(), headers={"content-type":"application/json"})
-feats = [] if (T/km) < 12 else json.load(urllib.request.urlopen(req, timeout=60))["features"]  # coarse rings: Blue Marble only
+feats = [] if (T/km) < 12 or US else json.load(urllib.request.urlopen(req, timeout=60))["features"]  # coarse rings: Blue Marble only
 tex = np.zeros((3, T, T), np.uint8); hit = np.zeros((T, T), bool)
+if US and (T/km) >= 12:
+    # The National Map orthoimagery export caps at 4096 px per request -> fetch a grid of sub-boxes and stitch
+    from PIL import Image as _I; import io as _io
+    n = max(1, math.ceil(T / 4096)); step = T // n
+    for gy in range(n):
+        for gx in range(n):
+            x0, x1 = gx*step, (T if gx == n-1 else (gx+1)*step); y0, y1 = gy*step, (T if gy == n-1 else (gy+1)*step)
+            sb = [bbox[0] + (bbox[2]-bbox[0])*x0/T, bbox[3] - (bbox[3]-bbox[1])*y1/T, bbox[0] + (bbox[2]-bbox[0])*x1/T, bbox[3] - (bbox[3]-bbox[1])*y0/T]
+            u = f"https://basemap.nationalmap.gov/arcgis/rest/services/USGSImageryOnly/MapServer/export?bbox={sb[0]},{sb[1]},{sb[2]},{sb[3]}&bboxSR=4326&imageSR=4326&size={x1-x0},{y1-y0}&format=jpg&f=image"
+            try:
+                im = np.asarray(_I.open(_io.BytesIO(urllib.request.urlopen(u, timeout=180).read())).convert("RGB"))
+                tex[:, y0:y1, x0:x1] = np.moveaxis(im, -1, 0); hit[y0:y1, x0:x1] = True
+                print("usgs ortho", gx, gy, im.shape)
+            except Exception as e: print("usgs miss", gx, gy, str(e)[:80])
 # prefer months close to each other (same season) by taking the best scene per MGRS tile
 # prefer the leafy months (May-Oct north / Nov-Apr south of the equator), then lowest cloud; any scene that adds pixels is used
 def season_key(f):
