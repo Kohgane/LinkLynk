@@ -78,6 +78,7 @@
       '    <button class="btn" id="btnAtmo">🌫 대기</button>',
       '    <button class="btn" id="btnSkyAuto">🌅 하늘 자동</button>',
       '    <button class="btn" id="btnCockpit">🛩 콕핏</button>',
+      '    <button class="btn" id="btnGrade">🎞 감성</button>',
       '  </div>',
       '</div>',
       '<div id="footerRow">',
@@ -256,6 +257,8 @@
     };
     $("btnCockpit").onclick = ()=>app.toggleCockpit(); // P15-1015
     $("btnCockpit").classList.toggle("on", localStorage.getItem("swef_cockpit") !== "0");
+    $("btnGrade").onclick = ()=>{ const on = app.toggleGrade(); $("btnGrade").classList.toggle("on", on); }; // P18-1028
+    $("btnGrade").classList.toggle("on", localStorage.getItem("swef_grade") !== "0");
     $("btnAtmo").onclick = ()=>{
       const on = localStorage.getItem("swef_atmo") !== "0";
       app.setAtmosphereEnabled(!on);
