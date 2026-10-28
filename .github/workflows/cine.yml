@@ -27,7 +27,7 @@ jobs:
       - name: system libs
         run: sudo apt-get update -qq && sudo apt-get install -y -qq ffmpeg libxi6 libxxf86vm1 libxfixes3 libxrender1 libgl1 libegl1 libsm6 > /dev/null
       - name: python libs
-        run: pip install -q "bpy==5.2.3" numpy scipy pillow rasterio
+        run: pip install -q "bpy==5.2.3" numpy scipy pillow rasterio opencv-contrib-python-headless
       - name: render
         env:
           DEM_N: "1400"
