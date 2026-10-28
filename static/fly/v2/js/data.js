@@ -265,7 +265,7 @@ const SIGS={
   "파리":{f:2,t:19.0,c:0}
 };
 
-const DREAM_SKIES=["/fly/sky/pano.jpg","/fly/sky/aurora.jpg","/fly/sky/sunset.jpg","/fly/sky/islands.jpg","/fly/sky/storm.jpg","/fly/sky/galaxy.jpg","/fly/sky/moonink.jpg","/fly/sky/mars.jpg","/fly/sky/merfolk.jpg","/fly/sky/giants.jpg","/fly/sky/ancient.jpg","/fly/sky/lanterns.jpg","/fly/sky/stormeye.jpg","/fly/sky/icepalace.jpg"];
+const DREAM_SKIES=["/fly/sky/pano.jpg","/fly/sky/aurora.jpg","/fly/sky/sunset.jpg","/fly/sky/islands.jpg","/fly/sky/storm.jpg","/fly/sky/galaxy.jpg","/fly/sky/moonink.jpg","/fly/sky/mars.jpg","/fly/sky/merfolk.jpg","/fly/sky/giants.jpg","/fly/sky/ancient.jpg","/fly/sky/lanterns.jpg","/fly/sky/stormeye.jpg","/fly/sky/icepalace.jpg","/fly/sky/dreamcity.jpg","/fly/sky/dreamtram.jpg"]; // P18-1028 dreamscape worlds (tools/dream)
 
 const FILMS=[["\uC6D0\uBCF8","Natural"],["\uBE44\uBE44\uB4DC","Vivid"],["\uACE8\uB4E0\uC544\uC6CC","Golden"],["\uC218\uBB35","Ink"],["\uB4DC\uB9BC","Dream"],["\uC544\uBC14\uD0C0","Pandora"],["\uC778\uC149\uC158","Inception"],["\uCF54\uCF54","Coco"],["\uB354 \uD3F4","The Fall"],["\uBD80\uB2E4\uD398\uC2A4\uD2B8","Budapest"],["\uB178\uC744\uAE38","Sunset Drive"],["\uC624\uB85C\uB77C","Aurora"]];
   window.SWEF_DATA = { DESTS, VEHICLES, PORTALS, TRIALS, SIGS, DREAM_SKIES, FILMS };
