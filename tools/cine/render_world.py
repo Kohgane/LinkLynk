@@ -21,6 +21,8 @@ def tex_path(p):
     if not os.path.exists(q): im.resize((TEX_MAX, TEX_MAX), Image.LANCZOS).save(q, quality=92)
     return q
 N = dem.shape[0]; km = meta["km"]; lat = meta["lat"]
+HAZE_NEAR = float(os.environ.get("HAZE_NEAR", "9000")); HAZE_FAR = float(os.environ.get("HAZE_FAR", "170000"))
+SUN_ELEV = float(os.environ.get("SUN_ELEV", "19")); SUN_AZ = float(os.environ.get("SUN_AZ", "250"))   # golden hour, light from the west-southwest
 size = km*1000.0
 bpy.ops.wm.read_factory_settings(use_empty=True)
 sc = bpy.context.scene
@@ -50,15 +52,20 @@ def ground_mat(name, path):
     mat = bpy.data.materials.new(name); mat.use_nodes = True
     nt = mat.node_tree; bsdf = nt.nodes["Principled BSDF"]; bsdf.inputs["Roughness"].default_value = 0.95; bsdf.inputs["Specular IOR Level"].default_value = 0.15
     tex = nt.nodes.new("ShaderNodeTexImage"); tex.image = bpy.data.images.load(os.path.abspath(tex_path(path))); tex.image.use_half_precision = True
-    nt.links.new(tex.outputs["Color"], bsdf.inputs["Base Color"])
-    # distance haze in the shader (sky stays untouched): far ground fades to a pale sky tone
+    hs = nt.nodes.new("ShaderNodeHueSaturation"); hs.inputs["Saturation"].default_value = float(os.environ.get("SAT", "1.35")); hs.inputs["Value"].default_value = 1.10   # P25-1028: satellite colour is muted
+    nt.links.new(tex.outputs["Color"], hs.inputs["Color"]); nt.links.new(hs.outputs["Color"], bsdf.inputs["Base Color"])
+    # P25-1028 aerial perspective: far ground becomes transparent so the camera sees the real sky through it.
+    # The haze colour is therefore always the sky's own colour in that direction, and the mesh edge vanishes into it.
     out = nt.nodes["Material Output"]; cam = nt.nodes.new("ShaderNodeCameraData")
-    ramp = nt.nodes.new("ShaderNodeMapRange"); ramp.inputs["From Min"].default_value = 15000; ramp.inputs["From Max"].default_value = 220000
-    ramp.inputs["To Min"].default_value = 0.0; ramp.inputs["To Max"].default_value = 0.85; ramp.clamp = True
-    haze = nt.nodes.new("ShaderNodeEmission"); haze.inputs["Color"].default_value = (0.66, 0.76, 0.90, 1.0); haze.inputs["Strength"].default_value = 1.0
+    ramp = nt.nodes.new("ShaderNodeMapRange"); ramp.inputs["From Min"].default_value = HAZE_NEAR; ramp.inputs["From Max"].default_value = HAZE_FAR
+    ramp.inputs["To Min"].default_value = 0.0; ramp.inputs["To Max"].default_value = 1.0; ramp.clamp = True
+    curve = nt.nodes.new("ShaderNodeMath"); curve.operation = "POWER"; curve.inputs[1].default_value = 0.75   # fast early rise, like real scattering
+    tint = nt.nodes.new("ShaderNodeMixRGB") if hasattr(bpy.types, "ShaderNodeMixRGB") else None
+    trans = nt.nodes.new("ShaderNodeBsdfTransparent"); trans.inputs["Color"].default_value = (1.0, 1.0, 1.0, 1.0)
     mixs = nt.nodes.new("ShaderNodeMixShader")
-    nt.links.new(cam.outputs["View Distance"], ramp.inputs["Value"]); nt.links.new(ramp.outputs["Result"], mixs.inputs["Fac"])
-    nt.links.new(bsdf.outputs["BSDF"], mixs.inputs[1]); nt.links.new(haze.outputs["Emission"], mixs.inputs[2]); nt.links.new(mixs.outputs["Shader"], out.inputs["Surface"])
+    nt.links.new(cam.outputs["View Distance"], ramp.inputs["Value"]); nt.links.new(ramp.outputs["Result"], curve.inputs[0]); nt.links.new(curve.outputs["Value"], mixs.inputs["Fac"])
+    nt.links.new(bsdf.outputs["BSDF"], mixs.inputs[1]); nt.links.new(trans.outputs["BSDF"], mixs.inputs[2]); nt.links.new(mixs.outputs["Shader"], out.inputs["Surface"])
+    mat.blend_method = "BLEND"
     return mat
 me.materials.append(ground_mat("ground", f"{slug}/tex.png"))
 # --- outer LOD ring (coarse, hides the box edge at the horizon); verts under the inner box are sunk out of sight ---
@@ -83,24 +90,36 @@ if os.path.exists(f"{slug}_outer/dem.npy"):
     oob = bpy.data.objects.new("outer", ome); sc.collection.objects.link(oob)
     for p in ome.polygons: p.use_smooth = True
     ome.materials.append(ground_mat("ground_outer", f"{slug}_outer/tex.png"))
-# --- world: the app's own sky pano + sun ---
+# --- world: physically based Nishita sky at golden hour (P25-1028) — consistent horizon colour for the aerial perspective ---
 w = bpy.data.worlds.new("sky"); sc.world = w; w.use_nodes = True
-env = w.node_tree.nodes.new("ShaderNodeTexEnvironment"); env.image = bpy.data.images.load(os.path.abspath(os.environ.get("SKY", "../cine/sky_pano.jpg")))
-bg = w.node_tree.nodes["Background"]; bg.inputs["Strength"].default_value = 1.0
-w.node_tree.links.new(env.outputs["Color"], bg.inputs["Color"])
+sky = w.node_tree.nodes.new("ShaderNodeTexSky"); sky.sky_type = "MULTIPLE_SCATTERING"; sky.sun_disc = False
+sky.sun_elevation = math.radians(SUN_ELEV); sky.sun_rotation = math.radians(SUN_AZ); sky.altitude = 0; sky.air_density = 1.3; sky.ozone_density = 1.2
+bg = w.node_tree.nodes["Background"]; bg.inputs["Strength"].default_value = float(os.environ.get("SKY_STR", "0.10"))   # physical sky units -> tone down for AgX
+# below the horizon the physical sky is black; mirror the just-above-horizon colour downwards so haze (transparent ground) reads as sky fog
+wn = w.node_tree.nodes; wl = w.node_tree.links
+tc = wn.new("ShaderNodeTexCoord"); sep = wn.new("ShaderNodeSeparateXYZ"); comb = wn.new("ShaderNodeCombineXYZ")
+ab = wn.new("ShaderNodeMath"); ab.operation = "ABSOLUTE"; ad = wn.new("ShaderNodeMath"); ad.operation = "ADD"; ad.inputs[1].default_value = 0.004
+wl.new(tc.outputs["Generated"], sep.inputs["Vector"]); wl.new(sep.outputs["Z"], ab.inputs[0]); wl.new(ab.outputs["Value"], ad.inputs[0])
+wl.new(sep.outputs["X"], comb.inputs["X"]); wl.new(sep.outputs["Y"], comb.inputs["Y"]); wl.new(ad.outputs["Value"], comb.inputs["Z"])
+wl.new(comb.outputs["Vector"], sky.inputs["Vector"])
+w.node_tree.links.new(sky.outputs["Color"], bg.inputs["Color"])
 bpy.ops.object.light_add(type="SUN", location=(0, 0, 20000)); sun = bpy.context.object
-sun.data.energy = 3.2; sun.data.angle = math.radians(1.0); sun.rotation_euler = (math.radians(48), 0, math.radians(-35))
+sun.data.energy = float(os.environ.get("SUN_E", "9.0")); sun.data.angle = math.radians(0.6); sun.data.color = (1.0, 0.84, 0.66)
+# Blender sun points along its local -Z; aim it from azimuth (Nishita: 0 = north, clockwise) and elevation
+az = math.radians(SUN_AZ); el = math.radians(SUN_ELEV)
+sun_dir = Vector((math.sin(az)*math.cos(el), math.cos(az)*math.cos(el), math.sin(el)))   # direction TO the sun (ENU)
+sun.rotation_euler = (-sun_dir).to_track_quat("-Z", "Y").to_euler()
 # --- camera ---
 bpy.ops.object.camera_add(); cam = bpy.context.object; sc.camera = cam
 cam.data.sensor_fit = "VERTICAL"; cam.data.angle_y = math.radians(60); cam.data.clip_end = 400000; cam.data.clip_start = 20
 center = Vector((0.0, 0.0, H*0.35))
-START_R = min(max(6*R, 60000.0), (40000.0 - H*0.35)/0.559)   # keep the start below the 45 km space switch
+START_R = min(max(3.2*R, 26000.0), (40000.0 - H*0.35)/0.559)   # P25-1028: closer start — relief fills the frame instead of a map view
 END_R = max(2.5*R, 6000.0); END_R = min(END_R, START_R*0.6)      # the live app flies the last stretch itself (P17 endRange)
 json.dump({"startRange": START_R, "endRange": END_R, "endPitch": P}, open(f"{slug}/path.json", "w"))
 RES = int(os.environ.get("RES_W", "720"))
 def pose(t):
     e = 4*t*t*t if t < 0.5 else 1 - ((-2*t+2)**3)/2
-    h = math.radians(20 - 70*(1-e)); p = math.radians(P)*e + math.radians(-34)*(1-e)
+    h = math.radians(20 - 70*(1-e)); p = math.radians(P)*e + math.radians(-24)*(1-e)   # P25-1028: shallower start pitch
     rng = END_R + (START_R - END_R)*(1-e)
     d = Vector((math.sin(h)*math.cos(p), math.cos(h)*math.cos(p), math.sin(p)))  # view dir ENU
     cam.location = center - d*rng
@@ -111,7 +130,8 @@ try: sc.cycles.denoiser = "OPENIMAGEDENOISE"
 except Exception: pass
 sc.render.resolution_x = RES; sc.render.resolution_y = RES*16//9; sc.render.resolution_percentage = 100
 sc.render.image_settings.file_format = "PNG"; sc.render.film_transparent = False
-sc.view_settings.view_transform = "AgX"; sc.view_settings.look = "AgX - Medium High Contrast"
+sc.view_settings.view_transform = "AgX"; sc.view_settings.look = "AgX - Punchy"; sc.view_settings.exposure = float(os.environ.get("EXPO", "0.35"))
+sc.cycles.transparent_max_bounces = 12
 NF = round(FPS*DUR); os.makedirs(f"{slug}/frames", exist_ok=True)
 for i in range(NF):
     if i < F0 or i > F1: continue
