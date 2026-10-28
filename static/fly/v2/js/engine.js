@@ -681,7 +681,7 @@
   function tickOrbit(dt){
     if (state.cine) return; // P13-1009: the tween owns the camera
     if (state.mode !== "tour" || !state.orbiting || !state.orbit) return;
-    state.orbit.heading += 0.1 * dt;
+    state.orbit.heading += 0.055 * dt; // P18-1028: slower orbit = calmer
     app.viewer.camera.lookAt(state.orbit.center, new Cesium.HeadingPitchRange(state.orbit.heading, state.orbit.pitch, state.orbit.range));
   }
 
