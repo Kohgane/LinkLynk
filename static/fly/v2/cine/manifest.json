@@ -21,6 +21,17 @@
    "mp4": "/fly/v2/cine/grand-canyon.mp4",
    "poster": "/fly/v2/cine/grand-canyon.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
+  },
+  "matterhorn": {
+   "built": "2026-10-28",
+   "bytes": 1116457,
+   "dur": 6.0,
+   "endPitch": -14.0,
+   "endRange": 22500,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/matterhorn.mp4",
+   "poster": "/fly/v2/cine/matterhorn.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
   }
  },
  "v": 1
