@@ -232,9 +232,15 @@
   }
 
   function syncModuleHook(){
-    if (!window.SWEFM) return;
-    window.SWEFM._registerButtonImpl = addModuleButton;
-    (window.SWEFM._btnQueue || []).splice(0).forEach(addModuleButton);
+    // P24-1028: module buttons live in the ☰ launcher tray (modules/launcher.js), not in a pill row over the view.
+    // The top rail is only a fallback if the launcher never shows up (module load failure).
+    if (!window.SWEFM || window.__swefRailFallback) return;
+    window.__swefRailFallback = true;
+    setTimeout(()=>{
+      if (document.getElementById("swefm-launcher")) return;
+      window.SWEFM._registerButtonImpl = addModuleButton;
+      (window.SWEFM._btnQueue || []).splice(0).forEach(addModuleButton);
+    }, 8000);
   }
 
   function bindControls(){
