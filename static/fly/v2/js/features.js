@@ -137,11 +137,24 @@ void main(){ vec2 uv=v_textureCoordinates; vec4 col=texture(colorTexture,uv); if
     return post.motionBlur;
   }
 
+  // P18-1028 grade strength by mode (opt-out swef_grade=0): tour = full look, free flight lighter, space lightest
+  function gradeOn(){ try { return localStorage.getItem("swef_grade") !== "0"; } catch (_) { return true; } }
+  function gradeAmount(){
+    if (!gradeOn() || dreamPrim) return 0;
+    const m = app.state.mode; return m === "tour" ? 1.0 : m === "space" ? 0.45 : 0.65;
+  }
+  function toggleGrade(){ const on = !gradeOn(); try { localStorage.setItem("swef_grade", on ? "1" : "0"); } catch (_) {} app.toast && app.toast(on ? "🎞 감성 그레이드 ON" : "🎞 감성 그레이드 OFF", 1800); return on; }
   function ensureFogStage(){
     if (post.fog) return post.fog;
     const fogfs = `uniform sampler2D colorTexture; uniform sampler2D depthTexture;
-uniform float u_fogOn; uniform float u_camH; uniform vec3 u_upEC; uniform float u_flash; uniform float u_gold; in vec2 v_textureCoordinates;
-void main(){ vec2 uv=v_textureCoordinates; vec4 col=texture(colorTexture,uv); vec3 c=col.rgb; float d=czm_readDepth(depthTexture,uv); if(u_fogOn>0.5 && d<0.9999999 && u_camH<80000.0){ vec4 eye=czm_windowToEyeCoordinates(gl_FragCoord.xy, d); float dist=length(eye.xyz); vec3 vdir=eye.xyz/max(dist,1.0); float hFrag=u_camH + dot(vdir,u_upEC)*dist; float hAvg=max(1.0,(u_camH+hFrag)*0.5); float density=0.000022*exp(-hAvg/1600.0); float fog=1.0-exp(-density*dist); float sunAmt=pow(max(dot(vdir,czm_sunDirectionEC),0.0),8.0); vec3 fogCol=mix(vec3(0.60,0.71,0.90), vec3(1.0,0.80,0.58), max(sunAmt,u_gold)); float far=smoothstep(25000.0,70000.0,dist); c=mix(c,fogCol,clamp(max(fog,far),0.0,1.0)); } if(u_flash>0.001){ c=mix(c,vec3(0.96,0.97,1.0),u_flash*0.8); c*=1.0+u_flash*0.25; } out_FragColor=vec4(c,col.a); }`;
+uniform float u_fogOn; uniform float u_camH; uniform vec3 u_upEC; uniform float u_flash; uniform float u_gold; uniform float u_grade; in vec2 v_textureCoordinates;
+void main(){ vec2 uv=v_textureCoordinates; vec4 col=texture(colorTexture,uv); vec3 c=col.rgb; float d=czm_readDepth(depthTexture,uv); if(u_fogOn>0.5 && d<0.9999999 && u_camH<80000.0){ vec4 eye=czm_windowToEyeCoordinates(gl_FragCoord.xy, d); float dist=length(eye.xyz); vec3 vdir=eye.xyz/max(dist,1.0); float hFrag=u_camH + dot(vdir,u_upEC)*dist; float hAvg=max(1.0,(u_camH+hFrag)*0.5); float density=0.000022*exp(-hAvg/1600.0); float fog=1.0-exp(-density*dist); float sunAmt=pow(max(dot(vdir,czm_sunDirectionEC),0.0),8.0); vec3 fogCol=mix(vec3(0.60,0.71,0.90), vec3(1.0,0.80,0.58), max(sunAmt,u_gold)); float far=smoothstep(25000.0,70000.0,dist); c=mix(c,fogCol,clamp(max(fog,far),0.0,1.0)); } if(u_flash>0.001){ c=mix(c,vec3(0.96,0.97,1.0),u_flash*0.8); c*=1.0+u_flash*0.25; }
+ if(u_grade>0.001){ // P18-1028 dreamscape grade: filmic lift, cobalt shadows / amber highlights, vignette, grain
+  float l=dot(c,vec3(0.299,0.587,0.114)); vec3 g=pow(max(c,vec3(0.0)),vec3(0.94)); g=mix(vec3(l),g,1.16); g=g*0.88+0.045;
+  float sw=1.0-smoothstep(0.12,0.62,l); float hw=smoothstep(0.50,0.96,l); g+=vec3(0.05,0.13,0.30)*sw*0.42+vec3(0.30,0.15,0.02)*hw*0.26;
+  vec2 q=uv-0.5; g*=1.0-0.75*dot(q,q); float n=fract(sin(dot(gl_FragCoord.xy+vec2(mod(czm_frameNumber,97.0)*0.37),vec2(12.9898,78.233)))*43758.5453); g+=(n-0.5)*0.022;
+  c=mix(c,clamp(g,0.0,1.0),u_grade); }
+ out_FragColor=vec4(c,col.a); }`;
     post.fog = viewerOf().scene.postProcessStages.add(new Cesium.PostProcessStage({
       fragmentShader: fogfs,
       uniforms: {
@@ -149,7 +162,8 @@ void main(){ vec2 uv=v_textureCoordinates; vec4 col=texture(colorTexture,uv); ve
         u_camH: ()=>atmoH,
         u_upEC: ()=>atmoUp,
         u_flash: ()=>atmoFlash,
-        u_gold: ()=>{ const h = lastLocalHours % 24; const d1 = Math.abs(h - 6.5), d2 = Math.abs(h - 17.75); return Math.max(0, 1 - Math.min(d1, d2) / 1.75) * 0.85; } // P4-1002: horizon fog tint follows dawn/dusk
+        u_gold: ()=>{ const h = lastLocalHours % 24; const d1 = Math.abs(h - 6.5), d2 = Math.abs(h - 17.75); return Math.max(0, 1 - Math.min(d1, d2) / 1.75) * 0.85; }, // P4-1002: horizon fog tint follows dawn/dusk
+        u_grade: ()=>gradeAmount() // P18-1028
       }
     }));
     post.fog.enabled = true;
@@ -595,6 +609,7 @@ void main(){ vec2 uv=v_textureCoordinates; vec4 col=texture(colorTexture,uv); ve
     setCloudMode,
     cycleCloudMode,
     toggleCockpit,
+    toggleGrade, // P18-1028
     toggleDream,
     skyAutoTick,
     skyForHour,
