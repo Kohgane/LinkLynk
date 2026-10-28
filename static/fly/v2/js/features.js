@@ -289,10 +289,14 @@ void main(){ vec2 uv=v_textureCoordinates; vec4 col=texture(colorTexture,uv); ve
       return;
     }
     viewerOf().scene.skyAtmosphere.show = false;
-    dreamMat = Cesium.Material.fromType("Image", { image: sky });
+    // P22-1028: horizon blend — the dome fades into its own horizon row and goes transparent below the horizon, so the hard equator seam of band domes disappears
+    dreamMat = new Cesium.Material({ fabric: { type: "SwefDreamDome", uniforms: { image: sky }, source:
+      "czm_material czm_getMaterial(czm_materialInput mi){ czm_material m = czm_getDefaultMaterial(mi); vec2 st = mi.st; vec4 c = texture(image, st);" +
+      " vec3 hz = texture(image, vec2(st.s, 0.585)).rgb; float h = smoothstep(0.64, 0.505, st.t); m.diffuse = mix(c.rgb, hz, h * 0.9);" +
+      " m.alpha = 1.0 - smoothstep(0.505, 0.465, st.t); return m; }" } });
     const appa = new Cesium.MaterialAppearance({
       flat: true,
-      translucent: false,
+      translucent: true,
       material: dreamMat,
       renderState: { cull: { enabled: false }, depthTest: { enabled: true } }
     });
