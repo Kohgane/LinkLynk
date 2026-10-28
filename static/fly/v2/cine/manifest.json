@@ -44,6 +44,17 @@
    "poster": "/fly/v2/cine/monument-valley.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "mt-fuji": {
+   "built": "2026-10-28",
+   "bytes": 799412,
+   "dur": 6.0,
+   "endPitch": -14.0,
+   "endRange": 30720,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/mt-fuji.mp4",
+   "poster": "/fly/v2/cine/mt-fuji.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "seongsan-ilchulbong": {
    "built": "2026-10-28",
    "bytes": 587773,
