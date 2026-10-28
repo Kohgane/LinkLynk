@@ -189,6 +189,8 @@
         var rect = launcherEl.getBoundingClientRect();
         trayEl.style.top = "";
         trayEl.style.bottom = (window.innerHeight - rect.top) + "px";
+        trayEl.style.maxHeight = Math.max(120, rect.top - 72) + "px"; // P24-1028: never stack off the top of a phone screen — scroll instead
+        trayEl.style.overflowY = "auto";
       }
       positionTray();
       window.addEventListener("resize", positionTray);
