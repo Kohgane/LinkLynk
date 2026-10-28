@@ -1,9 +1,4 @@
 {
- "dreamcity": {"horizon": 0.47, "band": [
-   {"file": "dream_src1.jpg", "crop": [0, 0, 1522, 652], "cut": [0, 0, 731, 652]},
-   {"file": "dream_src2.jpg", "crop": [0, 0, 1522, 652]}
- ]},
- "dreamtram": {"horizon": 0.42, "band": [
-   {"file": "dream_src2.jpg", "crop": [0, 0, 1522, 652]}
- ]}
+ "dreamcity": {"equirect": {"halves": ["pano_city_L.jpg", "pano_city_R.jpg"], "crop": [0, 0, 947, 947]}},
+ "dreamtram": {"equirect": {"halves": ["pano_sunset_L.jpg", "pano_sunset_R.jpg"], "crop": [0, 0, 947, 947]}}
 }
