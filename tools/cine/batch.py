@@ -10,6 +10,8 @@ ap.add_argument("--fps", type=int, default=20); ap.add_argument("--dur", type=fl
 ap.add_argument("--reuse", action="store_true", help="reuse rendered frames in the work dir")
 ap.add_argument("--push", action="store_true", help="git commit+push static/fly/v2/cine after every clip (CI)")
 a = ap.parse_args()
+# P18-1028: cobalt shadows / soft amber highlights, lifted blacks, vignette, grain — matches the in-app grade
+GRADE_VF = "colorbalance=rs=-0.12:gs=-0.03:bs=0.20:rm=-0.02:bm=0.06:rh=0.05:gh=0.01:bh=-0.03,curves=master='0/0.04 0.25/0.23 0.6/0.63 1/0.96',eq=saturation=1.12:contrast=0.98,vignette=PI/4.2,noise=alls=5:allf=t"
 os.makedirs(a.work, exist_ok=True); os.makedirs(CINE, exist_ok=True)
 man = json.load(open(MAN)) if os.path.exists(MAN) else {"v": 1, "clips": {}}
 dests = json.load(open(os.path.join(HERE, "dests.json")))
@@ -32,7 +34,7 @@ for d in todo:
     path = json.load(open(os.path.join(a.work, s, "path.json")))
     mp4 = os.path.join(CINE, s + ".mp4"); jpg = os.path.join(CINE, s + ".jpg")
     run(["ffmpeg", "-y", "-v", "error", "-framerate", str(a.fps), "-i", os.path.join(frames, "f%04d.png"), "-an",
-         "-vf", "scale=720:1280:flags=lanczos", "-c:v", "libx264", "-profile:v", "high", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-crf", "26", mp4])
+         "-vf", "scale=720:1280:flags=lanczos," + GRADE_VF, "-c:v", "libx264", "-profile:v", "high", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-crf", "26", mp4])
     run(["ffmpeg", "-y", "-v", "error", "-i", mp4, "-frames:v", "1", "-q:v", "4", jpg])
     man["clips"][s] = {"mp4": "/fly/v2/cine/" + s + ".mp4", "poster": "/fly/v2/cine/" + s + ".jpg", "dur": a.dur, "fps": a.fps,
                        "endRange": round(path["endRange"]), "endPitch": path["endPitch"], "bytes": os.path.getsize(mp4), "src": "copernicus-dem+sentinel2+bluemarble", "built": time.strftime("%Y-%m-%d")}
