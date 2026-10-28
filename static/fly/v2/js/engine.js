@@ -118,7 +118,7 @@
 
   function getProfile(){
     return state.profile || {
-      resolutionScale: IS_TOUCH ? 0.65 : 0.85,
+      resolutionScale: IS_TOUCH ? 1.0 : 0.85, // P21-1028: phones render at full CSS resolution (0.65 was an iGPU laptop setting that made tiles blocky on iPhone)
       cacheBytes: IS_TOUCH ? 192 * 1024 * 1024 : 768 * 1024 * 1024,
       overflowBytes: IS_TOUCH ? 96 * 1024 * 1024 : 256 * 1024 * 1024,
       maxRequests: IS_TOUCH ? 6 : 12,
@@ -132,8 +132,8 @@
     const bias = state.resBias || 0;
     const clamp = (v)=>Math.max(0.3, Math.min(1.2, v + bias));
     if (tier <= 0) return clamp(softPenalty);
-    if (tier === 1) return clamp(Math.max(0.45, softPenalty - (IS_TOUCH ? 0.10 : 0.15)));
-    return clamp(Math.max(0.40, softPenalty - (IS_TOUCH ? 0.15 : 0.20)));
+    if (tier === 1) return clamp(Math.max(0.45, softPenalty - (IS_TOUCH ? 0.20 : 0.15)));
+    return clamp(Math.max(0.40, softPenalty - (IS_TOUCH ? 0.35 : 0.20)));
   }
 
   function syncStageBudget(){
@@ -306,7 +306,7 @@
     else if (state.sseBand === 0 && alt > 650) state.sseBand = 1;
     else if (state.sseBand === 2 && alt < 1800) state.sseBand = 1;
     const bandAdj = state.sseBand === 0 ? -2 : state.sseBand === 2 ? 3 : 0;
-    const devAdj = (state.iGPU ? 5 : 0) + (IS_TOUCH ? 2 : 0) + (state.softRenderer ? 8 : 0);
+    const devAdj = (state.iGPU ? 5 : 0) + (state.softRenderer ? 8 : 0); // P21-1028: no touch penalty — the governor handles slow phones
     const moveBase = state.idleMs > 1200 ? 9 : 12;
     state.targetSSE = Math.max(5, moveBase + bandAdj + devAdj + (state.sseBias || 0));
     const desired = state.warpHold > 0 ? Math.max(26, state.targetSSE) : state.targetSSE;
@@ -537,7 +537,7 @@
   let clipManifest = null;
   function clipSlug(d){ return String(d.en || "").toLowerCase().replace(/[^a-z0-9]+/g, "-").replace(/^-|-$/g, ""); }
   function cineClipsOn(){
-    try { if (localStorage.getItem("swef_cine") === "0") return false; } catch (_) {}
+    try { if (localStorage.getItem("swef_cine") !== "1") return false; } catch (_) { return false; } // P21-1028: opt-in until open-data clips beat the live view
     return window.innerHeight > window.innerWidth;
   }
   function loadClipManifest(){
