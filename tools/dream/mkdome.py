@@ -49,6 +49,8 @@ def load_equirect(e):
         return im
     return load(e)
 for name, spec in json.load(open(os.path.join(HERE, "domes.json"))).items():
+    gen = os.path.join(HERE, "src", name + "_dit360.webp")
+    if os.path.exists(gen): spec = dict(spec, equirect={"file": name + "_dit360.webp"})  # gen360.py output wins over captures
     if spec.get("equirect"):  # true 360 equirectangular source (e.g. DiT360): resize only, no mirroring
         im = load_equirect(spec["equirect"]).resize((W, H), Image.LANCZOS)
         im = wrapfade(im, 24)  # soften any 1px seam from the capture
