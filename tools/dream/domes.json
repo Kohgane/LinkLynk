@@ -1,4 +1,34 @@
 {
- "dreamcity": {"equirect": {"halves": ["pano_city_L.jpg", "pano_city_R.jpg"], "crop": [0, 0, 947, 947]}},
- "dreamtram": {"equirect": {"halves": ["pano_sunset_L.jpg", "pano_sunset_R.jpg"], "crop": [0, 0, 947, 947]}}
+ "dreamcity": {
+  "equirect": {
+   "halves": [
+    "pano_city_L.jpg",
+    "pano_city_R.jpg"
+   ],
+   "crop": [
+    0,
+    0,
+    947,
+    947
+   ]
+  },
+  "prompt": "painterly impressionist illustration of a dreamlike vertical city at dusk built on steep hills, stacked blue-violet buildings, small red trams on steep rails, cable cars on wires crossing the sky, cobalt blue twilight sky with burning orange afterglow, warm window lights, tiny silhouettes of people, thick brush strokes, cinematic, melancholic",
+  "seed": 7
+ },
+ "dreamtram": {
+  "equirect": {
+   "halves": [
+    "pano_sunset_L.jpg",
+    "pano_sunset_R.jpg"
+   ],
+   "crop": [
+    0,
+    0,
+    947,
+    947
+   ]
+  },
+  "prompt": "painterly impressionist illustration, a dreamlike hillside town at golden sunset, pastel blue and lavender houses stacked on terraces, a small red tram climbing a steep rail, cable cars hanging over a misty valley, huge warm sun low on the horizon with long golden light rays, cobalt blue shadows, tiny silhouettes of people walking, thick brush strokes, cinematic, nostalgic",
+  "seed": 21
+ }
 }
