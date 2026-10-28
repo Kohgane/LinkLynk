@@ -8,6 +8,7 @@ CINE = os.path.join(ROOT, "static", "fly", "v2", "cine"); MAN = os.path.join(CIN
 ap = argparse.ArgumentParser(); ap.add_argument("--max", type=int, default=3); ap.add_argument("--only", default=""); ap.add_argument("--work", default=os.path.join(HERE, "work"))
 ap.add_argument("--fps", type=int, default=20); ap.add_argument("--dur", type=float, default=6.0); ap.add_argument("--samples", type=int, default=12); ap.add_argument("--res", type=int, default=540)
 ap.add_argument("--reuse", action="store_true", help="reuse rendered frames in the work dir")
+ap.add_argument("--push", action="store_true", help="git commit+push static/fly/v2/cine after every clip (CI)")
 a = ap.parse_args()
 os.makedirs(a.work, exist_ok=True); os.makedirs(CINE, exist_ok=True)
 man = json.load(open(MAN)) if os.path.exists(MAN) else {"v": 1, "clips": {}}
@@ -20,7 +21,7 @@ def run(cmd, **kw):
 for d in todo:
     s = d["slug"]; t0 = time.time()
     if not os.path.exists(os.path.join(a.work, s, "tex.png")):
-        run([sys.executable, os.path.join(HERE, "fetch_world.py"), s, str(d["lon"]), str(d["lat"]), "80", "1600", "8192"])
+        run([sys.executable, os.path.join(HERE, "fetch_world.py"), s, str(d["lon"]), str(d["lat"]), "80", "1600", "6144"])
     if not os.path.exists(os.path.join(a.work, s + "_outer", "tex.png")):
         run([sys.executable, os.path.join(HERE, "fetch_world.py"), s + "_outer", str(d["lon"]), str(d["lat"]), "320", "900", "2048"])
     frames = os.path.join(a.work, s, "frames"); nf = round(a.fps * a.dur)
@@ -37,4 +38,13 @@ for d in todo:
                        "endRange": round(path["endRange"]), "endPitch": path["endPitch"], "bytes": os.path.getsize(mp4), "src": "copernicus-dem+sentinel2+bluemarble", "built": time.strftime("%Y-%m-%d")}
     json.dump(man, open(MAN, "w"), indent=1, sort_keys=True)
     print("clip", s, os.path.getsize(mp4)//1024, "KB", int(time.time() - t0), "s", flush=True)
+    if a.push:  # commit each clip as it lands so a cancelled run still keeps what it finished
+        try:
+            subprocess.run(["git", "add", "static/fly/v2/cine"], check=True, cwd=ROOT)
+            subprocess.run(["git", "commit", "-q", "-m", f"cine: {s} (auto-rendered from open data)"], check=True, cwd=ROOT)
+            subprocess.run(["git", "pull", "-q", "--rebase", "origin", "main"], check=True, cwd=ROOT)
+            subprocess.run(["git", "push", "-q", "origin", "HEAD:main"], check=True, cwd=ROOT)
+            print("pushed", s, flush=True)
+        except subprocess.CalledProcessError as e:
+            print("push failed", s, e, flush=True)
 print("done", len(todo))
