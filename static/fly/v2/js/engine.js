@@ -588,14 +588,16 @@
       const pl = v.play(); if (pl && pl.catch) pl.catch(()=>endArrivalClip());
       state.clip = { v, dest: d, clip, endPose, t0: performance.now() };
       v.onended = ()=>endArrivalClip();
+      // P20-1028: start the live approach ~0.9 s before the clip ends so motion carries through the cross-fade (no static frame at the seam)
+      v.ontimeupdate = ()=>{ if (state.clip && v.duration && v.currentTime >= v.duration - 0.9) endArrivalClip(); };
       state.clipTimer = setTimeout(()=>endArrivalClip(), ((clip.dur || 6) + 1.5) * 1000); // stalled video safety
     }
   }
   function endArrivalClip(silent){
     if (!state.clip) return;
     const { v, endPose } = state.clip; state.clip = null; clearTimeout(state.clipTimer);
-    v.onended = null; v.classList.remove("on");
-    setTimeout(()=>{ try { v.pause(); } catch (_) {} }, 900);
+    v.onended = null; v.ontimeupdate = null; v.classList.remove("on");
+    setTimeout(()=>{ try { v.pause(); } catch (_) {} }, 1600); // keeps playing under the 1.4 s fade
     if (silent || !state.orbit) return;
     state.orbit.heading = Cesium.Math.toRadians(20);
     const vig = $("vignettePulse"); if (vig) { vig.style.opacity = "0.92"; setTimeout(()=>{ vig.style.opacity = "0"; }, 120); }
