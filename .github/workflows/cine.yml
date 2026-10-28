@@ -30,9 +30,12 @@ jobs:
         run: pip install -q "bpy==5.2.3" numpy scipy pillow rasterio
       - name: render
         env:
-          DEM_N: "1600"
-          TEX_MAX: "8192"
-        run: python tools/cine/batch.py --max "${{ github.event.inputs.max || '3' }}" --only "${{ github.event.inputs.only || '' }}" --res 720 --samples 16
+          DEM_N: "1400"
+          TEX_MAX: "6144"
+        run: |
+          git config user.name "swef-cine-bot"
+          git config user.email "cine@users.noreply.github.com"
+          python tools/cine/batch.py --max "${{ github.event.inputs.max || '3' }}" --only "${{ github.event.inputs.only || '' }}" --res 540 --samples 12 --push
       - name: commit clips
         run: |
           git config user.name "swef-cine-bot"
