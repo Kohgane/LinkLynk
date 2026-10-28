@@ -40,7 +40,21 @@ def dome(band, horizon_frac, out):
     canvas.save(out + "_4k.jpg", quality=86)
     canvas.resize((2048, 1024), Image.LANCZOS).save(out + ".jpg", quality=85)
 os.makedirs(SKY, exist_ok=True)
+def load_equirect(e):
+    """a true 360 source captured in halves: {"halves": ["a_L.jpg", "a_R.jpg"], "crop": [x0,y0,x1,y1]} (crop applies to each half)"""
+    if "halves" in e:
+        ims = [Image.open(os.path.join(HERE, "src", f)).convert("RGB").crop(tuple(e["crop"])) for f in e["halves"]]
+        im = Image.new("RGB", (sum(i.width for i in ims), ims[0].height)); x = 0
+        for i in ims: im.paste(i, (x, 0)); x += i.width
+        return im
+    return load(e)
 for name, spec in json.load(open(os.path.join(HERE, "domes.json"))).items():
+    if spec.get("equirect"):  # true 360 equirectangular source (e.g. DiT360): resize only, no mirroring
+        im = load_equirect(spec["equirect"]).resize((W, H), Image.LANCZOS)
+        im = wrapfade(im, 24)  # soften any 1px seam from the capture
+        im.save(os.path.join(SKY, name + "_4k.jpg"), quality=86)
+        im.resize((2048, 1024), Image.LANCZOS).save(os.path.join(SKY, name + ".jpg"), quality=85)
+        print("dome(equirect)", name); continue
     parts = []
     for p in spec["band"]:
         im = load(p)
