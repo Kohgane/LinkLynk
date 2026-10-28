@@ -80,7 +80,7 @@
       '    <button class="btn" id="btnCockpit">🛩 콕핏</button>',
       '    <button class="btn" id="btnGrade">🎞 감성</button>',
       '  </div>',
-      '  <div id="buildTag" style="font-size:10px;opacity:.5;letter-spacing:.2em;margin-top:6px;text-align:right">BUILD P20 · 2026-10-28</div>',
+      '  <div id="buildTag" style="display:none;font-size:10px;opacity:.5;letter-spacing:.2em;margin-top:6px;text-align:right">BUILD P22 · 2026-10-28</div>',
       '</div>',
       '<div id="footerRow">',
       '  <button class="btn on" id="btnTour">투어</button>',
@@ -222,6 +222,7 @@
     const rail = $("moduleRail");
     if (!rail || !cfg || !cfg.id) return;
     if (document.getElementById(cfg.id)) return;
+    if (cfg.id === "swefm-settings" && !(app.isDev && app.isDev())) return; // P22-1028: module settings are a dev tool
     const el = document.createElement("button");
     el.className = "module-btn";
     el.id = cfg.id;
@@ -260,6 +261,7 @@
     $("btnCockpit").classList.toggle("on", localStorage.getItem("swef_cockpit") !== "0");
     $("btnGrade").onclick = ()=>{ const on = app.toggleGrade(); $("btnGrade").classList.toggle("on", on); }; // P18-1028
     $("btnGrade").classList.toggle("on", localStorage.getItem("swef_grade") !== "0");
+    if (app.isDev && app.isDev() && $("buildTag")) $("buildTag").style.display = "block"; // P22-1028
     $("btnAtmo").onclick = ()=>{
       const on = localStorage.getItem("swef_atmo") !== "0";
       app.setAtmosphereEnabled(!on);
