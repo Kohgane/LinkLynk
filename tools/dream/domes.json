@@ -1,0 +1,9 @@
+{
+ "dreamcity": {"horizon": 0.47, "band": [
+   {"file": "dream_src1.jpg", "crop": [0, 0, 1522, 652], "cut": [0, 0, 731, 652]},
+   {"file": "dream_src2.jpg", "crop": [0, 0, 1522, 652]}
+ ]},
+ "dreamtram": {"horizon": 0.42, "band": [
+   {"file": "dream_src2.jpg", "crop": [0, 0, 1522, 652]}
+ ]}
+}
