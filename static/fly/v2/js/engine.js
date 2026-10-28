@@ -56,7 +56,11 @@
   const probeEnabled = params.get("probe") === "1";
   const bareMode = /[?&]bare=1/.test(location.search);
 
-  Object.assign(app, { params, IS_TOUCH, bareMode, data: D, state, on, emit, toast });
+  // P22-1028: dev mode (?dev=1 persists, ?dev=0 clears) — diagnostics, build tag and module settings stay hidden from normal users
+  try { if (params.get("dev") === "1") localStorage.setItem("swef_dev", "1"); else if (params.get("dev") === "0") localStorage.removeItem("swef_dev"); } catch (_) {}
+  function isDev(){ try { return localStorage.getItem("swef_dev") === "1" || diagEnabled; } catch (_) { return diagEnabled; } }
+  function devToast(message, ms){ if (isDev()) toast(message, ms); }
+  Object.assign(app, { params, IS_TOUCH, bareMode, data: D, state, on, emit, toast, isDev, devToast });
   window.SWEF = window.SWEF || { viewer: null };
 
   function setLastErr(err){
@@ -169,7 +173,7 @@
       state.governorTier += 1;
       if (!state.governorToasted) {
         state.governorToasted = true;
-        toast("⚡ 최적화 모드", 2600);
+        devToast("⚡ 최적화 모드", 2600);
       }
       // 복귀 직후 12초 안에 재강등 = 플랩 → 45초간 복귀 금지
       if (state.govLastDrop && nowMs - state.govLastDrop < 12000) state.govLockUntil = nowMs + 45000;
@@ -199,13 +203,13 @@
         // v1 승리 세팅: 내장그래픽 = 해상도 0.7 기준 + 타일 SSE +5
         state.iGPU = true;
         state.profile = Object.assign({}, getProfile(), { resolutionScale: 0.7 });
-        toast("💻 내장그래픽 감지 — 균형 프로파일", 3200);
+        devToast("💻 내장그래픽 감지 — 균형 프로파일", 3200);
       }
       if (/swiftshader|llvmpipe|software|basic render/i.test(name)) {
         // §3 소프트웨어 렌더러 감지 시 해상도를 강등하고 경고 토스트를 띄운다.
         state.softRenderer = true;
         app.viewer.resolutionScale = 0.5;
-        toast("⚠️ 소프트웨어 렌더러 감지 — 해상도 0.5로 강등", 4200);
+        devToast("⚠️ 소프트웨어 렌더러 감지 — 해상도 0.5로 강등", 4200);
       }
     } catch (error) {
       console.warn("[swef-v2] renderer detect", error);
@@ -841,8 +845,8 @@
         const accept = !state.rafCapDone ? (best <= 16.67 || quiet) : (best < prev * 0.8 || (best > prev * 1.2 && spread < 6 && quiet));
         if (accept && best !== prev) {
           state.rafCapMs = best;
-          if (best >= 33) toast("\ud83d\udd0b \ud654\uba74 \uac31\uc2e0 " + Math.round(1000 / best) + "Hz \uc81c\ud55c \uac10\uc9c0 (\uc800\uc804\ub825 \ubaa8\ub4dc?)", 3600);
-          else if (state.rafCapDone) toast("\u26a1 \ud654\uba74 \uac31\uc2e0 " + Math.round(1000 / best) + "Hz \ubcf5\uadc0", 2200);
+          if (best >= 33) devToast("\ud83d\udd0b \ud654\uba74 \uac31\uc2e0 " + Math.round(1000 / best) + "Hz \uc81c\ud55c \uac10\uc9c0 (\uc800\uc804\ub825 \ubaa8\ub4dc?)", 3600);
+          else if (state.rafCapDone) devToast("\u26a1 \ud654\uba74 \uac31\uc2e0 " + Math.round(1000 / best) + "Hz \ubcf5\uadc0", 2200);
           state.govCalm = 0;
           if (best > prev && state.governorTier > 0) { state.governorTier = 0; state.govLockUntil = 0; applyGovernorTier(); } // a slower OS cap is not a GPU stall: undo any demotion it caused
         }
