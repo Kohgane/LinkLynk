@@ -1,0 +1,31 @@
+name: dream domes
+# Builds SWEF dream-world skydomes (static/fly/sky/*.jpg) from the painterly sources in tools/dream/src and commits them.
+on:
+  workflow_dispatch: {}
+  push:
+    branches: [main]
+    paths: ["tools/dream/**"]
+permissions:
+  contents: write
+concurrency:
+  group: dream
+  cancel-in-progress: true
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -q pillow numpy
+      - run: python tools/dream/mkdome.py
+      - name: commit domes
+        run: |
+          git config user.name "swef-dream-bot"
+          git config user.email "dream@users.noreply.github.com"
+          git add static/fly/sky
+          git diff --cached --quiet && { echo "no change"; exit 0; }
+          git commit -m "dream: skydomes rebuilt from tools/dream"
+          git pull --rebase origin main
+          git push origin HEAD:main
