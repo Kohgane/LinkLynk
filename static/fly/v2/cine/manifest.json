@@ -44,6 +44,17 @@
    "poster": "/fly/v2/cine/monument-valley.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "seongsan-ilchulbong": {
+   "built": "2026-10-28",
+   "bytes": 587773,
+   "dur": 6.0,
+   "endPitch": -24.0,
+   "endRange": 8000,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/seongsan-ilchulbong.mp4",
+   "poster": "/fly/v2/cine/seongsan-ilchulbong.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "yosemite": {
    "built": "2026-10-28",
    "bytes": 1587907,
