@@ -1,5 +1,16 @@
 {
  "clips": {
+  "bora-bora": {
+   "built": "2026-10-28",
+   "bytes": 538660,
+   "dur": 6.0,
+   "endPitch": -26.0,
+   "endRange": 17280,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/bora-bora.mp4",
+   "poster": "/fly/v2/cine/bora-bora.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "everest": {
    "built": "2026-10-28",
    "bytes": 1006588,
