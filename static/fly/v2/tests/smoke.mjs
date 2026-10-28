@@ -95,7 +95,7 @@ const contracts = [
   { name: "DESTS", expected: 130, op: "gte" },
   { name: "PORTALS", expected: 18, op: "eq" },
   { name: "TRIALS", expected: 2, op: "eq" },
-  { name: "DREAM_SKIES", expected: 14, op: "eq" },
+  { name: "DREAM_SKIES", expected: 16, op: "eq" }, // P18-1028: +dreamcity, +dreamtram
   { name: "FILMS", expected: 12, op: "eq" },
 ];
 
