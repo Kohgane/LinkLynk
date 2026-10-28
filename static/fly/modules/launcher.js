@@ -115,6 +115,10 @@
       if (!cfg || !cfg.id) { console.warn("[swefm] registerButton: id 필요"); return; }
       var exists = buttons.some(function (b) { return b.id === cfg.id; });
       if (exists) return;
+      if (cfg.id === "swefm-settings") { // P24-1028: module settings is a dev tool (?dev=1)
+        var dev = false; try { dev = localStorage.getItem("swef_dev") === "1" || /[?&]fps=1/.test(location.search); } catch (e) {}
+        if (!dev) return;
+      }
       var btn = { id: cfg.id, icon: cfg.icon || "●", label: cfg.label || "", onClick: cfg.onClick || null, el: null, chipEl: null };
       buttons.push(btn);
       renderButton(btn);
