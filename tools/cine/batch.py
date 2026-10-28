@@ -31,9 +31,11 @@ for d in todo:
         shutil.rmtree(frames, ignore_errors=True)
         env = dict(os.environ, RES_W=str(a.res), SKY=os.path.join(ROOT, "static", "fly", "sky", "pano_4k.jpg"))
         run([sys.executable, "-I", os.path.join(HERE, "render_world.py"), s, str(d["h"]), str(d["r"]), str(d["p"]), str(a.fps), str(a.dur), str(a.samples)], env=env)
+    painted = frames + "_p"  # P18b: painterly pass (offline)
+    run([sys.executable, os.path.join(HERE, "paint.py"), frames, painted, "0.6"])
     path = json.load(open(os.path.join(a.work, s, "path.json")))
     mp4 = os.path.join(CINE, s + ".mp4"); jpg = os.path.join(CINE, s + ".jpg")
-    run(["ffmpeg", "-y", "-v", "error", "-framerate", str(a.fps), "-i", os.path.join(frames, "f%04d.png"), "-an",
+    run(["ffmpeg", "-y", "-v", "error", "-framerate", str(a.fps), "-i", os.path.join(painted, "f%04d.png"), "-an",
          "-vf", "scale=720:1280:flags=lanczos," + GRADE_VF, "-c:v", "libx264", "-profile:v", "high", "-pix_fmt", "yuv420p", "-movflags", "+faststart", "-crf", "26", mp4])
     run(["ffmpeg", "-y", "-v", "error", "-i", mp4, "-frames:v", "1", "-q:v", "4", jpg])
     man["clips"][s] = {"mp4": "/fly/v2/cine/" + s + ".mp4", "poster": "/fly/v2/cine/" + s + ".jpg", "dur": a.dur, "fps": a.fps,
