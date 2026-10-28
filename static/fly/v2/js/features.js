@@ -40,10 +40,42 @@
   let roll = 0, turnRate = 0, fovCur = 0, mbBoostSaved = null;
   function isAircraft(veh){ return !!(veh && AIRCRAFT_RE.test(veh.en || "")); }
   function cockpitOn(){ return localStorage.getItem("swef_cockpit") !== "0" && app.state.mode === "free" && isAircraft(app.state.vehicle); }
+  // P19-1028 3D cockpit: a glTF interior (pilot eye at origin, glTF +Z = forward, +Y = up) rides on the camera every frame.
+  // Scaled x8 and therefore 6-11 m ahead so it clears the 1 m near plane; parallax vs the world is nil because it moves with the camera.
+  const COCKPIT_GLB = "/fly/v2/models/cockpit.glb", COCKPIT_SCALE = 8;
+  let cockpit3d = null, cockpit3dState = "idle"; // idle | loading | ready | failed
+  const _cm = { m: new Cesium.Matrix4(), r: new Cesium.Cartesian3(), u: new Cesium.Cartesian3(), d: new Cesium.Cartesian3() };
+  function cockpit3dOn(){ try { return localStorage.getItem("swef_cockpit3d") !== "0"; } catch (_) { return true; } }
+  function ensureCockpit3d(){
+    if (cockpit3dState !== "idle" || !cockpit3dOn()) return;
+    cockpit3dState = "loading";
+    Cesium.Model.fromGltfAsync({ url: COCKPIT_GLB, scale: COCKPIT_SCALE, allowPicking: false, shadows: Cesium.ShadowMode.DISABLED, modelMatrix: Cesium.Matrix4.IDENTITY })
+      .then((m)=>{ cockpit3d = viewerOf().scene.primitives.add(m); m.show = false; cockpit3dState = "ready"; })
+      .catch((e)=>{ cockpit3dState = "failed"; console.warn("[swef-v2] cockpit3d", e); });
+  }
+  function cockpit3dTick(on){
+    if (!cockpit3d) return false;
+    const show = on && cockpit3dOn();
+    if (cockpit3d.show !== show) cockpit3d.show = show;
+    if (!show) return false;
+    const cam = viewerOf().camera;
+    // Cesium re-axes glTF (Y-up, +Z forward) to its own X-forward / Y-left / Z-up model frame, so the
+    // columns are: forward (= camera direction), left (= -right), up, position
+    Cesium.Cartesian3.negate(cam.rightWC, _cm.r); Cesium.Cartesian3.clone(cam.upWC, _cm.u); Cesium.Cartesian3.clone(cam.directionWC, _cm.d);
+    const m = _cm.m;
+    m[0] = _cm.d.x; m[1] = _cm.d.y; m[2] = _cm.d.z; m[3] = 0;
+    m[4] = _cm.r.x; m[5] = _cm.r.y; m[6] = _cm.r.z; m[7] = 0;
+    m[8] = _cm.u.x; m[9] = _cm.u.y; m[10] = _cm.u.z; m[11] = 0;
+    m[12] = cam.positionWC.x; m[13] = cam.positionWC.y; m[14] = cam.positionWC.z; m[15] = 1;
+    cockpit3d.modelMatrix = m;
+    return true;
+  }
   function cockpitTick(dtMs){
     const on = cockpitOn();
     const img = document.getElementById("cockpit"), hud = document.getElementById("hud2"), bb = document.getElementById("btnBoost");
-    if (img) img.classList.toggle("on", on);
+    if (on) ensureCockpit3d();
+    const has3d = cockpit3dTick(on);
+    if (img) img.classList.toggle("on", on && !has3d); // 2D overlay only until the model is up
     if (hud) hud.classList.toggle("on", on);
     if (bb) bb.classList.toggle("on", app.state.mode === "free");
     const cam = viewerOf().camera;
