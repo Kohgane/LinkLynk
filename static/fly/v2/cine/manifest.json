@@ -33,6 +33,17 @@
    "poster": "/fly/v2/cine/grand-canyon.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "iguazu-falls": {
+   "built": "2026-10-29",
+   "bytes": 358026,
+   "dur": 6.0,
+   "endPitch": -24.0,
+   "endRange": 9500,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/iguazu-falls.mp4",
+   "poster": "/fly/v2/cine/iguazu-falls.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "matterhorn": {
    "built": "2026-10-28",
    "bytes": 1116457,
