@@ -55,6 +55,17 @@
    "poster": "/fly/v2/cine/iguazu-falls.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "kirkjufell": {
+   "built": "2026-10-29",
+   "bytes": 596259,
+   "dur": 6.0,
+   "endPitch": -20.0,
+   "endRange": 10500,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/kirkjufell.mp4",
+   "poster": "/fly/v2/cine/kirkjufell.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "matterhorn": {
    "built": "2026-10-28",
    "bytes": 1116457,
