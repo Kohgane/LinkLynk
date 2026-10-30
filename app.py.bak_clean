@@ -1,0 +1,3612 @@
+"""
+LinkLynk — 백엔드 API 서버 (멀티테넌트)
+- 회원가입/로그인 (세션)
+- 유저별 쿠팡 파트너스 키 등록 (암호화 저장)
+- 유저 자기 키로 딥링크 생성
+- 무료/Pro 사용량 제한
+- 링크 히스토리 + 링크인바이오 프로필
+"""
+import os
+import threading
+from functools import wraps
+from flask import Flask, request, jsonify, send_from_directory, session, make_response, Response
+
+from core import CoupangPartners, is_valid_coupang_url, make_blog_draft, COUPANG_DISCLOSURE, unshorten_coupang, is_short_coupang_link, extract_coupang_url, build_naver_html, zernio_publish
+import store
+from spinads_api_v2 import spinads_bp
+from radar_api_v1 import radar_bp
+
+app = Flask(__name__, static_folder=".")
+
+# 부팅 직후 트렌드 레이더 미리 채움 → 첫 요청도 대기 0
+try:
+    from core import warm_radar
+    warm_radar()
+except Exception:
+    pass
+app.register_blueprint(spinads_bp)
+app.register_blueprint(radar_bp)
+from borderrx_v1 import rx_bp
+app.register_blueprint(rx_bp)
+from gottago_v1 import gg_bp
+app.register_blueprint(gg_bp)
+from eats_v1 import ea_bp
+app.register_blueprint(ea_bp)
+from next_v1 import nx_bp
+app.register_blueprint(nx_bp)
+from duty_v1 import dt_bp
+app.register_blueprint(dt_bp)
+from threads_v1 import th_bp
+app.register_blueprint(th_bp)
+from canibring_v1 import cb_bp
+app.register_blueprint(cb_bp)
+app.secret_key = os.environ.get("LINKLYNK_SESSION_SECRET", "dev-secret-change-me")
+from datetime import timedelta
+app.permanent_session_lifetime = timedelta(days=365)  # 로그인 1년 유지 (자동로그인)
+app.config.update(
+    SESSION_COOKIE_SAMESITE="Lax",
+    SESSION_COOKIE_SECURE=True,     # HTTPS(onrender)에서 쿠키 유지
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_REFRESH_EACH_REQUEST=True,  # 매 요청마다 만료 갱신
+)
+
+# 폴백 키 비활성화: 개인 파트너스 키로만 API 호출 (공용 키 과다호출 방지)
+FALLBACK_ACCESS = os.environ.get("COUPANG_PT_ACCESS", "")
+FALLBACK_SECRET = os.environ.get("COUPANG_PT_SECRET", "")
+
+store.init_db()
+try:
+    store.boim_init()
+    store.boim_kit_init()
+except Exception:
+    pass
+
+
+def _auto_image(product_name, info=None):
+    """상품 이미지 자동 확보 (사람 손 안 가게).
+    1) 파트너스 API가 준 이미지 (서버 접근 가능) → 2) 없으면 이미지 검색."""
+    img = (info or {}).get("image")
+    if img:
+        return img
+    if not product_name:
+        return None
+    try:
+        from core import search_images
+        r = search_images(product_name, limit=1)
+        if r.get("ok") and r.get("images"):
+            return r["images"][0]["image"]
+    except Exception:
+        pass
+    return None
+
+
+def _gen_draft(uid, product_name, deeplink, tone, channel, info, provider=None, extra="", quality=False, mode="ad", deeplink2=""):
+    """초안 생성. AI 키 있으면 AI가 직접 작성(사람다움), 없으면 템플릿.
+    mode="ad"   : 기존 — 제휴링크 + 공정위 고지
+    mode="info" : 정보글 — 링크/고지 없음. 계정 품질 유지용(광고글만 쌓이면 저품질 판정)."""
+    if mode == "info":
+        deeplink = ""; deeplink2 = ""
+        extra = (extra + "\n\n※이 글은 제휴링크 없는 순수 정보글이다. "
+                 "상품 구매를 유도하지 말고, 링크·가격·구매처를 일절 넣지 마라. "
+                 "'광고' 고지문구도 넣지 마라. 경험과 정보만 담아라.").strip()
+    if channel == "threads":
+        try:
+            keys = store.get_llm_keys(uid)
+        except Exception:
+            keys = {}
+        akey = None
+        if provider and provider in keys:
+            akey = keys[provider]
+        elif keys:
+            # 선호: gemini > openrouter > anthropic (무료 우선)
+            for p in ("gemini", "groq", "openrouter"):   # 유료(anthropic)는 자동 선택 안 함
+                if p in keys:
+                    akey = keys[p]; break
+            if not akey and "anthropic" in keys and provider == "anthropic":
+                akey = keys["anthropic"]
+        if akey:
+            from core import claude_write_thread
+            price = (info or {}).get("price")
+            # 선택 모델로 시도. 플레이스홀더/실패면 다른 무료 모델로 자동 폴백.
+            tried = []
+            chain = [akey]
+            # 폴백 체인: 선택 모델 → 다른 보유 모델(빠른 순) → llm7(키 없이)
+            for fp in ("cerebras", "groq", "gemini", "github", "openrouter"):
+                if fp in keys and keys[fp] not in chain:
+                    chain.append(keys[fp])
+            chain.append("__free__")   # 최후: 키 없이 되는 무료 AI
+            for k in chain:
+                r = claude_write_thread(k, product_name, deeplink, tone, price, extra=extra, fast=(not quality), deeplink2=deeplink2)
+                tried.append(r.get("provider") or "?")
+                if r.get("ok") and r.get("content"):
+                    # ★플레이스홀더가 최종 결과에 남아있으면 폴백 계속
+                    body = r["content"].split("\n===THREAD===\n")[0].strip()
+                    if body in ("본문 텍스트", "본글") or "{" in body[:3] or len(body) < 6:
+                        continue
+                    return r["content"]
+    return make_blog_draft(product_name, deeplink, tone, channel, info)
+
+
+def login_required(f):
+    @wraps(f)
+    def wrap(*a, **k):
+        if not session.get("uid"):
+            return jsonify({"ok": False, "error": "로그인이 필요합니다", "need_login": True}), 401
+        return f(*a, **k)
+    return wrap
+
+
+def _partners_for(user):
+    """유저 본인 파트너스 키로만 딥링크 생성. 키 없으면 None (자동생성 불가)."""
+    key = store.get_partners_key(user["id"])
+    if key:
+        return CoupangPartners(key["access"], key["secret"]), True
+    return None, False
+
+
+@app.route("/")
+def home():
+    resp = make_response(send_from_directory(".", "index.html"))
+    resp.headers["Cache-Control"] = "no-store, no-cache, must-revalidate, max-age=0, private"
+    resp.headers["Pragma"] = "no-cache"
+    resp.headers["Expires"] = "0"
+    resp.headers["CDN-Cache-Control"] = "no-store"
+    resp.headers["Surrogate-Control"] = "no-store"
+    return resp
+
+@app.route("/app.js")
+def appjs():
+    resp = make_response(send_from_directory(".", "app.js", mimetype="application/javascript"))
+    resp.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
+    return resp
+
+@app.route("/manifest.json")
+def manifest():
+    return send_from_directory(".", "manifest.json", mimetype="application/json")
+
+@app.route("/sw.js")
+def sw():
+    return send_from_directory(".", "sw.js", mimetype="application/javascript")
+
+@app.route("/icon-<path:name>")
+def icon(name):
+    return send_from_directory(".", f"icon-{name}", mimetype="image/png")
+
+@app.route("/specula-<name>.png")
+def _specula_icon(name):
+    return send_from_directory(".", f"specula-{name}.png", mimetype="image/png")
+
+
+@app.route("/specula-manifest.json")
+def _specula_manifest():
+    return send_from_directory(".", "specula-manifest.json",
+                               mimetype="application/manifest+json")
+
+
+@app.route("/apple-touch-icon.png")
+@app.route("/apple-touch-icon-precomposed.png")
+def apple_icon():
+    return send_from_directory(".", "apple-touch-icon.png", mimetype="image/png")
+
+@app.route("/favicon.ico")
+@app.route("/favicon-32.png")
+def favicon():
+    return send_from_directory(".", "favicon-32.png", mimetype="image/png")
+
+@app.route("/api/health")
+def health():
+    return jsonify({"ok": True, "service": "LinkLynk"})
+
+
+@app.route("/api/signup", methods=["POST"])
+def signup():
+    d = request.get_json(force=True, silent=True) or {}
+    email = (d.get("email") or "").strip().lower()
+    pw = d.get("password") or ""
+    handle = (d.get("handle") or "").strip() or None
+    if not email or "@" not in email or len(pw) < 6:
+        return jsonify({"ok": False, "error": "이메일과 6자 이상 비밀번호를 입력하세요"}), 400
+    r = store.create_user(email, pw, handle=handle)
+    if not r["ok"]:
+        return jsonify(r), 409
+    session.permanent = True
+    session["uid"] = r["user_id"]
+    return jsonify({"ok": True, "user_id": r["user_id"]})
+
+@app.route("/api/login", methods=["POST"])
+def login():
+    d = request.get_json(force=True, silent=True) or {}
+    u = store.auth_user((d.get("email") or "").strip().lower(), d.get("password") or "")
+    if not u:
+        return jsonify({"ok": False, "error": "이메일 또는 비밀번호가 올바르지 않습니다"}), 401
+    session.permanent = True
+    session["uid"] = u["id"]
+    return jsonify({"ok": True, "user": {"email": u["email"], "handle": u["handle"], "plan": u["plan"]}})
+
+@app.route("/api/logout", methods=["POST"])
+def logout():
+    session.clear()
+    return jsonify({"ok": True})
+
+
+# ── 소셜 로그인 (구글/카카오/네이버 OAuth) ──
+import urllib.parse as _up, urllib.request as _ur, secrets as _secrets, json, ssl as _ssl_mod
+
+def _oauth_cfg():
+    """환경변수에서 OAuth 설정 읽기."""
+    base = os.environ.get("OAUTH_REDIRECT_BASE", "https://linklynk.onrender.com")
+    return {
+        "google": {
+            "client_id": os.environ.get("GOOGLE_CLIENT_ID", ""),
+            "client_secret": os.environ.get("GOOGLE_CLIENT_SECRET", ""),
+            "auth": "https://accounts.google.com/o/oauth2/v2/auth",
+            "token": "https://oauth2.googleapis.com/token",
+            "userinfo": "https://www.googleapis.com/oauth2/v2/userinfo",
+            "scope": "openid email profile",
+            "redirect": f"{base}/auth/google/callback",
+        },
+        "kakao": {
+            "client_id": os.environ.get("KAKAO_CLIENT_ID", ""),
+            "client_secret": os.environ.get("KAKAO_CLIENT_SECRET", ""),
+            "auth": "https://kauth.kakao.com/oauth/authorize",
+            "token": "https://kauth.kakao.com/oauth/token",
+            "userinfo": "https://kapi.kakao.com/v2/user/me",
+            "scope": "account_email",
+            "redirect": f"{base}/auth/kakao/callback",
+        },
+        "naver": {
+            "client_id": os.environ.get("NAVER_CLIENT_ID", ""),
+            "client_secret": os.environ.get("NAVER_CLIENT_SECRET", ""),
+            "auth": "https://nid.naver.com/oauth2.0/authorize",
+            "token": "https://nid.naver.com/oauth2.0/token",
+            "userinfo": "https://openapi.naver.com/v1/nid/me",
+            "scope": "",
+            "redirect": f"{base}/auth/naver/callback",
+        },
+    }
+
+
+@app.route("/auth/<provider>/login")
+def oauth_login(provider):
+    cfg = _oauth_cfg().get(provider)
+    if not cfg or not cfg["client_id"]:
+        return f"{provider} 로그인이 아직 설정되지 않았어요 (관리자: 환경변수 확인)", 503
+    state = _secrets.token_urlsafe(16)
+    session["oauth_state"] = state
+    session["oauth_provider"] = provider
+    params = {
+        "client_id": cfg["client_id"], "redirect_uri": cfg["redirect"],
+        "response_type": "code", "state": state,
+    }
+    if cfg["scope"]:
+        params["scope"] = cfg["scope"]
+    from flask import redirect
+    return redirect(cfg["auth"] + "?" + _up.urlencode(params))
+
+
+@app.route("/auth/<provider>/callback")
+def oauth_callback(provider):
+    from flask import redirect
+    cfg = _oauth_cfg().get(provider)
+    if not cfg:
+        return "알 수 없는 로그인 제공자", 400
+    if request.args.get("state") != session.get("oauth_state"):
+        return redirect("/?login_error=state")
+    code = request.args.get("code")
+    if not code:
+        return redirect("/?login_error=nocode")
+    try:
+        _ctx = _ssl_mod.create_default_context()
+        # 1) code → access_token
+        tok_data = _up.urlencode({
+            "grant_type": "authorization_code",
+            "client_id": cfg["client_id"], "client_secret": cfg["client_secret"],
+            "redirect_uri": cfg["redirect"], "code": code,
+            "state": request.args.get("state", ""),
+        }).encode()
+        treq = _ur.Request(cfg["token"], data=tok_data,
+                           headers={"Content-Type": "application/x-www-form-urlencoded",
+                                    "Accept": "application/json"}, method="POST")
+        tok = json.loads(_ur.urlopen(treq, timeout=15, context=_ctx).read())
+        access = tok.get("access_token")
+        if not access:
+            return redirect("/?login_error=token")
+        # 2) access_token → 유저 이메일
+        ureq = _ur.Request(cfg["userinfo"], headers={"Authorization": f"Bearer {access}"})
+        uinfo = json.loads(_ur.urlopen(ureq, timeout=15, context=_ctx).read())
+        email, name = _extract_oauth_email(provider, uinfo)
+        if not email:
+            return redirect("/?login_error=noemail")
+        # ★이미 로그인 중이면 → 현재 계정에 이 소셜 이메일을 연결 (계정 통합)
+        if session.get("uid"):
+            store.link_email(session["uid"], email)
+            return redirect("/?linked=1")
+        # 3) 유저 생성/로그인 (연결된 이메일도 확인)
+        u = store.get_or_create_oauth_user(email, provider, display_name=name)
+        if not u:
+            return redirect("/?login_error=create")
+        session.permanent = True
+        session["uid"] = u["id"]
+        return redirect("/")
+    except Exception as e:
+        import traceback; traceback.print_exc()
+        return redirect("/?login_error=" + _up.quote(str(e)[:80]))
+
+
+def _extract_oauth_email(provider, uinfo):
+    """제공자별 응답에서 이메일·이름 추출."""
+    if provider == "google":
+        return uinfo.get("email"), uinfo.get("name")
+    if provider == "kakao":
+        acc = uinfo.get("kakao_account", {})
+        prof = acc.get("profile", {})
+        return acc.get("email"), prof.get("nickname")
+    if provider == "naver":
+        r = uinfo.get("response", {})
+        return r.get("email"), r.get("name") or r.get("nickname")
+    return None, None
+
+
+@app.route("/api/oauth-status")
+def oauth_status():
+    """어떤 소셜 로그인이 설정됐는지 (버튼 표시용)."""
+    cfg = _oauth_cfg()
+    return jsonify({p: bool(c["client_id"]) for p, c in cfg.items()})
+
+@app.route("/api/me")
+@login_required
+def me():
+    u = store.get_user(session["uid"])
+    key = store.get_partners_key(u["id"])
+    usage = store.get_usage(u["id"])
+    sns = store.get_zernio_key(u["id"])
+    llm_keys = store.get_llm_keys(u["id"])
+    return jsonify({"ok": True, "email": u["email"], "handle": u["handle"],
+                    "plan": u["plan"], "has_key": bool(key), "has_sns": bool(sns),
+                    "has_claude": bool(llm_keys), "llm_providers": list(llm_keys.keys()),
+                    "usage": usage, "limits": store.FREE_LIMITS})
+
+
+@app.route("/api/sns-key", methods=["POST"])
+@login_required
+def save_sns_key():
+    d = request.get_json(force=True, silent=True) or {}
+    key = (d.get("key") or "").strip()
+    if not key:
+        return jsonify({"ok": False, "error": "키를 입력하세요"}), 400
+    store.save_zernio_key(session["uid"], key)
+    return jsonify({"ok": True, "message": "SNS 자동 게시가 연결됐어요"})
+
+
+@app.route("/api/media-diag")
+@login_required
+def media_diag():
+    """업로드 실패 원인 즉시 확인용."""
+    import media, urllib.request, json as _j
+    out = {"enabled": media.enabled(), "bucket": media.BUCKET,
+           "url_set": bool(media.SB_URL), "key_len": len(media.SB_KEY or ""),
+           "key_prefix": (media.SB_KEY or "")[:10]}
+    if media.enabled():
+        try:
+            req = urllib.request.Request(
+                media.SB_URL + "/storage/v1/bucket/" + media.BUCKET)
+            req.add_header("Authorization", "Bearer " + media.SB_KEY)
+            req.add_header("apikey", media.SB_KEY)
+            out["bucket_check"] = _j.loads(urllib.request.urlopen(req, timeout=20).read().decode())
+        except Exception as e:
+            d = ""
+            try: d = e.read().decode()[:200]
+            except Exception: d = str(e)[:200]
+            out["bucket_check_error"] = d
+        r = media.upload(session.get("uid"), "diag.png",
+                         b"\x89PNG\r\n\x1a\n" + b"\x00" * 40)
+        out["upload_test"] = r
+    return jsonify(out)
+
+
+@app.route("/api/metrics", methods=["POST"])
+@login_required
+def save_metrics():
+    """조회수·클릭·주문 기록. 스레드/파트너스에서 본 숫자를 넣는다."""
+    d = request.get_json(force=True, silent=True) or {}
+    pid = d.get("post_id")
+    if not pid:
+        return jsonify({"ok": False, "error": "post_id가 필요해요"}), 400
+    ok = store.update_metrics(pid, session["uid"],
+                              views=d.get("views"), clicks=d.get("clicks"),
+                              orders=d.get("orders"), revenue=d.get("revenue"))
+    return jsonify({"ok": bool(ok)})
+
+
+@app.route("/api/perf")
+@login_required
+def get_perf():
+    """골격·화자·모드별 성과 — 뭐가 먹히는지."""
+    rows = store.stats_summary(session["uid"])
+    posts = store.get_posts(session["uid"], status="published")
+    tot = {"n": len(posts),
+           "views": sum((p.get("views") or 0) for p in posts),
+           "clicks": sum((p.get("clicks") or 0) for p in posts),
+           "orders": sum((p.get("orders") or 0) for p in posts),
+           "revenue": sum((p.get("revenue") or 0) for p in posts)}
+    tot["ctr"] = round(tot["clicks"] / tot["views"] * 100, 2) if tot["views"] else 0
+    tot["cvr"] = round(tot["orders"] / tot["clicks"] * 100, 2) if tot["clicks"] else 0
+    # 성과 좋은 순 / 나쁜 순 각 5개
+    ranked = sorted([p for p in posts if (p.get("views") or 0) > 0],
+                    key=lambda p: ((p.get("clicks") or 0) / (p.get("views") or 1)), reverse=True)
+    def _slim(p):
+        v = p.get("views") or 0; c = p.get("clicks") or 0
+        return {"id": p["id"], "product": (p.get("product_name") or "")[:40],
+                "hook": (p.get("content") or "").split("\n")[0][:50],
+                "views": v, "clicks": c, "ctr": round(c / v * 100, 2) if v else 0,
+                "skeleton": p.get("skeleton"), "persona": p.get("persona"),
+                "mode": p.get("post_mode"), "sub_id": p.get("sub_id"),
+                "at": p.get("published_at") or p.get("created_at")}
+    return jsonify({"ok": True, "total": tot, "groups": rows,
+                    "best": [_slim(p) for p in ranked[:5]],
+                    "worst": [_slim(p) for p in ranked[-5:]][::-1]})
+
+
+@app.route("/api/cancel-schedule", methods=["POST"])
+@login_required
+def cancel_schedule():
+    """예약 게시 취소 — Zernio에서 내리고 우리 DB도 임시저장으로 되돌린다."""
+    d = request.get_json(force=True, silent=True) or {}
+    pid = d.get("post_id")
+    if not pid:
+        return jsonify({"ok": False, "error": "post_id가 필요해요"}), 400
+    p = store.get_post(pid)
+    if not p or p["user_id"] != session["uid"]:
+        return jsonify({"ok": False, "error": "글을 찾을 수 없어요"}), 404
+    if p.get("status") != "scheduled":
+        return jsonify({"ok": False, "error": "예약 상태인 글만 취소할 수 있어요"}), 400
+    from core import zernio_cancel
+    key = store.get_zernio_key(session["uid"])
+    zid = p.get("post_id")          # Zernio 게시물 ID (mark_published 때 저장)
+    r = zernio_cancel(key, zid) if zid else {"ok": False, "error": "no_zernio_id"}
+    # Zernio 취소 성공 여부와 무관하게 우리 쪽은 초안으로 되돌린다(중복 발행 방지)
+    try:
+        store.update_post_status(pid, "draft")
+    except Exception:
+        pass
+    if r.get("ok"):
+        return jsonify({"ok": True, "message": "예약이 취소됐어요"})
+    return jsonify({"ok": True, "warn": True,
+                    "message": "우리 쪽 예약은 해제했지만 Zernio에서 확인이 필요해요",
+                    "detail": r.get("error")})
+
+
+@app.route("/api/paste-thread", methods=["POST"])
+@login_required
+def paste_thread():
+    """작성된 글을 붙여넣으면 7분할 스레드 형식으로 정리한다.
+    빈 줄로 나뉜 문단을 블록으로 보고, 링크·고지는 답글5·6으로 재배치."""
+    d = request.get_json(force=True, silent=True) or {}
+    raw = (d.get("text") or "").strip()
+    import re as _re0
+    if not raw:
+        return jsonify({"ok": False, "error": "붙여넣을 글이 없어요"}), 400
+    # ★상품명 한 줄만 붙여넣는 경우가 많다 — 그걸로는 7분할을 만들 수 없다
+    _plain = _re0.sub(r"https?://\S+", "", raw)
+    _plain = _re0.sub(r"[^\n]*수수료를 (받|제공받)습니다[^\n]*", "", _plain).strip()
+    if len(_plain) < 60:
+        return jsonify({"ok": False,
+            "error": "이 칸은 이미 써둔 본문을 넣는 곳이에요. 상품명만 있으면 위의 "
+                     "'상품 이름'과 '제휴 링크'를 채우고 [글 작성하기]를 눌러주세요.",
+            "too_short": True}), 400
+    import re as _re
+    from core import repair_structure, detect_affiliate
+    # 링크 추출 (쿠팡·토스·네이버)
+    links = _re.findall(r"https?://\S+", raw)
+    links = [l.rstrip(".,)") for l in links]
+    seen, uniq = set(), []
+    for l in links:
+        if l not in seen:
+            seen.add(l); uniq.append(l)
+    dl = uniq[0] if uniq else (d.get("fallbackLink") or "").strip()
+    dl2 = uniq[1] if len(uniq) > 1 else ""
+    # 링크·고지 줄 제거 후 문단 분리
+    body = raw
+    for l in uniq:
+        body = body.replace(l, "")
+    # 링크만 있던 줄은 지우되, 링크 앞뒤 문장은 살린다
+    # ★고지문구 줄에 상품명이 같이 붙어 있는 경우가 많다(토스 공유 형식).
+    #  "…제공받습니다. 터치 라이트 아토캡 캡슐세제, 8g" → 상품명만 건져낸다.
+    _m = _re.search(r"수수료를 (?:받|제공받)습니다\.?\s*(.+)", body)
+    if _m:
+        _cand = _m.group(1).strip()
+        if 2 <= len(_cand) <= 80 and not _cand.startswith("#"):
+            d.setdefault("productName", "")
+            if not (d.get("productName") or "").strip():
+                d["productName"] = _cand
+    body = _re.sub(r"[^\n]*수수료를 (받|제공받)습니다[^\n]*", "", body)
+    body = _re.sub(r"[^\n]*쿠팡파트너스[^\n]*", "", body)
+    body = _re.sub(r"\n{3,}", "\n\n", body).strip()
+    # ① 빈 줄 기준 분리
+    blocks = [b.strip() for b in _re.split(r"\n\s*\n", body) if b.strip()]
+    # ② 모바일에서 붙여넣으면 빈 줄이 사라지는 경우가 많다 → 줄 단위로 재분리
+    if len(blocks) < 5:
+        lines = [l.strip() for l in body.split("\n") if l.strip()]
+        if len(lines) >= 5:
+            blocks = lines
+    # ③ 그래도 부족하면 문장 단위로 쪼갠다
+    if len(blocks) < 5:
+        sents = [x.strip() for x in _re.split(r"(?<=[.!?요다요])\s+", body.replace("\n", " ")) if x.strip()]
+        if len(sents) >= 5:
+            # 문장 7개 이하면 그대로, 많으면 균등 묶음
+            if len(sents) <= 7:
+                blocks = sents
+            else:
+                per = -(-len(sents) // 7)
+                blocks = [" ".join(sents[i:i+per]) for i in range(0, len(sents), per)][:7]
+    # 해시태그 줄은 마지막 블록에 붙인다
+    tags = ""
+    if blocks and blocks[-1].lstrip().startswith("#"):
+        tags = blocks.pop()
+    # ★상품명이 비면 본문에서 뽑는다. 글 안에 "베이글" 같은 단어가 있는데 못 잡으면 안 된다.
+    pname = (d.get("productName") or "").strip()
+    if not pname:
+        # 해시태그 우선(#땅콩버터), 없으면 본문 빈출 명사
+        tagw = _re.findall(r"#([가-힣A-Za-z0-9]{2,})", raw)
+        STOP = {"집밥","살림","주방","여름","제철과일","아침식사","건강간식","아이간식",
+                "저녁메뉴","분리수거","보관법","세탁","욕실청소"}
+        cand = [w for w in tagw if w not in STOP]
+        if cand:
+            pname = cand[0]
+        else:
+            from collections import Counter as _C
+            ws = _re.findall(r"[가-힣]{2,10}", body)
+            SKIP = {"그런데","그리고","하지만","때문에","이라고","라고요","더라고요","같아요",
+                    "합니다","했어요","입니다","있어요","없어요","저희는","저는요","그냥","진짜"}
+            c = _C(w for w in ws if w not in SKIP and len(w) >= 2)
+            pname = c.most_common(1)[0][0] if c else ""
+    try:
+        app.logger.warning("[paste] raw=%d chars, lines=%d, links=%d, blocks=%d, pname=%r, first=%r",
+                           len(raw), raw.count("\n")+1, len(uniq), len(blocks), pname,
+                           (blocks[0][:40] if blocks else ""))
+    except Exception:
+        pass
+    posts = repair_structure(blocks, dl, pname, dl2)
+    if tags and posts:
+        posts[-1] = posts[-1].rstrip() + "\n\n" + tags
+    return jsonify({"ok": True, "blocks": len(posts), "productName": pname,
+                    "affiliate": detect_affiliate(dl) if dl else None,
+                    "deeplink": dl, "deeplink2": dl2,
+                    "content": "\n===THREAD===\n".join(posts)})
+
+
+@app.route("/api/upload-image", methods=["POST"])
+@login_required
+def upload_image_api():
+    """직접 찍은 사진 업로드 → 공개 URL. 서버 디스크 미사용(Supabase Storage)."""
+    import media
+    if not media.enabled():
+        return jsonify({"ok": False, "error": "이미지 저장소가 설정되지 않았습니다 (SUPABASE_URL/SERVICE_KEY)"}), 400
+    f = request.files.get("file")
+    if not f:
+        return jsonify({"ok": False, "error": "파일이 없습니다"}), 400
+    data = f.read()
+    r = media.upload(session.get("uid"), f.filename or "photo.jpg", data)
+    return jsonify(r), (200 if r.get("ok") else 400)
+
+
+@app.route("/api/search-images", methods=["POST"])
+@login_required
+def search_images_api():
+    """키워드로 상품 이미지 검색 (쿠팡 크롤 없이 무료)."""
+    d = request.get_json(force=True, silent=True) or {}
+    keyword = (d.get("keyword") or "").strip()
+    if not keyword:
+        return jsonify({"ok": False, "error": "검색어를 입력하세요"}), 400
+    from core import search_images
+    r = search_images(keyword, limit=12)
+    if r.get("ok"):
+        return jsonify({"ok": True, "images": r["images"]})
+    return jsonify({"ok": False, "error": "이미지를 찾지 못했어요", "detail": r.get("error", "")}), 200
+
+
+@app.route("/img-proxy")
+@login_required
+def img_proxy():
+    """쿠팡 이미지 프록시. 이미지 CDN은 서버 접근 가능하므로 우리 서버가 받아서 전달.
+    유저 브라우저에서 CORS 없이 쿠팡 이미지 사용 가능."""
+    import urllib.request as _u, ssl as _s
+    url = request.args.get("u", "")
+    if not url.startswith("http"):
+        return "", 400
+    try:
+        ctx = _s.create_default_context(); ctx.check_hostname=False; ctx.verify_mode=_s.CERT_NONE
+        req = _u.Request(url, headers={"User-Agent": "Mozilla/5.0", "Referer": "https://www.coupang.com/"})
+        with _u.urlopen(req, timeout=15, context=ctx) as r:
+            data = r.read()
+            ct = r.headers.get("Content-Type", "image/jpeg")
+        from flask import Response
+        resp = Response(data, content_type=ct)
+        resp.headers["Cache-Control"] = "public, max-age=86400"
+        return resp
+    except Exception:
+        return "", 502
+
+
+@app.route("/api/coupang-images", methods=["POST"])
+@login_required
+def coupang_images_api():
+    """유저 브라우저(북마클릿)가 쿠팡 상품페이지에서 긁은 상세 이미지 URL들 수신.
+    ★서버가 쿠팡에 접근하는 게 아니라 유저 브라우저가 긁으므로 Akamai 차단 없음."""
+    d = request.get_json(force=True, silent=True) or {}
+    images = d.get("images") or []
+    product_name = (d.get("productName") or "").strip()
+    # 이미지 URL만 필터 (쿠팡 이미지 도메인)
+    valid = [u for u in images if isinstance(u, str) and u.startswith("http")
+             and any(dom in u for dom in ["coupangcdn.com", "coupang.com", "pstatic", "image"])]
+    if not valid:
+        return jsonify({"ok": False, "error": "이미지를 찾지 못했어요"}), 400
+    # 최근 검색결과에 이미지 붙여서 세션에 임시 저장 (초안 생성 시 사용)
+    return jsonify({"ok": True, "count": len(valid), "images": valid[:20],
+                    "product_name": product_name})
+
+
+@app.route("/api/anthropic-key", methods=["POST"])
+@login_required
+def save_anthropic_key_api():
+    d = request.get_json(force=True, silent=True) or {}
+    key = (d.get("key") or "").strip()
+    if not key:
+        return jsonify({"ok": False, "error": "키를 입력하세요"}), 400
+    from core import detect_llm_provider
+    p = detect_llm_provider(key)
+    if p in ("unknown", "llm7"):
+        return jsonify({"ok": False, "error": "키 형식을 인식할 수 없어요. "
+                        "AIza…(Gemini) / gsk_…(Groq) / csk-…(Cerebras) / nvapi-…(NVIDIA) / "
+                        "ghp_…(GitHub) / sk-or-…(OpenRouter) / sk-ant-…(Claude)"}), 400
+    store.save_llm_key(session["uid"], p, key)
+    if p == "anthropic":
+        store.save_anthropic_key(session["uid"], key)   # 하위호환
+    names = {"gemini": "Google Gemini (무료)", "openrouter": "OpenRouter (무료)",
+             "groq": "Groq (무료)", "cerebras": "Cerebras (무료·최고속)",
+             "nvidia": "NVIDIA NIM (무료)", "github": "GitHub Models (무료)",
+             "zai": "Z.AI GLM (무료)", "anthropic": "Claude"}
+    return jsonify({"ok": True, "provider": p,
+                    "message": f"{names.get(p, p)} 연결됐어요"})
+
+
+@app.route("/api/research", methods=["POST"])
+@login_required
+def research_api():
+    """상품 특징 후보 (검색 결과 스니펫)."""
+    d = request.get_json(force=True, silent=True) or {}
+    name = (d.get("productName") or "").strip()
+    if not name:
+        return jsonify({"ok": False, "error": "상품명이 없어요"}), 400
+    from core import naver_research
+    items = naver_research(name, limit=6)
+    return jsonify({"ok": True, "items": items})
+
+
+# ══════════ 보임(BOIM) — AI 검색 노출 진단 (공개) ══════════
+import uuid as _uuid
+
+@app.route("/boim")
+def boim_landing():
+    return app.send_static_file("boim.html")
+
+
+@app.route("/boim/guide")
+def boim_guide():
+    return app.send_static_file("boim_guide.html")
+
+
+@app.route("/robots.txt")
+def _robots():
+    # ★순서가 곧 규칙이다. 순서 매칭 크롤러(first-match)와 구글(longest-match)
+    #   양쪽에서 같은 결과가 나오도록: 민감 경로 차단 → 공개 경로 허용 → 나머지 차단.
+    #   빈 줄은 그룹을 끊으니 규칙 사이에 절대 넣지 않는다.
+    # ★화이트리스트 방식을 버린다. 라우트를 새로 만들 때마다 Allow 를 추가해야 했고,
+    #   빠뜨리면 조용히 차단됐다(/ko 19페이지 실측, 세 번째 재발).
+    #   기본 허용 + 막을 것만 명시로 뒤집으면 이 버그 계열이 사라진다.
+    #   /t/ 는 클릭 추적 리다이렉트다. 크롤러가 따라가면 유입 로그가 오염되므로 막는다.
+    rules = [
+        "User-agent: *",
+        "Disallow: /api/",
+        "Disallow: /t/",
+        "Disallow: /boim/r/",
+        "Disallow: /boim/pay/",
+    ]
+    maps = [
+        "Sitemap: https://linklynk.onrender.com/sitemap.xml",
+        "Sitemap: https://linklynk.onrender.com/sitemap-travel.xml",
+    ]
+    body = "\n".join(rules) + "\n\n" + "\n".join(maps) + "\n"
+    return Response(body, mimetype="text/plain")
+
+
+@app.route("/sitemap.xml")
+def _sitemap():
+    urls = ["https://linklynk.onrender.com/boim",
+            "https://linklynk.onrender.com/boim/guide"]
+    x = ['<?xml version="1.0" encoding="UTF-8"?>',
+         '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+    for u in urls:
+        x.append("<url><loc>%s</loc><changefreq>weekly</changefreq></url>" % u)
+    x.append("</urlset>")
+    return Response("\n".join(x), mimetype="application/xml")
+
+
+@app.route("/boim/r/<scan_id>")
+def boim_report_page(scan_id):
+    return app.send_static_file("boim.html")
+
+
+@app.route("/api/boim/scan", methods=["POST"])
+def boim_scan_start():
+    """공개 진단 시작 — 로그인 불필요. IP당 하루 3회."""
+    d = request.get_json(force=True, silent=True) or {}
+    store_name = (d.get("store") or "").strip()[:40]
+    kws = [k.strip()[:20] for k in (d.get("keywords") or []) if k and k.strip()][:3]
+    if not store_name or not kws:
+        return jsonify({"ok": False, "error": "스토어 이름과 업종 키워드(1개 이상)가 필요해요"}), 400
+    ip = (request.headers.get("X-Forwarded-For", request.remote_addr) or "?").split(",")[0].strip()
+    if store.boim_recent_by_ip(ip, 24) >= 3:
+        return jsonify({"ok": False,
+                        "error": "무료 진단은 하루 3회까지예요. 스토어를 여러 개 운영하시거나 변화를 계속 보시려면 워치(9,900원/30일)에서 주간 재측정과 점수 히스토리를 제공합니다.", "upsell": "watch"}), 429
+
+    scan_id = _uuid.uuid4().hex[:12]
+    store.boim_create(scan_id, store_name, kws, ip)
+
+    def _run():
+        try:
+            import boim as _boim
+            r = _boim.run_scan("__free__", store_name, kws,
+                               aliases=[a.strip() for a in (d.get("aliases") or []) if a.strip()][:3],
+                               store_url=(d.get("url") or "").strip() or None)
+            store.boim_finish(scan_id, result=r)
+        except Exception as e:
+            store.boim_finish(scan_id, error=str(e))
+
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"ok": True, "scan_id": scan_id})
+
+
+@app.route("/boim/pay/success")
+@app.route("/boim/pay/fail")
+def boim_pay_pages():
+    return app.send_static_file("boim.html")
+
+
+@app.route("/boim-manifest.json")
+def boim_manifest():
+    return send_from_directory(".", "boim-manifest.json", mimetype="application/manifest+json")
+
+
+@app.route("/boim-icon-<size>.png")
+def boim_icon(size):
+    return send_from_directory(".", f"boim-icon-{size}.png", mimetype="image/png")
+
+
+@app.route("/api/boim/pay/config")
+def boim_pay_config():
+    """토스 클라이언트 키 — Render 환경변수 TOSS_CLIENT_KEY."""
+    ck = os.environ.get("TOSS_CLIENT_KEY", "").strip()
+    if not ck:
+        return jsonify({"ok": False,
+                        "error": "결제 설정이 아직 안 됐어요 (TOSS_CLIENT_KEY 미설정)"}), 200
+    return jsonify({"ok": True, "client_key": ck})
+
+
+@app.route("/api/boim/pay/confirm", methods=["POST"])
+def boim_pay_confirm():
+    """토스 결제 승인 — 시크릿 키로 서버에서 확정. 금액 검증 필수."""
+    import base64
+    import urllib.request as _ur
+    sk = os.environ.get("TOSS_SECRET_KEY", "").strip()
+    if not sk:
+        return jsonify({"ok": False, "error": "TOSS_SECRET_KEY 미설정"}), 500
+    d = request.get_json(force=True, silent=True) or {}
+    payment_key = (d.get("paymentKey") or "").strip()
+    order_id = (d.get("orderId") or "").strip()
+    amount = int(d.get("amount") or 0)
+    if not payment_key or not order_id or amount <= 0:
+        return jsonify({"ok": False, "error": "결제 정보가 불완전해요"}), 400
+    # ★금액 위조 방지: 우리 가격표와 대조
+    plan = "boost" if order_id.startswith("boim_boost") else            "watch" if order_id.startswith("boim_watch") else None
+    PRICES = {"watch": 9900, "boost": 29900}
+    if not plan or PRICES[plan] != amount:
+        return jsonify({"ok": False, "error": "금액이 상품 가격과 달라요"}), 400
+    # 토스 승인 API
+    auth = base64.b64encode((sk + ":").encode()).decode()
+    body = json.dumps({"paymentKey": payment_key, "orderId": order_id,
+                       "amount": amount}).encode()
+    req = _ur.Request("https://api.tosspayments.com/v1/payments/confirm",
+                      data=body, method="POST",
+                      headers={"Authorization": "Basic " + auth,
+                               "Content-Type": "application/json"})
+    try:
+        raw = _ur.urlopen(req, timeout=15).read().decode()
+        pr = json.loads(raw)
+    except Exception as e:
+        detail = ""
+        try:
+            detail = e.read().decode()[:300]      # HTTPError body
+        except Exception:
+            detail = str(e)[:200]
+        return jsonify({"ok": False, "error": "토스 승인 실패", "detail": detail}), 400
+    if pr.get("status") != "DONE":
+        return jsonify({"ok": False, "error": f"승인 상태: {pr.get('status')}"}), 400
+    # 주문 저장
+    try:
+        store._q("""CREATE TABLE IF NOT EXISTS linklynk_boim_orders (
+            order_id TEXT PRIMARY KEY, payment_key TEXT, plan TEXT,
+            amount INTEGER, status TEXT, scan_id TEXT, created_at BIGINT)""")
+        scan_ref = order_id.split("_")[2] if order_id.count("_") >= 3 else ""
+        store._q("""INSERT INTO linklynk_boim_orders
+                    (order_id, payment_key, plan, amount, status, scan_id, created_at)
+                    VALUES (%s,%s,%s,%s,'paid',%s,%s)
+                    ON CONFLICT (order_id) DO NOTHING""",
+                 (order_id, payment_key, plan, amount, scan_ref,
+                  int(__import__("time").time())))
+    except Exception:
+        pass
+    return jsonify({"ok": True, "plan": plan})
+
+
+@app.route("/boim/kit/<order_id>")
+def boim_kit_page(order_id):
+    return app.send_static_file("boim.html")
+
+
+@app.route("/api/boim/order/<order_id>")
+def boim_order_api(order_id):
+    """주문 확인 — 키트 접근 권한."""
+    o = store.boim_order_get(order_id)
+    if not o or o.get("status") != "paid":
+        return jsonify({"ok": False, "error": "결제 내역을 찾을 수 없어요"}), 404
+    kit = store.boim_kit_get(order_id)
+    return jsonify({"ok": True, "plan": o.get("plan"),
+                    "kit_status": (kit or {}).get("status"),
+                    "kit_request": (kit or {}).get("request")})
+
+
+@app.route("/api/boim/kit/<order_id>", methods=["POST"])
+def boim_kit_start_api(order_id):
+    o = store.boim_order_get(order_id)
+    if not o or o.get("status") != "paid":
+        return jsonify({"ok": False, "error": "결제 내역을 찾을 수 없어요"}), 404
+    if o.get("plan") != "boost":
+        return jsonify({"ok": False, "error": "실행 키트는 부스트 플랜 전용이에요"}), 403
+    d = request.get_json(force=True, silent=True) or {}
+    store_name = (d.get("store") or "").strip()[:40]
+    kws = [k.strip()[:20] for k in (d.get("keywords") or []) if k.strip()][:3]
+    products = [x.strip()[:60] for x in (d.get("products") or []) if x.strip()][:3]
+    if not store_name or not products:
+        return jsonify({"ok": False, "error": "스토어 이름과 상품 1개 이상이 필요해요"}), 400
+    store.boim_kit_start(order_id, {"store": store_name, "keywords": kws,
+                                    "products": products})
+
+    def _run():
+        try:
+            import boim as _boim
+            key = os.environ.get("BOIM_LLM_KEY", "").strip() or "__free__"
+            r = _boim.run_kit(key, store_name, kws or ["쇼핑"], products)
+            if not r.get("ok") and key != "__free__":
+                r = _boim.run_kit("__free__", store_name, kws or ["쇼핑"], products)
+            if r.get("ok"):
+                store.boim_kit_finish(order_id, result=r)
+            else:
+                store.boim_kit_finish(order_id, error=r.get("error"))
+        except Exception as e:
+            store.boim_kit_finish(order_id, error=str(e))
+
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"ok": True})
+
+
+@app.route("/api/boim/kit/<order_id>/result")
+def boim_kit_result_api(order_id):
+    kit = store.boim_kit_get(order_id)
+    if not kit:
+        return jsonify({"ok": False, "error": "아직 생성 요청이 없어요"}), 404
+    return jsonify({"ok": True, **kit})
+
+
+@app.route("/api/boim/teaser", methods=["POST"])
+def boim_teaser_api():
+    """★무료 맛보기 — 진단당 1회. FAQ 3문답 공개 + 7개 잠금."""
+    d = request.get_json(force=True, silent=True) or {}
+    scan_id = (d.get("scan_id") or "").strip()[:20]
+    product = (d.get("product") or "").strip()[:60]
+    if not scan_id or not product:
+        return jsonify({"ok": False, "error": "상품 이름을 넣어주세요"}), 400
+    scan = store.boim_get(scan_id)
+    if not scan or scan.get("status") != "done":
+        return jsonify({"ok": False, "error": "진단을 먼저 완료해주세요"}), 404
+    tid = "teaser_" + scan_id
+    exist = store.boim_kit_get(tid)
+    if exist and exist.get("status") == "done":
+        return jsonify({"ok": True, "teaser": exist.get("result"), "cached": True})
+    if exist and exist.get("status") == "running":
+        return jsonify({"ok": True, "running": True})
+    store.boim_kit_start(tid, {"product": product})
+
+    def _run():
+        try:
+            import boim as _boim
+            key = os.environ.get("BOIM_LLM_KEY", "").strip() or "__free__"
+            t = _boim.build_teaser(key, scan.get("store") or "", product,
+                                   scan.get("keywords") or [])
+            if not t and key != "__free__":
+                t = _boim.build_teaser("__free__", scan.get("store") or "", product,
+                                       scan.get("keywords") or [])
+            if t:
+                store.boim_kit_finish(tid, result=t)
+            else:
+                store.boim_kit_finish(tid, error="생성 실패")
+        except Exception as e:
+            store.boim_kit_finish(tid, error=str(e))
+
+    threading.Thread(target=_run, daemon=True).start()
+    return jsonify({"ok": True, "running": True})
+
+
+@app.route("/api/boim/teaser/<scan_id>")
+def boim_teaser_get(scan_id):
+    k = store.boim_kit_get("teaser_" + scan_id)
+    if not k:
+        return jsonify({"ok": False}), 404
+    return jsonify({"ok": True, "status": k.get("status"),
+                    "teaser": k.get("result"), "error": k.get("error")})
+
+
+@app.route("/api/boim/history")
+def boim_history_api():
+    st = (request.args.get("store") or "").strip()[:40]
+    if not st:
+        return jsonify({"ok": False}), 400
+    return jsonify({"ok": True, "items": store.boim_history(st)})
+
+
+@app.route("/api/boim/llmdiag")
+def boim_llmdiag():
+    """서버 BOIM_LLM_KEY 검진 — 구글 모델 리스트 API로 키 유효성 직접 확인.
+    보안: 크론 키 필요. 키 값은 절대 노출하지 않고 형태 정보만."""
+    ck = os.environ.get("BOIM_CRON_KEY", "").strip()
+    if not ck or request.args.get("key") != ck:
+        return jsonify({"ok": False}), 403
+    import urllib.request as _ur
+    import re as _re
+    raw = os.environ.get("BOIM_LLM_KEY", "")
+    clean = _re.sub(r"[^\x21-\x7E]", "", raw)
+    info = {
+        "len_raw": len(raw), "len_clean": len(clean),
+        "prefix": clean[:6], "suffix_len4": clean[-4:] if len(clean) >= 4 else "",
+        "had_invisible": len(raw) != len(clean),
+    }
+    try:
+        u = f"https://generativelanguage.googleapis.com/v1beta/models?key={clean}&pageSize=3"
+        with _ur.urlopen(u, timeout=12) as r:
+            data = json.loads(r.read().decode())
+        info["google"] = "OK"
+        info["models"] = [m.get("name") for m in data.get("models", [])][:3]
+        # generateContent 페이로드 이등분 탐색 — 어느 필드가 400을 내는가
+        tests = {"bare": {"contents": [{"parts": [{"text": "안녕"}]}]}}
+        gen = {}
+        for name, pl in tests.items():
+            try:
+                gu = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key={clean}"
+                gr = _ur.Request(gu, data=json.dumps(pl).encode(),
+                                 headers={"Content-Type": "application/json"}, method="POST")
+                with _ur.urlopen(gr, timeout=15) as rr:
+                    json.loads(rr.read().decode())
+                gen[name] = "OK"
+            except Exception as ee:
+                b = ""
+                try:
+                    b = ee.read().decode()[:400]
+                except Exception:
+                    b = str(ee)[:100]
+                gen[name] = b
+        info["generate"] = gen
+    except Exception as e:
+        body = ""
+        try:
+            body = e.read().decode()[:400]
+        except Exception:
+            body = str(e)[:200]
+        info["google"] = "FAIL"
+        info["error"] = body
+    return jsonify(info)
+
+
+@app.route("/api/boim/cron/weekly", methods=["POST", "GET"])
+def boim_cron_weekly():
+    """주간 재측정 — 유효 이용권(30일) 스토어 재스캔. Bluehost 크론이 호출.
+    보안: BOIM_CRON_KEY 환경변수와 일치해야 실행."""
+    ck = os.environ.get("BOIM_CRON_KEY", "").strip()
+    if not ck or request.args.get("key") != ck:
+        return jsonify({"ok": False}), 403
+    orders = store.boim_paid_orders_active(30)
+    started = []
+    for o in orders:
+        ref = (o.get("scan_id") or "").strip()
+        # scan_id 앞 8자만 저장돼 있으므로 원본 스캔을 prefix로 찾는다
+        row = store._q("""SELECT * FROM linklynk_boim_scans
+                          WHERE id LIKE %s AND status='done'
+                          ORDER BY created_at ASC LIMIT 1""",
+                       (ref + "%",), fetch="one")
+        if not row:
+            continue
+        try:
+            kws = json.loads(row.get("keywords") or "[]")
+        except Exception:
+            kws = []
+        if not kws:
+            continue
+        import uuid as _u
+        new_id = _u.uuid4().hex[:12]
+        store.boim_create(new_id, row["store"], kws, "cron")
+
+        def _run(nid=new_id, st=row["store"], kk=kws):
+            try:
+                import boim as _boim
+                key = os.environ.get("BOIM_LLM_KEY", "").strip() or "__free__"
+                r = _boim.run_scan(key, st, kk)
+                store.boim_finish(nid, result=r)
+            except Exception as e:
+                store.boim_finish(nid, error=str(e))
+
+        threading.Thread(target=_run, daemon=True).start()
+        started.append({"store": row["store"], "scan_id": new_id})
+    return jsonify({"ok": True, "started": started})
+
+
+# ══════════ 선물레이더 — 앱인토스 미니앱 (공개) ══════════
+_GIFT_IP = {}
+_GIFT_CREDIT = {}          # 공유 리워드 크레딧 {ip: {"n": int, "t": ts}}
+_GIFT_BASE_LIMIT = 3       # 기본 무료 (희소성 = 광고·공유 동기)
+_GIFT_BONUS_LIMIT = 10     # 리워드 광고 1회 시청 = 추천 1회, 하루 10회까지
+_GIFT_VIRAL_DAILY_CAP = 10 # 하루 공유 적립 상한
+
+
+@app.route("/gift")
+def gift_page():
+    return app.send_static_file("gift.html")
+
+
+@app.route("/penaltyradar-og.png")
+def penaltyradar_og():
+    return send_from_directory(".", "penaltyradar-og.png", mimetype="image/png")
+
+
+@app.route("/dwaeji-og.png")
+def dwaeji_og():
+    return send_from_directory(".", "dwaeji-og.png", mimetype="image/png")
+
+
+@app.route("/giftradar-og.png")
+def giftradar_og():
+    return send_from_directory(".", "giftradar-og.png", mimetype="image/png")
+
+
+@app.route("/gov")
+def gov_page():
+    return app.send_static_file("gov.html")
+
+
+@app.route("/api/gov/plan", methods=["POST", "OPTIONS"])
+def gov_plan_api():
+    """과태료레이더 — 행정 기한 계산 (공개, 규칙 기반이라 비용 0)."""
+    if request.method == "OPTIONS":
+        resp = make_response("", 204)
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return resp
+    d = request.get_json(force=True, silent=True) or {}
+    import gov as _gov
+    try:
+        r = _gov.plan(
+            birth_year=d.get("birth_year"),
+            license_type=d.get("license_type"),
+            license_year=d.get("license_year"),
+            car_reg=d.get("car_reg"),
+            last_insp_year=d.get("last_insp_year"),
+            worker=d.get("worker"),
+            passport_exp=d.get("passport_exp"),
+        )
+    except Exception:
+        r = {"ok": False, "error": "계산 오류 — 입력을 확인해주세요"}
+    resp = jsonify(r)
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
+
+_GOV_IP = {}
+
+
+_JIREUM_IP = {}
+
+
+@app.route("/api/jireum/config")
+def jireum_config_api():
+    _ad = os.environ.get("JIREUM_AD_GROUP_ID", "").strip()
+    if len(_ad) < 8:
+        _ad = ""
+    _rw = os.environ.get("JIREUM_REWARD_AD_GROUP_ID", "").strip()
+    if len(_rw) < 8:
+        _rw = ""
+    resp = jsonify({"ok": True, "banner_ad_group_id": _ad, "reward_ad_group_id": _rw})
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
+
+@app.route("/api/lucky/config")
+def lucky_config_api():
+    _rw = os.environ.get("LUCKY_AD_GROUP_ID", "").strip()
+    if len(_rw) < 8:
+        _rw = ""
+    _bn = os.environ.get("LUCKY_BANNER_AD_GROUP_ID", "").strip()
+    if len(_bn) < 8:
+        _bn = ""
+    resp = jsonify({"ok": True, "reward_ad_group_id": _rw, "banner_ad_group_id": _bn})
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
+
+@app.route("/luckyradar-og.png")
+def luckyradar_og():
+    return send_from_directory(".", "luckyradar-og.png", mimetype="image/png")
+
+
+@app.route("/fortuneradar-og.png")
+def fortuneradar_og():
+    return send_from_directory(".", "luckyradar-og.png", mimetype="image/png")
+
+
+@app.route("/api/jireum/search", methods=["POST", "OPTIONS"])
+def jireum_search_api():
+    """'그래도 살래' -> 쿠팡 최저가 후보 (파트너스 수익 링크). IP당 하루 30회."""
+    if request.method == "OPTIONS":
+        resp = make_response("", 204)
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return resp
+    ip = (request.headers.get("X-Forwarded-For", request.remote_addr) or "?").split(",")[0].strip()
+    import time as _t
+    now = int(_t.time())
+    hist = [t for t in _JIREUM_IP.get(ip, []) if now - t < 86400]
+    if len(hist) >= 30:
+        return jsonify({"ok": False, "error": "오늘 조회 한도에 닿았어요"}), 429
+    d = request.get_json(force=True, silent=True) or {}
+    q = (d.get("q") or "").strip()[:50]
+    if not q:
+        return jsonify({"ok": False, "error": "상품명을 알려주세요"}), 400
+    ck = os.environ.get("COUPANG_ACCESS_KEY", "") or os.environ.get("COUPANG_ACCESS", "")
+    cs = os.environ.get("COUPANG_SECRET_KEY", "") or os.environ.get("COUPANG_SECRET", "")
+    items = []
+    if ck and cs:
+        try:
+            from core import CoupangPartners
+            cp = CoupangPartners(ck, cs)
+            found = cp.search_products(q, limit=6) or []
+            seen = set()
+            pids = []
+            for f in found:
+                nm = (f.get("name") or "")[:60]
+                if nm[:12] in seen:
+                    continue
+                seen.add(nm[:12])
+                items.append({"name": nm, "price": f.get("price"),
+                              "image": f.get("image"), "link": f.get("url"),
+                              "_pid": f.get("productId")})
+                if len(items) >= 3:
+                    break
+            # ★정착륙: productId 정식 URL -> 딥링크 변환 (검색URL 오착륙 방지)
+            try:
+                canon = {f"https://www.coupang.com/vp/products/{it['_pid']}": it
+                         for it in items if it.get("_pid")}
+                if canon:
+                    res = cp.make_deeplinks(list(canon.keys()), sub_id="jireum")
+                    links = (res.get("data", [])
+                             if isinstance(res, dict) and res.get("ok") else [])
+                    for l in links:
+                        it = canon.get(l.get("originalUrl"))
+                        if it and l.get("shortenUrl"):
+                            it["link"] = l["shortenUrl"]
+            except Exception:
+                pass
+            for it in items:
+                it.pop("_pid", None)
+        except Exception:
+            pass
+    hist.append(now); _JIREUM_IP[ip] = hist
+    resp = jsonify({"ok": True, "items": items})
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
+
+@app.route("/jireumradar-og.png")
+def jireumradar_og():
+    return send_from_directory(".", "jireumradar-og.png", mimetype="image/png")
+
+
+@app.route("/aiknows")
+def aiknows_page():
+    return app.send_static_file("aiknows.html")
+
+
+@app.route("/api/aiknows", methods=["POST", "OPTIONS"])
+def aiknows_api():
+    """토스 미니앱 — 가게 이름 하나로 AI가 아는지 확인. 유입용, 무료."""
+    if request.method == "OPTIONS":
+        return ("", 204)
+    d = request.get_json(force=True, silent=True) or {}
+    name = (d.get("name") or "").strip()[:40]
+    if len(name) < 2:
+        return jsonify({"ok": False, "error": "가게 이름을 2자 이상 넣어주세요"}), 400
+    import boim as _b
+    _chat = _b.llm_chat
+    # ★교차검증: 같은 질문을 3번 던져 답이 갈리면 지어낸 것으로 본다.
+    #  무료 모델은 모르는 이름에도 그럴듯한 설명을 만들어내는데,
+    #  그 설명은 매번 달라진다. 아는 이름은 핵심어가 반복된다.
+    _sys = "너는 한국 소비자의 질문에 답하는 AI다. 아는 것은 답하고 모르는 것은 모른다고 한다."
+    _probe = (f"{name}은(는) 어떤 곳인가요? 한 문장으로만 답해주세요.\n"
+              "들어본 적 없는 이름이면 '모릅니다'라고만 쓰세요.")
+    # ★2회 병렬 — 순차 3회는 gunicorn timeout(60s)에 걸린다
+    import concurrent.futures as _cf
+    _outs = []
+    def _one(_):
+        try:
+            _r = _chat("__free__", _sys, _probe, max_tokens=160)
+            return _b.scrub_garbled(_r["text"]).strip() if (_r.get("ok") and _r.get("text")) else None
+        except Exception:
+            return None
+    with _cf.ThreadPoolExecutor(max_workers=2) as _ex:
+        for _v in _ex.map(_one, range(2)):
+            if _v: _outs.append(_v)
+    if not _outs:
+        return jsonify({"ok": False, "error": "지금은 AI 응답을 받지 못했어요"}), 503
+    def _is_unknown(o):
+        h = o.replace(" ", "")[:40]
+        return any(k in h for k in ("모릅니다", "모르겠", "알수없", "정보가없",
+                                    "확인되지", "찾을수없", "죄송"))
+    _knows = [o for o in _outs if not _is_unknown(o) and len(o) > 15]
+    # 2번 중 2번 다 '압니다'여야 아는 것으로 인정
+    if len(_knows) < 2:
+        return jsonify({"ok": True, "level": "unknown",
+            "summary": "AI에게 이 이름은 아직 낯설어요. 참고할 글이 거의 없다는 뜻이에요.",
+            "query": _probe.split("\n")[0],
+            "answer": "모릅니다",
+            "consistency": "%d/2" % len(_knows)}), 200
+    # 핵심어 일치도 — 답이 서로 다르면 지어낸 것
+    import re as _re2
+    _words = [set(_re2.findall(r"[가-힣]{2,}", o)) for o in _knows]
+    _common = set.intersection(*_words) if len(_words) > 1 else _words[0]
+    _common = {w for w in _common if w not in ("압니다", "입니다", "하는", "곳입니다", "이름", "브랜드", "가게")}
+    if len(_common) < 2:
+        return jsonify({"ok": True, "level": "vague",
+            "summary": "AI가 답할 때마다 설명이 달라져요. 확실히 아는 게 아니라는 뜻이에요.",
+            "query": _probe.split("\n")[0],
+            "answer": "\n\n".join("· " + o.strip(" :.-") for o in _knows[:2]),
+            "consistency": "%d/2" % len(_knows)}), 200
+    _best = max(_knows, key=len).strip(" \n:.-")
+    return jsonify({"ok": True, "level": "known",
+        "summary": "여러 번 물어도 같게 답했어요. AI가 실제로 알고 있다는 뜻이에요.",
+        "query": _probe.split("\n")[0],
+        "answer": _best[:500],
+        "consistency": "%d/2" % len(_knows)}), 200
+
+
+@app.route("/api/gov/config")
+def gov_config_api():
+    """과태료레이더 런타임 설정 — 배너 광고 그룹 ID (재빌드 없이 on/off)."""
+    _ad = _ait_ad("PENALTY_AD_GROUP_ID", "PENALTY_AD_MODE", test_id="ait-ad-test-banner-id")
+    if len(_ad) < 8:
+        _ad = ""
+    resp = jsonify({"ok": True, "banner_ad_group_id": _ad})
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
+
+@app.route("/api/gov/prep", methods=["POST", "OPTIONS"])
+def gov_prep_api():
+    """관공서 업무 준비물 안내 — 과태료레이더 미니앱용. IP당 하루 20회."""
+    if request.method == "OPTIONS":
+        resp = make_response("", 204)
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return resp
+    ip = (request.headers.get("X-Forwarded-For", request.remote_addr) or "?").split(",")[0].strip()
+    import time as _t
+    now = int(_t.time())
+    hist = [t for t in _GOV_IP.get(ip, []) if now - t < 86400]
+    if len(hist) >= 20:
+        return jsonify({"ok": False, "error": "오늘 조회 한도에 닿았어요"}), 429
+    d = request.get_json(force=True, silent=True) or {}
+    task = (d.get("task") or "").strip()[:60]
+    if not task:
+        return jsonify({"ok": False, "error": "업무를 알려주세요"}), 400
+    from core import llm_chat, _parse_json_out, scrub_garbled
+    sysp = (
+        "너는 한국 행정 업무 안내 도우미다. 2026년 기준으로 답하되, 제도·수수료는 바뀔 수 "
+        "있으니 보수적으로. 확실하지 않으면 '관할 기관 확인'이라고 써라.\n"
+        "출력 JSON: {\"online\":\"온라인 처리 가능 여부와 사이트(정부24 등)\","
+        "\"docs\":[\"준비물 목록\"],\"fee\":\"수수료\",\"time\":\"소요시간\","
+        "\"tip\":\"헛걸음 방지 팁 한 줄\"}"
+    )
+    key = os.environ.get("BOIM_LLM_KEY", "").strip() or "__free__"
+    r = llm_chat(key, sysp, f"업무: {task}", max_tokens=700)
+    if not r.get("ok") and key != "__free__":
+        r = llm_chat("__free__", sysp, f"업무: {task}", max_tokens=700)
+    if not r.get("ok"):
+        return jsonify({"ok": False, "error": "안내 생성 실패"})
+    try:
+        out = _parse_json_out(r["text"])
+    except Exception:
+        return jsonify({"ok": False, "error": "형식 오류"})
+    hist.append(now); _GOV_IP[ip] = hist
+    resp = jsonify({"ok": True,
+                    "online": scrub_garbled(str(out.get("online") or ""))[:120],
+                    "docs": [scrub_garbled(str(x))[:60] for x in (out.get("docs") or [])[:8]],
+                    "fee": scrub_garbled(str(out.get("fee") or ""))[:60],
+                    "time": scrub_garbled(str(out.get("time") or ""))[:60],
+                    "tip": scrub_garbled(str(out.get("tip") or ""))[:120]})
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
+
+_PENQ_IP = {}
+
+
+@app.route("/api/penalty/ask", methods=["POST", "OPTIONS"])
+def penalty_ask_api():
+    """과태료레이더 — AI 과태료 상담. 자연어 질문 → 금액·기한·감경 팁. IP당 하루 10회."""
+    if request.method == "OPTIONS":
+        resp = make_response("", 204)
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return resp
+    ip = (request.headers.get("X-Forwarded-For", request.remote_addr) or "?").split(",")[0].strip()
+    import time as _t
+    now = int(_t.time())
+    hist = [t for t in _PENQ_IP.get(ip, []) if now - t < 86400]
+    if len(hist) >= 10:
+        return jsonify({"ok": False, "error": "오늘 상담 한도에 닿았어요 — 내일 다시!"}), 429
+    d = request.get_json(force=True, silent=True) or {}
+    q = (d.get("q") or "").strip()[:200]
+    if len(q) < 4:
+        return jsonify({"ok": False, "error": "궁금한 상황을 조금만 더 적어주세요"}), 400
+    from core import llm_chat, _parse_json_out, scrub_garbled
+    sysp = (
+        "너는 한국 과태료·범칙금 안내 도우미다. 2026년 기준으로 답하되 금액·제도는 바뀔 수 "
+        "있으니 보수적으로, 확실하지 않으면 범위로 쓰고 '관할 기관 확인 필요'를 명시하라. "
+        "법률 자문이 아님을 전제로 실무 정보만.\n"
+        "출력 JSON: {\"answer\":\"핵심 답 두 문장 이내\",\"amount\":\"예상 금액 또는 범위\","
+        "\"deadline\":\"납부·이의신청 기한\",\"reduce\":\"감경 방법(자진납부 20% 등, 해당 없으면 '해당 없음')\","
+        "\"caution\":\"미납 시 불이익 한 줄\"}"
+    )
+    key = os.environ.get("BOIM_LLM_KEY", "").strip() or "__free__"
+    r = llm_chat(key, sysp, "질문: " + q, max_tokens=700)
+    if not r.get("ok") and key != "__free__":
+        r = llm_chat("__free__", sysp, "질문: " + q, max_tokens=700)
+    if not r.get("ok"):
+        return jsonify({"ok": False, "error": "상담 생성 실패 — 잠시 뒤 다시"})
+    try:
+        out = _parse_json_out(r["text"])
+    except Exception:
+        return jsonify({"ok": False, "error": "형식 오류 — 다시 물어봐주세요"})
+    hist.append(now); _PENQ_IP[ip] = hist
+    resp = jsonify({"ok": True,
+                    "answer": scrub_garbled(str(out.get("answer") or ""))[:240],
+                    "amount": scrub_garbled(str(out.get("amount") or ""))[:80],
+                    "deadline": scrub_garbled(str(out.get("deadline") or ""))[:100],
+                    "reduce": scrub_garbled(str(out.get("reduce") or ""))[:120],
+                    "caution": scrub_garbled(str(out.get("caution") or ""))[:120],
+                    "left": 10 - len(hist)})
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
+
+_PIG_IP = {}
+_PIG_LAST = {}
+
+
+@app.route("/dwaeji")
+@app.route("/dwaeji/")
+def dwaeji_page():
+    from flask import send_from_directory
+    return send_from_directory("static/dwaeji", "index.html")
+
+
+@app.route("/dwaeji/<path:fn>")
+def dwaeji_asset(fn):
+    from flask import send_from_directory
+    return send_from_directory("static/dwaeji", fn)
+
+
+_PIG_GEO_CACHE = {}
+
+
+def _pig_geocode(q):
+    """Nominatim 지오코딩 (공유 생성 시 1회, 실패 시 None)."""
+    if q in _PIG_GEO_CACHE:
+        return _PIG_GEO_CACHE[q]
+    import urllib.request as _u, urllib.parse as _p, json as _j
+    try:
+        req = _u.Request("https://nominatim.openstreetmap.org/search?format=json&limit=1&countrycodes=kr&q=" + _p.quote(q),
+                         headers={"User-Agent": "dwaeji-radar/1.0 (ciuga7134@gmail.com)"})
+        rows = _j.loads(_u.urlopen(req, timeout=6).read() or b"[]")
+        out = (float(rows[0]["lat"]), float(rows[0]["lon"])) if rows else None
+    except Exception:
+        out = None
+    _PIG_GEO_CACHE[q] = out
+    return out
+
+
+@app.route("/api/dwaeji/share", methods=["POST", "OPTIONS"])
+def dwaeji_share_api():
+    """탐지 결과 → 인프맵식 공유 지도 페이지 생성."""
+    if request.method == "OPTIONS":
+        resp = make_response("", 204)
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return resp
+    d = request.get_json(force=True, silent=True) or {}
+    region = (d.get("region") or "").strip()[:40]
+    food = (d.get("food") or "").strip()[:30]
+    picks = d.get("picks") or []
+    if not region or not isinstance(picks, list) or not (1 <= len(picks) <= 6):
+        return jsonify({"ok": False, "error": "잘못된 요청"}), 400
+    import time as _t, secrets as _s, json as _j, urllib.request as _u
+    clean = []
+    center = _pig_geocode(region)
+    for p in picks[:6]:
+        name = str(p.get("name") or "")[:40]
+        item = {"name": name, "area": str(p.get("area") or "")[:50],
+                "dish": str(p.get("dish") or "")[:70], "why": str(p.get("why") or "")[:160],
+                "cons": str(p.get("cons") or "")[:80], "diary": str(p.get("diary") or "")[:90],
+                "tip": str(p.get("tip") or "")[:80], "q": str(p.get("q") or "")[:60]}
+        g = _pig_geocode((region.split()[0] + " " + name).strip()) if name else None
+        if g: item["lat"], item["lng"] = g
+        clean.append(item)
+        _t.sleep(1.05)  # Nominatim 1req/s 정책
+    sid = _s.token_urlsafe(6)[:8]
+    body = _j.dumps({"id": sid, "data": {"region": region, "food": food, "picks": clean,
+                                          "center": center and {"lat": center[0], "lng": center[1]}}}).encode()
+    try:
+        req = _sky_pg("POST", "pig_maps")
+        req.add_header("Content-Type", "application/json")
+        req.add_header("Prefer", "return=minimal")
+        _u.urlopen(req, data=body, timeout=8)
+    except Exception:
+        return jsonify({"ok": False, "error": "저장 실패 — 잠시 뒤 다시"})
+    resp = jsonify({"ok": True, "id": sid, "url": "https://linklynk.onrender.com/dwaeji/m/" + sid})
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
+
+@app.route("/dwaeji/m/<sid>")
+def dwaeji_map_page(sid):
+    """공유 지도 페이지 — 인프맵 스타일 (지도 + 식사일기 카드 + CTA)."""
+    import json as _j, urllib.request as _u, html as _h
+    try:
+        rows = _j.loads(_u.urlopen(_sky_pg("GET", "pig_maps?id=eq.%s&select=data&limit=1" % sid), timeout=8).read() or b"[]")
+    except Exception:
+        rows = []
+    if not rows:
+        return "<h3 style='font-family:sans-serif;padding:40px'>🐷 지도를 찾을 수 없어요</h3>", 404
+    d = rows[0]["data"]
+    region, food, picks = d.get("region", ""), d.get("food", ""), d.get("picks", [])
+    center = d.get("center") or {}
+    title = _h.escape("돼지레이다 — %s %s 킁킁 %d선" % (region, food or "찐맛집", len(picks)))
+    pins = [p for p in picks if p.get("lat")]
+    cards = []
+    for i, p in enumerate(picks, 1):
+        import urllib.parse as _p
+        q = _p.quote(p.get("q") or (region + " " + p["name"]))
+        cards.append("""<div class=pk><span class=no>%d</span><h3>%s</h3><div class=ar>📍 %s</div>
+<div class=di>🍽 %s</div><div class=wh>%s</div>%s%s<div class=tp>💡 %s</div>
+<div class=mp><a href="https://map.naver.com/p/search/%s" target=_blank>네이버지도</a>
+<a class=kk href="https://map.kakao.com/?q=%s" target=_blank>카카오맵</a></div></div>""" % (
+            i, _h.escape(p["name"]), _h.escape(p["area"]), _h.escape(p["dish"]), _h.escape(p["why"]),
+            ('<div class=dy>"%s"</div>' % _h.escape(p["diary"])) if p.get("diary") else "",
+            ('<div class=cn>😥 %s</div>' % _h.escape(p["cons"])) if p.get("cons") and p["cons"] != "딱히 없음" else "",
+            _h.escape(p["tip"]), q, q))
+    pin_js = _j.dumps([{"n": i + 1, "name": p["name"], "lat": p["lat"], "lng": p["lng"]}
+                       for i, p in enumerate(picks) if p.get("lat")])
+    ctr = _j.dumps(center if center else ({"lat": pins[0]["lat"], "lng": pins[0]["lng"]} if pins else {"lat": 37.5665, "lng": 126.978}))
+    page = """<!DOCTYPE html><html lang=ko><head><meta charset=utf-8>
+<meta name=viewport content="width=device-width,initial-scale=1">
+<title>%(t)s</title>
+<meta property=og:title content="%(t)s">
+<meta property=og:description content="프랜차이즈 아님, 진짜 맛 기준 — 주문 공식과 솔직한 단점까지.">
+<meta property=og:image content="https://linklynk.onrender.com/dwaeji-og.png">
+<link rel=stylesheet href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<style>:root{--bg:#1a1214;--card:#241a1d;--pink:#ff8fa3;--deep:#e05572;--cream:#fff3ec;--sub:#a08a86;--line:#3a2c30}
+*{margin:0;padding:0;box-sizing:border-box}body{background:var(--bg);color:var(--cream);font-family:'Noto Sans KR',sans-serif}
+#w{max-width:560px;margin:0 auto;padding:20px 16px 60px}h1{font-size:21px;text-align:center}
+.sub{font-size:12px;color:var(--sub);text-align:center;margin:6px 0 14px}
+#map{height:300px;border-radius:16px;border:1.5px solid var(--line);margin-bottom:16px}
+.pk{background:var(--card);border:1.5px solid var(--line);border-radius:16px;padding:16px;margin-bottom:12px;position:relative}
+.no{position:absolute;top:-9px;left:14px;background:var(--deep);color:#fff;font-size:11px;font-weight:900;padding:3px 10px;border-radius:10px}
+.pk h3{font-size:17px;margin:4px 0 2px}.ar{font-size:12px;color:var(--sub)}
+.di{display:inline-block;background:#160f11;border:1px solid var(--line);color:var(--pink);font-size:12px;font-weight:700;padding:4px 10px;border-radius:8px;margin:8px 0 6px}
+.wh{font-size:13px;line-height:1.6;color:#e8d8d2}
+.dy{font-size:13px;color:#f5c6b8;font-style:italic;margin-top:8px;padding:8px 10px;background:#1c1316;border-left:3px solid var(--pink);border-radius:0 8px 8px 0}
+.cn{font-size:12px;color:#c9a086;margin-top:6px}.tp{font-size:12px;color:var(--sub);margin-top:5px}
+.mp{display:flex;gap:8px;margin-top:10px}.mp a{flex:1;text-align:center;text-decoration:none;font-size:12.5px;font-weight:700;padding:9px;border-radius:9px;background:#160f11;border:1.5px solid #2c5a3f;color:#7ee2a8}
+.mp a.kk{border-color:#5a4c1e;color:#f5d97a}
+.cta{display:block;text-align:center;background:linear-gradient(#ff8fa3,#e05572);color:#fff;text-decoration:none;font-weight:900;font-size:16px;padding:15px;border-radius:14px;margin-top:18px;box-shadow:0 4px 0 #a03a52}
+.ft{font-size:11px;color:#7a6a66;text-align:center;margin-top:12px;line-height:1.7}</style></head><body><div id=w>
+<h1>🐷 %(t)s</h1><div class=sub>돼지레이다가 킁킁한 지도 — 방문 전 영업 여부 확인!</div>
+%(map)s
+%(cards)s
+<a class=cta href="/dwaeji">🐽 나도 킁킁하기 — 무료 맛집 탐지</a>
+<div class=ft>AI 추천 기반 · 폐업/이전 가능 · linklynk.onrender.com/dwaeji</div></div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script>var P=%(pins)s,C=%(ctr)s;
+if(document.getElementById('map')){var m=L.map('map').setView([C.lat,C.lng],13);
+L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OSM'}).addTo(m);
+var g=[];P.forEach(function(p){var mk=L.marker([p.lat,p.lng]).addTo(m).bindPopup('<b>'+p.n+'. '+p.name+'</b>');g.push(mk)});
+if(g.length>1){m.fitBounds(L.featureGroup(g).getBounds().pad(0.25))}}
+</script></body></html>""" % {"t": title, "cards": "".join(cards), "pins": pin_js, "ctr": ctr,
+                              "map": ('<div id=map></div>' if pins else '')}
+    resp = make_response(page)
+    resp.headers["Content-Type"] = "text/html; charset=utf-8"
+    return resp
+
+
+@app.route("/api/dwaeji/config")
+def dwaeji_config_api():
+    """돼지레이다 런타임 설정 — 광고그룹ID(재배포 없이 on/off) + 무광고 횟수."""
+    resp = jsonify({"ok": True,
+                    "ad_group_id": os.environ.get("DWAEJI_AD_GROUP_ID", "").strip(),  # (구) 전면 겸용
+                    "banner_id": os.environ.get("DWAEJI_AD_BANNER_ID", "ait.v2.live.9beda965c07b4a2d").strip(),
+                    "fs_id": os.environ.get("DWAEJI_AD_FS_ID", "").strip(),
+                    "free_uses": int(os.environ.get("DWAEJI_AD_FREE_USES", "2"))})
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
+
+@app.route("/api/dwaeji/reco", methods=["POST", "OPTIONS"])
+def dwaeji_reco_api():
+    """돼지레이다 — 로컬 찐맛집 추천. 프랜차이즈·관광 호객집 배제. IP당 하루 10회."""
+    if request.method == "OPTIONS":
+        resp = make_response("", 204)
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return resp
+    ip = (request.headers.get("X-Forwarded-For", request.remote_addr) or "?").split(",")[0].strip()
+    import time as _t
+    now = int(_t.time())
+    if now - _PIG_LAST.get(ip, 0) < 5:
+        r0 = jsonify({"ok": False, "error": "숨 고르는 중 — 5초 뒤 다시"})
+        r0.headers["Access-Control-Allow-Origin"] = "*"
+        return r0, 429
+    _PIG_LAST[ip] = now
+    hist = [t for t in _PIG_IP.get(ip, []) if now - t < 86400]
+    if len(hist) >= 10:
+        return jsonify({"ok": False, "error": "오늘 추천 한도에 닿았어요 — 내일 또 킁킁!"}), 429
+    d = request.get_json(force=True, silent=True) or {}
+    region = (d.get("region") or "").strip()[:40]
+    food = (d.get("food") or "").strip()[:30]
+    mood = (d.get("mood") or "").strip()[:40]
+    party = (d.get("party") or "").strip()[:20]
+    if len(region) < 2:
+        return jsonify({"ok": False, "error": "지역을 알려주세요 (예: 부산 남포동)"}), 400
+    from core import llm_chat, _parse_json_out, scrub_garbled
+    sysp = (
+        "너는 전국 맛집을 발로 뛰어 아는 한국 미식 큐레이터 '돼지레이다'다. "
+        "먹는 것, 그것은 삶의 행복 — 이 마음으로 추천한다.\n"
+        "★배제 기준은 '체인이냐'가 아니라 '맛이냐'다. 프랜차이즈·백화점 식당가도 "
+        "요리하는 사람 따라 맛이 다르니 배제하지 마라 — 단, 추천한다면 '어느 지점이 "
+        "왜 다른지'까지 짚어라(예: 'OO 본점만 직화, 지점은 철판'). 걸러야 할 건 "
+        "광고·바이럴로만 부풀려진 집과 뜨내기 호객집뿐이다.\n"
+        "★해상도가 생명 — 뭉뚱그리지 말고 세세히·촘촘히: 메뉴는 '뭘 어떻게 시켜야 "
+        "하는지'(곱빼기/토렴/소금 먼저 같은 디테일), 맛은 '왜 맛있는지'(육수 내는 법, "
+        "직접 뽑는 면, 숙성 일수, 불맛)까지.\n"
+        "★솔직함이 신뢰다 — 식사일기처럼 써라: 단점을 숨기지 마라(협소한 공간, 웨이팅, "
+        "불친절, 현금만, 주차 지옥). 장점만 나열하는 광고 문체 금지.\n"
+        "★정직성: 실존을 확신하는 가게만 이름을 대라. 확신이 약하면 name에 "
+        "'(방문 전 확인)'을 붙이거나 실존하는 '류'로 안내(예: '부평깡통시장 유부주머니 "
+        "골목'). 없는 가게를 지어내느니 4곳만 내라.\n"
+        "출력 JSON: {\"picks\":[{\"name\":\"상호(지점까지)\",\"area\":\"동네·랜드마크 기준 위치\","
+        "\"dish\":\"주문 공식 — 메뉴+방법(예: 수육백반에 막국수 반반, 새우젓 먼저)\","
+        "\"why\":\"맛의 근거 한두 문장 — 조리·재료·식감 디테일\","
+        "\"cons\":\"솔직한 단점 한 줄(없으면 '딱히 없음')\","
+        "\"diary\":\"식사일기풍 한 줄 감상(예: '국물 한 술에 어깨가 풀렸다. 재방문 100번.')\","
+        "\"tip\":\"타이밍·웨이팅 회피 팁 한 줄\",\"q\":\"네이버지도 검색어(지역+상호)\"}x5]}"
+    )
+    user = (f"지역: {region}\n음식 종류: {food or '무엇이든 — 그 동네 최고 시그니처로'}\n"
+            f"분위기·상황: {mood or '상관없음'}\n인원·예산: {party or '보통'}\n"
+            "위 조건으로 로컬 찐맛집 5곳.")
+    key = os.environ.get("BOIM_LLM_KEY", "").strip() or "__free__"
+    r = llm_chat(key, sysp, user, max_tokens=1200)
+    if not r.get("ok") and key != "__free__":
+        r = llm_chat("__free__", sysp, user, max_tokens=1200)
+    if not r.get("ok"):
+        return jsonify({"ok": False, "error": "레이다가 지금 붐벼요 — 잠시 뒤 다시"})
+    try:
+        picks = _parse_json_out(r["text"]).get("picks", [])[:5]
+    except Exception:
+        return jsonify({"ok": False, "error": "형식 오류 — 다시 눌러주세요"})
+    if not picks:
+        return jsonify({"ok": False, "error": "이 조건엔 확신 있는 집이 없대요 — 지역을 넓혀보세요"})
+    out = []
+    for p in picks:
+        out.append({"name": scrub_garbled(str(p.get("name") or ""))[:40],
+                    "area": scrub_garbled(str(p.get("area") or ""))[:50],
+                    "dish": scrub_garbled(str(p.get("dish") or ""))[:70],
+                    "why": scrub_garbled(str(p.get("why") or ""))[:160],
+                    "cons": scrub_garbled(str(p.get("cons") or ""))[:80],
+                    "diary": scrub_garbled(str(p.get("diary") or ""))[:90],
+                    "tip": scrub_garbled(str(p.get("tip") or ""))[:80],
+                    "q": scrub_garbled(str(p.get("q") or ""))[:60]})
+    hist.append(now); _PIG_IP[ip] = hist
+    resp = jsonify({"ok": True, "picks": out, "left": 10 - len(hist)})
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
+
+@app.route("/api/gift/config")
+def gift_config_api():
+    """미니앱 런타임 설정 — 광고 그룹 ID(콘솔 발급 후 Render 환경변수로).
+    재빌드 없이 광고 on/off 가능."""
+    _ad = os.environ.get("GIFT_AD_GROUP_ID", "").strip()
+    if len(_ad) < 8:
+        _ad = ""            # 'ㅇㅇ' 같은 자리표시 방어 — 진짜 ID만 통과
+    resp = jsonify({"ok": True,
+                    "ad_group_id": _ad,
+                    "viral_module_id": os.environ.get("GIFT_VIRAL_MODULE_ID", "").strip(),
+                    "daily_limit": _GIFT_BASE_LIMIT,
+                    "bonus_limit": _GIFT_BONUS_LIMIT,
+                    # ★v8 질문 위저드 정의 — 클라는 이 스펙을 렌더만 한다 (재배포 없이 질문 교체 가능)
+                    "questions": [
+                        {"id": "rel", "step": "받는 분", "t": "누구에게 주나요?", "type": "single",
+                         "opts": ["부모님", "연인", "친구", "직장 동료·상사", "형제·자매", "아이·조카", "선생님·은사", "나 자신"]},
+                        {"id": "a", "step": "받는 분", "t": "나이대", "type": "single",
+                         "opts": ["10", "20", "30", "40", "50", "60", ""],
+                         "labels": ["10대", "20대", "30대", "40대", "50대", "60대+", "모름"]},
+                        {"id": "g", "step": "받는 분", "t": "성별", "type": "single",
+                         "opts": ["여", "남", ""], "labels": ["여성", "남성", "상관없음"]},
+                        {"id": "close", "step": "받는 분", "t": "얼마나 가까운 사이?", "type": "single",
+                         "opts": ["아주 가까움", "편한 사이", "예의 갖출 사이", "잘 모르는 사이"]},
+                        {"id": "occ", "step": "상황", "t": "어떤 자리인가요?", "type": "single",
+                         "opts": ["생일", "기념일", "집들이", "감사 인사", "승진·취업", "결혼·출산", "명절", "그냥, 문득"]},
+                        {"id": "budget", "step": "상황", "t": "예산", "type": "single",
+                         "opts": ["1만원 이하", "1~3만원", "3~5만원", "5~10만원", "10~20만원", "20만원 이상"]},
+                        {"id": "when", "step": "상황", "t": "언제 필요한가요?", "type": "single",
+                         "opts": ["오늘·내일", "이번 주", "여유 있음"]},
+                        {"id": "vibe", "step": "취향", "t": "받는 분은 어떤 사람? (복수 선택)", "type": "multi", "max": 3,
+                         "opts": ["실용파 — 쓸모가 최고", "감성파 — 예쁜 게 최고", "미니멀 — 물건 적은 편",
+                                  "맥시멀 — 모으는 재미", "트렌디 — 요즘 것", "클래식 — 오래 가는 것",
+                                  "장인 — 만듦새를 봄", "수집가 — 시리즈로 모음"]},
+                        {"id": "cats", "step": "취향", "t": "끌릴 만한 분야 (복수 선택)", "type": "multi", "max": 7,
+                         "opts": ["홈카페·차", "향·캔들", "주방·리빙", "문구·데스크", "술·잔", "패션잡화",
+                                  "바디·그루밍", "오디오·아날로그", "아웃도어·운동", "게임·취미",
+                                  "독서·문학", "가드닝·식물", "여행·트래블", "베이킹·디저트",
+                                  "반려동물", "아트·공예", "테크·가젯", "홈트·요가"]},
+                        {"id": "nocats", "step": "취향", "t": "이건 피할까요 (복수 선택)", "type": "multi", "max": 7,
+                         "opts": ["먹는 것", "향 나는 것", "몸에 닿는 것", "전자기기", "장식품",
+                                  "술 관련", "옷·사이즈 타는 것", "부피 큰 것", "없음 — 다 좋아요"]},
+                        {"id": "who", "step": "취향", "t": "이 사람, 한마디로", "type": "text",
+                         "ph": "예: 땀이 많아요 / 캠핑 좋아함 / 자취 시작 / 손이 작아요",
+                         "hint": "한 줄이면 충분해요. 이게 추천을 가장 크게 바꿉니다."}
+                    ]})
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
+
+@app.route("/api/gift/own-products", methods=["POST"])
+def gift_own_products_upload():
+    """자사 상품 인덱스 벌크 업로드 — Bluehost 덤프 스크립트가 호출(크론키 보호).
+    body: {"store":"gocosmos","replace":true|false,"items":[{name,price,image,link}...]}"""
+    ck = os.environ.get("BOIM_CRON_KEY", "").strip()
+    if not ck or request.args.get("key") != ck:
+        return jsonify({"ok": False}), 403
+    d = request.get_json(force=True, silent=True) or {}
+    store_name = (d.get("store") or "").strip()[:20]
+    items = d.get("items") or []
+    if not store_name or not isinstance(items, list):
+        return jsonify({"ok": False, "error": "store/items 필요"}), 400
+    import time as _t
+    now = int(_t.time())
+    if d.get("replace"):
+        store._q("DELETE FROM linklynk_gift_own WHERE store=%s", (store_name,))
+    n = 0
+    for it in items[:3000]:
+        nm = (it.get("name") or "").strip()[:120]
+        lk = (it.get("link") or "").strip()[:400]
+        if not nm or not lk:
+            continue
+        try:
+            pr = int(it.get("price") or 0) or None
+        except Exception:
+            pr = None
+        store._q("INSERT INTO linklynk_gift_own(store,name,price,image,link,updated_at) "
+                 "VALUES(%s,%s,%s,%s,%s,%s)",
+                 (store_name, nm, pr, (it.get("image") or "")[:400], lk, now))
+        n += 1
+    total = store._q("SELECT COUNT(*) c FROM linklynk_gift_own", fetch="one")
+    return jsonify({"ok": True, "inserted": n, "total": total["c"]})
+
+
+@app.route("/api/gift/viral-credit", methods=["POST", "OPTIONS"])
+def gift_viral_credit():
+    """공유 리워드 적립 — contactsViral sendViral 이벤트가 올 때마다 호출.
+    하루 10회 상한. (토스가 지급한 rewardAmount 그대로 신뢰 — MVP)"""
+    if request.method == "OPTIONS":
+        resp = make_response("", 204)
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return resp
+    ip = (request.headers.get("X-Forwarded-For", request.remote_addr) or "?").split(",")[0].strip()
+    import time as _t
+    now = int(_t.time())
+    d = request.get_json(force=True, silent=True) or {}
+    amt = max(1, min(int(d.get("amount") or 1), 3))
+    c = _GIFT_CREDIT.get(ip) or {"n": 0, "t": now, "earned": 0}
+    if now - c.get("t", 0) > 86400:
+        c = {"n": 0, "t": now, "earned": 0}
+    if c.get("earned", 0) >= _GIFT_VIRAL_DAILY_CAP:
+        resp = jsonify({"ok": False, "error": "오늘 공유 적립 한도에 닿았어요", "credits": c["n"]})
+    else:
+        amt = min(amt, _GIFT_VIRAL_DAILY_CAP - c.get("earned", 0))
+        c["n"] = c.get("n", 0) + amt
+        c["earned"] = c.get("earned", 0) + amt
+        c["t"] = now
+        _GIFT_CREDIT[ip] = c
+        resp = jsonify({"ok": True, "credits": c["n"], "added": amt})
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
+
+_GIFT_RANK_CACHE = {}
+# 성별·연령 -> 쿠팡 카테고리 조합 (선물로 많이 오가는 품목군)
+_RANK_MAP = {
+    ("여", "10"): [1010, 1021, 1020], ("여", "20"): [1010, 1001, 1015],
+    ("여", "30"): [1010, 1015, 1013], ("여", "40"): [1024, 1010, 1013],
+    ("남", "10"): [1020, 1016, 1021], ("남", "20"): [1016, 1002, 1017],
+    ("남", "30"): [1016, 1017, 1018], ("남", "40"): [1024, 1017, 1016],
+}
+
+
+@app.route("/api/gift/ranking")
+def gift_ranking_api():
+    """성별·연령별 인기 선물 TOP 10 — 쿠팡 카테고리 베스트 실데이터. 6시간 캐시."""
+    g = (request.args.get("g") or "여").strip()[:1]
+    a = (request.args.get("a") or "20").strip()[:2]
+    key = (g if g in ("여", "남") else "여", a if a in ("10", "20", "30", "40") else "20")
+    import time as _t
+    now = _t.time()
+    hit = _GIFT_RANK_CACHE.get(key)
+    if hit and now - hit[0] < 21600:
+        resp = jsonify({"ok": True, "items": hit[1], "cached": True})
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        return resp
+    ck = os.environ.get("COUPANG_ACCESS_KEY", "")
+    cs = os.environ.get("COUPANG_SECRET_KEY", "")
+    items = []
+    if ck and cs:
+        try:
+            from core import CoupangPartners
+            cp = CoupangPartners(ck, cs)
+            pools = [cp.best_products(cid, limit=20) or [] for cid in _RANK_MAP[key]]
+            # ★선물 정제: 카테고리 베스트는 판매량 기준이라 생필품(건전지·테이프·
+            # 비닐봉투)이 섞인다 — 선물의 격을 깨는 것들 블랙리스트 + 가격 하한
+            _BAN = ("건전지", "테이프", "봉투", "봉지", "수거", "종량제", "물티슈",
+                    "휴지", "세제", "지퍼백", "행주", "고무장갑", "면봉", "밴드",
+                    "발을씻자", "발샴푸", "살충", "제습제", "방충", "베이킹소다",
+                    "락스", "수세미", "리필", "코인티슈", "쓰레기",
+                    "옷걸이", "손잡이", "토시", "압축팩", "모기장", "발매트")
+            def _gifty(it):
+                nm = it.get("name") or ""
+                if any(b in nm for b in _BAN):
+                    return False
+                try:
+                    return int(it.get("price") or 0) >= 9000
+                except Exception:
+                    return False
+            pools = [[it for it in pool if _gifty(it)] for pool in pools]
+            seen = set()
+            # 카테고리 인터리브 -> 다양성 있는 TOP 10
+            for i in range(20):
+                for pool in pools:
+                    if i < len(pool):
+                        it = pool[i]
+                        nk = (it.get("name") or "")[:12]
+                        if nk in seen or not it.get("name"):
+                            continue
+                        seen.add(nk)
+                        items.append(it)
+                if len(items) >= 10:
+                    break
+            items = items[:10]
+            # 정착륙 딥링크
+            canon = {f"https://www.coupang.com/vp/products/{it['productId']}": it
+                     for it in items if it.get("productId")}
+            if canon:
+                res = cp.make_deeplinks(list(canon.keys())[:10], sub_id="giftrank")
+                links = res.get("data", []) if isinstance(res, dict) and res.get("ok") else []
+                for l in links:
+                    it = canon.get(l.get("originalUrl"))
+                    if it and l.get("shortenUrl"):
+                        it["url"] = l["shortenUrl"]
+            items = [{"rank": i + 1, "name": (it.get("name") or "")[:60],
+                      "price": it.get("price"), "image": it.get("image"),
+                      "link": it.get("url")} for i, it in enumerate(items)]
+        except Exception:
+            items = []
+    if items:
+        _GIFT_RANK_CACHE[key] = (now, items)
+    resp = jsonify({"ok": True, "items": items})
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
+
+def _ember_resp(d, code=200):
+    r = jsonify(d)
+    r.headers["Access-Control-Allow-Origin"] = "*"
+    r.headers["Access-Control-Allow-Headers"] = "Content-Type"
+    return r, code
+
+
+@app.route("/gottago-og.png")
+def gottago_og():
+    from flask import send_file
+    return send_file("static/gottago-og.png", mimetype="image/png")
+
+
+@app.route("/emberduo-og.png")
+def emberduo_og():
+    from flask import send_file
+    return send_file("static/emberduo-og.png", mimetype="image/png")
+
+
+def _ait_ad(env_key, mode_key, test_id="ait-ad-test-rewarded-id"):
+    """광고 ID 스위치. 토스 정책상 미출시(QR/테스트) 환경에선 라이브 ID(ait.v2.live.*)가
+    이벤트 없이 무한로딩만 하고, 실ID로 테스트하면 정책 위반이다. env 한 줄로 전환:
+    {mode_key}=test -> 테스트 ID / off -> 광고 끔 / (미설정) -> 라이브 ID.
+    테스트 ID 자체를 바꾸려면 {mode_key}_ID 로 지정."""
+    import os
+    mode = os.environ.get(mode_key, "").strip().lower()
+    if mode == "test":
+        return os.environ.get(mode_key + "_ID", "").strip() or test_id
+    if mode == "off":
+        return ""
+    return os.environ.get(env_key, "").strip()
+
+
+@app.route("/api/toilet/config", methods=["GET"])
+def toilet_config():
+    import os
+    r = jsonify({"ok": True, "ad_group_id": _ait_ad("GOTTAGO_AD_GROUP_ID", "GOTTAGO_AD_MODE"),
+                 "free_per_day": int(os.environ.get("GOTTAGO_FREE_PER_DAY", "3"))})
+    r.headers["Access-Control-Allow-Origin"] = "*"
+    return r
+
+
+@app.route("/api/ember/config", methods=["GET"])
+def ember_config():
+    r = jsonify({"ok": True, "ad_group_id": _ait_ad("EMBER_AD_GROUP_ID", "EMBER_AD_MODE")})
+    r.headers["Access-Control-Allow-Origin"] = "*"
+    return r
+
+
+@app.route("/api/toilet/report", methods=["POST", "OPTIONS"])
+def toilet_report():
+    hdr = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type"}
+    if request.method == "OPTIONS":
+        r = jsonify({"ok": True}); r.headers.update(hdr); return r
+    import toilet
+    d = request.get_json(silent=True) or {}
+    try:
+        lat = float(d.get("lat", 0)); lng = float(d.get("lng", 0))
+    except (TypeError, ValueError):
+        lat = lng = 0
+    ok = toilet.report(lat, lng, str(d.get("kind") or ""), str(d.get("name") or ""))
+    r = jsonify({"ok": bool(ok)}); r.headers.update(hdr); return r
+
+
+# ══════════ SameSky / 하늘첩 — 글로벌 하늘 수집 ══════════
+import re as _re_sky
+
+def _sky_pg(method, path):
+    import toilet
+    return toilet._pg(method, path)
+
+
+@app.route("/.well-known/assetlinks.json")
+def assetlinks():
+    """TWA 디지털 자산 링크 — Play 서명키 SHA256은 env로 주입 (콘솔 서명 후 확정)."""
+    import os
+    _default_fps = (
+        "43:D1:E6:DB:13:FC:70:80:86:FD:A8:FC:F2:A0:15:1E:52:24:56:F8:24:E0:98:CD:79:80:EE:11:4A:37:DE:37,"  # Play 앱 서명 키
+        "D9:FB:ED:CF:04:0D:CB:F1:6E:02:AD:F7:9E:46:60:69:CA:0E:85:53:65:A0:6F:FA:73:DC:54:A0:15:FC:B8:02,"  # 업로드 키(콘솔)
+        "A1:09:F0:8C:1B:80:7C:6C:3E:9A:B0:27:87:E4:EE:F1:3A:8E:12:8F:D4:76:55:32:6A:3E:47:D1:9D:56:8D:0E")  # 빌드 키
+    fps = [x.strip() for x in os.environ.get("SKY_ANDROID_SHA256", _default_fps).split(",") if x.strip()]
+    body = []
+    if fps:
+        body.append({"relation": ["delegate_permission/common.handle_all_urls"],
+                     "target": {"namespace": "android_app",
+                                "package_name": os.environ.get("SKY_ANDROID_PKG", "app.samesky.twa"),
+                                "sha256_cert_fingerprints": fps}})
+    _hw_default = (
+        "5B:A4:6F:67:D0:93:9C:99:96:37:4A:C2:0B:71:B6:B1:3C:A8:92:27:88:D5:C4:D1:9C:6F:00:1E:08:AB:1D:D5,"  # Play 앱 서명 키
+        "31:CA:80:F0:59:9A:8B:C7:F4:98:7D:2A:F4:E1:68:25:D0:8F:0C:3F:4F:9C:E2:13:48:90:00:18:B4:5D:DB:86,"  # 업로드 키(콘솔)
+        "2A:7C:BB:C6:7C:57:CB:1F:10:D8:01:19:F6:F7:07:3E:46:6A:4F:BF:96:20:FA:F8:C0:EB:CF:3F:23:F0:63:5F")  # 빌드 키
+    _hw_fps = [x.strip() for x in os.environ.get("HWATU_ANDROID_SHA256", _hw_default).split(",") if x.strip()]
+    if _hw_fps:
+        body.append({"relation": ["delegate_permission/common.handle_all_urls"],
+                     "target": {"namespace": "android_app",
+                                "package_name": os.environ.get("HWATU_ANDROID_PKG", "app.jeoseunghwatu.twa"),
+                                "sha256_cert_fingerprints": _hw_fps}})
+    _mj_default = (
+        "91:59:BE:7E:D8:1F:59:8F:3E:9E:45:E7:88:4C:D7:39:25:57:82:95:68:42:30:F2:C7:9B:05:F3:EF:23:18:E5,"  # Play 앱 서명 키
+        "9D:D6:0B:2F:E9:52:EA:97:96:CB:2D:1F:0E:35:FF:46:7E:F4:F3:CF:9D:64:EF:75:E9:0E:01:1F:DE:D0:88:51,"  # 업로드 키(콘솔 표기)
+        "8E:6F:90:36:2D:D4:5B:BB:9B:09:54:60:53:4D:30:F2:38:42:5F:7B:E2:05:48:C8:E0:FB:69:E9:00:AD:7E:B9")  # 빌드 키(자체 키스토어)
+    _mj_fps = [x.strip() for x in os.environ.get("MAJAK_ANDROID_SHA256", _mj_default).split(",") if x.strip()]
+    if _mj_fps:
+        body.append({"relation": ["delegate_permission/common.handle_all_urls"],
+                     "target": {"namespace": "android_app",
+                                "package_name": os.environ.get("MAJAK_ANDROID_PKG", "app.jeoseungmajak.twa"),
+                                "sha256_cert_fingerprints": _mj_fps}})
+    _ef_default = (
+        "6E:0C:D2:0F:64:52:C2:26:C3:AD:B7:0D:5E:6A:AD:E2:EF:9A:AC:E7:1D:CD:72:EB:77:93:50:38:12:CA:97:2C,"  # Play 앱 서명 키
+        "63:95:54:19:70:D9:9A:7A:97:AD:40:28:5C:0E:A4:DA:81:14:0D:81:C7:02:04:AF:3C:22:EB:8F:A8:5F:5F:AC,"  # 업로드 키(keytool)
+        "49:6F:4E:F8:74:9C:FF:65:88:4C:73:0F:39:93:C5:24:FC:4B:A5:4D:E4:0C:C1:E9:C4:02:1D:1F:2D:3E:B4:93,"  # 콘솔 기존 키
+        "4D:41:2A:1D:7F:FE:9F:27:99:B2:19:75:89:ED:32:A3:AC:02:B0:25:C6:97:AA:38:06:5A:6E:E7:A9:0A:7C:B1")  # 양자 내성 키
+    _ef_fps = [x.strip() for x in os.environ.get("EF_ANDROID_SHA256", _ef_default).split(",") if x.strip()]
+    if _ef_fps:
+        body.append({"relation": ["delegate_permission/common.handle_all_urls"],
+                     "target": {"namespace": "android_app",
+                                "package_name": os.environ.get("EF_ANDROID_PKG", "com.kohgane.earthflight"),
+                                "sha256_cert_fingerprints": _ef_fps}})
+    _gg_default = (
+        "0A:49:F2:5D:9A:BA:A5:96:BD:50:73:B1:CB:83:79:BE:45:73:9F:32:94:E6:AC:42:5A:22:8A:63:B2:09:45:AF")  # 빌드 키
+    _gg_fps = [x.strip() for x in os.environ.get("GOTTAGO_ANDROID_SHA256", _gg_default).split(",") if x.strip()]
+    if _gg_fps:
+        body.append({"relation": ["delegate_permission/common.handle_all_urls"],
+                     "target": {"namespace": "android_app",
+                                "package_name": os.environ.get("GOTTAGO_ANDROID_PKG", "com.kohgane.gottago"),
+                                "sha256_cert_fingerprints": _gg_fps}})
+    r = jsonify(body)
+    r.headers["Content-Type"] = "application/json"
+    return r
+
+
+@app.route("/hwatu")
+@app.route("/hwatu/")
+def hwatu_page():
+    from flask import send_from_directory
+    return send_from_directory("static/hwatu", "index.html")
+
+
+@app.route("/hwatu/<path:fn>")
+def hwatu_asset(fn):
+    from flask import send_from_directory
+    return send_from_directory("static/hwatu", fn)
+
+
+@app.route("/majak")
+@app.route("/majak/")
+def majak_page():
+    from flask import send_from_directory
+    return send_from_directory("static/majak", "index.html")
+
+
+@app.route("/majak/<path:fn>")
+def majak_asset(fn):
+    from flask import send_from_directory
+    return send_from_directory("static/majak", fn)
+
+
+@app.route("/sky")
+@app.route("/sky/")
+def sky_page():
+    from flask import send_from_directory
+    return send_from_directory("static/sky", "index.html")
+
+
+@app.route("/sky/<path:fn>")
+def sky_asset(fn):
+    from flask import send_from_directory
+    return send_from_directory("static/sky", fn)
+
+
+@app.route("/api/sky/add", methods=["POST", "OPTIONS"])
+def sky_add():
+    hdr = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type"}
+    if request.method == "OPTIONS":
+        r = jsonify({"ok": True}); r.headers.update(hdr); return r
+    import urllib.request, json as _j, datetime as _dt
+    d = request.get_json(silent=True) or {}
+    cols = [str(d.get(k) or "") for k in ("c1", "c2", "c3")]
+    if not all(_re_sky.fullmatch(r"#[0-9a-fA-F]{6}", c) for c in cols):
+        r = jsonify({"ok": False}); r.headers.update(hdr); return r, 400
+    tz = str(d.get("tz") or "")[:40]
+    try:
+        h = max(0, min(23, int(d.get("h", 12))))
+    except (TypeError, ValueError):
+        h = 12
+    today = (_dt.datetime.utcnow() + _dt.timedelta(hours=9)).strftime("%Y-%m-%d")
+    try:
+        req = _sky_pg("POST", "sky")
+        req.add_header("Content-Type", "application/json")
+        req.add_header("Prefer", "return=minimal")
+        req.data = _j.dumps({"d": today, "tz": tz, "h": h,
+                             "c1": cols[0], "c2": cols[1], "c3": cols[2]}).encode()
+        urllib.request.urlopen(req, timeout=8).read()
+        r = jsonify({"ok": True})
+    except Exception:
+        r = jsonify({"ok": False})
+    r.headers.update(hdr); return r
+
+
+@app.route("/api/sky/today", methods=["GET", "OPTIONS"])
+def sky_today():
+    """오늘의 지구 하늘: 타임존별 최신 1건씩 최대 60곳 + 하늘 쌍둥이(색 최근접)."""
+    hdr = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type"}
+    if request.method == "OPTIONS":
+        r = jsonify({"ok": True}); r.headers.update(hdr); return r
+    import urllib.request, json as _j, datetime as _dt
+    today = (_dt.datetime.utcnow() + _dt.timedelta(hours=9)).strftime("%Y-%m-%d")
+    try:
+        q = ("sky?d=eq.%s&select=tz,h,c1,c2,c3&order=ts.desc&limit=400" % today)
+        rows = _j.loads(urllib.request.urlopen(_sky_pg("GET", q), timeout=8).read() or b"[]")
+    except Exception:
+        rows = []
+    seen, world = set(), []
+    for x in rows:
+        if x["tz"] not in seen:
+            seen.add(x["tz"]); world.append(x)
+        if len(world) >= 60:
+            break
+    twin = None
+    me = request.args.get("c", "")
+    if _re_sky.fullmatch(r"#[0-9a-fA-F]{6}", me or ""):
+        mr, mg, mb = int(me[1:3], 16), int(me[3:5], 16), int(me[5:7], 16)
+        my_tz = request.args.get("tz", "")
+        best = 1e9
+        for x in world:
+            if x["tz"] == my_tz:
+                continue
+            c = x["c1"]
+            dr = (int(c[1:3], 16)-mr)**2 + (int(c[3:5], 16)-mg)**2 + (int(c[5:7], 16)-mb)**2
+            if dr < best:
+                best, twin = dr, x
+    r = jsonify({"ok": True, "world": world, "twin": twin})
+    r.headers.update(hdr); return r
+
+
+@app.route("/api/toilet/stamp", methods=["POST", "OPTIONS"])
+def toilet_stamp():
+    hdr = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type"}
+    if request.method == "OPTIONS":
+        r = jsonify({"ok": True}); r.headers.update(hdr); return r
+    import toilet
+    d = request.get_json(silent=True) or {}
+    did = str(d.get("did") or "")[:64]
+    try:
+        lat = float(d.get("lat", 0)); lng = float(d.get("lng", 0))
+    except (TypeError, ValueError):
+        lat = lng = 0
+    if not did or not (33 < lat < 39 and 124 < lng < 132):
+        r = jsonify({"ok": False}); r.headers.update(hdr); return r, 400
+    r = jsonify(toilet.stamp(did, str(d.get("name") or ""), lat, lng))
+    r.headers.update(hdr); return r
+
+
+@app.route("/api/toilet/mystats", methods=["GET", "OPTIONS"])
+def toilet_mystats():
+    hdr = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type"}
+    if request.method == "OPTIONS":
+        r = jsonify({"ok": True}); r.headers.update(hdr); return r
+    import toilet
+    did = str(request.args.get("did") or "")[:64]
+    if not did:
+        r = jsonify({"ok": False}); r.headers.update(hdr); return r, 400
+    r = jsonify(toilet.mystats(did))
+    r.headers.update(hdr); return r
+
+
+@app.route("/api/toilet/near", methods=["GET", "OPTIONS"])
+def toilet_near():
+    r_hdr = {"Access-Control-Allow-Origin": "*", "Access-Control-Allow-Headers": "Content-Type"}
+    if request.method == "OPTIONS":
+        r = jsonify({"ok": True}); r.headers.update(r_hdr); return r
+    import toilet
+    try:
+        lat = float(request.args.get("lat", "0")); lng = float(request.args.get("lng", "0"))
+    except ValueError:
+        lat = lng = 0
+    if not (33 < lat < 39 and 124 < lng < 132):
+        r = jsonify({"ok": False, "error": "좌표가 이상해요"}); r.headers.update(r_hdr); return r, 400
+    mode = "car" if request.args.get("mode") == "car" else "walk"
+    open_only = request.args.get("open") == "1"
+    r = jsonify({"ok": True, "items": toilet.near_v2(lat, lng, mode=mode, open_only=open_only)})
+    r.headers.update(r_hdr)
+    return r
+
+
+@app.route("/api/ember/<action>", methods=["POST", "OPTIONS"])
+def ember_api(action):
+    if request.method == "OPTIONS":
+        return _ember_resp({"ok": True})
+    import ember
+    d = request.get_json(force=True, silent=True) or {}
+    did = str(d.get("did") or "")[:64]
+    code = str(d.get("code") or "").upper()[:8]
+    if not did:
+        return _ember_resp({"ok": False, "error": "did"}, 400)
+    if action == "create":
+        p = ember.create(did, str(d.get("name") or "나"), solo=bool(d.get("solo")))
+        return _ember_resp({"ok": True, "code": p["code"]})
+    if action == "join":
+        p, err = ember.join(code, did, str(d.get("name") or "나"))
+        if err:
+            return _ember_resp({"ok": False, "error": err}, 400)
+        return _ember_resp({"ok": True, "code": p["code"]})
+    if action == "checkin":
+        p, err = ember.checkin(code, did, str(d.get("mood") or ""), str(d.get("note") or ""), str(d.get("av") or ""), str(d.get("vibe") or ""))
+        if err:
+            return _ember_resp({"ok": False, "error": err}, 400)
+        return _ember_resp({"ok": True, "state": ember.state(code, did)})
+    if action == "state":
+        st = ember.state(code, did)
+        if not st:
+            return _ember_resp({"ok": False, "error": "불씨를 찾을 수 없어요"}, 404)
+        return _ember_resp({"ok": True, "state": st})
+    if action == "reroll":
+        p, err = ember.reroll(code)
+        if err:
+            return _ember_resp({"ok": False, "error": err}, 400)
+        return _ember_resp({"ok": True, "m_off": p.get("m_off", 0)})
+    if action == "say":
+        p, err = ember.say(code, did, str(d.get("text") or ""))
+        if err:
+            return _ember_resp({"ok": False, "error": err}, 400)
+        return _ember_resp({"ok": True, "state": ember.state_of(p, did)}) if hasattr(ember, "state_of") else _ember_resp({"ok": True})
+    if action == "reroll_refill":
+        p = ember.reroll_refill(code)
+        return _ember_resp({"ok": bool(p), "m_off": (p or {}).get("m_off", 0)})
+    if action == "botset":
+        p = ember.bot_set(code, str(d.get("av") or ""), str(d.get("mood") or ""),
+                          str(d.get("vibe") or ""), str(d.get("name") or ""))
+        return _ember_resp({"ok": bool(p)})
+    if action == "missions":
+        p = ember.set_missions(code, d.get("packs") or [], d.get("custom") or [])
+        return _ember_resp({"ok": bool(p)})
+    if action == "freeze":
+        p = ember.add_freeze(code)
+        return _ember_resp({"ok": bool(p), "freeze": (p or {}).get("freeze", 0)})
+    return _ember_resp({"ok": False, "error": "unknown"}, 404)
+
+
+_GIFT_LAST = {}
+_GIFT_EXCL = {}   # 재뽑기 누적 배제 히스토리 {기기|조건: {"t": ts, "kw": [...]}}
+
+
+@app.route("/api/gift/debug-search")
+def gift_debug_search():
+    if request.args.get("k") != "kohgane-debug-7134":
+        return jsonify({"ok": False}), 403
+    kw = request.args.get("kw", "하리오 드리퍼")
+    out = {"kw": kw}
+    import gift as _g
+    ck = os.environ.get("COUPANG_ACCESS_KEY", "") or os.environ.get("COUPANG_ACCESS", "")
+    cs = os.environ.get("COUPANG_SECRET_KEY", "") or os.environ.get("COUPANG_SECRET", "")
+    out["cp_key"] = bool(ck and cs)
+    try:
+        from core import CoupangPartners
+        cp = CoupangPartners(ck, cs)
+        items = cp.search_products(kw, limit=8) or []
+        out["cp_n"] = len(items)
+        out["cp_first"] = (items[0].get("name", "")[:40] if items else "")
+    except Exception as e:
+        out["cp_err"] = str(e)[:200]
+    try:
+        nv = _g._naver_shop_search(kw)
+        out["nv_n"] = len(nv or [])
+    except Exception as e:
+        out["nv_err"] = str(e)[:200]
+    out["last_fetch_err"] = getattr(_g, "LAST_FETCH_ERR", "")
+    return jsonify(out)
+
+
+@app.route("/api/gift/reco", methods=["POST", "OPTIONS"])
+def gift_reco_api():
+    if request.method == "OPTIONS":
+        resp = make_response("", 204)
+        resp.headers["Access-Control-Allow-Origin"] = "*"
+        resp.headers["Access-Control-Allow-Methods"] = "POST, OPTIONS"
+        resp.headers["Access-Control-Allow-Headers"] = "Content-Type"
+        return resp
+    """선물 추천 — 기기당 하루 3회 + 광고 보너스. ★쿼터 키는 기기ID(did) 우선:
+    LTE는 통신사 CGNAT로 수천 명이 IP를 공유하므로 IP 쿼터는 무고한 차단을 만든다."""
+    ip = (request.headers.get("X-Forwarded-For", request.remote_addr) or "?").split(",")[0].strip()
+    import time as _t
+    now = int(_t.time())
+    d0 = request.get_json(force=True, silent=True) or {}
+    is_bonus = bool(d0.get("bonus"))
+    did = (str(d0.get("did") or "")[:64]).strip()
+    ip = ("d:" + did) if len(did) >= 8 else ip   # 기기ID 있으면 그걸 키로
+    # 항목: {"t": ts, "b": 보너스여부} — 과거 int 형식도 허용
+    hist = []
+    for e in _GIFT_IP.get(ip, []):
+        if isinstance(e, dict) and now - e.get("t", 0) < 86400:
+            hist.append(e)
+        elif isinstance(e, int) and now - e < 86400:
+            hist.append({"t": e, "b": False})
+    base_used = sum(1 for e in hist if not e["b"])
+    bonus_used = sum(1 for e in hist if e["b"])
+    consumed_credit = False
+    if base_used >= _GIFT_BASE_LIMIT:
+        cred = _GIFT_CREDIT.get(ip) or {}
+        if now - cred.get("t", 0) <= 86400 and cred.get("n", 0) > 0:
+            cred["n"] -= 1                      # 공유 크레딧 자동 소모
+            _GIFT_CREDIT[ip] = cred
+            consumed_credit = True
+        elif not (is_bonus and bonus_used < _GIFT_BONUS_LIMIT):
+            return jsonify({"ok": False,
+                            "error": "오늘 추천 횟수를 다 썼어요.",
+                            "limit_reached": True,
+                            "can_bonus": bonus_used < _GIFT_BONUS_LIMIT}), 429
+    d = request.get_json(force=True, silent=True) or {}
+    who = (d.get("who") or "").strip()[:60]
+    _g = (d.get("g") or "").strip()[:2]
+    _a = (d.get("a") or "").strip()[:3]
+    if _g or _a:
+        demo = (f"{_a}대 " if _a else "") + {"여": "여성", "남": "남성"}.get(_g, "")
+        who = (who + f" ({demo.strip()})").strip() if who else demo.strip()
+    budget = (d.get("budget") or "").strip()[:20]
+    taste = (d.get("taste") or "").strip()[:300]   # 상황·스타일 칩+자유입력 동승
+    # ★v8 세분화 프로필: 구조화 응답을 취향 문맥으로 합성 (구클라는 안 보내도 무해)
+    _rel = (d.get("rel") or "").strip()[:20]       # 관계(부모님/연인/동료…)
+    _occ = (d.get("occ") or "").strip()[:30]       # 상황(생일/집들이/승진…)
+    _vibe = (d.get("vibe") or "").strip()[:40]     # 성향(실용파/감성파/미니멀…)
+    _cats = [str(x).strip()[:16] for x in (d.get("cats") or []) if str(x).strip()][:5]
+    _nocat = [str(x).strip()[:16] for x in (d.get("nocats") or []) if str(x).strip()][:5]
+    _own = (d.get("own") or "").strip()[:120]      # 이미 가진 것
+    _prof = []
+    if _rel: _prof.append("관계: " + _rel)
+    if _occ: _prof.append("상황: " + _occ)
+    if _vibe: _prof.append("성향: " + _vibe)
+    if _cats: _prof.append("관심 분야: " + ", ".join(_cats) + " (이 안에서 우선 탐색)")
+    if _nocat: _prof.append("피할 분야: " + ", ".join(_nocat) + " (이 계열 절대 금지)")
+    if _own: _prof.append("이미 갖고 있어 중복 금지: " + _own)
+    if _prof:
+        taste = ("[프로필] " + " / ".join(_prof) + ((" · 추가 힌트: " + taste) if taste else ""))[:460]
+    exclude = [x.strip()[:30] for x in (d.get("exclude") or []) if x.strip()][:20]
+    # ★재뽑기 누적 배제: 클라는 직전 라운드 키워드만 보낸다 — 같은 조건(기기+대상+예산+취향)의
+    # 이전 라운드 전부를 서버가 기억해 합쳐야 3번째 뽑기가 1라운드로 회귀하지 않는다.
+    _ck = ip + "|" + who + "|" + budget + "|" + taste
+    _pv = _GIFT_EXCL.get(_ck)
+    if exclude and _pv and now - _pv.get("t", 0) < 7200:
+        exclude = list(dict.fromkeys(_pv.get("kw", []) + exclude))[-24:]
+    elif not exclude:
+        _GIFT_EXCL.pop(_ck, None)   # 조건 새로 입력 = 히스토리 리셋
+    if not budget:
+        return jsonify({"ok": False, "error": "예산을 골라주세요"}), 400
+    last = _GIFT_LAST.get(ip, 0)
+    if now - last < 5:
+        r0 = jsonify({"ok": False, "error": "숨 고르는 중이에요 — 5초 뒤 다시 눌러주세요"})
+        r0.headers["Access-Control-Allow-Origin"] = "*"
+        return r0, 429
+    _GIFT_LAST[ip] = now
+    if len(_GIFT_LAST) > 5000:
+        for k in list(_GIFT_LAST)[:2500]:
+            _GIFT_LAST.pop(k, None)
+    import gift as _gift
+    key = os.environ.get("BOIM_LLM_KEY", "").strip() or "__free__"
+    from concurrent.futures import ThreadPoolExecutor, TimeoutError as _FTimeout
+
+    def _run(k):
+        return _gift.recommend(k, who, budget, taste, exclude=exclude)
+
+    _ex = ThreadPoolExecutor(max_workers=1)
+    try:
+        r = _ex.submit(_run, key).result(timeout=50)
+    except _FTimeout:
+        r = {"ok": False, "error": "추천 엔진이 지금 붐벼요 — 10초 뒤 한 번만 다시 눌러주세요", "busy": True}
+    except Exception as _e:
+        r = {"ok": False, "error": "추천 생성 실패", "detail": str(_e)[:200]}
+    finally:
+        _ex.shutdown(wait=False)
+    key_err = None
+    if not r.get("ok") and not r.get("busy") and key != "__free__":
+        key_err = (r.get("detail") or r.get("error") or "")[:500]
+        _ex2 = ThreadPoolExecutor(max_workers=1)
+        try:
+            r = _ex2.submit(_run, "__free__").result(timeout=40)
+        except Exception:
+            r = {"ok": False, "error": "추천 엔진이 지금 붐벼요 — 잠시 뒤 다시 눌러주세요"}
+        finally:
+            _ex2.shutdown(wait=False)
+    if key_err:
+        r["key_err"] = key_err
+    if r.get("ok"):
+        hist.append({"t": now,
+                     "b": (is_bonus and base_used >= _GIFT_BASE_LIMIT
+                           and not consumed_credit)})
+        _GIFT_IP[ip] = hist
+        _kws = [p.get("keyword", "") for p in (r.get("picks") or []) if p.get("keyword")]
+        if _kws:
+            _GIFT_EXCL[_ck] = {"t": now,
+                               "kw": list(dict.fromkeys(list(exclude or []) + _kws))[-24:]}
+            if len(_GIFT_EXCL) > 3000:
+                for _k in list(_GIFT_EXCL)[:1500]:
+                    _GIFT_EXCL.pop(_k, None)
+    resp = jsonify(r)
+    resp.headers["Access-Control-Allow-Origin"] = "*"
+    return resp
+
+
+@app.route("/api/boim/waitlist", methods=["POST"])
+def boim_waitlist():
+    d = request.get_json(force=True, silent=True) or {}
+    em = (d.get("email") or "").strip()[:120]
+    if "@" not in em:
+        return jsonify({"ok": False}), 400
+    try:
+        store._q("""CREATE TABLE IF NOT EXISTS linklynk_boim_waitlist
+                    (email TEXT PRIMARY KEY, created_at BIGINT)""")
+        store._q("""INSERT INTO linklynk_boim_waitlist (email, created_at)
+                    VALUES (%s,%s) ON CONFLICT (email) DO NOTHING""",
+                 (em, int(__import__("time").time())))
+    except Exception:
+        pass
+    return jsonify({"ok": True})
+
+
+@app.route("/api/boim/scan/<scan_id>")
+def boim_scan_get(scan_id):
+    r = store.boim_get(scan_id)
+    if not r:
+        return jsonify({"ok": False, "error": "없는 진단이에요"}), 404
+    return jsonify({"ok": True, **r})
+
+
+@app.route("/api/naver-keys", methods=["GET", "POST", "DELETE"])
+@login_required
+def naver_keys_api():
+    """네이버 데이터랩 자격증명 (무료). 쇼핑인사이트=구매의도 축."""
+    uid = session["uid"]
+    if request.method == "GET":
+        k = store.get_naver_keys(uid)
+        if not k:
+            return jsonify({"ok": True, "connected": False})
+        cid = k["client_id"]
+        return jsonify({"ok": True, "connected": True,
+                        "masked": (cid[:4] + "•" * 6 + cid[-3:]) if len(cid) > 8 else "•" * len(cid)})
+    if request.method == "DELETE":
+        store.delete_naver_keys(uid)
+        return jsonify({"ok": True, "message": "네이버 연결을 끊었어요"})
+    d = request.get_json(force=True, silent=True) or {}
+    cid = (d.get("client_id") or "").strip()
+    csec = (d.get("client_secret") or "").strip()
+    if not cid or not csec:
+        return jsonify({"ok": False, "error": "Client ID와 Secret 둘 다 필요해요"}), 400
+    # 실제로 되는 키인지 검증
+    from core import naver_keyword_trend
+    t = naver_keyword_trend(cid, csec, ["선풍기"], days=14)
+    if not t.get("ok"):
+        raw = str(t.get("detail") or t.get("error") or "")
+        # 네이버가 준 실제 사유를 사람 말로 번역
+        if "024" in raw or "Authentication failed" in raw or "401" in raw:
+            msg = "Client ID 또는 Secret이 틀렸어요. 개발자센터에서 다시 복사해주세요(앞뒤 공백 주의)."
+        elif "028" in raw or "no_permission" in raw or "403" in raw:
+            msg = ("이 앱에 '데이터랩' 권한이 없어요. 개발자센터 > 내 애플리케이션 > API 설정에서 "
+                   "'데이터랩(검색어트렌드)'을 추가하고 저장한 뒤 다시 시도해주세요.")
+        elif "012" in raw or "Not Exist" in raw:
+            msg = "등록되지 않은 애플리케이션이에요. Client ID를 확인해주세요."
+        else:
+            msg = "네이버 연결에 실패했어요."
+        return jsonify({"ok": False, "error": msg, "detail": raw[:300]}), 400
+    store.save_naver_keys(uid, cid, csec)
+    return jsonify({"ok": True, "message": "네이버 데이터랩 연결됐어요 ✅"})
+
+
+@app.route("/api/shopping-rising")
+@login_required
+def shopping_rising_api():
+    """★구매의도 축 — 네이버 쇼핑에서 지금 급등한 검색어."""
+    k = store.get_naver_keys(session["uid"])
+    if not k:
+        return jsonify({"ok": False, "need_naver": True,
+                        "error": "네이버 데이터랩을 연결하면 '실제로 사는 사람들'의 급등 키워드를 봐요"}), 200
+    from core import naver_shopping_rising
+    force = request.args.get("refresh") == "1"
+    if force:
+        from core import _NAVER_CACHE
+        _NAVER_CACHE["items"] = []; _NAVER_CACHE["at"] = 0
+    r = naver_shopping_rising(k["client_id"], k["client_secret"],
+                              days=int(request.args.get("days", 21)))
+    return jsonify(r)
+
+
+@app.route("/api/keyword-verdict", methods=["POST"])
+@login_required
+def keyword_verdict_api():
+    """이 키워드가 지금 뜨는지 지는지 — 상품 고르기 전 확인."""
+    k = store.get_naver_keys(session["uid"])
+    if not k:
+        return jsonify({"ok": False, "need_naver": True}), 200
+    d = request.get_json(force=True, silent=True) or {}
+    kws = [x for x in (d.get("keywords") or []) if x][:5]
+    if not kws:
+        return jsonify({"ok": False, "error": "키워드가 필요해요"}), 400
+    from core import naver_keyword_trend
+    return jsonify(naver_keyword_trend(k["client_id"], k["client_secret"], kws))
+
+
+@app.route("/api/trend-radar")
+@login_required
+def trend_radar():
+    """지금 뜨는 주제 레이더 (Google Trends + 계절 신호). 무료·키 불필요."""
+    from core import fetch_trend_radar
+    force = request.args.get("refresh") == "1"
+    items = fetch_trend_radar(force=force)
+    rng = request.args.get("range", "24시간")   # 표시용(트렌드 RSS는 실시간 기준)
+    cat = request.args.get("cat")
+    if cat and cat not in ("추천", "전체"):
+        items = [i for i in items if i.get("cat") == cat]
+    elif cat == "추천":
+        items = [i for i in items if i.get("kind") == "season" or i.get("related")]
+    return jsonify({"ok": True, "items": items[:12]})
+
+
+@app.route("/api/llm-list")
+@login_required
+def llm_list():
+    """등록된 AI 목록 (글쓰기 툴 선택·비교용)."""
+    keys = store.get_llm_keys(session["uid"])
+    keys["llm7"] = "__free__"          # 키 없이 쓰는 무료 AI (항상 사용 가능)
+    names = {
+        "llm7":       "무료 AI (키 없이) ✨",
+        "cerebras":   "Cerebras (무료) ⚡⚡",
+        "groq":       "Groq (무료) ⚡",
+        "gemini":     "Gemini (무료)",
+        "github":     "GitHub Models (무료)",
+        "nvidia":     "NVIDIA (무료)",
+        "zai":        "Z.AI GLM (무료)",
+        "openrouter": "OpenRouter (무료·느림)",
+        "anthropic":  "Claude",
+    }
+    # 빠른 순 → 느린 순. 키 없이 쓰는 무료 AI는 항상 제공한다.
+    order = ["llm7", "cerebras", "groq", "gemini", "github", "nvidia", "zai", "openrouter", "anthropic"]
+    have = set(keys) | {"llm7"}
+    usable = [p for p in order if p in have]
+
+    vis = store.get_llm_visible(session["uid"])          # None = 전부 보임
+    shown = [p for p in usable if (vis is None or p in vis)] or usable[:1]
+
+    return jsonify({
+        "ok": True,
+        "providers": [{"id": p, "name": names[p]} for p in shown],
+        # 설정 화면용: 쓸 수 있는 전부 + 지금 켜져 있는 것
+        "all": [{"id": p, "name": names[p], "on": (vis is None or p in vis)} for p in usable],
+    })
+
+
+@app.route("/api/job/<job_id>", methods=["GET"])
+@login_required
+def job_status_api(job_id):
+    j = store.job_get(job_id, session["uid"])
+    if not j:
+        return jsonify({"ok": False, "error": "not_found"}), 404
+    return jsonify({"ok": True, "status": j["status"], "kind": j["kind"],
+                    "result": j.get("result"), "error": j.get("error")})
+
+
+@app.route("/api/jobs", methods=["GET"])
+@login_required
+def jobs_list_api():
+    """앱을 다시 열었을 때: 돌고 있던 작업과 끝난 결과를 되찾아온다."""
+    return jsonify({"ok": True, "jobs": store.jobs_recent(session["uid"])})
+
+
+def _run_view_job(job_id, uid, view_fn, payload):
+    """★서버 스레드에서 라우트를 그대로 실행한다.
+    브라우저를 닫든 앱을 나가든 서버는 계속 돌린다. 돌아오면 결과가 기다린다."""
+    def work():
+        try:
+            with app.test_request_context(json=payload, method="POST"):
+                session["uid"] = uid
+                rv = view_fn()
+                if isinstance(rv, tuple):
+                    rv = rv[0]
+                data = rv.get_json()
+            if data and data.get("ok"):
+                store.job_finish(job_id, result=data)
+            else:
+                store.job_finish(job_id, error=(data or {}).get("error") or "실패")
+        except Exception as e:
+            store.job_finish(job_id, error=e)
+    threading.Thread(target=work, daemon=True).start()
+    return job_id
+
+
+@app.route("/api/job/start", methods=["POST"])
+@login_required
+def job_start_api():
+    """무거운 작업은 전부 여기로. 즉시 job_id만 돌려주고 서버가 뒤에서 돌린다."""
+    import uuid as _uuid
+    d = request.get_json(force=True, silent=True) or {}
+    kind = d.get("kind")
+    payload = d.get("params") or {}
+    VIEWS = {"topics": claude_topics_api, "write": generate_manual}
+    fn = VIEWS.get(kind)
+    if not fn:
+        return jsonify({"ok": False, "error": "unknown_kind"}), 400
+    jid = f"{kind}-{_uuid.uuid4().hex[:12]}"
+    store.job_create(jid, session["uid"], kind, payload)
+    _run_view_job(jid, session["uid"], fn, payload)
+    return jsonify({"ok": True, "job_id": jid})
+
+
+LLM_NAMES = {
+    "llm7":       "무료 AI (키 없이)",
+    "cerebras":   "Cerebras",
+    "groq":       "Groq",
+    "gemini":     "Google Gemini",
+    "github":     "GitHub Models",
+    "nvidia":     "NVIDIA NIM",
+    "zai":        "Z.AI (GLM)",
+    "openrouter": "OpenRouter",
+    "anthropic":  "Claude",
+}
+LLM_ORDER = ["cerebras", "groq", "gemini", "github", "nvidia", "zai", "openrouter", "anthropic"]
+LLM_HINT = {
+    "cerebras":   ("csk-…",  "cloud.cerebras.ai",                    "가장 빠름 · 초당 ~2,600토큰"),
+    "groq":       ("gsk_…",  "console.groq.com/keys",                "빠름 · Llama 3.3 70B"),
+    "gemini":     ("AIza…",  "aistudio.google.com/apikey",           "무료 · 카드 불필요"),
+    "github":     ("ghp_…",  "github.com/settings/tokens",           "깃허브 계정만 있으면 무료"),
+    "nvidia":     ("nvapi-…","build.nvidia.com",                     "일일 한도 없음"),
+    "zai":        ("xxx.yyy","open.bigmodel.cn/usercenter/apikeys",  "GLM Flash 영구 무료"),
+    "openrouter": ("sk-or-…","openrouter.ai/keys",                   "무료 모델은 큐 대기 (느림)"),
+    "anthropic":  ("sk-ant-…","console.anthropic.com",               "유료 · 품질 최고"),
+}
+
+
+def _mask(k):
+    k = k or ""
+    if len(k) <= 10:
+        return "•" * len(k)
+    return k[:6] + "•" * 6 + k[-4:]
+
+
+@app.route("/api/llm-keys", methods=["GET"])
+@login_required
+def llm_keys_api():
+    """어떤 AI에 키가 들어가 있는지, 안 들어간 건 뭔지 한눈에."""
+    keys = store.get_llm_keys(session["uid"])
+    connected, available = [], []
+    for p in LLM_ORDER:
+        ph, url, note = LLM_HINT[p]
+        row = {"id": p, "name": LLM_NAMES[p], "placeholder": ph, "url": url, "note": note}
+        if p in keys:
+            row["masked"] = _mask(keys[p])
+            connected.append(row)
+        else:
+            available.append(row)
+    return jsonify({"ok": True, "connected": connected, "available": available})
+
+
+@app.route("/api/llm-key/<provider>", methods=["DELETE"])
+@login_required
+def llm_key_delete_api(provider):
+    if provider not in LLM_ORDER:
+        return jsonify({"ok": False, "error": "unknown_provider"}), 400
+    store.delete_llm_key(session["uid"], provider)
+    return jsonify({"ok": True, "message": f"{LLM_NAMES[provider]} 연결을 끊었어요"})
+
+
+@app.route("/api/llm-visible", methods=["POST"])
+@login_required
+def llm_visible_api():
+    """어떤 AI 도구를 목록에 보이게 할지 사용자가 직접 정한다."""
+    d = request.get_json(force=True, silent=True) or {}
+    ids = d.get("ids")
+    if not isinstance(ids, list) or not ids:
+        return jsonify({"ok": False, "error": "최소 한 개는 켜두세요."}), 400
+    allowed = {"llm7", "cerebras", "groq", "gemini", "github", "nvidia", "zai", "openrouter", "anthropic"}
+    ids = [i for i in ids if i in allowed]
+    if not ids:
+        return jsonify({"ok": False, "error": "최소 한 개는 켜두세요."}), 400
+    store.set_llm_visible(session["uid"], ids)
+    return jsonify({"ok": True, "count": len(ids)})
+
+
+@app.route("/api/compare-write", methods=["POST"])
+@login_required
+def compare_write():
+    """여러 AI로 같은 글을 써서 비교. ★병렬 호출 + 빠른모드(1패스)로 속도 확보."""
+    d = request.get_json(force=True, silent=True) or {}
+    product = (d.get("productName") or "").strip()
+    deeplink = (d.get("deeplink") or "").strip()
+    tone = d.get("tone") or "friendly"
+    price = d.get("price")
+    providers = d.get("providers") or []
+    keys = store.get_llm_keys(session["uid"])
+    keys["llm7"] = "__free__"          # 키 없이 쓰는 무료 AI (항상 사용 가능)
+    if not keys:
+        return jsonify({"ok": False, "need_key": True, "error": "설정에서 AI 키를 먼저 등록하세요"}), 403
+    # ★키가 실제로 있는 것만 남긴다. (없는 걸 부르면 403이 뜬다 = 스샷의 실패 원인)
+    targets = [p for p in providers if (p in keys or p == "llm7")]
+    if not targets:
+        targets = [p for p in ("cerebras", "groq", "gemini", "llm7") if (p in keys or p == "llm7")]
+    if not targets:
+        targets = ["llm7"]
+
+    from core import claude_write_thread
+    import concurrent.futures as _cf
+    names = LLM_NAMES
+
+    def _one(p):
+        # 비교는 속도가 생명 → fast=True (1패스, 검수/폴리시 생략)
+        r = claude_write_thread(keys[p], product, deeplink, tone, price, fast=True)
+        return {"provider": p, "name": names.get(p, p),
+                "ok": r.get("ok", False), "content": r.get("content", ""),
+                "error": r.get("error", "")}
+
+    results = []
+    with _cf.ThreadPoolExecutor(max_workers=4) as ex:
+        futs = {ex.submit(_one, p): p for p in targets[:4]}
+        for f in _cf.as_completed(futs, timeout=110):
+            try:
+                results.append(f.result())
+            except Exception as e:
+                p = futs[f]
+                results.append({"provider": p, "name": names.get(p, p),
+                                "ok": False, "content": "", "error": str(e)[:60]})
+    # 요청 순서대로 정렬
+    order = {p: i for i, p in enumerate(targets)}
+    results.sort(key=lambda r: order.get(r["provider"], 99))
+    return jsonify({"ok": True, "results": results})
+
+
+@app.route("/api/claude-topics", methods=["POST"])
+@login_required
+def claude_topics_api():
+    """주제 먼저 생성 (등록된 AI 아무거나: Gemini/OpenRouter/Claude)."""
+    d = request.get_json(force=True, silent=True) or {}
+    user_topic = (d.get("topic") or "").strip()
+    keys = store.get_llm_keys(session["uid"])
+    keys["llm7"] = "__free__"          # 키 없이 쓰는 무료 AI (항상 사용 가능)
+    if not keys:
+        return jsonify({"ok": False, "need_key": True,
+                        "error": "설정에서 AI 키를 먼저 등록하세요 (Gemini 무료 추천)"}), 403
+    # 선택된 제공자 우선, 없으면 무료 우선
+    prov = d.get("provider")
+    if prov not in keys:
+        prov = next((p for p in ("cerebras", "groq", "gemini", "github", "nvidia", "zai", "llm7", "openrouter", "anthropic") if p in keys), None)
+    key = keys[prov]
+    import time as _t
+    from datetime import datetime, timezone, timedelta as _td
+    kst = datetime.now(timezone.utc) + _td(hours=9)   # 한국 시간 (서버는 UTC)
+    weekdays = ["월", "화", "수", "목", "금", "토", "일"]
+    ampm = "오전" if kst.hour < 12 else "오후"
+    h12 = kst.hour if kst.hour <= 12 else kst.hour - 12
+    if h12 == 0: h12 = 12
+    now_str = f"{kst.year}년 {kst.month}월 {kst.day}일 {ampm} {h12}시 ({weekdays[kst.weekday()]}요일)"
+    # 폴백은 최대 2번까지만. (예전엔 4개를 전부 순차 시도해서
+    #  실패할 때마다 풀 타임아웃을 물었다 = 주제 기획이 하염없이 느려지던 원인)
+    order = []
+    if prov: order.append(prov)
+    for p in ("cerebras", "groq", "gemini", "github", "nvidia", "zai", "llm7", "openrouter", "anthropic"):
+        if p in keys and p not in order:
+            order.append(p)
+    # ★2개로 묶어놨더니 Gemini가 503(과부하) 한 번 뱉는 순간 통째로 실패했다.
+    #  스티키 캐시 덕에 죽은 모델을 반복 시도하지 않으므로 체인을 넉넉히 준다.
+    #  마지막에는 키 없이도 되는 llm7이 있으니 반드시 하나는 성공한다.
+    if "llm7" in keys and "llm7" not in order:
+        order.append("llm7")
+    order = order[:4] + (["llm7"] if "llm7" in keys and "llm7" not in order[:4] else [])
+
+    import time as _time
+    import concurrent.futures as _cf
+    from core import claude_generate_topics
+
+    # ★속도: 빠른 무료 모델들을 병렬로 던지고 '가장 먼저 성공한' 것을 쓴다.
+    #  (직렬로 llm7 하나만 55초 기다리던 것 → 병렬이면 제일 빠른 놈 속도로 끝난다)
+    FAST = [p for p in ("cerebras", "groq", "gemini", "github") if p in keys]
+    parallel = FAST[:3] if FAST else []
+    timings = {}
+    last_err = {"error": "no_provider"}
+
+    if parallel:
+        _t = _time.time()
+        with _cf.ThreadPoolExecutor(max_workers=len(parallel)) as ex:
+            futs = {ex.submit(claude_generate_topics, keys[p], user_topic, now_str, 8): p
+                    for p in parallel}
+            done_ok = None
+            for f in _cf.as_completed(futs, timeout=40):
+                p = futs[f]
+                try:
+                    r = f.result()
+                except Exception as e:
+                    last_err = {"error": str(e)[:80]}; continue
+                timings[p] = int((_time.time() - _t) * 1000)
+                if r.get("ok") and r.get("topics"):
+                    done_ok = (p, r); break
+                last_err = r
+            if done_ok:
+                p, r = done_ok
+                return jsonify({"ok": True, "topics": r["topics"], "now": now_str,
+                                "provider": p, "ms": timings, "parallel": parallel})
+
+    # 병렬이 다 실패했거나 빠른 모델이 없으면: 순차 폴백 (llm7 포함)
+    seq = [p for p in order if p not in parallel]
+    for p in seq:
+        _t = _time.time()
+        r = claude_generate_topics(keys[p], user_topic, now_str, n=8)
+        timings[p] = int((_time.time() - _t) * 1000)
+        if r.get("ok") and r.get("topics"):
+            return jsonify({"ok": True, "topics": r["topics"], "now": now_str,
+                            "provider": p, "ms": timings})
+        # ★한도(429)·일시거부(403)면 잠깐 쉬고 '적게' 다시 한 번. 실패로 끝내지 않는다.
+        e = str(r.get("error", ""))
+        if "429" in e or "403" in e or "timeout" in e.lower():
+            _time.sleep(2)
+            r2 = claude_generate_topics(keys[p], user_topic, now_str, n=4)
+            if r2.get("ok") and r2.get("topics"):
+                return jsonify({"ok": True, "topics": r2["topics"], "now": now_str,
+                                "provider": p, "ms": timings, "retried": True})
+            r = r2 or r
+        last_err = r
+    r = last_err
+    # 에러 메시지
+    err = r.get("error", "")
+    if err.startswith("http_401") or err.startswith("http_403"):
+        msg = "AI 키가 유효하지 않아요. 설정에서 다시 등록하세요."
+    elif err.startswith("http_429"):
+        msg = "이 AI의 사용량 한도예요. 다른 AI를 골라보세요 (설정에 여러 개 넣을 수 있어요)."
+    elif err.startswith("http_503") or err.startswith("http_500") or err.startswith("http_502"):
+        msg = "AI 서버가 지금 과부하예요. 다른 AI를 고르거나 잠시 뒤 다시 눌러주세요."
+    elif err.startswith("http_400"): msg = "API 요청 오류: " + (r.get("detail","")[:120] or "형식 오류")
+    else: msg = "주제 생성 실패: " + (err[:60] or "알 수 없음") + (" / "+r.get("detail","")[:80] if r.get("detail") else "")
+    return jsonify({"ok": False, "error": msg, "detail": r.get("detail", ""), "ms": timings}), 502
+
+
+@app.route("/api/search-product", methods=["POST"])
+@login_required
+def search_product_api():
+    """키워드로 인기 상품 검색 → 딥링크 자동 생성. 캐시 우선(시간당 10회 제한 보호)."""
+    d = request.get_json(force=True, silent=True) or {}
+    keyword = (d.get("keyword") or "").strip()
+    if not keyword or len(keyword) < 2:
+        return jsonify({"ok": False, "error": "검색어를 2자 이상 입력하세요"}), 400
+
+    # 1) 캐시 먼저 (API 호출 0회)
+    cached = store.get_search_cache(keyword)
+    if cached and cached.get("deeplink"):
+        plist_cached = []
+        try:
+            plist_cached = json.loads(cached.get("products") or "[]")
+        except Exception:
+            plist_cached = []
+        return jsonify({"ok": True, "cached": True,
+                        "product_name": cached["product_name"], "deeplink": cached["deeplink"],
+                        "image": cached.get("image"), "price": cached.get("price"),
+                        "products": plist_cached})
+
+    user = store.get_user(session["uid"])
+    partners, own_key = _partners_for(user)
+    if partners is None:
+        return jsonify({"ok": False, "need_key": True,
+                        "error": "본인 파트너스 키가 필요해요. 설정에서 등록하세요."}), 403
+
+    # 2) 시간당 제한 보호 (검색 API는 시간당 10회) — 유저당 8회로 여유있게 제한
+    recent = store.count_recent_searches(session["uid"], 3600)
+    if recent >= 8:
+        return jsonify({"ok": False, "rate_limited": True,
+                        "error": "검색을 너무 많이 했어요. 1시간 후 다시 시도하거나, 링크를 직접 붙여넣어 주세요."}), 429
+
+    # 3) 실제 검색 (본인 키, 1회)
+    import time as _time
+    _t0 = _time.time()
+    try:
+        store.log_search(session["uid"])
+        plist = partners.search_products(keyword, limit=10)   # 쿠팡 최대 10
+    except Exception:
+        plist = []
+    _t_search = int((_time.time() - _t0) * 1000)
+    if not plist:
+        why = getattr(partners, "last_error", None)
+        msg = "상품을 찾지 못했어요. 다른 검색어를 써보세요."
+        if why and "rCode" in why:
+            msg = "쿠팡 검색 API가 거절했어요 (시간당 호출 제한일 수 있어요). 잠시 뒤 다시 시도해 주세요."
+        elif why:
+            msg = "쿠팡 검색 연결 실패. 잠시 뒤 다시 시도해 주세요."
+        return jsonify({"ok": False, "error": msg, "detail": why,
+                        "ms": {"search": _t_search}}), 404
+    info = plist[0]
+
+    # 3-b) 딥링크
+    # 파트너스 검색 API가 돌려주는 productUrl은 이미 link.coupang.com 제휴링크다.
+    # 예전 코드는 여기서 make_deeplinks()를 또 불렀는데, 반환값(dict)을 리스트처럼 순회해
+    # 항상 예외가 나서 결과를 버렸다 = API 왕복 1회를 통째로 낭비. 제거한다.
+    _t1 = _time.time()
+    def _with_subid(u):
+        if not u:
+            return u
+        if "link.coupang.com" in u:
+            return u + ("&" if "?" in u else "?") + "subId=search"
+        return u
+    products = []
+    need_dl = [p.get("url") for p in plist
+               if p.get("url") and "link.coupang.com" not in p.get("url")]
+    dmap = {}
+    if need_dl:                      # 제휴링크가 아닌 것만 (보통 0개)
+        try:
+            res = partners.make_deeplinks(need_dl, sub_id="search")
+            for dl in (res.get("data") or []):
+                dmap[dl.get("originalUrl")] = dl.get("shortenUrl") or dl.get("landingUrl")
+        except Exception:
+            pass
+    for p in plist:
+        u = p.get("url")
+        products.append({
+            "name": p.get("name"), "price": p.get("price"),
+            "image": p.get("image"), "productId": p.get("productId"),
+            "isRocket": p.get("isRocket", False),
+            "url": u,
+            "deeplink": dmap.get(u) or _with_subid(u),
+        })
+    _t_deeplink = int((_time.time() - _t1) * 1000)
+
+    # 4) 대표 상품 딥링크
+    deeplink = (products[0].get("deeplink") if products else None) or info.get("url") or ""
+
+    # 5) 캐시 저장 (다음엔 API 안 씀)
+    store.set_search_cache(keyword, info["name"], deeplink, info.get("image"), info.get("price"), products)
+    store.save_link(session["uid"], "", deeplink, info["name"], "search")
+
+    return jsonify({"ok": True, "cached": False,
+                    "ms": {"search": _t_search, "deeplink": _t_deeplink},
+                    "product_name": info["name"], "deeplink": deeplink,
+                    "image": info.get("image"), "price": info.get("price"),
+                    "products": products})
+
+
+@app.route("/api/sns-accounts", methods=["GET"])
+@login_required
+def sns_accounts():
+    """연결된 SNS 계정 목록 (게시 대상 선택용)."""
+    key = store.get_zernio_key(session["uid"])
+    if not key:
+        return jsonify({"ok": True, "accounts": []})
+    from core import zernio_list_accounts
+    return jsonify({"ok": True, "accounts": zernio_list_accounts(key)})
+
+
+@app.route("/api/save-draft", methods=["POST"])
+@login_required
+def save_draft():
+    """우리 앱에 임시저장. 나중에 앱에서 편집 후 게시 (Zernio 대시보드 안 거침)."""
+    d = request.get_json(force=True, silent=True) or {}
+    channel = (d.get("channel") or "").strip()
+    content = (d.get("content") or "").strip()
+    is_auto = d.get("auto", False)
+    if not content:
+        return jsonify({"ok": False, "error": "저장할 내용이 없어요"}), 400
+    # 자동저장은 직전 자동저장 초안을 정리 (계속 쌓이지 않게, 최신 1개만)
+    if is_auto:
+        try: store.delete_auto_drafts(session["uid"])
+        except Exception: pass
+    pid = store.save_post(session["uid"], channel, d.get("productName", ""),
+                          content, d.get("deeplink", ""), d.get("image"),
+                          status=("autodraft" if is_auto else "draft"))
+    msg = "자동 저장됨" if is_auto else "임시저장했어요 (내 게시물에서 편집·게시 가능)"
+    return jsonify({"ok": True, "post_id": pid, "message": msg})
+
+
+@app.route("/api/posts", methods=["GET"])
+@login_required
+def list_posts():
+    """내 게시물 목록 (임시저장 + 게시완료)."""
+    status = request.args.get("status")
+    posts = store.get_posts(session["uid"], status)
+    # 민감정보 제외하고 반환
+    out = [{"id": p["id"], "channel": p["channel"], "product_name": p["product_name"],
+            "content": p["content"][:200], "status": p["status"], "post_url": p.get("post_url"),
+            "created_at": p["created_at"], "published_at": p.get("published_at"),
+            "sub_id": p.get("sub_id"), "views": p.get("views") or 0, "clicks": p.get("clicks") or 0,
+            "post_mode": p.get("post_mode"), "skeleton": p.get("skeleton")} for p in posts]
+    return jsonify({"ok": True, "posts": out})
+
+
+@app.route("/api/post/<int:post_id>", methods=["DELETE"])
+@login_required
+def delete_post_api(post_id):
+    return jsonify(store.delete_post(session["uid"], post_id))
+
+
+@app.route("/api/post/<int:post_id>/edit", methods=["POST"])
+@login_required
+def edit_post_api(post_id):
+    """임시저장 글 내용 편집."""
+    d = request.get_json(force=True, silent=True) or {}
+    content = (d.get("content") or "").strip()
+    if not content:
+        return jsonify({"ok": False, "error": "내용이 비어있어요"}), 400
+    store.update_post_content(session["uid"], post_id, content)
+    return jsonify({"ok": True, "message": "수정했어요"})
+
+
+@app.route("/api/post/<int:post_id>", methods=["GET"])
+@login_required
+def get_post_api(post_id):
+    """게시물 전체 내용 (편집용)."""
+    p = store.get_post(post_id)
+    if not p or p["user_id"] != session["uid"]:
+        return jsonify({"ok": False, "error": "없는 게시물이에요"}), 404
+    return jsonify({"ok": True, "post": {"id": p["id"], "channel": p["channel"],
+                    "product_name": p["product_name"], "content": p["content"],
+                    "status": p["status"], "deeplink": p.get("deeplink")}})
+
+
+@app.route("/api/post-safety", methods=["GET"])
+@login_required
+def post_safety_api():
+    """게시 안전 상태 — 지금 게시해도 되는지, 대기 권장 시간은 얼마인지."""
+    import time as _t
+    now = int(_t.time())
+    recent_1h = store.count_recent_published(session["uid"], hours=1)
+    recent_24h = store.count_recent_published(session["uid"], hours=24)
+    last_at = store.last_published_at(session["uid"])
+    gap = (now - last_at) if last_at else None
+
+    level = "safe"; msg = "지금 게시해도 안전해요."
+    if recent_1h >= 5 or (gap is not None and gap < 300):
+        level = "danger"; msg = "지금 게시하면 스팸으로 잡힐 수 있어요. 예약으로 분산하세요."
+    elif recent_1h >= 3 or recent_24h >= 20 or (gap is not None and gap < 600):
+        level = "caution"; msg = "게시 빈도가 조금 높아요. 간격을 두는 게 안전해요."
+
+    return jsonify({"ok": True, "level": level, "message": msg,
+                    "recent_1h": recent_1h, "recent_24h": recent_24h,
+                    "minutes_since_last": (gap // 60) if gap is not None else None,
+                    "guidelines": {
+                        "per_hour_max": 5, "per_day_max": 20, "min_gap_minutes": 10}})
+
+
+@app.route("/api/publish", methods=["POST"])
+@login_required
+def publish_sns():
+    """SNS 게시 (Zernio). post_id(임시저장)를 게시하거나, 즉석 내용을 게시.
+    게시 후 게시물 저장 + 프로필 URL 연결."""
+    d = request.get_json(force=True, silent=True) or {}
+    platforms = d.get("platforms") or []
+    content = (d.get("content") or "").strip()
+    media = d.get("media") or []
+    post_id = d.get("post_id")   # 임시저장분 게시 시
+    channel = (d.get("channel") or (platforms[0] if platforms else "")).strip()
+
+    # 임시저장분을 게시하는 경우 → 내용 로드
+    if post_id and not content:
+        p = store.get_post(post_id)
+        if p and p["user_id"] == session["uid"]:
+            content = p["content"]; channel = p["channel"]
+            if p.get("image"): media = [p["image"]]
+            if not platforms: platforms = [channel]
+
+    if not platforms or not content:
+        return jsonify({"ok": False, "error": "게시할 플랫폼과 내용이 필요해요"}), 400
+
+    # ★Meta 스팸 제재 예방 가드 (즉시 게시일 때만; 예약은 시간이 분산되므로 통과)
+    if not d.get("scheduled_for") and not d.get("force"):
+        recent_1h = store.count_recent_published(session["uid"], hours=1)
+        last_at = store.last_published_at(session["uid"])
+        import time as _t
+        now = int(_t.time())
+        # 규칙: 시간당 5건 초과 경고, 직전 게시 후 10분 미만이면 경고
+        if recent_1h >= 5:
+            return jsonify({"ok": False, "rate_warning": True,
+                "error": f"지난 1시간에 이미 {recent_1h}건 게시했어요. Meta는 '짧은 시간 다량 게시'를 "
+                         "스팸으로 봐요. 예약 게시로 시간을 분산하는 걸 권해요.",
+                "suggest_schedule": True}), 429
+        if last_at and (now - last_at) < 600:
+            wait = 600 - (now - last_at)
+            return jsonify({"ok": False, "rate_warning": True,
+                "error": f"직전 게시가 {(now-last_at)//60}분 전이에요. Meta 스팸 필터를 피하려면 "
+                         f"게시 간격을 10분 이상 두는 게 안전해요. {wait//60}분 뒤에 다시 시도하거나 예약하세요.",
+                "suggest_schedule": True}), 429
+
+    key = store.get_zernio_key(session["uid"])
+    if not key:
+        return jsonify({"ok": False, "need_connect": True,
+                        "error": "먼저 설정에서 SNS를 연결해주세요"}), 403
+
+    # 쓰레드/X: 6분할(본글+답글)을 답글 체인으로 게시
+    # ★subId 발급 — 글 단위 추적. 파트너스 리포트에서 어느 글이 클릭을 만들었는지 갈린다.
+    import hashlib as _h
+    _sub = "lk" + _h.md5((str(session.get("uid")) + content[:200] + str(platforms)).encode()).hexdigest()[:8]
+    def _tag(txt):
+        import re as _re
+        def _rep(m):
+            u = m.group(0)
+            if "subId=" in u: return u
+            return u + ("&" if "?" in u else "?") + "subId=" + _sub
+        return _re.sub(r"https://link\.coupang\.com/\S+", _rep, str(txt))
+    content = _tag(content)
+    thread_items = None
+    if channel in ("threads", "x") and "\n===THREAD===\n" in content:
+        thread_items = [p.strip() for p in content.split("\n===THREAD===\n") if p.strip()]
+
+    try:
+        app.logger.warning("[publish] media=%r thread_items=%d ch=%s",
+                           media, len(thread_items or []), channel)
+    except Exception:
+        pass
+    r = zernio_publish(key, platforms, content, media,
+                       account_ids=(d.get("account_ids") or {}),
+                       thread_items=thread_items,
+                       scheduled_for=d.get("scheduled_for"))
+    if r.get("ok"):
+        # 게시물 URL: Zernio가 permalink를 안 주므로 계정 프로필로 연결
+        prof_url = _profile_url_from_zernio(r.get("data"), platforms[0])
+        if post_id:
+            if d.get("scheduled_for"):
+                store.mark_scheduled(post_id, str((r.get("data") or {}).get("post", {}).get("_id", "")))
+            else:
+                store.mark_published(post_id, prof_url, str((r.get("data") or {}).get("post", {}).get("_id", "")))
+        else:
+            new_id = store.save_post(session["uid"], channel, d.get("productName", ""),
+                                     content, d.get("deeplink", ""), (media[0] if media else None),
+                                     status=("scheduled" if d.get("scheduled_for") else "published"), sub_id=_sub, post_mode=(d.get('post_mode') or 'ad'))
+            if new_id:
+                store.mark_published(new_id, prof_url, str((r.get("data") or {}).get("post", {}).get("_id", "")))
+        return jsonify({"ok": True, "message": "게시됐어요!", "post_url": prof_url})
+    # ★실패 원인 상세 전달 (유저가 왜 안 됐는지 알 수 있게)
+    return jsonify({"ok": False, "error": _publish_error_msg(r),
+                    "detail": r.get("detail", "")}), 502
+
+
+def _publish_error_msg(r):
+    """Zernio 실패를 사람이 읽을 수 있는 메시지로."""
+    err = r.get("error", "")
+    if err == "no_accounts": return "연결된 SNS 계정이 없어요. Zernio에서 계정을 먼저 연결하세요."
+    if err == "platform_not_connected": return r.get("detail", "해당 플랫폼이 Zernio에 연결 안 됐어요.")
+    if err.startswith("http_401") or err.startswith("http_403"): return "Zernio 키가 유효하지 않아요. 설정에서 다시 연결하세요."
+    if err.startswith("http_409"): return "이미 같은 내용을 게시했어요. 초안을 다시 만들면(매번 다른 글) 게시할 수 있어요."
+    if err.startswith("http_429"): return "잠시 후 다시 시도해주세요. (너무 빠른 연속 게시)"
+    if err.startswith("http_"): return f"게시 실패 ({err}). 잠시 후 다시 시도해주세요."
+    return f"게시 실패: {err or '알 수 없는 오류'} / {r.get('detail','')[:100]}"
+
+
+def _profile_url_from_zernio(data, platform):
+    """게시 응답에서 계정 프로필 URL 구성 (permalink 대신)."""
+    try:
+        plats = (data or {}).get("post", {}).get("platforms", [])
+        for pl in plats:
+            acc = pl.get("accountId") or {}
+            name = acc.get("displayName") or acc.get("username")
+            plat = pl.get("platform", platform)
+            if name:
+                if plat == "threads": return f"https://www.threads.net/@{name}"
+                if plat == "instagram": return f"https://www.instagram.com/{name}"
+                if plat == "twitter": return f"https://x.com/{name}"
+    except Exception:
+        pass
+    urls = {"threads": "https://www.threads.net", "instagram": "https://www.instagram.com", "x": "https://x.com"}
+    return urls.get(platform, "")
+
+
+@app.route("/api/handle", methods=["POST"])
+@login_required
+def set_handle_api():
+    d = request.get_json(force=True, silent=True) or {}
+    r = store.set_handle(session["uid"], d.get("handle"))
+    return jsonify(r), (200 if r.get("ok") else 400)
+
+
+@app.route("/api/link/<int:link_id>", methods=["DELETE"])
+@login_required
+def delete_link_api(link_id):
+    return jsonify(store.delete_link(session["uid"], link_id))
+
+
+@app.route("/api/link/<int:link_id>/toggle", methods=["POST"])
+@login_required
+def toggle_link_api(link_id):
+    d = request.get_json(force=True, silent=True) or {}
+    return jsonify(store.toggle_link_profile(session["uid"], link_id, bool(d.get("on"))))
+
+
+@app.route("/api/links/reorder", methods=["POST"])
+@login_required
+def reorder_links_api():
+    d = request.get_json(force=True, silent=True) or {}
+    ids = d.get("ids") or []
+    return jsonify(store.reorder_links(session["uid"], ids))
+
+
+@app.route("/api/key", methods=["POST"])
+@login_required
+def save_key():
+    d = request.get_json(force=True, silent=True) or {}
+    access = (d.get("access") or "").strip()
+    secret = (d.get("secret") or "").strip()
+    if not access or not secret:
+        return jsonify({"ok": False, "error": "access/secret 키를 모두 입력하세요"}), 400
+    test = CoupangPartners(access, secret).make_deeplinks(["https://www.coupang.com/"], sub_id="verify")
+    if not test.get("ok"):
+        return jsonify({"ok": False, "error": "이 키로 링크를 만들 수 없습니다. 파트너스 키를 다시 확인하세요"}), 422
+    store.save_partners_key(session["uid"], access, secret)
+    return jsonify({"ok": True, "message": "파트너스 키가 안전하게 저장되었습니다"})
+
+
+@app.route("/api/generate", methods=["POST"])
+@login_required
+def generate():
+    d = request.get_json(force=True, silent=True) or {}
+    url = extract_coupang_url((d.get("url") or "").strip())
+    channel = (d.get("channel") or "blog").strip()
+    tone = (d.get("tone") or "friendly").strip()
+    product_name = (d.get("productName") or "쿠팡 상품").strip()
+
+    if not is_valid_coupang_url(url):
+        return jsonify({"ok": False, "error": "올바른 쿠팡 URL이 아닙니다"}), 400
+
+    # 폰 쿠팡 앱 공유링크(단축)는 딥링크 API가 못 받음 → 원본 상품 URL로 자동 펼침
+    if is_short_coupang_link(url):
+        origin = unshorten_coupang(url)
+        if origin:
+            url = origin  # 펼친 원본으로 교체 → 아래에서 정상 변환
+        else:
+            return jsonify({"ok": False,
+                "error": "이 링크를 펼칠 수 없어요. 쿠팡 상품 페이지 주소를 직접 넣어주세요"}), 422
+
+    user = store.get_user(session["uid"])
+    ok, cur, limit = store.check_and_bump(user["id"], "link", user["plan"])
+    if not ok:
+        return jsonify({"ok": False, "error": f"무료 플랜 월 {limit}건을 다 썼어요. Pro로 업그레이드하면 무제한이에요",
+                        "limit_reached": True}), 402
+
+    partners, own_key = _partners_for(user)
+    if partners is None:
+        # 본인 파트너스 키가 없으면 자동생성 불가 → 유형B(직접 붙여넣기)로 유도
+        return jsonify({"ok": False, "need_key": True,
+            "error": "간편링크 자동생성은 내 쿠팡 파트너스 키가 필요해요. 설정에서 키를 등록하거나, '링크 직접 붙여넣기'로 만들어보세요"}), 403
+    result = partners.make_deeplinks([url], sub_id=channel)
+    if not result.get("ok"):
+        return jsonify({"ok": False, "error": "링크 변환 실패", "detail": result.get("detail")}), 502
+    items = result["data"]
+    if not items or not items[0].get("shortenUrl"):
+        return jsonify({"ok": False, "error": "이 URL은 변환할 수 없어요 (상품 페이지 URL인지 확인하세요)"}), 422
+
+    deeplink = items[0]["shortenUrl"]
+
+    # 상품명으로 파트너스 검색 → 정식명·가격·이미지 확보 (크롤 대체)
+    info = None
+    if product_name and product_name != "쿠팡 상품":
+        info = partners.search_product(product_name)
+        if info and info.get("name"):
+            product_name = info["name"]
+
+    draft = None
+    if not d.get("skip_draft"):
+        ok_d, _, _ = store.check_and_bump(user["id"], "draft", user["plan"])
+        if ok_d:
+            draft = _gen_draft(user["id"], product_name, deeplink, tone, channel, info, d.get("provider"), d.get("extra", ""), d.get("quality", False), mode=(d.get("mode") or "ad"), deeplink2=(d.get("deeplink2") or ""))
+
+    store.save_link(user["id"], url, deeplink, product_name, channel)
+
+    naver_html = build_naver_html(product_name, deeplink, draft, info) if draft else None
+    return jsonify({
+        "ok": True, "deeplink": deeplink, "landingUrl": items[0].get("landingUrl"),
+        "disclosure": COUPANG_DISCLOSURE, "blogDraft": draft, "channel": channel,
+        "usedOwnKey": own_key, "draftLimitReached": draft is None,
+        "naverHtml": naver_html, "image": _auto_image(product_name, info),
+        "productName": product_name,
+    })
+
+
+@app.route("/api/generate-manual", methods=["POST"])
+@login_required
+def generate_manual():
+    """유형 B: 이미 만든 파트너스 링크를 붙여넣기. API 딥링크 생성 없이 초안+저장만."""
+    d = request.get_json(force=True, silent=True) or {}
+    deeplink = extract_coupang_url((d.get("deeplink") or "").strip())
+    channel = (d.get("channel") or "blog").strip()
+    tone = (d.get("tone") or "friendly").strip()
+    product_name = (d.get("productName") or "쿠팡 상품").strip()
+    # ★정보글 모드: 링크 없이 쓴다 (계정 품질 유지용 — 광고글만 쌓이면 노출이 죽는다)
+    _info_mode = (d.get("post_mode") or "ad") == "info"
+    # ★비쿠팡 링크는 상품 정보를 가져올 방법이 없다(토스·네이버 API 없음).
+    #  상품명이 비면 AI가 엉뚱한 상품 글을 지어내므로 여기서 막는다.
+    if (not _info_mode) and "coupang" not in (deeplink or "").lower():
+        if not product_name or product_name == "쿠팡 상품":
+            return jsonify({"ok": False,
+                "error": "토스·네이버 링크는 상품 이름을 직접 입력해야 해요. "
+                         "(예: 터치 라이트 아토캡 캡슐세제 120개입)",
+                "need_product_name": True}), 400
+    if _info_mode:
+        deeplink = ""
+    elif not any(h in deeplink.lower() for _v in __import__("core").AFFILIATES.values()
+                 for h in (_v["host"] + (_v["short"],))):
+        return jsonify({"ok": False,
+            "error": "제휴 링크를 붙여넣어 주세요 (쿠팡 파트너스 · 토스쇼핑 쉐어링크 · 네이버 커넥트)"}), 400
+    user = store.get_user(session["uid"])
+    # ★실제 상품 확인: 본인 파트너스 키가 있고 상품명이 입력됐을 때만 검색 1회
+    #   (폴백 키 절대 안 씀 / 검색 실패해도 앱 정상 / API 한도 보호 위해 링크당 최소 호출)
+    # ★쿠팡 링크가 아니면 파트너스 검색을 하지 않는다.
+    #  토스·네이버 링크인데 쿠팡에서 상품명을 검색하면 엉뚱한 상품 정보가 섞인다.
+    _is_cp = "coupang" in (deeplink or "").lower()
+    info = None
+    if (not _info_mode) and _is_cp and product_name and product_name != "쿠팡 상품":
+        partners, own_key = _partners_for(user)
+        if partners is not None:   # 본인 키 있을 때만
+            try:
+                info = partners.search_product(product_name)
+                if info and info.get("name"):
+                    product_name = info["name"]   # 정식 상품명으로 교체
+            except Exception:
+                info = None   # 실패해도 계속 진행
+    draft = None
+    if not d.get("skip_draft"):
+        ok_d, _, _ = store.check_and_bump(user["id"], "draft", user["plan"])
+        if ok_d:
+            draft = _gen_draft(user["id"], product_name, deeplink, tone, channel, info, d.get("provider"), d.get("extra", ""), d.get("quality", False), mode=("info" if _info_mode else "ad"), deeplink2=("" if _info_mode else (d.get("deeplink2") or "")))
+    if not _info_mode:
+        store.save_link(user["id"], "", deeplink, product_name, channel)
+    naver_html = (build_naver_html(product_name, deeplink, draft, info) if (draft and not _info_mode) else None)
+    return jsonify({"ok": True, "deeplink": deeplink,
+                    "disclosure": ("" if _info_mode else COUPANG_DISCLOSURE),
+                    "post_mode": ("info" if _info_mode else "ad"),
+                    "blogDraft": draft, "channel": channel, "manual": True,
+                    "naverHtml": naver_html, "productName": product_name,
+                    "image": (_auto_image(product_name, info) if _is_cp else None)})
+
+
+@app.route("/api/my-links")
+@login_required
+def my_links():
+    return jsonify({"ok": True, "links": store.get_user_links(session["uid"])})
+
+
+@app.route("/r/<int:link_id>")
+def redirect_link(link_id):
+    """클릭 트래킹: 카운트 올리고 쿠팡으로 리디렉트."""
+    from flask import redirect
+    l = store.get_link(link_id)
+    if not l or not l.get("deeplink"):
+        return "링크를 찾을 수 없습니다", 404
+    try:
+        store.bump_click(link_id)
+    except Exception:
+        pass
+    return redirect(l["deeplink"], code=302)
+
+
+@app.route("/api/stats")
+@login_required
+def api_stats():
+    s = store.get_click_stats(session["uid"])
+    return jsonify({"ok": True, **s})
+
+
+@app.route("/u/<handle>")
+def public_profile(handle):
+    u = store.get_user_by_handle(handle)
+    if not u:
+        return "존재하지 않는 프로필입니다", 404
+    links = store.get_user_links(u["id"], profile_only=True)
+    name = u["display_name"] or handle
+    initial = (name or "?")[0].upper()
+
+    CH_ICON = {"blog": "📝", "insta": "📷", "threads": "🧵", "x": "𝕏", "youtube": "▶️", "etc": "🔗"}
+    if links:
+        items = "".join(
+            f'''<a class="lk" href="/r/{l["id"]}" target="_blank" rel="nofollow sponsored">
+<span class="lk-ic">{CH_ICON.get(l["channel"], "🔗")}</span>
+<span class="lk-name">{l["product_name"] or "쿠팡 상품"}</span>
+<span class="lk-arrow">→</span></a>'''
+            for l in links
+        )
+    else:
+        items = '<div class="empty">아직 등록된 링크가 없어요</div>'
+
+    return f"""<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>{name} · LinkLynk</title>
+<meta property="og:title" content="{name}의 추천 링크">
+<meta property="og:description" content="LinkLynk로 모은 추천 링크 모음">
+<link rel="preconnect" href="https://cdn.jsdelivr.net">
+<link rel="stylesheet" as="style" crossorigin href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/static/pretendard.min.css">
+<style>
+:root{{--bg:#0D1220;--surface:#141B2E;--surface2:#1B2540;--line:#243050;--mint:#22E9A4;--mint2:#3DF0B0;--ink:#08120D;--text:#EAF0FA;--text2:#A8B3C9;--muted:#6B7794}}
+*{{box-sizing:border-box;margin:0;padding:0}}
+body{{font-family:Pretendard,-apple-system,sans-serif;background:var(--bg);color:var(--text);min-height:100vh;max-width:520px;margin:0 auto;padding:48px 20px calc(40px + env(safe-area-inset-bottom));background-image:radial-gradient(circle at 50% 0%,rgba(34,233,164,.08),transparent 60%)}}
+.av{{width:84px;height:84px;border-radius:50%;background:linear-gradient(135deg,var(--mint),var(--mint2));color:var(--ink);display:grid;place-items:center;font-size:36px;font-weight:800;margin:0 auto 16px;box-shadow:0 8px 32px rgba(34,233,164,.35)}}
+h1{{font-size:22px;font-weight:800;text-align:center;letter-spacing:-.02em}}
+.sub{{text-align:center;color:var(--text2);font-size:13px;margin-top:6px;margin-bottom:32px}}
+.lk{{display:flex;align-items:center;gap:14px;background:var(--surface);border:1px solid var(--line);border-radius:16px;padding:17px 18px;margin:12px 0;text-decoration:none;color:var(--text);font-weight:600;font-size:15px;transition:transform .15s,border-color .15s,background .15s}}
+.lk:active{{transform:scale(.98)}}
+.lk:hover{{border-color:var(--mint);background:var(--surface2)}}
+.lk-ic{{font-size:20px;flex:0 0 auto}}
+.lk-name{{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;letter-spacing:-.01em}}
+.lk-arrow{{color:var(--mint);font-weight:800;flex:0 0 auto}}
+.empty{{text-align:center;color:var(--muted);padding:40px 0;font-size:14px}}
+.ft{{margin-top:40px;text-align:center}}
+.ft a{{display:inline-flex;align-items:center;gap:6px;color:var(--muted);font-size:12px;text-decoration:none;padding:8px 14px;border:1px solid var(--line);border-radius:999px;transition:color .15s,border-color .15s}}
+.ft a:hover{{color:var(--mint);border-color:var(--mint)}}
+.ft b{{color:var(--mint);font-weight:700}}
+.disc{{margin-top:20px;text-align:center;color:var(--muted);font-size:10.5px;line-height:1.5;opacity:.7}}
+</style></head>
+<body>
+<div class="av">{initial}</div>
+<h1>{name}</h1>
+<div class="sub">추천 링크 모음</div>
+{items}
+<div class="disc">이 페이지의 링크는 쿠팡 파트너스 활동의 일환으로,<br>이에 따른 일정액의 수수료를 제공받습니다.</div>
+<div class="ft"><a href="/">✨ 나도 <b>LinkLynk</b>로 만들기</a></div>
+</body></html>"""
+
+
+if __name__ == "__main__":
+    app.run(host="0.0.0.0", port=5000, debug=True)
+
+@app.route("/fly")
+def fly():
+    return send_from_directory("static/fly", "index.html")
+
+@app.route("/fly/")
+def fly_slash():
+    return send_from_directory("static/fly", "index.html")
+
+@app.route("/fly/v2/")
+def fly_v2():
+    return send_from_directory("static/fly/v2", "index.html")
+
+@app.route("/fly/legacy/")
+def fly_legacy():
+    return send_from_directory("static/fly", "index.html")
+
+@app.route("/fly/v2/<path:fname>")
+def fly_v2_assets(fname):
+    return send_from_directory("static/fly/v2", fname)
+
+@app.route("/fly/<path:fname>")
+def fly_assets(fname):
+    return send_from_directory("static/fly", fname)
+
+
+
+
+# ══════════════════════════════════════════════════════════════
+# BorderRx 도메인 분리 (canibringmeds.com)
+#
+# 한 서비스가 사이트 둘을 돌린다.
+#   canibringmeds.com      약 반입 판정. YMYL — 주소창이 곧 신뢰다
+#   linklynk.onrender.com  LinkLynk 앱·보임·나머지 도구
+#
+# ★기본값은 '안 옮김'이다. 아는 경로만 옮긴다.
+#   before_request 를 잘못 걸면 앱도 보임도 같이 죽는다.
+from flask import redirect as _rd
+from canibring_v1 import cb_home as _cb_home
+
+CB_HOST, APP_HOST = "canibringmeds.com", "linklynk.onrender.com"
+
+_CB_EXACT = {"/", "/can-i-bring", "/can-i-bring/", "/ko", "/ko/",
+             "/next", "/next/", "/next/en", "/next/en/",
+             "/about", "/sitemap-travel.xml"}
+_CB_PREFIX = ("/can-i-bring/", "/ko/", "/next/")
+_BOTH = {"/robots.txt"}       # 호스트마다 제 내용을 낸다. 절대 안 넘긴다
+
+# ★IndexNow 키 파일은 양쪽 호스트가 각자 200 으로 내야 한다.
+#   제출한 URL 과 같은 호스트에서 키가 안 나오면 소유 증명 실패다.
+#   301 은 실패로 친다 — 도메인 옮기면서 조용히 끊겨 있었다.
+from canibring_v1 import INDEXNOW_KEY as _INKEY
+_KEEP = ("/%s.txt" % _INKEY,)
+
+# ★카드 이미지는 옛 주소에 그대로 둔다.
+#   쓰레드 게시가 이 URL 을 200 으로 사전 확인한다. 301 로 바꾸면 게시가 막힌다.
+_STAY = ("/next/card", "/next/og")
+
+_CB_ROBOTS = ("User-agent: *\n"
+              "Disallow: /api/\n"
+              "Disallow: /t/\n\n"
+              "Sitemap: https://canibringmeds.com/sitemap-travel.xml\n")
+
+
+def _is_cb(p):
+    return p in _CB_EXACT or p.startswith(_CB_PREFIX)
+
+
+def _to(host, p):
+    q = request.query_string.decode("utf-8", "replace")
+    return "https://%s%s%s" % (host, p, ("?" + q) if q else "")
+
+
+@app.before_request
+def _split_hosts():
+    h = (request.host or "").split(":")[0].lower()
+    p = request.path
+
+    if h == "www." + CB_HOST:
+        return _rd(_to(CB_HOST, p), 301)
+
+    if h == CB_HOST:
+        if p in _BOTH:
+            return Response(_CB_ROBOTS, mimetype="text/plain; charset=utf-8")
+        if p == "/":
+            return _cb_home()         # ★앱 UI 가 아니라 BorderRx 홈
+        if p in _KEEP:
+            return None               # 이 호스트가 직접 낸다
+        if not _is_cb(p):
+            return _rd(_to(APP_HOST, p), 301)
+        return None
+
+    if h == APP_HOST:
+        if p in _BOTH or p == "/" or p.startswith(_STAY):
+            return None
+        if _is_cb(p):                 # 구글이 이미 아는 26개를 새 주소로 넘긴다
+            return _rd(_to(CB_HOST, p), 301)
+    return None
+
+
+# ══════════════════════════════════════════════════════════════
+# 방문 기록 (canibringmeds.com 전용)
+#
+# ★왜 자체 로그인가: 이 사이트는 /ko, 멜라토닌-영국·독일 때문에 EU 독자가 온다.
+#   3자 분석도구는 동의 배너를 끌고 온다. 1차 로그는 쿠키를 안 쓰고
+#   IP 는 해시만 남기므로 그 문제가 없다.
+# ★원칙: 로그가 실패해도 페이지는 떠야 한다. 예외는 전부 삼킨다.
+import hashlib as _hl, re as _re_h, threading as _th
+
+_BOT = _re_h.compile(r"bot|crawl|spider|slurp|bing|yandex|baidu|duckduck|"
+                     r"facebookexternalhit|headless|preview|monitor|"
+                     r"curl|wget|python-requests|go-http|java/", _re_h.I)
+_HITS_READY = [False]
+_SKIP = ("/robots.txt", "/sitemap", "/favicon", "/apple-touch", "/manifest")
+
+
+def _log_hit(path, ua, ref, iph):
+    try:
+        import os as _os, psycopg2 as _pg
+        cn = _pg.connect(_os.environ["DATABASE_URL"])
+        try:
+            with cn:
+                with cn.cursor() as cur:
+                    if not _HITS_READY[0]:
+                        cur.execute("""CREATE TABLE IF NOT EXISTS cb_hits(
+                            id bigserial primary key,
+                            at timestamptz default now(),
+                            path text, lang text, ref text,
+                            ua text, bot boolean, iph text)""")
+                        cur.execute("CREATE INDEX IF NOT EXISTS cb_hits_at ON cb_hits(at)")
+                        _HITS_READY[0] = True
+                    cur.execute(
+                        "INSERT INTO cb_hits(path,lang,ref,ua,bot,iph) VALUES(%s,%s,%s,%s,%s,%s)",
+                        (path[:200], "ko" if path.startswith("/ko") else "en",
+                         (ref or "")[:120], (ua or "")[:200],
+                         bool(_BOT.search(ua or "")), iph))
+        finally:
+            cn.close()
+    except Exception:
+        pass
+
+
+@app.after_request
+def _count_hit(resp):
+    try:
+        h = (request.host or "").split(":")[0].lower()
+        p = request.path
+        if h == CB_HOST and resp.status_code == 200 and not p.startswith(_SKIP):
+            ua = request.headers.get("User-Agent", "")
+            # 참조는 호스트만 남긴다. 전체 URL 은 남의 사생활이 섞인다.
+            ref = (request.headers.get("Referer", "") or "").split("/")[2:3]
+            ref = ref[0] if ref else ""
+            ip = request.headers.get("X-Forwarded-For", request.remote_addr or "").split(",")[0].strip()
+            iph = _hl.sha256(ip.encode()).hexdigest()[:16]
+            # ★응답을 막지 않는다
+            _th.Thread(target=_log_hit, args=(p, ua, ref, iph), daemon=True).start()
+    except Exception:
+        pass
+    return resp
+
+
+@app.route("/api/cb/stats")
+def _cb_stats():
+    """관리자용 집계. 키는 환경변수에서만 읽는다."""
+    import os as _os
+    want = _os.environ.get("TH_ADMIN_KEY", "")
+    got = request.headers.get("X-Admin-Key") or request.args.get("key") or ""
+    if not want or got != want:
+        return jsonify(error="nope"), 403
+    days = min(90, max(1, request.args.get("days", 14, type=int)))
+    try:
+        import psycopg2, psycopg2.extras
+        with psycopg2.connect(_os.environ["DATABASE_URL"]) as cn:
+            with cn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute("""select date_trunc('day',at)::date::text d, lang,
+                                      count(*) filter (where not bot) humans,
+                                      count(*) filter (where bot) bots,
+                                      count(distinct iph) filter (where not bot) uniq
+                               from cb_hits where at > now() - (%s || ' days')::interval
+                               group by 1,2 order by 1 desc, 2""", (days,))
+                days_rows = [dict(r) for r in cur.fetchall()]
+                cur.execute("""select path, count(*) n from cb_hits
+                               where not bot and at > now() - (%s || ' days')::interval
+                               group by 1 order by n desc limit 20""", (days,))
+                top = [dict(r) for r in cur.fetchall()]
+                cur.execute("""select coalesce(nullif(ref,''),'(직접)') ref, count(*) n
+                               from cb_hits where not bot and at > now() - (%s || ' days')::interval
+                               group by 1 order by n desc limit 15""", (days,))
+                refs = [dict(r) for r in cur.fetchall()]
+        return jsonify(days=days_rows, top_paths=top, referrers=refs)
+    except Exception as e:
+        return jsonify(error=str(e)[:160]), 500
+
+
+# 허브 페이지 = 판정에서 행동으로 넘어간 사람들. 수익화 판단은 이 비율로 한다.
+_HUB_LIKE = ("/can-i-bring/permit-", "/can-i-bring/doctors-letter", "/ko/승인-", "/ko/소견서")
+
+
+@app.route("/api/cb/pulse")
+def _cb_pulse():
+    """공개 집계. ★숫자만 낸다 — IP 해시·UA·참조 전체 경로는 절대 안 나간다.
+       robots.txt 가 /api/ 를 막으므로 색인되지 않는다."""
+    import os as _os
+    try:
+        import psycopg2, psycopg2.extras
+        with psycopg2.connect(_os.environ["DATABASE_URL"]) as cn:
+            with cn.cursor(cursor_factory=psycopg2.extras.RealDictCursor) as cur:
+                cur.execute("""select
+                      count(*) filter (where not bot and at > now() - interval '7 days')  h7,
+                      count(*) filter (where not bot and at > now() - interval '28 days') h28,
+                      count(*) filter (where bot     and at > now() - interval '7 days')  b7,
+                      count(distinct iph) filter (where not bot and at > now() - interval '7 days') u7,
+                      min(at)::text first_at, max(at)::text last_at
+                    from cb_hits""")
+                tot = dict(cur.fetchone() or {})
+                cur.execute("""select path, count(*) n from cb_hits
+                               where not bot and at > now() - interval '28 days'
+                               group by 1 order by n desc limit 10""")
+                top = [dict(r) for r in cur.fetchall()]
+                cur.execute("""select coalesce(nullif(ref,''),'(direct)') ref, count(*) n
+                               from cb_hits where not bot and at > now() - interval '28 days'
+                               group by 1 order by n desc limit 8""")
+                refs = [dict(r) for r in cur.fetchall()]
+                # 크롤러 계열별 개수. "구글이 긁고 있나"가 색인 신호다. UA 원문은 안 낸다.
+                cur.execute("""select case
+                        when ua ilike '%googlebot%'    then 'google'
+                        when ua ilike '%bingbot%'      then 'bing'
+                        when ua ilike '%yeti%'
+                          or ua ilike '%naver%'        then 'naver'
+                        when ua ilike '%yandex%'       then 'yandex'
+                        when ua ilike '%duckduck%'     then 'duckduckgo'
+                        when ua ilike '%baidu%'        then 'baidu'
+                        else 'other' end fam, count(*) n
+                      from cb_hits where bot and at > now() - interval '7 days'
+                      group by 1 order by n desc""")
+                crawl = [dict(r) for r in cur.fetchall()]
+                # ★파라미터 없는 execute 에서는 psycopg2 가 % 를 처리하지 않는다.
+                #   그래서 %% 가 아니라 % 를 쓴다. %% 로 쓰면 LIKE 가 깨진다.
+                cur.execute("""select count(*) n from cb_hits
+                      where not bot and at > now() - interval '28 days'
+                        and (path like '/can-i-bring/permit-%'
+                          or path = '/can-i-bring/doctors-letter'
+                          or path like '/ko/승인-%'
+                          or path = '/ko/소견서')""")
+                hub = int((cur.fetchone() or {}).get("n") or 0)
+        h28 = int(tot.get("h28") or 0)
+        return jsonify(
+            humans_7d=int(tot.get("h7") or 0),
+            humans_28d=h28,
+            uniques_7d=int(tot.get("u7") or 0),
+            bots_7d=int(tot.get("b7") or 0),
+            crawlers_7d=crawl,
+            hub_hits_28d=hub,
+            hub_share_28d=(round(hub * 100.0 / h28, 1) if h28 else None),
+            top_paths_28d=top,
+            referrers_28d=refs,
+            first_hit=tot.get("first_at"), last_hit=tot.get("last_at"))
+    except Exception as e:
+        return jsonify(error=str(e)[:160]), 500
