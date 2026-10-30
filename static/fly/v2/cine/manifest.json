@@ -99,6 +99,17 @@
    "poster": "/fly/v2/cine/mt-fuji.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "petra": {
+   "built": "2026-10-30",
+   "bytes": 1033346,
+   "dur": 6.0,
+   "endPitch": -24.0,
+   "endRange": 9000,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/petra.mp4",
+   "poster": "/fly/v2/cine/petra.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "pyramids-of-giza": {
    "built": "2026-10-30",
    "bytes": 371993,
