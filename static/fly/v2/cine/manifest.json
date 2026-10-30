@@ -110,6 +110,17 @@
    "poster": "/fly/v2/cine/seongsan-ilchulbong.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "uluru": {
+   "built": "2026-10-30",
+   "bytes": 469520,
+   "dur": 6.0,
+   "endPitch": -18.0,
+   "endRange": 15600,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/uluru.mp4",
+   "poster": "/fly/v2/cine/uluru.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "yosemite": {
    "built": "2026-10-28",
    "bytes": 1587907,
