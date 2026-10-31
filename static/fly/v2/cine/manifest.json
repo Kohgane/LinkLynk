@@ -55,6 +55,17 @@
    "poster": "/fly/v2/cine/grand-canyon.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "ha-long-bay": {
+   "built": "2026-10-31",
+   "bytes": 668125,
+   "dur": 6.0,
+   "endPitch": -22.0,
+   "endRange": 15600,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/ha-long-bay.mp4",
+   "poster": "/fly/v2/cine/ha-long-bay.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "iguazu-falls": {
    "built": "2026-10-29",
    "bytes": 358026,
