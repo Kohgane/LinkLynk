@@ -815,6 +815,11 @@ def boim_guide():
     return app.send_static_file("boim_guide.html")
 
 
+@app.route("/ads.txt")
+def _ads_txt():
+    return Response("google.com, pub-9571193552507188, DIRECT, f08c47fec0942fa0\n",
+                    mimetype="text/plain")
+
 @app.route("/robots.txt")
 def _robots():
     # ★순서가 곧 규칙이다. 순서 매칭 크롤러(first-match)와 구글(longest-match)
