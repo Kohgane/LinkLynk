@@ -55,6 +55,17 @@
    "poster": "/fly/v2/cine/grand-canyon.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "great-barrier-reef": {
+   "built": "2026-10-31",
+   "bytes": 313163,
+   "dur": 6.0,
+   "endPitch": -30.0,
+   "endRange": 23040,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/great-barrier-reef.mp4",
+   "poster": "/fly/v2/cine/great-barrier-reef.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "ha-long-bay": {
    "built": "2026-10-31",
    "bytes": 668125,
