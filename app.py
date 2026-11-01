@@ -3875,3 +3875,160 @@ def _adsense(resp):
     except Exception:
         pass
     return resp
+
+
+
+# ══════════════════════════════════════════════════════════════
+# 앱 페이지를 apps.kohganemultishop.org 로 옮긴다 — 2026-11-01
+#
+# ★왜 옮기나: 광고는 apps 호스트에서만 돈다(애드센스가 onrender.com 을 안 받는다).
+#   색인이 linklynk 에 남아 있으면 사람이 오는 곳과 광고가 도는 곳이 갈린다.
+#
+# ★기본값은 '안 옮김'이다. 아는 경로만 옮긴다. 여기 없는 건 전부 그대로 둔다.
+#   안 옮기는 것들과 이유:
+#     /                 세션 쿠키가 호스트에 묶인다. OAuth 리디렉션 URI 도 linklynk 로 등록돼 있다
+#     /boim /boim/*     토스 결제 성공·실패 URL 이 linklynk 로 등록돼 있다. 발급된 kit 링크도 산다
+#     /gov              웹푸시 구독이 오리진에 묶인다. 기존 구독자가 끊긴다
+#     /rx               YMYL. 광고를 안 붙이기로 했다
+#     /api/ /auth/ /t/  301 이면 POST 가 GET 으로 바뀌고, 추적 로그가 오염된다
+#     _KEEP _STAY       인덱스나우 키파일·구글·네이버 소유확인 html·쓰레드 카드이미지.
+#                       쓰레드 게시가 그 URL 을 200 으로 사전확인한다. 301 이면 게시가 막힌다
+#     /sw.js /manifest.json /icon-* /og/*  설치된 PWA 가 같은 오리진에서 받아야 한다
+MOVED = ("/majak", "/hwatu", "/sky", "/dwaeji", "/fly", "/fly/v2",
+         "/gottago", "/eats", "/gift", "/aiknows", "/duty")
+_MOVE = {}
+for _p in MOVED:
+    _MOVE[_p] = _p
+    _MOVE[_p + "/"] = _p
+
+# ★슬래시 쌍둥이 처리를 넘겨받는다. 그대로 두면 linklynk 안에서 한 번,
+#   apps 로 또 한 번 — 301 이 두 번 튄다.
+for _p in list(_SLASH_APP):
+    if _SLASH_APP[_p] in MOVED:
+        _SLASH_APP.pop(_p, None)
+
+
+@app.before_request
+def _move_to_ads_host():
+    try:
+        h = (request.host or "").split(":")[0].lower()
+        if h != APP_HOST:
+            return None
+        t = _MOVE.get(request.path)
+        if t:
+            return _rd(_to(ADS_HOST, t), 301)
+    except Exception:
+        pass
+    return None
+
+
+try:
+    # ══════════════════════════════════════════════════════════════
+    # 메타 주입을 두 호스트에서 다 돌린다
+    #
+    # ★seo_v1 의 _seo 는 linklynk 에서만 돈다. 옮긴 페이지는 apps 에서 뜨니까
+    #   그대로 두면 옮긴 페이지만 og·description·canonical 을 잃는다.
+    #   seo_v1.py 를 고치지 않고 핸들러만 갈아끼운다 — 사이트맵 교체와 같은 방식.
+    # ★apps 에서는 본문의 linklynk 자기참조를 apps 로 바꾼다.
+    #   og:image, og:url, canonical, /sky 의 API 주소까지 한 번에 맞는다.
+    app.after_request_funcs[None] = [
+        _f for _f in app.after_request_funcs.get(None, [])
+        if getattr(_f, "__name__", "") != "_seo"]
+
+    _NL = chr(10)
+    _SELF_OLD = "https://" + APP_HOST
+    _SELF_NEW = "https://" + ADS_HOST
+
+
+    @app.after_request
+    def _seo_both(resp):
+        try:
+            if resp.status_code != 200:
+                return resp
+            if "text/html" not in (resp.content_type or ""):
+                return resp
+            h = (request.host or "").split(":")[0].lower()
+            if h not in (APP_HOST, ADS_HOST, "127.0.0.1", "localhost"):
+                return resp
+            p = request.path
+            known = (p in _seo_v1.META or p in _seo_v1._FOOTER_ON
+                     or p in _seo_v1._PLAY)
+            if not known and h != ADS_HOST:
+                return resp
+            if getattr(resp, "direct_passthrough", False):
+                resp.direct_passthrough = False
+            body = resp.get_data(as_text=True)
+            new = _seo_v1.apply(body, p) if known else body
+            if h == ADS_HOST:
+                new = new.replace(_SELF_OLD, _SELF_NEW)
+                # ★META 에 없는 페이지(/fly/v2, 공유 결과 링크)도 자기 canonical 은 있어야 한다
+                low = new.lower()
+                if 'rel="canonical"' not in low and "rel='canonical'" not in low:
+                    i = low.find("</head>")
+                    if i >= 0:
+                        new = (new[:i] + '<link rel="canonical" href="%s%s">'
+                               % (_SELF_NEW, p) + new[i:])
+            if new != body:
+                resp.set_data(new)
+                resp.headers.pop("ETag", None)
+                resp.headers.pop("Last-Modified", None)
+        except Exception:
+            pass
+        return resp
+
+
+    # ══════════════════════════════════════════════════════════════
+    # 호스트별 사이트맵·robots
+    #
+    # ★한 URL 은 한 호스트에만 올린다. 옮긴 건 apps 사이트맵에, 안 옮긴 건
+    #   linklynk 사이트맵에. 301 되는 주소를 사이트맵에 넣으면
+    #   "리다이렉트됨" 경고만 쌓인다 — seo_v1 주석에 이미 적혀 있는 교훈이다.
+    def _sitemap_split():
+        h = (request.host or "").split(":")[0].lower()
+        base = "https://" + (ADS_HOST if h == ADS_HOST else APP_HOST)
+        paths = [p for p in _seo_v1.SITEMAP_PATHS
+                 if (p in _MOVE) == (h == ADS_HOST)]
+        if h == ADS_HOST and "/fly/v2" not in paths:
+            paths.append("/fly/v2")
+        x = ['<?xml version="1.0" encoding="UTF-8"?>',
+             '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
+        for p in paths:
+            x.append("<url><loc>%s%s</loc><changefreq>weekly</changefreq></url>"
+                     % (base, p))
+        x.append("</urlset>")
+        return Response(_NL.join(x), mimetype="application/xml")
+
+
+    for _vf, _fn in list(app.view_functions.items()):
+        if getattr(_fn, "__name__", "") in ("_sitemap", "_sitemap_full"):
+            app.view_functions[_vf] = _sitemap_split
+            break
+
+
+    def _robots_split():
+        h = (request.host or "").split(":")[0].lower()
+        ads = (h == ADS_HOST)
+        rules = ["User-agent: *", "Disallow: /api/", "Disallow: /t/",
+                 "Disallow: /boim/r/", "Disallow: /boim/pay/"]
+        if ads:
+            # ★apps 에는 옮긴 페이지만 산다. 나머지는 linklynk 와 같은 내용이라
+            #   색인되면 중복이다. 막는 게 canonical 보다 확실하다.
+            rules += ["Disallow: /$", "Disallow: /boim", "Disallow: /gov",
+                      "Disallow: /rx", "Disallow: /next", "Disallow: /ko",
+                      "Disallow: /can-i-bring", "Disallow: /about",
+                      "Disallow: /parking", "Disallow: /u/"]
+            maps = ["Sitemap: https://%s/sitemap.xml" % ADS_HOST]
+        else:
+            maps = ["Sitemap: https://%s/sitemap.xml" % APP_HOST,
+                    "Sitemap: https://%s/sitemap-travel.xml" % APP_HOST]
+        out = _NL.join(rules) + _NL + _NL + _NL.join(maps) + _NL
+        return Response(out, mimetype="text/plain")
+
+
+    for _vf, _fn in list(app.view_functions.items()):
+        if getattr(_fn, "__name__", "") == "_robots":
+            app.view_functions[_vf] = _robots_split
+            break
+
+except Exception as _e:
+    print("[ads-host] 메타/사이트맵 교체 미적용:", _e)
