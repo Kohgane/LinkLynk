@@ -4032,3 +4032,21 @@ try:
 
 except Exception as _e:
     print("[ads-host] 메타/사이트맵 교체 미적용:", _e)
+
+
+# ══════════════════════════════════════════════════════════════
+# /fly/v2/ 메타 — 2026-11-01
+#
+# ★실측: 이 페이지만 description, og, twitter 카드가 통째로 비어 있었다.
+#   META 에 경로가 없으면 seo_v1 이 아무것도 안 붙인다. 링크를 붙이면
+#   카드 없이 맨 주소만 떴다는 뜻이다. 같은 Earthflight 지만 리빌드라
+#   제 문장을 따로 쓰고, og 이미지는 /fly 것을 그대로 쓴다.
+# ★슬래시 붙은 쪽이 실제로 200 을 내는 경로다. 그쪽으로 등록한다.
+try:
+    _seo_v1.META.setdefault("/fly/v2/", (
+        "Earthflight 2.0 — 클린 리빌드",
+        "Earthflight 를 처음부터 다시 만든 2.0. 설치 없이 브라우저에서 뜨고, "
+        "고도와 속도, 부스트가 한 화면에 보인다.",
+        _seo_v1.META["/fly"][2], "website"))
+except Exception as _e:
+    print("[ads-host] /fly/v2 메타 미적용:", _e)
