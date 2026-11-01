@@ -3820,3 +3820,58 @@ try:
             return jsonify({"ok": False, "error": str(e)[:200]}), 500
 except Exception as _e:
     print("[gov_push] 미적용:", _e)
+
+
+
+# ══════════════════════════════════════════════════════════════
+# 애드센스 (ca-pub-9571193552507188) — 2026-11-01
+#
+# ★왜 apps.kohganemultishop.org 에만 넣나:
+#   애드센스는 onrender.com 같은 플랫폼 하위도메인을 사이트로 안 받는다.
+#   그래서 우리 도메인에 CNAME(apps → linklynk.onrender.com)을 달았고,
+#   광고 코드는 그 호스트로 들어온 요청에만 붙인다.
+#   canibringmeds.com 은 YMYL 이라 광고를 안 붙인다. 신뢰가 먼저다.
+# ★같은 내용이 linklynk.onrender.com 에도 있다. 중복 색인을 막으려고
+#   canonical 이 없는 페이지에만 linklynk 쪽 canonical 을 같이 넣는다.
+# ★실패해도 페이지는 그대로 나간다. 광고보다 앱이 먼저다.
+ADS_HOST = "apps.kohganemultishop.org"
+_ADS_TAG = ('<script async src="https://pagead2.googlesyndication.com/pagead/js/'
+            'adsbygoogle.js?client=ca-pub-9571193552507188" '
+            'crossorigin="anonymous"></script>')
+_ADS_SKIP = ("/api/", "/t/", "/auth/", "/boim/pay/", "/boim/r/")
+
+
+@app.after_request
+def _adsense(resp):
+    try:
+        if resp.status_code != 200:
+            return resp
+        if "text/html" not in (resp.content_type or ""):
+            return resp
+        if (request.host or "").split(":")[0].lower() != ADS_HOST:
+            return resp
+        p = request.path
+        if p.startswith(_ADS_SKIP):
+            return resp
+        # send_static_file 은 파일 래퍼라 그냥 읽으면 터진다
+        if getattr(resp, "direct_passthrough", False):
+            resp.direct_passthrough = False
+        body = resp.get_data(as_text=True)
+        if "adsbygoogle" in body:
+            return resp
+        i = body.lower().find("<head")
+        if i < 0:
+            return resp
+        j = body.find(">", i)
+        if j < 0:
+            return resp
+        add = _ADS_TAG
+        if "rel=\"canonical\"" not in body and "rel='canonical'" not in body:
+            add += '<link rel="canonical" href="https://linklynk.onrender.com%s">' % p
+        resp.set_data(body[:j + 1] + add + body[j + 1:])
+        # 본문을 바꿨으니 파일 기준 ETag 는 더 이상 맞지 않는다
+        resp.headers.pop("ETag", None)
+        resp.headers.pop("Last-Modified", None)
+    except Exception:
+        pass
+    return resp
