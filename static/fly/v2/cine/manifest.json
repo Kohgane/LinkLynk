@@ -143,6 +143,17 @@
    "poster": "/fly/v2/cine/mt-fuji.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "niagara-falls": {
+   "built": "2026-11-01",
+   "bytes": 1330739,
+   "dur": 6.0,
+   "endPitch": -24.0,
+   "endRange": 7000,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/niagara-falls.mp4",
+   "poster": "/fly/v2/cine/niagara-falls.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "petra": {
    "built": "2026-10-30",
    "bytes": 1033346,
