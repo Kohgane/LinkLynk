@@ -3894,7 +3894,7 @@ def _adsense(resp):
 #     _KEEP _STAY       인덱스나우 키파일·구글·네이버 소유확인 html·쓰레드 카드이미지.
 #                       쓰레드 게시가 그 URL 을 200 으로 사전확인한다. 301 이면 게시가 막힌다
 #     /sw.js /manifest.json /icon-* /og/*  설치된 PWA 가 같은 오리진에서 받아야 한다
-MOVED = ("/majak", "/hwatu", "/sky", "/dwaeji", "/fly", "/fly/v2",
+MOVED = ("/majak", "/hwatu", "/sky", "/dwaeji", "/fly", "/fly/v2/",
          "/gottago", "/eats", "/gift", "/aiknows", "/duty")
 _MOVE = {}
 for _p in MOVED:
@@ -3988,8 +3988,8 @@ try:
         base = "https://" + (ADS_HOST if h == ADS_HOST else APP_HOST)
         paths = [p for p in _seo_v1.SITEMAP_PATHS
                  if (p in _MOVE) == (h == ADS_HOST)]
-        if h == ADS_HOST and "/fly/v2" not in paths:
-            paths.append("/fly/v2")
+        if h == ADS_HOST and "/fly/v2/" not in paths:
+            paths.append("/fly/v2/")
         x = ['<?xml version="1.0" encoding="UTF-8"?>',
              '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">']
         for p in paths:
