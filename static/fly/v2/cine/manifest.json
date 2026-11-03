@@ -1,5 +1,16 @@
 {
  "clips": {
+  "angel-falls": {
+   "built": "2026-11-03",
+   "bytes": 526018,
+   "dur": 6.0,
+   "endPitch": -18.0,
+   "endRange": 10500,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/angel-falls.mp4",
+   "poster": "/fly/v2/cine/angel-falls.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "angkor-wat": {
    "built": "2026-11-02",
    "bytes": 1319637,
