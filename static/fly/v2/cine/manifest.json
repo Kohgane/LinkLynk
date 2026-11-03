@@ -1,5 +1,16 @@
 {
  "clips": {
+  "amazon": {
+   "built": "2026-11-03",
+   "bytes": 867471,
+   "dur": 6.0,
+   "endPitch": -22.0,
+   "endRange": 17280,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/amazon.mp4",
+   "poster": "/fly/v2/cine/amazon.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "angel-falls": {
    "built": "2026-11-03",
    "bytes": 526018,
