@@ -110,6 +110,17 @@
    "poster": "/fly/v2/cine/iguazu-falls.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "kilimanjaro": {
+   "built": "2026-11-03",
+   "bytes": 567851,
+   "dur": 6.0,
+   "endPitch": -14.0,
+   "endRange": 23040,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/kilimanjaro.mp4",
+   "poster": "/fly/v2/cine/kilimanjaro.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "kirkjufell": {
    "built": "2026-10-29",
    "bytes": 596259,
