@@ -264,6 +264,17 @@
    "poster": "/fly/v2/cine/serengeti.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "socotra": {
+   "built": "2026-11-04",
+   "bytes": 768465,
+   "dur": 6.0,
+   "endPitch": -18.0,
+   "endRange": 17280,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/socotra.mp4",
+   "poster": "/fly/v2/cine/socotra.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "uluru": {
    "built": "2026-10-30",
    "bytes": 469520,
