@@ -55,6 +55,17 @@
    "poster": "/fly/v2/cine/cappadocia.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "darvaza-crater": {
+   "built": "2026-11-04",
+   "bytes": 456847,
+   "dur": 6.0,
+   "endPitch": -30.0,
+   "endRange": 6000,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/darvaza-crater.mp4",
+   "poster": "/fly/v2/cine/darvaza-crater.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "everest": {
    "built": "2026-10-28",
    "bytes": 1006588,
