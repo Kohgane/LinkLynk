@@ -264,6 +264,17 @@
    "poster": "/fly/v2/cine/pyramids-of-giza.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "salar-de-uyuni": {
+   "built": "2026-11-05",
+   "bytes": 120138,
+   "dur": 6.0,
+   "endPitch": -16.0,
+   "endRange": 23040,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/salar-de-uyuni.mp4",
+   "poster": "/fly/v2/cine/salar-de-uyuni.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "seongsan-ilchulbong": {
    "built": "2026-10-28",
    "bytes": 587773,
