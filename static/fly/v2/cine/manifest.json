@@ -406,6 +406,17 @@
    "mp4": "/fly/v2/cine/yosemite.mp4",
    "poster": "/fly/v2/cine/yosemite.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
+  },
+  "zhangjiajie": {
+   "built": "2026-11-07",
+   "bytes": 734485,
+   "dur": 6.0,
+   "endPitch": -16.0,
+   "endRange": 13000,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/zhangjiajie.mp4",
+   "poster": "/fly/v2/cine/zhangjiajie.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
   }
  },
  "v": 1
