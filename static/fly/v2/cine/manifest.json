@@ -253,6 +253,17 @@
    "poster": "/fly/v2/cine/matterhorn.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "meteora": {
+   "built": "2026-11-08",
+   "bytes": 1216601,
+   "dur": 6.0,
+   "endPitch": -18.0,
+   "endRange": 9000,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/meteora.mp4",
+   "poster": "/fly/v2/cine/meteora.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "monument-valley": {
    "built": "2026-10-28",
    "bytes": 1053502,
