@@ -132,6 +132,17 @@
    "poster": "/fly/v2/cine/great-wall.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "guilin": {
+   "built": "2026-11-08",
+   "bytes": 1359540,
+   "dur": 6.0,
+   "endPitch": -18.0,
+   "endRange": 15600,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/guilin.mp4",
+   "poster": "/fly/v2/cine/guilin.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "ha-long-bay": {
    "built": "2026-10-31",
    "bytes": 668125,
