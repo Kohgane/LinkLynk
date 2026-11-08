@@ -297,6 +297,17 @@
    "poster": "/fly/v2/cine/niagara-falls.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "pamukkale": {
+   "built": "2026-11-08",
+   "bytes": 2309017,
+   "dur": 6.0,
+   "endPitch": -24.0,
+   "endRange": 8000,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/pamukkale.mp4",
+   "poster": "/fly/v2/cine/pamukkale.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "petra": {
    "built": "2026-10-30",
    "bytes": 1033346,
