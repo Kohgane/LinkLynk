@@ -55,6 +55,17 @@
    "poster": "/fly/v2/cine/cappadocia.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "cliffs-of-moher": {
+   "built": "2026-11-10",
+   "bytes": 489920,
+   "dur": 6.0,
+   "endPitch": -20.0,
+   "endRange": 9000,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/cliffs-of-moher.mp4",
+   "poster": "/fly/v2/cine/cliffs-of-moher.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "darvaza-crater": {
    "built": "2026-11-04",
    "bytes": 456847,
