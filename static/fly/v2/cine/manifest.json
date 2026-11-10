@@ -242,6 +242,17 @@
    "poster": "/fly/v2/cine/lena-pillars.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "lofoten": {
+   "built": "2026-11-10",
+   "bytes": 471548,
+   "dur": 6.0,
+   "endPitch": -18.0,
+   "endRange": 17280,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/lofoten.mp4",
+   "poster": "/fly/v2/cine/lofoten.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "machu-picchu": {
    "built": "2026-11-01",
    "bytes": 808895,
