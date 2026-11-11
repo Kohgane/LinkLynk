@@ -363,6 +363,17 @@
    "poster": "/fly/v2/cine/petra.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "plitvice-lakes": {
+   "built": "2026-11-11",
+   "bytes": 385768,
+   "dur": 6.0,
+   "endPitch": -22.0,
+   "endRange": 9000,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/plitvice-lakes.mp4",
+   "poster": "/fly/v2/cine/plitvice-lakes.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "pyramids-of-giza": {
    "built": "2026-10-30",
    "bytes": 371993,
