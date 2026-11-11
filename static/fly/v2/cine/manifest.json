@@ -473,6 +473,17 @@
    "poster": "/fly/v2/cine/uluru.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "yellowstone": {
+   "built": "2026-11-11",
+   "bytes": 661115,
+   "dur": 6.0,
+   "endPitch": -20.0,
+   "endRange": 17280,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/yellowstone.mp4",
+   "poster": "/fly/v2/cine/yellowstone.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "yosemite": {
    "built": "2026-10-28",
    "bytes": 1587907,
