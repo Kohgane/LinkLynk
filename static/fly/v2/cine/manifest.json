@@ -473,6 +473,17 @@
    "poster": "/fly/v2/cine/table-mountain.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "torres-del-paine": {
+   "built": "2026-11-12",
+   "bytes": 1054248,
+   "dur": 6.0,
+   "endPitch": -14.0,
+   "endRange": 17280,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/torres-del-paine.mp4",
+   "poster": "/fly/v2/cine/torres-del-paine.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "trolltunga": {
    "built": "2026-11-05",
    "bytes": 1384894,
