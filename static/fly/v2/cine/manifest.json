@@ -374,6 +374,17 @@
    "poster": "/fly/v2/cine/pamukkale.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "perito-moreno": {
+   "built": "2026-11-12",
+   "bytes": 1083845,
+   "dur": 6.0,
+   "endPitch": -18.0,
+   "endRange": 13000,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/perito-moreno.mp4",
+   "poster": "/fly/v2/cine/perito-moreno.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "petra": {
    "built": "2026-10-30",
    "bytes": 1033346,
