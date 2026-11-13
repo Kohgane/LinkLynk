@@ -143,6 +143,17 @@
    "poster": "/fly/v2/cine/faroe-islands.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "galapagos": {
+   "built": "2026-11-13",
+   "bytes": 692323,
+   "dur": 6.0,
+   "endPitch": -20.0,
+   "endRange": 17280,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/galapagos.mp4",
+   "poster": "/fly/v2/cine/galapagos.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "geiranger-fjord": {
    "built": "2026-10-29",
    "bytes": 1168094,
