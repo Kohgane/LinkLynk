@@ -121,6 +121,17 @@
    "poster": "/fly/v2/cine/dry-valleys.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "easter-island": {
+   "built": "2026-11-13",
+   "bytes": 484763,
+   "dur": 6.0,
+   "endPitch": -20.0,
+   "endRange": 13000,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/easter-island.mp4",
+   "poster": "/fly/v2/cine/easter-island.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "everest": {
    "built": "2026-10-28",
    "bytes": 1006588,
