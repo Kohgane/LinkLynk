@@ -44,6 +44,17 @@
    "poster": "/fly/v2/cine/antelope-canyon.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "atacama": {
+   "built": "2026-11-13",
+   "bytes": 250879,
+   "dur": 6.0,
+   "endPitch": -18.0,
+   "endRange": 23040,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/atacama.mp4",
+   "poster": "/fly/v2/cine/atacama.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "bora-bora": {
    "built": "2026-10-28",
    "bytes": 538660,
