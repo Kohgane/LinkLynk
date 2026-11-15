@@ -154,6 +154,17 @@
    "poster": "/fly/v2/cine/easter-island.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "el-nido": {
+   "built": "2026-11-15",
+   "bytes": 453065,
+   "dur": 6.0,
+   "endPitch": -22.0,
+   "endRange": 15600,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/el-nido.mp4",
+   "poster": "/fly/v2/cine/el-nido.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "everest": {
    "built": "2026-10-28",
    "bytes": 1006588,
