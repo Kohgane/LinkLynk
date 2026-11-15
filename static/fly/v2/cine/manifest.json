@@ -572,6 +572,17 @@
    "poster": "/fly/v2/cine/table-mountain.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "taj-mahal": {
+   "built": "2026-11-15",
+   "bytes": 1203290,
+   "dur": 6.0,
+   "endPitch": -24.0,
+   "endRange": 6000,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/taj-mahal.mp4",
+   "poster": "/fly/v2/cine/taj-mahal.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "torres-del-paine": {
    "built": "2026-11-12",
    "bytes": 1054248,
