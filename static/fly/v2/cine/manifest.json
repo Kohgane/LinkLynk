@@ -33,6 +33,17 @@
    "poster": "/fly/v2/cine/angkor-wat.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "annapurna": {
+   "built": "2026-11-16",
+   "bytes": 758226,
+   "dur": 6.0,
+   "endPitch": -12.0,
+   "endRange": 23040,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/annapurna.mp4",
+   "poster": "/fly/v2/cine/annapurna.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "antelope-canyon": {
    "built": "2026-11-11",
    "bytes": 1082679,
