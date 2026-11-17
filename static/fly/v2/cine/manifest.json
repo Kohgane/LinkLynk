@@ -132,6 +132,17 @@
    "poster": "/fly/v2/cine/darvaza-crater.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "dead-sea": {
+   "built": "2026-11-17",
+   "bytes": 405661,
+   "dur": 6.0,
+   "endPitch": -20.0,
+   "endRange": 15600,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/dead-sea.mp4",
+   "poster": "/fly/v2/cine/dead-sea.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "denali": {
    "built": "2026-11-12",
    "bytes": 684431,
