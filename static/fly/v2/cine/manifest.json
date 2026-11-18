@@ -484,6 +484,17 @@
    "poster": "/fly/v2/cine/niagara-falls.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "okavango-delta": {
+   "built": "2026-11-18",
+   "bytes": 471228,
+   "dur": 6.0,
+   "endPitch": -24.0,
+   "endRange": 17280,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/okavango-delta.mp4",
+   "poster": "/fly/v2/cine/okavango-delta.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "pamukkale": {
    "built": "2026-11-08",
    "bytes": 2309017,
