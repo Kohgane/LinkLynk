@@ -682,6 +682,17 @@
    "poster": "/fly/v2/cine/uluru.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "victoria-falls": {
+   "built": "2026-11-18",
+   "bytes": 753598,
+   "dur": 6.0,
+   "endPitch": -22.0,
+   "endRange": 9000,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/victoria-falls.mp4",
+   "poster": "/fly/v2/cine/victoria-falls.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "wadi-rum": {
    "built": "2026-11-17",
    "bytes": 955734,
