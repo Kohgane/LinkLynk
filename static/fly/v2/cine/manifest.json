@@ -550,6 +550,17 @@
    "poster": "/fly/v2/cine/petra.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "piton-de-la-fournaise": {
+   "built": "2026-11-19",
+   "bytes": 368093,
+   "dur": 6.0,
+   "endPitch": -16.0,
+   "endRange": 13000,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/piton-de-la-fournaise.mp4",
+   "poster": "/fly/v2/cine/piton-de-la-fournaise.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "plitvice-lakes": {
    "built": "2026-11-11",
    "bytes": 385768,
