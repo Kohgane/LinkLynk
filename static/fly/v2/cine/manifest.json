@@ -66,6 +66,17 @@
    "poster": "/fly/v2/cine/atacama.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "avenue-of-baobabs": {
+   "built": "2026-11-19",
+   "bytes": 792240,
+   "dur": 6.0,
+   "endPitch": -20.0,
+   "endRange": 6000,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/avenue-of-baobabs.mp4",
+   "poster": "/fly/v2/cine/avenue-of-baobabs.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "bagan": {
    "built": "2026-11-14",
    "bytes": 993546,
