@@ -616,6 +616,17 @@
    "poster": "/fly/v2/cine/socotra.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "sossusvlei": {
+   "built": "2026-11-19",
+   "bytes": 656846,
+   "dur": 6.0,
+   "endPitch": -18.0,
+   "endRange": 13000,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/sossusvlei.mp4",
+   "poster": "/fly/v2/cine/sossusvlei.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "svalbard": {
    "built": "2026-11-07",
    "bytes": 811723,
