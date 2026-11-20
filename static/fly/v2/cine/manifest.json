@@ -308,6 +308,17 @@
    "poster": "/fly/v2/cine/ha-long-bay.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "hallstatt": {
+   "built": "2026-11-20",
+   "bytes": 1062121,
+   "dur": 6.0,
+   "endPitch": -20.0,
+   "endRange": 7000,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/hallstatt.mp4",
+   "poster": "/fly/v2/cine/hallstatt.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "heaven-lake-baekdu": {
    "built": "2026-11-06",
    "bytes": 560711,
