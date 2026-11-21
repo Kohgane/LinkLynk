@@ -759,6 +759,17 @@
    "poster": "/fly/v2/cine/uluru.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "vatnajokull": {
+   "built": "2026-11-21",
+   "bytes": 188609,
+   "dur": 6.0,
+   "endPitch": -16.0,
+   "endRange": 23040,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/vatnajokull.mp4",
+   "poster": "/fly/v2/cine/vatnajokull.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "victoria-falls": {
    "built": "2026-11-18",
    "bytes": 753598,
