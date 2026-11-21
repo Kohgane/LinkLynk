@@ -616,6 +616,17 @@
    "poster": "/fly/v2/cine/plitvice-lakes.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "preikestolen": {
+   "built": "2026-11-21",
+   "bytes": 739030,
+   "dur": 6.0,
+   "endPitch": -20.0,
+   "endRange": 9000,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/preikestolen.mp4",
+   "poster": "/fly/v2/cine/preikestolen.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "pyramids-of-giza": {
    "built": "2026-10-30",
    "bytes": 371993,
