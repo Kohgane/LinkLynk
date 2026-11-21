@@ -341,6 +341,17 @@
    "poster": "/fly/v2/cine/iguazu-falls.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "ilulissat": {
+   "built": "2026-11-21",
+   "bytes": 843199,
+   "dur": 6.0,
+   "endPitch": -18.0,
+   "endRange": 17280,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/ilulissat.mp4",
+   "poster": "/fly/v2/cine/ilulissat.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "k2": {
    "built": "2026-11-16",
    "bytes": 1054366,
