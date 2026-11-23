@@ -38,6 +38,8 @@ input[type=file]{display:none}
 .pal .strip{display:flex;height:44px;border-radius:12px;overflow:hidden;border:1px solid #ffffff1a}
 .pal .strip i{flex:1}
 .pal .n{font-size:11px;color:var(--dim);margin-top:8px}
+.snaps{display:flex;flex-direction:column;gap:6px}.snap.alt{background:#1d2537;font-weight:700;padding:8px 12px}
+.day.pickable{cursor:pointer}.day.pickable span::after{content:"+";margin-left:2px;opacity:.5}
 .foot{margin-top:14px;font-size:10.5px;color:var(--dim);text-align:center;line-height:1.7}
 </style></head><body>
 <div class="hd"><h1>Same<s>Sky</s></h1><div class="mon" id="mon"></div></div>
@@ -49,8 +51,9 @@ input[type=file]{display:none}
 <div class="t2" id="ts">Point up, take one — the day's colors fill your calendar.<br>Missed days are just clear sky. No goals, no guilt.</div>
 <div class="chips" id="chips"></div>
 </div>
-<label class="snap" for="pick">Catch</label>
-<input type="file" id="pick" accept="image/*" capture="environment">
+<div class="snaps"><label class="snap" for="pick">📷 Catch</label><label class="snap alt" for="pickA">🖼 앨범</label></div>
+<input type="file" id="pick" accept="image/*" capture="environment" hidden>
+<input type="file" id="pickA" accept="image/*" hidden>
 </div>
 
 <div class="cal" id="cal"></div>
@@ -93,19 +96,28 @@ function thumb(img){const c=document.createElement('canvas'),x=c.getContext('2d'
  x.drawImage(img,(img.width-s)/2,(img.height-s)/2,s,s,0,0,140,140);
  return c.toDataURL('image/jpeg',.62)}
 
-document.getElementById('pick').onchange=e=>{
- const f=e.target.files[0];if(!f)return;
+let target=null;   // 달력에서 지난 날을 눌러 고른 날
+function takeFile(f,fromAlbum){
+ if(!f)return;
+ let d=D;
+ if(target){d=target;target=null}
+ else if(fromAlbum&&f.lastModified){   // 앨범 사진은 찍은 날로 (이번 달이면)
+  const t=new Date(f.lastModified+9*3600e3);
+  if(t.getUTCFullYear()===Y&&t.getUTCMonth()===M&&t.getUTCDate()<=D)d=t.getUTCDate()}
  const img=new Image();
  img.onload=()=>{
   const cols=domColors(img), th=thumb(img);
-  const o=store();o[D]={c:cols,t:th,h:now.getUTCHours()};save(o);render();if('serviceWorker'in navigator)navigator.serviceWorker.register('/sky/sw.js').catch(()=>{});
+  const o=store();o[d]={c:cols,t:th,h:now.getUTCHours()};save(o);render();
+  if(d!==D){document.getElementById('ts').innerHTML=(M+1)+'월 '+d+'일 하늘로 채웠습니다.';return}if('serviceWorker'in navigator)navigator.serviceWorker.register('/sky/sw.js').catch(()=>{});
   const hour=now.getUTCHours();
   document.getElementById('tt').textContent=
    hour<7?'A dawn catcher, rare breed':hour<11?'Morning sky, caught':hour<17?'Midday sky, caught':hour<20?'You caught the sunset':'Night sky, caught';
   document.getElementById('ts').innerHTML='Three shades of your day, saved — and sent to the world strip (colors only).';shareSky(cols);
  };
  img.src=URL.createObjectURL(f);
-};
+}
+document.getElementById('pick').onchange=e=>{takeFile(e.target.files[0],false);e.target.value=''};
+document.getElementById('pickA').onchange=e=>{takeFile(e.target.files[0],true);e.target.value=''};
 
 function render(){
  const o=store();
@@ -123,7 +135,8 @@ function render(){
   if(rec){el.classList.add('fill');
    el.innerHTML='<img src="'+rec.t+'"><span>'+d+'</span>';
    el.style.borderColor=rec.c[0]+'66'}
-  else el.innerHTML='<span>'+d+'</span>';
+  else{el.innerHTML='<span>'+d+'</span>';
+   if(d<D){el.classList.add('pickable');el.onclick=()=>{target=d;document.getElementById('pickA').click()}}}
   cal.appendChild(el)}
  // 팔레트
  const strip=document.getElementById('strip');strip.innerHTML='';
