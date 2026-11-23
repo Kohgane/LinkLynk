@@ -140,7 +140,7 @@ body::before{content:"";position:fixed;inset:0;background:
 <div class="luck z" id="luck"></div>
 <div class="tools z"><button id="fortB">📜 오늘의 화투점</button><button id="jbB">족보</button><button id="snd">🔔 소리</button></div>
 <div class="jokbo z" id="jb">
-<b>38광땡</b> &gt; <b>광땡</b>(1·8, 1·3) &gt; <b>땡</b>(장땡 10·10 … 1땡) &gt; <b>알리</b>(1·2) &gt; <b>독사</b>(1·4) &gt; <b>구삥</b>(1·9) &gt; <b>장삥</b>(1·10) &gt; <b>장사</b>(10·4) &gt; <b>세륙</b>(4·6) &gt; <b>끗</b>(두 장 합의 끝자리, 9끗=갑오 … 0=망통)<br>
+<span style="color:#a89d87">끗이 같으면 선 잡은 차사가 이긴다.</span><br><b>38광땡</b> &gt; <b>광땡</b>(1·8, 1·3) &gt; <b>땡</b>(장땡 10·10 … 1땡) &gt; <b>알리</b>(1·2) &gt; <b>독사</b>(1·4) &gt; <b>구삥</b>(1·9) &gt; <b>장삥</b>(1·10) &gt; <b>장사</b>(10·4) &gt; <b>세륙</b>(4·6) &gt; <b>끗</b>(두 장 합의 끝자리, 9끗=갑오 … 0=망통)<br>
 특수패 — <b>땡잡이</b>(3광+7열): 1~9땡을 잡는다 · <b>암행어사</b>(4열+7열): 1·3/1·8 광땡을 잡는다 · <b>구사</b>(4·9): 상대가 땡보다 낮으면 판을 다시 깐다<br>
 <span style="color:var(--wisp)">오늘의 화투점에서 나온 <b style="color:var(--wisp)">행운의 달</b> 패를 쥐고 이기면 판돈 2배.</span>
 </div>
@@ -268,25 +268,33 @@ function deal(){if(bank<ANTE)return idle();
  if(P[0].m===F.top.m)say('lucky');
  acts([['다이',fold],['콜',()=>second(false),'main'],['따당 +20',()=>second(true),'gold',bank<20]])}
 function chasaStrength(){ // 차사가 자기 패를 얼마나 믿는가(0~1)
- if(C.length===1){const c=C[0];return Math.min(1,(c.m/10)*.6+(c.s?.3:0))}
+ if(C.length===1){const c=C[0];return Math.min(1,(c.m/10)*.5+(c.s?.3:0)+(c.m===1?.2:0))}
  const h=evalHand(C[0],C[1]);return h.r>=800?1:h.r>=700?.8:h.sp?.45:Math.max(0,(h.r-100)/12)}
 function second(raise){
  if(raise){bank-=20;pot+=20;say('raise');
-  if(chasaStrength()<.3&&Math.random()<.4){return chasaFold()}
+  if(chasaStrength()<.2&&Math.random()<.3){return chasaFold()}
   pot+=20}
  else say('call');
  P.push(deck.pop());C.push(deck.pop());stage='second';sCard();showHands(false);ui();
  const half=Math.max(10,Math.floor(pot/2));
  acts([['다이',fold],['체크',()=>show(false),'main'],['하프 +'+half,()=>show(true,half),'gold',bank<half]])}
 function show(half,amt){
+ const st=chasaStrength();
  if(half){bank-=amt;pot+=amt;
-  const st=chasaStrength();
-  if(st<.4&&Math.random()<.45)return chasaFold();
-  pot+=amt;say('call')}
+  if(st<.25&&Math.random()<.3)return chasaFold();
+  pot+=amt;say('call');
+  if(st>=.85&&bank>0){return chasaBet(Math.max(10,Math.floor(pot/2)))}}
+ else if(st>=.6||Math.random()<.2){return chasaBet(Math.max(10,Math.floor(pot/2)))}   // 차사가 먼저 따당(센 패 또는 허세)
+ reveal()}
+function chasaBet(b){pot+=b;ui();
+ document.getElementById('say').innerHTML=['따당. <b>'+b+'냥</b> 더. 받을 테냐, 산 자?','<b>'+b+'냥</b> 올리지. 네 패가 그만한가?','차사가 <b>'+b+'냥</b>을 던졌다. 겁나면 다이해라.'][Math.floor(Math.random()*3)];
+ const pay=Math.min(b,bank);
+ acts([['다이',fold],['콜 '+pay+'냥',()=>{bank-=pay;pot+=pay;reveal()},'main']])}
+function reveal(){
  stage='show';showHands(true);ui();
  const hp=evalHand(P[0],P[1]),hc=evalHand(C[0],C[1]),j=judge(hp,hc);
  if(j==='redeal'){say('draw');carry=pot;pot=0;ui();return setTimeout(idle,900)}
- if(j===0){say('draw');carry=pot;pot=0;ui();return setTimeout(idle,900)}
+ if(j===0){L++;LS.set('sd_l',L);pot=0;sLose();document.getElementById('say').innerHTML='같은 끗이면 <b>선 잡은 차사</b> 몫이다.';ui();return acts([['다음 판',idle,'main']])}
  if(j===1){let gain=pot;const lucky=P.some(c=>c.m===F.top.m);if(lucky)gain*=2;
   bank+=gain;W++;LS.set('sd_w',W);pot=0;
   (hp.r>=800?sGong:sWin)();document.querySelectorAll('#hp .cd').forEach(wisps);
