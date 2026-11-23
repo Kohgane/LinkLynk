@@ -1758,7 +1758,7 @@ def _pig_from_cands(picks, cands, n):
         used.add(c["title"]); cat = (c.get("cat") or "").split(">")[-1]
         out.append({"name": c["title"], "area": "✓ 지도 확인 · " + (c.get("road") or ""),
                     "dish": (cat or "대표 메뉴") + " — 메뉴판 맨 위 시그니처부터",
-                    "why": "블로그 후기 %s건 중 체험단·협찬 글이 드문, 입소문으로 버틴 동네 가게." % format(int(c.get("blogs") or 0), ","),
+                    "why": ((c.get("rev") or [""])[0][:150] or "블로그 후기 %s건 중 체험단·협찬 글이 드문, 입소문으로 버틴 동네 가게." % format(int(c.get("blogs") or 0), ",")),
                     "cons": "방문 전 영업시간 한 번 확인", "diary": "", "tip": "점심 피크(12~13시)만 피하면 수월",
                     "q": c["title"] + " " + " ".join((c.get("road") or "").split()[:3])})
     return out
@@ -1904,12 +1904,16 @@ def dwaeji_reco_api():
     # ★ 먼저 우리가 지도에서 실존 가게를 긁는다(지역 고정·광고집 제외·체인 지점 제외) → AI는 이 목록에서만 고른다
     cands = _pig_discover(region, food)
     if len(cands) >= 5:
-        _lst = "\n".join("- %s | %s | %s" % (c["title"], (c.get("cat") or "").split(">")[-1], " ".join((c.get("road") or "").split()[1:4])) for c in cands)
+        _lst = "\n".join("- %s | %s | %s\n  후기발췌: %s" % (c["title"], (c.get("cat") or "").split(">")[-1], " ".join((c.get("road") or "").split()[1:4]),
+                                                          " / ".join(c.get("rev") or []) or "(없음)") for c in cands)
         user = (f"지역: {region}\n음식 종류: {food or '무엇이든 — 그 동네 최고 시그니처로'}\n"
                 f"분위기·상황: {mood or '상관없음'}\n인원·예산: {party or '보통'}\n"
                 "아래는 우리가 네이버 지도로 실존·영업을 확인하고, 체험단·협찬 광고로 뜬 집과 체인 지점을 걸러낸 후보다. "
                 "반드시 이 목록에서만 골라라(name은 목록 상호 그대로):\n" + _lst +
-                "\n이 중 조건에 맞는 로컬 찐맛집 9곳(노포·현지인 단골집 우선). 각 칸은 한 문장으로 짧게, 반드시 JSON 하나만.")
+                "\n이 중 조건에 맞는 로컬 찐맛집 9곳(노포·현지인 단골집 우선). "
+                "★dish·why·cons·tip은 반드시 그 가게 '후기발췌'에 나온 사실(메뉴명·가격·영업시간·웨이팅·맛 표현)로만 써라. "
+                "발췌에 없는 메뉴·조리법·숙성 시간·숫자를 지어내면 안 된다 — 모르면 짧게 '대표 메뉴는 현장 확인'처럼 써라. "
+                "diary도 발췌의 표현을 살려 한 줄. 각 칸은 한 문장으로 짧게, 반드시 JSON 하나만.")
     # 5곳을 세세히 쓰면 1200토큰에서 JSON이 잘려 '형식 오류'가 났다 → 넉넉히 + 잘린 답에서도 온전한 가게만 건진다
     picks = []; r = {}; _tried = []
     from core import detect_llm_provider
