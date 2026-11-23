@@ -528,6 +528,17 @@
    "poster": "/fly/v2/cine/mt-fuji.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "mt-sinai": {
+   "built": "2026-11-23",
+   "bytes": 924299,
+   "dur": 6.0,
+   "endPitch": -16.0,
+   "endRange": 13000,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/mt-sinai.mp4",
+   "poster": "/fly/v2/cine/mt-sinai.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "mt-teide": {
    "built": "2026-11-22",
    "bytes": 749295,
