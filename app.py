@@ -1703,6 +1703,21 @@ def dwaeji_config_api():
     return resp
 
 
+_PIG_RELAY = "https://relay.kohganemultishop.org/app/pig.php"
+_PIG_RELAY_K = os.environ.get("PIG_RELAY_KEY", "fkm9ZwkiN_qru-1bR_D_QtYd-2w9j_Ov")
+
+
+def _pig_relay(sysp, user):
+    """브리가네 두뇌(블루호스트, 무료 Groq·Cerebras·Gemini 사슬)로 먼저 — 4~5초."""
+    rq = _ur.Request(_PIG_RELAY, data=json.dumps({"sys": sysp, "user": user, "max": 1900}).encode(),
+                     headers={"Content-Type": "application/json", "X-Pig-Token": _PIG_RELAY_K,
+                              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/131.0 Safari/537.36",
+                              "Cookie": "humans_21909=1"})
+    with _ur.urlopen(rq, timeout=20) as resp:
+        j = json.loads(resp.read())
+    return {"ok": bool(j.get("ok") and j.get("text")), "text": j.get("text", ""), "error": j.get("error", "")}
+
+
 def _pig_gemini(key, sysp, user):
     """제미나이 직통 — 생각(thinking) 끄고 가벼운 모델부터. 기존 공용 호출은 무거운 모델+12초 제한이라 매번 타임아웃."""
     import time as _tt
@@ -1747,7 +1762,7 @@ def _pig_keys(first):
         p = detect_llm_provider(v)
         if p in order:
             seen.add(v); cands.append((order[p], v))
-    return [v for _, v in sorted(cands, key=lambda x: x[0])][:6] + ["__free__"]
+    return ["__relay__"] + [v for _, v in sorted(cands, key=lambda x: x[0])][:6] + ["__free__"]
 
 
 def _pig_salvage(text):
@@ -1825,13 +1840,15 @@ def dwaeji_reco_api():
     key = os.environ.get("BOIM_LLM_KEY", "").strip() or "__free__"
     # 5곳을 세세히 쓰면 1200토큰에서 JSON이 잘려 '형식 오류'가 났다 → 넉넉히 + 잘린 답에서도 온전한 가게만 건진다
     picks = []; r = {}; _tried = []
-    from core import detect_llm_provider as _pv
+    from core import detect_llm_provider
+    _pv = lambda x: "relay" if x == "__relay__" else detect_llm_provider(x)
     t0 = _t.time()
     for k in _pig_keys(key):
         if _t.time() - t0 > 20:                      # 워커 30초 제한 안에서 끝낸다(넘기면 500)
             break
         try:
-            r = _pig_gemini(k, sysp, user) if k.startswith("AIza") else llm_chat(k, sysp, user, max_tokens=1900)
+            r = (_pig_relay(sysp, user) if k == "__relay__" else
+                 _pig_gemini(k, sysp, user) if k.startswith("AIza") else llm_chat(k, sysp, user, max_tokens=1900))
         except Exception as _e:
             _tried.append("%s:exc %s" % (_pv(k), str(_e)[:60])); continue
         if not r.get("ok"):
