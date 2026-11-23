@@ -1726,7 +1726,7 @@ def _pig_discover(region, food=""):
                          headers={"Content-Type": "application/json", "X-Pig-Token": _PIG_RELAY_K,
                                   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/131.0 Safari/537.36",
                                   "Cookie": "humans_21909=1"})
-        with _ur.urlopen(rq, timeout=9) as resp:
+        with _ur.urlopen(rq, timeout=11) as resp:
             j = json.loads(resp.read())
         return j.get("cands") or [] if j.get("ok") else []
     except Exception:
@@ -1786,7 +1786,7 @@ def _pig_gemini(key, sysp, user):
     import time as _tt
     t0 = _tt.time(); last = {"ok": False, "error": "gemini"}
     for m in ("gemini-flash-lite-latest", "gemini-2.5-flash-lite", "gemini-flash-latest"):
-        left = 24 - (_tt.time() - t0)
+        left = 15 - (_tt.time() - t0)
         if left < 4:
             break
         for think in (True, False):
@@ -1903,7 +1903,9 @@ def dwaeji_reco_api():
     key = os.environ.get("BOIM_LLM_KEY", "").strip() or "__free__"
     # ★ 먼저 우리가 지도에서 실존 가게를 긁는다(지역 고정·광고집 제외·체인 지점 제외) → AI는 이 목록에서만 고른다
     cands = _pig_discover(region, food)
+    user_small = user
     if len(cands) >= 5:
+        user_small = None
         _lst = "\n".join("- %s | %s | %s\n  후기발췌: %s" % (c["title"], (c.get("cat") or "").split(">")[-1], " ".join((c.get("road") or "").split()[1:4]),
                                                           " / ".join(c.get("rev") or []) or "(없음)") for c in cands)
         user = (f"지역: {region}\n음식 종류: {food or '무엇이든 — 그 동네 최고 시그니처로'}\n"
@@ -1914,16 +1916,21 @@ def dwaeji_reco_api():
                 "★dish·why·cons·tip은 반드시 그 가게 '후기발췌'에 나온 사실(메뉴명·가격·영업시간·웨이팅·맛 표현)로만 써라. "
                 "발췌에 없는 메뉴·조리법·숙성 시간·숫자를 지어내면 안 된다 — 모르면 짧게 '대표 메뉴는 현장 확인'처럼 써라. "
                 "diary도 발췌의 표현을 살려 한 줄. 각 칸은 한 문장으로 짧게, 반드시 JSON 하나만.")
+        user_small = user.split("후보다. ")[0] + "후보다. 반드시 이 목록에서만 골라라(name은 목록 상호 그대로):\n" + "\n".join(
+            "- %s | %s" % (c["title"], (c.get("cat") or "").split(">")[-1]) for c in cands) + "\n이 중 9곳. 메뉴·조리법·숫자는 지어내지 말고 모르면 짧게. 각 칸 한 문장, JSON 하나만."
     # 5곳을 세세히 쓰면 1200토큰에서 JSON이 잘려 '형식 오류'가 났다 → 넉넉히 + 잘린 답에서도 온전한 가게만 건진다
     picks = []; r = {}; _tried = []
     from core import detect_llm_provider
     _pv = lambda x: "relay" if x == "__relay__" else detect_llm_provider(x)
     t0 = _t.time()
-    for k in _pig_keys(key):
-        if _t.time() - t0 > (12 if len(cands) >= 5 else 16):                      # 워커 30초 제한 안에서 끝낸다(넘기면 500)
+    _ks = _pig_keys(key)
+    if len(cands) >= 5:   # 후보+후기 본문이 커서 중계(10KB 한도)는 뒤로, 구글 직통(가벼운 모델)부터
+        _ks = [x for x in _ks if x.startswith("AIza")] + ["__relay__"] + [x for x in _ks if x != "__relay__" and not x.startswith("AIza")]
+    for k in _ks:
+        if _t.time() - t0 > (14 if len(cands) >= 5 else 16):                      # 워커 30초 제한 안에서 끝낸다(넘기면 500)
             break
         try:
-            r = (_pig_relay(sysp, user) if k == "__relay__" else
+            r = (_pig_relay(sysp, user_small if len(cands) >= 5 else user) if k == "__relay__" else
                  _pig_gemini(k, sysp, user) if k.startswith("AIza") else llm_chat(k, sysp, user, max_tokens=3200))
         except Exception as _e:
             _tried.append("%s:exc %s" % (_pv(k), str(_e)[:60])); continue
