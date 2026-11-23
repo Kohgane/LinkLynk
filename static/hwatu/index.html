@@ -108,6 +108,91 @@ body::before{content:"";position:fixed;inset:0;background:
 .jokbo.show{display:block}
 .jokbo b{color:var(--gold)}
 .fin .tier{font-size:13px;color:var(--wisp);margin-top:6px;letter-spacing:2px}
+</style><link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600;700&family=Gowun+Batang:wght@400;700&family=Noto+Sans+KR:wght@400;500;700&display=swap"><style id="lux">/* ═══ LUX 레이어 — 옻칠·금박·한지, 모던하게 ═══ */
+:root{--lk:#0b0a0d;--lk2:#141218;--gl:#d8b46a;--gl2:#f3dfa6;--gl3:#8a6a2c;--hair:rgba(216,180,106,.28);--hair2:rgba(216,180,106,.12);
+ --ivory:#f4ecdc;--ivory2:#e3d6bb;--ver:#b8321f;--ver2:#7e1f13;--jade:#1f5a45;--jade2:#123a2c;--mist:#a79f8f;
+ --serif:"Gowun Batang","Noto Serif KR",ui-serif,serif;--sans:"Pretendard","Noto Sans KR",system-ui,sans-serif;--num:"Cormorant Garamond","Gowun Batang",serif}
+html,body{background-color:var(--lk)}
+body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:9999;opacity:.09;mix-blend-mode:overlay;
+ background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E")}
+.lux-gold{background:linear-gradient(100deg,var(--gl3),var(--gl) 30%,var(--gl2) 50%,var(--gl) 70%,var(--gl3));-webkit-background-clip:text;background-clip:text;color:transparent}
+@keyframes luxShine{0%{background-position:-160% 0}100%{background-position:260% 0}}
+@keyframes luxIn{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:none}}
+body{font-family:var(--serif);background:var(--lk)}
+body::before{background:
+ radial-gradient(50% 28% at 50% -2%,rgba(216,180,106,.16),transparent 70%),
+ radial-gradient(90% 60% at 50% 110%,rgba(31,90,69,.28),transparent 60%),
+ radial-gradient(120% 90% at 50% 0%,#17141b,var(--lk) 64%)}
+/* 현판 */
+.plaque h1{font-family:var(--serif);font-weight:700;font-size:22px;letter-spacing:.42em;padding:9px 10px 9px 18px;border-radius:4px;
+ border:1px solid var(--hair);border-bottom:1px solid var(--hair);background:linear-gradient(180deg,#1a171d,#0f0d11);
+ box-shadow:0 10px 26px rgba(0,0,0,.55),inset 0 0 0 3px #0b0a0d,inset 0 0 0 4px var(--hair2);color:var(--ivory)}
+.plaque h1 s{color:var(--ver);text-shadow:0 0 18px rgba(184,50,31,.35)}
+.stamp{border:1.5px solid var(--ver);color:var(--ver);border-radius:5px;background:rgba(184,50,31,.08);box-shadow:0 0 0 2px rgba(184,50,31,.12)}
+.date{font-family:var(--num);font-size:12px;letter-spacing:.08em;color:var(--mist)}
+/* 차사 말풍선 — 유리 */
+.bub{font-size:14px;line-height:1.75;color:#d6cbb2;border-radius:18px 18px 18px 6px;border:1px solid var(--hair);
+ background:linear-gradient(180deg,rgba(30,26,34,.82),rgba(18,16,21,.82));backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+ box-shadow:0 12px 30px rgba(0,0,0,.5),inset 0 1px 0 rgba(255,255,255,.05)}
+.bub b{color:var(--gl2)}
+.meta{font-family:var(--sans);font-size:11.5px;letter-spacing:.02em;padding:9px 12px;border-radius:14px;border:1px solid var(--hair2);background:rgba(255,255,255,.02)}
+.meta b{font-family:var(--num);font-size:15px;font-weight:600;color:var(--ivory)}
+/* 패 뒷면 — 주칠 옻칠 + 금박 격자 */
+.face{border-radius:11px}
+.bk{background:
+ radial-gradient(70% 50% at 50% 45%,rgba(255,210,150,.12),transparent 70%),
+ repeating-linear-gradient(45deg,transparent 0 9px,rgba(216,180,106,.16) 9px 10px),
+ repeating-linear-gradient(-45deg,transparent 0 9px,rgba(216,180,106,.16) 9px 10px),
+ linear-gradient(160deg,#9a2a19,#6a170d 60%,#4a0f08);
+ border:1px solid rgba(243,223,166,.45);
+ box-shadow:inset 0 0 0 4px #4a0f08,inset 0 0 0 5px rgba(243,223,166,.55),inset 0 10px 22px rgba(255,255,255,.08),0 8px 18px rgba(0,0,0,.5)}
+.bk::after{content:"冥";font-family:var(--serif);font-size:19px;font-weight:700;width:38px;height:38px;border-radius:50%;
+ color:#2a0a05;background:radial-gradient(circle at 35% 30%,var(--gl2),var(--gl) 45%,var(--gl3));border:none;box-shadow:0 2px 8px rgba(0,0,0,.45),inset 0 0 0 2px rgba(74,15,8,.35)}
+/* 패 앞면 — 흑칠 위 금테 */
+.ft{background:radial-gradient(100% 60% at 50% 18%,rgba(216,180,106,.12),transparent 60%),linear-gradient(170deg,#1d1a21,#0f0d12 75%);
+ border:1px solid rgba(216,180,106,.55);
+ box-shadow:inset 0 0 0 3px #0b0a0d,inset 0 0 0 4px rgba(216,180,106,.38),inset 0 14px 26px rgba(0,0,0,.4),0 10px 22px rgba(0,0,0,.55)}
+.ft svg{filter:drop-shadow(0 3px 8px rgba(0,0,0,.6)) saturate(1.12)}
+.ft .mn{font-family:var(--num);font-size:12px;font-weight:600;letter-spacing:.28em;color:var(--gl2)}
+.ft .nm{font-size:10.5px;letter-spacing:.14em;color:var(--mist)}
+.cd.done .ft{border-color:var(--ver);box-shadow:inset 0 0 0 3px #0b0a0d,inset 0 0 0 4px rgba(184,50,31,.6),0 0 22px rgba(184,50,31,.3)}
+.hand{gap:12px}
+.hand .cd{width:92px}
+.hand .cd.lucky .ft{border-color:#8ff0d6;box-shadow:inset 0 0 0 3px #0b0a0d,inset 0 0 0 4px rgba(143,240,214,.5),0 0 24px rgba(143,240,214,.28)}
+.tag.k{background:linear-gradient(100deg,var(--gl3),var(--gl2));color:#1a1410;border-radius:3px;letter-spacing:.06em}
+.tag.y{color:var(--gl2);border:1px solid var(--hair);border-radius:3px}
+.seat .who{font-family:var(--sans);font-size:10px;letter-spacing:.38em;color:var(--mist);text-transform:uppercase}
+.hname{font-size:17px;letter-spacing:.14em;background:linear-gradient(100deg,var(--gl3),var(--gl) 30%,var(--gl2) 50%,var(--gl) 70%,var(--gl3));background-size:220% 100%;
+ -webkit-background-clip:text;background-clip:text;color:transparent;animation:luxShine 6s linear infinite}
+.hname.lo{background:none;-webkit-text-fill-color:initial;color:var(--mist);animation:none}
+.pot{font-family:var(--sans);letter-spacing:.06em;padding:7px 16px;border-radius:999px;border:1px solid var(--hair);background:rgba(255,255,255,.02)}
+.pot b{font-family:var(--num);font-size:22px;font-weight:600;color:var(--ivory)}
+.coin{background:radial-gradient(circle at 35% 30%,#fff1c4,var(--gl) 45%,var(--gl3));box-shadow:0 2px 8px rgba(0,0,0,.5),inset 0 0 0 2px rgba(110,80,25,.6)}
+/* 버튼 */
+.acts{gap:10px}
+.acts button{font-family:var(--serif);font-weight:700;letter-spacing:.1em;border-radius:999px;padding:14px 0;color:var(--ivory);
+ border:1px solid var(--hair);background:linear-gradient(180deg,rgba(32,28,36,.85),rgba(18,16,21,.85));box-shadow:0 8px 20px rgba(0,0,0,.45),inset 0 1px 0 rgba(255,255,255,.06)}
+.acts button.main{background:linear-gradient(160deg,var(--ver),var(--ver2));border-color:rgba(243,223,166,.5);box-shadow:0 10px 26px rgba(184,50,31,.38),inset 0 1px 0 rgba(255,255,255,.2)}
+.acts button.gold{color:#1a1410;border-color:rgba(255,255,255,.25);background:linear-gradient(100deg,var(--gl3),var(--gl) 35%,var(--gl2) 55%,var(--gl))}
+.acts button:active{transform:scale(.97)}
+.tools button{font-family:var(--serif);letter-spacing:.06em;border-radius:999px;border:1px solid var(--hair2);background:rgba(255,255,255,.025);color:#bfb39a}
+.tools button.on{color:var(--gl2);border-color:var(--hair)}
+.luck{font-family:var(--serif);letter-spacing:.03em}
+.luck b{color:#8ff0d6}
+.jokbo{font-family:var(--sans);border-radius:16px;border:1px solid var(--hair2);background:rgba(255,255,255,.025);line-height:1.9}
+.jokbo b{color:var(--gl2)}
+.foot{font-family:var(--sans);letter-spacing:.04em;color:#5b5346}
+/* 화투점 */
+.fin{background:radial-gradient(70% 50% at 50% 34%,rgba(216,180,106,.14),transparent 60%),radial-gradient(90% 70% at 50% 40%,rgba(20,17,23,.96),rgba(8,7,10,.98));backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px)}
+.fin .bigcard{width:146px;border-radius:14px;border:1px solid rgba(243,223,166,.6);
+ background:radial-gradient(100% 60% at 50% 18%,rgba(216,180,106,.16),transparent 60%),linear-gradient(170deg,#1d1a21,#0f0d12 75%);
+ box-shadow:0 0 60px rgba(216,180,106,.22),inset 0 0 0 4px #0b0a0d,inset 0 0 0 5px rgba(216,180,106,.45)}
+.fin h2{font-size:21px;letter-spacing:.1em;background:linear-gradient(100deg,var(--gl3),var(--gl) 30%,var(--gl2) 50%,var(--gl) 70%,var(--gl3));background-size:220% 100%;
+ -webkit-background-clip:text;background-clip:text;color:transparent;animation:luxShine 5s linear infinite}
+.fin .tier{color:#8ff0d6;letter-spacing:.4em;font-size:12px}
+.fin .fx{font-size:16px;line-height:1.95;color:#e2d7bf}
+.fin .fx::before,.fin .fx::after{color:var(--gl3)}
+.fin button{font-family:var(--serif);letter-spacing:.12em;background:linear-gradient(160deg,var(--ver),var(--ver2));border:1px solid rgba(243,223,166,.5);box-shadow:0 10px 26px rgba(184,50,31,.38),inset 0 1px 0 rgba(255,255,255,.2)}
 </style></head><body>
 <div class="fog a"></div><div class="fog b"></div>
 <div class="hd z">
