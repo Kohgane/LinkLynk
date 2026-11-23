@@ -1709,7 +1709,7 @@ _PIG_RELAY_K = os.environ.get("PIG_RELAY_KEY", "fkm9ZwkiN_qru-1bR_D_QtYd-2w9j_Ov
 
 def _pig_relay(sysp, user):
     """브리가네 두뇌(블루호스트, 무료 Groq·Cerebras·Gemini 사슬)로 먼저 — 4~5초."""
-    rq = _ur.Request(_PIG_RELAY, data=json.dumps({"sys": sysp, "user": user, "max": 2400}).encode(),
+    rq = _ur.Request(_PIG_RELAY, data=json.dumps({"sys": sysp, "user": user, "max": 3200}).encode(),
                      headers={"Content-Type": "application/json", "X-Pig-Token": _PIG_RELAY_K,
                               "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/131.0 Safari/537.36",
                               "Cookie": "humans_21909=1"})
@@ -1744,7 +1744,7 @@ def _pig_gemini(key, sysp, user):
         if left < 4:
             break
         for think in (True, False):
-            gc = {"maxOutputTokens": 2400, "temperature": 0.9, "responseMimeType": "application/json"}
+            gc = {"maxOutputTokens": 3200, "temperature": 0.9, "responseMimeType": "application/json"}
             if think:
                 gc["thinkingConfig"] = {"thinkingBudget": 0}
             body = {"systemInstruction": {"parts": [{"text": sysp}]},
@@ -1853,7 +1853,7 @@ def dwaeji_reco_api():
     )
     user = (f"지역: {region}\n음식 종류: {food or '무엇이든 — 그 동네 최고 시그니처로'}\n"
             f"분위기·상황: {mood or '상관없음'}\n인원·예산: {party or '보통'}\n"
-            "위 조건으로 로컬 찐맛집 8곳 — 반드시 '{region}' 안에 있는 가게만(다른 시·도의 같은 이름 지점 금지, 체험단·협찬 위주 집 금지)(지금도 영업 중인 실제 상호만, 지점명 정확히). 각 칸은 한 문장으로 짧게, 반드시 JSON 하나만.")
+            "위 조건으로 로컬 찐맛집 12곳 — 반드시 '{region}' 안에 있는 가게만(다른 시·도의 같은 이름 지점 금지, 체험단·협찬 위주 집 금지)(지금도 영업 중인 실제 상호만, 지점명 정확히). 각 칸은 한 문장으로 짧게, 반드시 JSON 하나만.")
     key = os.environ.get("BOIM_LLM_KEY", "").strip() or "__free__"
     # 5곳을 세세히 쓰면 1200토큰에서 JSON이 잘려 '형식 오류'가 났다 → 넉넉히 + 잘린 답에서도 온전한 가게만 건진다
     picks = []; r = {}; _tried = []
@@ -1865,15 +1865,15 @@ def dwaeji_reco_api():
             break
         try:
             r = (_pig_relay(sysp, user) if k == "__relay__" else
-                 _pig_gemini(k, sysp, user) if k.startswith("AIza") else llm_chat(k, sysp, user, max_tokens=2400))
+                 _pig_gemini(k, sysp, user) if k.startswith("AIza") else llm_chat(k, sysp, user, max_tokens=3200))
         except Exception as _e:
             _tried.append("%s:exc %s" % (_pv(k), str(_e)[:60])); continue
         if not r.get("ok"):
             _tried.append("%s:%s %s" % (_pv(k), r.get("error", ""), str(r.get("detail", ""))[:60])); continue
         try:
-            picks = _parse_json_out(r["text"]).get("picks", [])[:8]
+            picks = _parse_json_out(r["text"]).get("picks", [])[:12]
         except Exception:
-            picks = _pig_salvage(r.get("text") or "")[:8]
+            picks = _pig_salvage(r.get("text") or "")[:12]
         if picks:
             break
     if not picks and not r.get("ok"):
