@@ -1792,17 +1792,18 @@ def dwaeji_reco_api():
             "위 조건으로 로컬 찐맛집 5곳.")
     key = os.environ.get("BOIM_LLM_KEY", "").strip() or "__free__"
     # 5곳을 세세히 쓰면 1200토큰에서 JSON이 잘려 '형식 오류'가 났다 → 넉넉히 + 잘린 답에서도 온전한 가게만 건진다
-    picks = []; r = {}
+    picks = []; r = {}; _tried = []
+    from core import detect_llm_provider as _pv
     t0 = _t.time()
     for k in _pig_keys(key):
         if _t.time() - t0 > 20:                      # 워커 30초 제한 안에서 끝낸다(넘기면 500)
             break
         try:
             r = llm_chat(k, sysp, user, max_tokens=3200)
-        except Exception:
-            continue
+        except Exception as _e:
+            _tried.append("%s:exc %s" % (_pv(k), str(_e)[:60])); continue
         if not r.get("ok"):
-            continue
+            _tried.append("%s:%s %s" % (_pv(k), r.get("error", ""), str(r.get("detail", ""))[:60])); continue
         try:
             picks = _parse_json_out(r["text"]).get("picks", [])[:5]
         except Exception:
@@ -1810,7 +1811,8 @@ def dwaeji_reco_api():
         if picks:
             break
     if not picks and not r.get("ok"):
-        return jsonify({"ok": False, "error": "레이다가 지금 붐벼요 — 잠시 뒤 다시"})
+        print("[dwaeji] llm fail", _tried)
+        return jsonify({"ok": False, "error": "레이다가 지금 붐벼요 — 잠시 뒤 다시", "tried": _tried})
     if not picks:
         return jsonify({"ok": False, "error": "이 조건엔 확신 있는 집이 없대요 — 지역을 넓혀보세요"})
     out = []
