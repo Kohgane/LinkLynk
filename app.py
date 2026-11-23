@@ -1703,6 +1703,25 @@ def dwaeji_config_api():
     return resp
 
 
+def _pig_salvage(text):
+    """잘린 JSON에서도 name 이 있는 온전한 {…} 가게 객체만 골라낸다."""
+    dec = json.JSONDecoder(); out = []; i = 0
+    while True:
+        i = text.find("{", i)
+        if i < 0:
+            break
+        try:
+            o, end = dec.raw_decode(text, i)
+            if isinstance(o, dict) and o.get("name"):
+                out.append(o); i = end; continue
+            if isinstance(o, dict) and isinstance(o.get("picks"), list):
+                return [x for x in o["picks"] if isinstance(x, dict) and x.get("name")]
+        except Exception:
+            pass
+        i += 1
+    return out
+
+
 @app.route("/api/dwaeji/reco", methods=["POST", "OPTIONS"])
 def dwaeji_reco_api():
     """돼지레이다 — 로컬 찐맛집 추천. 프랜차이즈·관광 호객집 배제. IP당 하루 10회."""
@@ -1757,15 +1776,23 @@ def dwaeji_reco_api():
             f"분위기·상황: {mood or '상관없음'}\n인원·예산: {party or '보통'}\n"
             "위 조건으로 로컬 찐맛집 5곳.")
     key = os.environ.get("BOIM_LLM_KEY", "").strip() or "__free__"
-    r = llm_chat(key, sysp, user, max_tokens=1200)
-    if not r.get("ok") and key != "__free__":
-        r = llm_chat("__free__", sysp, user, max_tokens=1200)
-    if not r.get("ok"):
+    # 5곳을 세세히 쓰면 1200토큰에서 JSON이 잘려 '형식 오류'가 났다 → 넉넉히 + 잘린 답에서도 온전한 가게만 건진다
+    picks = []; r = {}
+    for k in ([key, "__free__"] if key != "__free__" else ["__free__", "__free__"]):
+        try:
+            r = llm_chat(k, sysp, user, max_tokens=3200)
+        except Exception:
+            continue
+        if not r.get("ok"):
+            continue
+        try:
+            picks = _parse_json_out(r["text"]).get("picks", [])[:5]
+        except Exception:
+            picks = _pig_salvage(r.get("text") or "")[:5]
+        if picks:
+            break
+    if not picks and not r.get("ok"):
         return jsonify({"ok": False, "error": "레이다가 지금 붐벼요 — 잠시 뒤 다시"})
-    try:
-        picks = _parse_json_out(r["text"]).get("picks", [])[:5]
-    except Exception:
-        return jsonify({"ok": False, "error": "형식 오류 — 다시 눌러주세요"})
     if not picks:
         return jsonify({"ok": False, "error": "이 조건엔 확신 있는 집이 없대요 — 지역을 넓혀보세요"})
     out = []
