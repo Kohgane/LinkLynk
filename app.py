@@ -1718,10 +1718,10 @@ def _pig_relay(sysp, user):
     return {"ok": bool(j.get("ok") and j.get("text")), "text": j.get("text", ""), "error": j.get("error", "")}
 
 
-def _pig_verify(picks):
+def _pig_verify(picks, region=""):
     """브리가네 쪽 네이버 지역검색으로 실존·영업(지도 등록) 확인. 실패하면 None(그럼 확인 없이 보여준다)."""
     try:
-        body = {"verify": [{"name": str(p.get("name") or ""), "area": str(p.get("area") or "")} for p in picks]}
+        body = {"region": region, "verify": [{"name": str(p.get("name") or ""), "area": str(p.get("area") or "")} for p in picks]}
         rq = _ur.Request(_PIG_RELAY, data=json.dumps(body).encode(),
                          headers={"Content-Type": "application/json", "X-Pig-Token": _PIG_RELAY_K,
                                   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/131.0 Safari/537.36",
@@ -1835,7 +1835,7 @@ def dwaeji_reco_api():
         "★배제 기준은 '체인이냐'가 아니라 '맛이냐'다. 프랜차이즈·백화점 식당가도 "
         "요리하는 사람 따라 맛이 다르니 배제하지 마라 — 단, 추천한다면 '어느 지점이 "
         "왜 다른지'까지 짚어라(예: 'OO 본점만 직화, 지점은 철판'). 걸러야 할 건 "
-        "광고·바이럴로만 부풀려진 집과 뜨내기 호객집뿐이다.\n"
+        "광고·바이럴로만 부풀려진 집과 뜨내기 호객집뿐이다. 네이버·인스타 체험단·협찬·원고료 후기로 뜬 집, 파워링크·플레이스 광고로 밀어 올린 신상 핫플, SNS 줄서기 유행집은 웬만하면 빼라 — 동네 사람이 몇 년째 다니는 노포·현지인 단골집, 광고 없이 입소문으로 버틴 집을 우선한다.\n"
         "★해상도가 생명 — 뭉뚱그리지 말고 세세히·촘촘히: 메뉴는 '뭘 어떻게 시켜야 "
         "하는지'(곱빼기/토렴/소금 먼저 같은 디테일), 맛은 '왜 맛있는지'(육수 내는 법, "
         "직접 뽑는 면, 숙성 일수, 불맛)까지.\n"
@@ -1853,7 +1853,7 @@ def dwaeji_reco_api():
     )
     user = (f"지역: {region}\n음식 종류: {food or '무엇이든 — 그 동네 최고 시그니처로'}\n"
             f"분위기·상황: {mood or '상관없음'}\n인원·예산: {party or '보통'}\n"
-            "위 조건으로 로컬 찐맛집 8곳(지금도 영업 중인 실제 상호만, 지점명 정확히). 각 칸은 한 문장으로 짧게, 반드시 JSON 하나만.")
+            "위 조건으로 로컬 찐맛집 8곳 — 반드시 '{region}' 안에 있는 가게만(다른 시·도의 같은 이름 지점 금지, 체험단·협찬 위주 집 금지)(지금도 영업 중인 실제 상호만, 지점명 정확히). 각 칸은 한 문장으로 짧게, 반드시 JSON 하나만.")
     key = os.environ.get("BOIM_LLM_KEY", "").strip() or "__free__"
     # 5곳을 세세히 쓰면 1200토큰에서 JSON이 잘려 '형식 오류'가 났다 → 넉넉히 + 잘린 답에서도 온전한 가게만 건진다
     picks = []; r = {}; _tried = []
@@ -1880,7 +1880,7 @@ def dwaeji_reco_api():
         print("[dwaeji] llm fail", _tried)
         return jsonify({"ok": False, "error": "레이다가 지금 붐벼요 — 잠시 뒤 다시", "tried": _tried})
     # ★ 우리가 먼저 영업 확인: 네이버 지도(지역검색)에 지금 올라와 있는 가게만 남긴다
-    vf = _pig_verify(picks)
+    vf = _pig_verify(picks, region)
     if vf is not None:
         kept = []
         for _i, p in enumerate(picks):
