@@ -126,6 +126,44 @@ def gg_report():
     return jsonify({"ok": True, "count": len(r["new"])})
 
 
+# ── 한국(서울 포함 전국): 국내 앱용 toilet.py 데이터를 그대로 빌려 쓴다(읽기만) ──
+def _in_kr(lat, lng):
+    return 33.0 <= lat <= 38.7 and 124.5 <= lng <= 131.9
+
+
+def _kr_near(lat, lng):
+    try:
+        import toilet
+        rows = toilet.near_v2(lat, lng, n=20, mode="walk",
+                              open_only=request.args.get("open") == "1")
+    except Exception:
+        return jsonify({"ok": False, "error": "kr data"}), 502
+    free_only = request.args.get("free") == "1"
+    acc_only = request.args.get("wc") == "1"
+    items = []
+    for t in rows:
+        acc = t.get("access") or ""
+        if free_only and t.get("fee"):
+            continue
+        if acc_only and "휠체어" not in acc:
+            continue
+        if t.get("dist", 0) > 4000 and items:
+            break
+        items.append({"lat": t["lat"], "lng": t["lng"], "label": ident(t),
+                      "user": 1 if t.get("ty") == "user" else 0,
+                      "fee": t.get("fee", 0), "h24": t.get("h24", 0),
+                      "wc": 1 if "휠체어" in acc else 0,
+                      "baby": 1 if "기저귀" in acc else 0,
+                      "dist": t.get("dist", 0), "walk": t.get("walk", 1),
+                      "open": t.get("open", ""), "open_label": t.get("open_label", "")})
+    try:
+        total = len(toilet._load())
+    except Exception:
+        total = 0
+    return jsonify({"ok": True, "covered": True, "city": "한국", "cc": "KR",
+                    "total": total, "items": items})
+
+
 @gg_bp.route("/api/gg/near")
 def gg_near():
     try:
@@ -135,6 +173,8 @@ def gg_near():
         return jsonify({"ok": False, "error": "bad coords"}), 400
     if not (-90 <= lat <= 90 and -180 <= lng <= 180):
         return jsonify({"ok": False, "error": "bad coords"}), 400
+    if _in_kr(lat, lng):                              # 한국: 국내 데이터(toilet.py, 공공데이터+OSM)로 바로 답한다
+        return _kr_near(lat, lng)
     m, dist = city_at(lat, lng)
     if m is None:
         return jsonify({"ok": False, "error": "no data"}), 404
@@ -176,7 +216,12 @@ def gg_near():
 
 @gg_bp.route("/api/gg/cities")
 def gg_cities():
-    return jsonify({"ok": True, "cities": [
+    try:
+        import toilet
+        kr = [{"key": "korea", "label": "서울·한국 전국", "cc": "KR", "count": len(toilet._load()), "lat": 37.5665, "lng": 126.978}]
+    except Exception:
+        kr = []
+    return jsonify({"ok": True, "cities": kr + [
         {"key": m["key"], "label": m["label"], "cc": m.get("cc", ""),
          "count": m.get("count", 0),
          "lat": (m["bbox"][0] + m["bbox"][2]) / 2.0,
