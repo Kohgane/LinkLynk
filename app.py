@@ -1709,13 +1709,30 @@ _PIG_RELAY_K = os.environ.get("PIG_RELAY_KEY", "fkm9ZwkiN_qru-1bR_D_QtYd-2w9j_Ov
 
 def _pig_relay(sysp, user):
     """브리가네 두뇌(블루호스트, 무료 Groq·Cerebras·Gemini 사슬)로 먼저 — 4~5초."""
-    rq = _ur.Request(_PIG_RELAY, data=json.dumps({"sys": sysp, "user": user, "max": 1900}).encode(),
+    rq = _ur.Request(_PIG_RELAY, data=json.dumps({"sys": sysp, "user": user, "max": 2400}).encode(),
                      headers={"Content-Type": "application/json", "X-Pig-Token": _PIG_RELAY_K,
                               "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/131.0 Safari/537.36",
                               "Cookie": "humans_21909=1"})
     with _ur.urlopen(rq, timeout=20) as resp:
         j = json.loads(resp.read())
     return {"ok": bool(j.get("ok") and j.get("text")), "text": j.get("text", ""), "error": j.get("error", "")}
+
+
+def _pig_verify(picks):
+    """브리가네 쪽 네이버 지역검색으로 실존·영업(지도 등록) 확인. 실패하면 None(그럼 확인 없이 보여준다)."""
+    try:
+        body = {"verify": [{"name": str(p.get("name") or ""), "area": str(p.get("area") or "")} for p in picks]}
+        rq = _ur.Request(_PIG_RELAY, data=json.dumps(body).encode(),
+                         headers={"Content-Type": "application/json", "X-Pig-Token": _PIG_RELAY_K,
+                                  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/131.0 Safari/537.36",
+                                  "Cookie": "humans_21909=1"})
+        with _ur.urlopen(rq, timeout=15) as resp:
+            j = json.loads(resp.read())
+        if not j.get("ok"):
+            return None
+        return {int(x["i"]): x for x in j.get("found", [])}
+    except Exception:
+        return None
 
 
 def _pig_gemini(key, sysp, user):
@@ -1727,7 +1744,7 @@ def _pig_gemini(key, sysp, user):
         if left < 4:
             break
         for think in (True, False):
-            gc = {"maxOutputTokens": 1900, "temperature": 0.9, "responseMimeType": "application/json"}
+            gc = {"maxOutputTokens": 2400, "temperature": 0.9, "responseMimeType": "application/json"}
             if think:
                 gc["thinkingConfig"] = {"thinkingBudget": 0}
             body = {"systemInstruction": {"parts": [{"text": sysp}]},
@@ -1836,7 +1853,7 @@ def dwaeji_reco_api():
     )
     user = (f"지역: {region}\n음식 종류: {food or '무엇이든 — 그 동네 최고 시그니처로'}\n"
             f"분위기·상황: {mood or '상관없음'}\n인원·예산: {party or '보통'}\n"
-            "위 조건으로 로컬 찐맛집 5곳. 각 칸은 한 문장으로 짧게(전체 1,500자 안쪽), 반드시 JSON 하나만.")
+            "위 조건으로 로컬 찐맛집 8곳(지금도 영업 중인 실제 상호만, 지점명 정확히). 각 칸은 한 문장으로 짧게, 반드시 JSON 하나만.")
     key = os.environ.get("BOIM_LLM_KEY", "").strip() or "__free__"
     # 5곳을 세세히 쓰면 1200토큰에서 JSON이 잘려 '형식 오류'가 났다 → 넉넉히 + 잘린 답에서도 온전한 가게만 건진다
     picks = []; r = {}; _tried = []
@@ -1844,26 +1861,41 @@ def dwaeji_reco_api():
     _pv = lambda x: "relay" if x == "__relay__" else detect_llm_provider(x)
     t0 = _t.time()
     for k in _pig_keys(key):
-        if _t.time() - t0 > 20:                      # 워커 30초 제한 안에서 끝낸다(넘기면 500)
+        if _t.time() - t0 > 16:                      # 워커 30초 제한 안에서 끝낸다(넘기면 500)
             break
         try:
             r = (_pig_relay(sysp, user) if k == "__relay__" else
-                 _pig_gemini(k, sysp, user) if k.startswith("AIza") else llm_chat(k, sysp, user, max_tokens=1900))
+                 _pig_gemini(k, sysp, user) if k.startswith("AIza") else llm_chat(k, sysp, user, max_tokens=2400))
         except Exception as _e:
             _tried.append("%s:exc %s" % (_pv(k), str(_e)[:60])); continue
         if not r.get("ok"):
             _tried.append("%s:%s %s" % (_pv(k), r.get("error", ""), str(r.get("detail", ""))[:60])); continue
         try:
-            picks = _parse_json_out(r["text"]).get("picks", [])[:5]
+            picks = _parse_json_out(r["text"]).get("picks", [])[:8]
         except Exception:
-            picks = _pig_salvage(r.get("text") or "")[:5]
+            picks = _pig_salvage(r.get("text") or "")[:8]
         if picks:
             break
     if not picks and not r.get("ok"):
         print("[dwaeji] llm fail", _tried)
         return jsonify({"ok": False, "error": "레이다가 지금 붐벼요 — 잠시 뒤 다시", "tried": _tried})
+    # ★ 우리가 먼저 영업 확인: 네이버 지도(지역검색)에 지금 올라와 있는 가게만 남긴다
+    vf = _pig_verify(picks)
+    if vf is not None:
+        kept = []
+        for _i, p in enumerate(picks):
+            v = vf.get(_i)
+            if not v:
+                continue
+            p = dict(p); p["name"] = v["title"]
+            p["area"] = "✓ 지도 확인 · " + (v.get("road") or p.get("area") or "")
+            p["q"] = v["title"] + " " + " ".join((v.get("road") or "").split()[:3])
+            kept.append(p)
+        picks = kept[:5]
+    else:
+        picks = picks[:5]
     if not picks:
-        return jsonify({"ok": False, "error": "이 조건엔 확신 있는 집이 없대요 — 지역을 넓혀보세요"})
+        return jsonify({"ok": False, "error": "지금 영업이 확인된 집이 없어요 — 지역을 조금 넓혀서 다시 킁킁!"})
     out = []
     for p in picks:
         out.append({"name": scrub_garbled(str(p.get("name") or ""))[:40],
