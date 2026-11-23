@@ -118,7 +118,7 @@ $('go').onclick=async()=>{
     const d=await r.json();
     $('loading').style.display='none';
     if(!d.ok){showErr(d.error||'탐지 실패');return;}
-    d.picks.forEach((p,i)=>{
+    const draw=(ps)=>{$('res').querySelectorAll('.pick').forEach(x=>x.remove());ps.forEach((p,i)=>{
       const el=document.createElement('div');el.className='pick';
       const q=encodeURIComponent(p.q||region+' '+p.name);
       el.innerHTML=`<span class="no">🐷 ${i+1}번 냄새</span>
@@ -132,8 +132,20 @@ $('go').onclick=async()=>{
           <a class="nv" target="_blank" href="https://map.naver.com/p/search/${q}">네이버지도</a>
           <a class="kk" target="_blank" href="https://map.kakao.com/?q=${q}">카카오맵</a>
         </div>`;
-      $('res').appendChild(el);
-    });
+      $('res').insertBefore(el,$('res').querySelector('#shareMap'));
+    });};
+    draw(d.picks);
+    if(d.job){
+      const note=document.createElement('div');note.id='enrichNote';
+      note.style.cssText='font-size:12.5px;opacity:.75;text-align:center;margin:4px 0 10px';
+      note.textContent='🐷 후기 읽고 메뉴·꿀팁 다듬는 중… (지도에서 확인된 가게 먼저 보여 드려요)';
+      $('res').prepend(note);
+      let n=0;const tick=async()=>{n++;if(!document.body.contains(note))return;
+        try{const rr=await fetch('/api/dwaeji/job/'+encodeURIComponent(d.job));const j=await rr.json();
+          if(j.done){if(!document.body.contains(note))return;note.remove();if(j.ok&&j.picks&&j.picks.length){d.picks=j.picks;draw(j.picks);}return;}}catch(e){}
+        if(n<16)setTimeout(tick,2500);else note.remove();};
+      setTimeout(tick,6000);
+    }
     $('again').style.display='block';
     var sb=document.createElement('button');sb.id='shareMap';
     sb.style.cssText='width:100%;background:linear-gradient(#ff8fa3,#e05572);border:none;color:#fff;padding:13px;border-radius:12px;font-size:15px;font-weight:900;margin-top:4px;box-shadow:0 3px 0 #a03a52';
