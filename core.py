@@ -1686,7 +1686,7 @@ def _llm_openai_compat(name, url, api_key, models, sys_prompt, user_msg,
             try: detail = e.read().decode()[:500]
             except Exception: pass
             last = {"ok": False, "error": f"http_{e.code}", "detail": f"[{m}] " + detail}
-            if e.code == 400 and payload is payloads[0]:
+            if False:   # (제미나이 전용 재시도가 잘못 복사돼 있던 자리 — payloads 미정의로 400 때마다 예외가 났음)
                 # 옵션(thinkingConfig 등) 미지원 모델 — 미니멀 페이로드로 같은 모델 1회 재시도
                 try:
                     req2 = urllib.request.Request(url, data=json.dumps(payloads[1]).encode(),
@@ -2003,8 +2003,41 @@ def _clean_key(k):
 
 
 def llm_chat(api_key, sys_prompt, user_msg, max_tokens=1200):
+    """어떤 키든 자동 라우팅. 실패하면(한도초과·타임아웃·무료 익명 막힘) 브리가네 무료 두뇌 경유로 한 번 더."""
+    try:
+        r = _llm_chat_direct(api_key, sys_prompt, user_msg, max_tokens)
+    except Exception as e:
+        r = {"ok": False, "error": "exc", "detail": str(e)[:120]}
+    if r.get("ok") or r.get("error") == "unknown_key":
+        return r
+    try:
+        r2 = _llm_relay(sys_prompt, user_msg, max_tokens)
+        if r2.get("ok"):
+            return r2
+    except Exception:
+        pass
+    return r
+
+
+_LLM_RELAY = "https://relay.kohganemultishop.org/app/pig.php"
+_LLM_RELAY_K = os.environ.get("PIG_RELAY_KEY", "fkm9ZwkiN_qru-1bR_D_QtYd-2w9j_Ov")
+
+
+def _llm_relay(sys_prompt, user_msg, max_tokens=1200):
+    req = urllib.request.Request(_LLM_RELAY, data=json.dumps({"sys": sys_prompt, "user": user_msg, "max": int(max_tokens)}).encode(),
+                                 headers={"Content-Type": "application/json", "X-Pig-Token": _LLM_RELAY_K,
+                                          "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/131.0 Safari/537.36",
+                                          "Cookie": "humans_21909=1"})
+    with urllib.request.urlopen(req, timeout=25, context=_ctx) as r:
+        j = json.loads(r.read().decode())
+    t = (j.get("text") or "").strip()
+    if t.startswith("```"):
+        t = re.sub(r"^```(?:json)?\s*|\s*```$", "", t).strip()
+    return {"ok": bool(j.get("ok") and t), "text": t, "model": "relay:" + str(j.get("model", "")), "error": j.get("error", "")}
+
+
+def _llm_chat_direct(api_key, sys_prompt, user_msg, max_tokens=1200):
     api_key = _clean_key(api_key) if api_key != "__free__" else api_key
-    """어떤 키든 자동 라우팅 (Gemini 무료 / OpenRouter 무료 / Claude 유료)."""
     p = detect_llm_provider(api_key)
     if p == "gemini": return _llm_gemini(api_key, sys_prompt, user_msg, max_tokens)
     if p == "openrouter": return _llm_openrouter(api_key, sys_prompt, user_msg, max_tokens)
