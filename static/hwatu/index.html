@@ -3,9 +3,9 @@
 <link rel="manifest" href="/hwatu/manifest.json">
 <link rel="icon" href="/hwatu/icon-192.png"><link rel="apple-touch-icon" href="/hwatu/icon-192.png">
 <meta name="theme-color" content="#0a080d">
-<meta property="og:title" content="저승화투 — 차사와 한 판">
-<meta property="og:description" content="같은 달 패를 맞추면, 차사가 오늘의 화투점을 읊는다. 매일 자정 새 판.">
-<title>저승화투 — 차사와 한 판</title>
+<meta property="og:title" content="저승화투 — 차사와 섯다 한 판">
+<meta property="og:description" content="저승차사와 섯다 한 판. 오늘의 화투점이 행운의 달을 정한다 — 그 달 패로 이기면 두 배.">
+<title>저승화투 — 차사와 섯다 한 판</title>
 <style>
 :root{--ink:#0a080d;--paper:#ddd3bd;--dim:#6f6757;--seal:#b83a28;--gold:#c9a24b;--wisp:#7fe8d0;--card:#191420;--line:#332c3d}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -78,6 +78,36 @@ body::before{content:"";position:fixed;inset:0;background:
 .fin .fx::before,.fin .fx::after{content:"—";color:#5a5244;margin:0 8px}
 .fin .st{font-size:12.5px;color:var(--dim);margin-top:16px}
 .fin button{margin-top:26px;font-family:inherit;padding:13px 36px;background:var(--seal);color:#fff;border:0;border-radius:999px;font-size:14.5px;font-weight:900;box-shadow:0 6px 20px #b83a2844}
+
+/* ── 섯다 판 ── */
+.face.ft{transform:rotateY(180deg)}
+.fin .bigcard{position:relative}
+.table{width:min(94vw,430px);display:flex;flex-direction:column;gap:10px;align-items:center}
+.seat{width:100%;display:flex;flex-direction:column;align-items:center;gap:6px}
+.seat .who{font-size:11.5px;color:var(--dim);letter-spacing:2px}
+.hand{display:flex;gap:10px;justify-content:center;min-height:132px}
+.hand .cd{width:88px;cursor:default}
+.hand .cd.lucky .ft{border-color:var(--wisp);box-shadow:inset 0 0 0 2px #0a080d, inset 0 0 0 3px #7fe8d055, 0 0 16px #7fe8d033}
+.tag{position:absolute;left:5px;top:5px;font-size:10px;padding:1px 4px;border-radius:4px;z-index:3;transform:rotate(-6deg);font-weight:900}
+.tag.k{color:#0a080d;background:var(--gold)}
+.tag.y{color:var(--gold);border:1px solid #c9a24b88;background:#0a080dcc}
+.hname{font-size:15px;font-weight:900;color:var(--gold);min-height:22px;letter-spacing:1px}
+.hname.lo{color:#948a76;font-weight:700}
+.pot{display:flex;align-items:center;gap:10px;font-size:12.5px;color:var(--dim)}
+.pot b{color:var(--paper);font-size:18px}
+.coin{width:22px;height:22px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#e6c46a,#9c7a2c);box-shadow:0 2px 6px #0009, inset 0 0 0 2px #7a5c1c;display:inline-block;position:relative}
+.coin::after{content:"";position:absolute;inset:7px;border:1.5px solid #6b4f16;border-radius:2px}
+.acts{display:flex;gap:8px;width:min(94vw,430px);margin-top:12px}
+.acts button{flex:1;font-family:inherit;font-size:15px;font-weight:900;padding:13px 0;border-radius:12px;border:1px solid var(--line);background:#ffffff08;color:var(--paper)}
+.acts button.main{background:var(--seal);border-color:var(--seal);color:#fff;box-shadow:0 5px 16px #b83a2840}
+.acts button.gold{border-color:#c9a24b77;color:var(--gold)}
+.acts button:disabled{opacity:.35}
+.luck{width:min(94vw,430px);margin-top:10px;font-size:12px;color:#a89d87;text-align:center;min-height:16px}
+.luck b{color:var(--wisp)}
+.jokbo{display:none;width:min(94vw,430px);margin-top:10px;background:#ffffff05;border:1px solid var(--line);border-radius:12px;padding:10px 12px;font-size:12px;line-height:1.8;color:#a89d87}
+.jokbo.show{display:block}
+.jokbo b{color:var(--gold)}
+.fin .tier{font-size:13px;color:var(--wisp);margin-top:6px;letter-spacing:2px}
 </style></head><body>
 <div class="fog a"></div><div class="fog b"></div>
 <div class="hd z">
@@ -98,27 +128,38 @@ body::before{content:"";position:fixed;inset:0;background:
 <path d="M22 74 Q33 78 44 74" stroke="#2a2336" stroke-width="1.2" fill="none"/>
 <circle cx="49" cy="63" r="2.6" fill="#7fe8d0" opacity=".8"><animate attributeName="opacity" values=".8;.25;.8" dur="3.4s" repeatCount="indefinite"/></circle>
 </svg>
-<div class="bub" id="say">삼도천은 잠시 미뤄두지. <b>같은 달</b>의 패를 맞춰봐라, 산 자.</div>
+<div class="bub" id="say">노잣돈 걸고 <b>섯다</b> 한 판 하지. 이기면 이승에 하루 더 머물게 해주마.</div>
 </div>
-<div class="meta z"><span>🔥 <b id="stk">0</b>일째 살아있음</span><span>⏱ <b id="tm">0:00</b></span><span>패 넘김 <b id="mv">0</b></span></div>
-<div id="bd" class="z"></div>
-<div class="diff z" id="df"></div>
-<div class="tools z"><button id="rst">↺ 판 다시 깔기</button><button id="snd">🔔 소리</button></div>
-<div class="foot z">문양 자체 도안 · 매일 자정, 차사가 새 판을 깝니다 · <a href="/hwatu/privacy.html" style="color:#544d40">개인정보</a></div>
+<div class="meta z"><span>💰 노잣돈 <b id="bank">100</b>냥</span><span>🔥 <b id="stk">0</b>일째 살아있음</span><span>오늘 <b id="rec">0승 0패</b></span></div>
+<div class="table z">
+ <div class="seat"><div class="who">저승차사</div><div class="hand" id="hc"></div><div class="hname lo" id="nc"></div></div>
+ <div class="pot"><span class="coin"></span>판돈 <b id="pot">0</b>냥</div>
+ <div class="seat"><div class="hname" id="np"></div><div class="hand" id="hp"></div><div class="who">산 자 (나)</div></div>
+</div>
+<div class="acts z" id="acts"></div>
+<div class="luck z" id="luck"></div>
+<div class="tools z"><button id="fortB">📜 오늘의 화투점</button><button id="jbB">족보</button><button id="snd">🔔 소리</button></div>
+<div class="jokbo z" id="jb">
+<b>38광땡</b> &gt; <b>광땡</b>(1·8, 1·3) &gt; <b>땡</b>(장땡 10·10 … 1땡) &gt; <b>알리</b>(1·2) &gt; <b>독사</b>(1·4) &gt; <b>구삥</b>(1·9) &gt; <b>장삥</b>(1·10) &gt; <b>장사</b>(10·4) &gt; <b>세륙</b>(4·6) &gt; <b>끗</b>(두 장 합의 끝자리, 9끗=갑오 … 0=망통)<br>
+특수패 — <b>땡잡이</b>(3광+7열): 1~9땡을 잡는다 · <b>암행어사</b>(4열+7열): 1·3/1·8 광땡을 잡는다 · <b>구사</b>(4·9): 상대가 땡보다 낮으면 판을 다시 깐다<br>
+<span style="color:var(--wisp)">오늘의 화투점에서 나온 <b style="color:var(--wisp)">행운의 달</b> 패를 쥐고 이기면 판돈 2배.</span>
+</div>
+<div class="foot z">문양 자체 도안 · 노잣돈은 매일 자정 100냥으로 다시 채워집니다 · <a href="/hwatu/privacy.html" style="color:#544d40">개인정보</a></div>
 <div class="fin" id="fin">
 <div class="bigcard" id="bigc"></div>
 <h2 id="finT"></h2>
+<div class="tier" id="finR"></div>
 <div class="fx" id="finF"></div>
 <div class="st" id="finS"></div>
-<button onclick="document.getElementById('fin').classList.remove('show')">삼도천으로</button>
+<button onclick="document.getElementById('fin').classList.remove('show')">패 받으러 가기</button>
 </div>
 <script>
 for(let i=0;i<7;i++){const w=document.createElement('div');w.className='wisp';
  w.style.left=(8+Math.random()*84)+'%';w.style.bottom=(4+Math.random()*30)+'%';
  w.style.animationDelay=(Math.random()*11)+'s';w.style.animationDuration=(9+Math.random()*6)+'s';
  document.body.appendChild(w)}
-const P='<circle cx="50" cy="26" r="14" fill="#b83a28"/>';
-const MON=[["송학","1月",'<path d="M18 78 L38 34 L58 78 Z" fill="#2f5d3a"/><path d="M30 78 L46 46 L62 78 Z" fill="#3c7048"/>'+P+'<path d="M60 58 q10 -8 20 -2 q-8 2 -10 8 q-4 -4 -10 -6" fill="#e8e2d2"/>'],
+const SUNP='<circle cx="50" cy="26" r="14" fill="#b83a28"/>';
+const MON=[["송학","1月",'<path d="M18 78 L38 34 L58 78 Z" fill="#2f5d3a"/><path d="M30 78 L46 46 L62 78 Z" fill="#3c7048"/>'+SUNP+'<path d="M60 58 q10 -8 20 -2 q-8 2 -10 8 q-4 -4 -10 -6" fill="#e8e2d2"/>'],
 ["매조","2月",'<path d="M50 80 Q46 50 52 30" stroke="#5a4632" stroke-width="4" fill="none"/><circle cx="42" cy="38" r="6" fill="#c75462"/><circle cx="58" cy="30" r="6" fill="#c75462"/><circle cx="50" cy="22" r="6" fill="#d96b78"/><ellipse cx="64" cy="52" rx="9" ry="6" fill="#4a6b52"/><circle cx="70" cy="49" r="3" fill="#2c2c2c"/>'],
 ["벚꽃","3月",'<g fill="#d98a97"><circle cx="50" cy="30" r="9"/><circle cx="36" cy="42" r="9"/><circle cx="64" cy="42" r="9"/><circle cx="42" cy="58" r="9"/><circle cx="58" cy="58" r="9"/></g><circle cx="50" cy="45" r="6" fill="#b83a28"/>'],
 ["흑싸리","4月",'<path d="M50 82 Q44 50 50 22" stroke="#3a3040" stroke-width="4" fill="none"/><g fill="#4b3d55"><ellipse cx="38" cy="40" rx="11" ry="6" transform="rotate(-30 38 40)"/><ellipse cx="62" cy="34" rx="11" ry="6" transform="rotate(28 62 34)"/><ellipse cx="40" cy="60" rx="11" ry="6" transform="rotate(-24 40 60)"/></g>'],
@@ -130,18 +171,24 @@ const MON=[["송학","1月",'<path d="M18 78 L38 34 L58 78 Z" fill="#2f5d3a"/><p
 ["단풍","10月",'<g fill="#b3502e"><path d="M50 24 L58 44 L78 46 L62 58 L68 78 L50 66 L32 78 L38 58 L22 46 L42 44 Z"/></g>'],
 ["오동","11月",'<g fill="#3f4a63"><ellipse cx="50" cy="60" rx="24" ry="14"/></g><g stroke="#3f4a63" stroke-width="3" fill="none"><path d="M40 46 L36 30"/><path d="M50 44 L50 26"/><path d="M60 46 L64 30"/></g><circle cx="36" cy="27" r="3.5" fill="#c9a24b"/><circle cx="50" cy="23" r="3.5" fill="#c9a24b"/><circle cx="64" cy="27" r="3.5" fill="#c9a24b"/>'],
 ["비","12月",'<path d="M28 26 Q50 14 72 26 L72 34 Q50 24 28 34 Z" fill="#3a3040"/><g stroke="#6a7ba0" stroke-width="3"><path d="M34 44 L28 66"/><path d="M50 42 L46 70"/><path d="M66 44 L62 66"/></g><circle cx="50" cy="78" r="4" fill="#6a7ba0"/>']];
+
 const FORT=["먼 곳에서 소식이 온다. 학이 물어오는 것은 대체로 좋은 쪽이지.","기다리던 사람, 혹은 기다리게 한 사람 — 오늘 매듭이 풀린다.","화사한 일이 겹친다. 다만 꽃놀이에 지갑을 조심해라.","얽힌 일은 오늘 건드리지 마라. 내버려두면 스스로 풀린다.","조용히 향이 퍼지듯, 네 공이 알려지는 날이다.","귀한 자리, 귀한 대접. 사양 말고 앉아라.","작은 다툼수가 보인다. 붉은 것은 오늘 피해라.","달이 밝다. 밤에 결정하는 일이 낮보다 이롭다.","술 한 잔의 운. 오래 볼 사람과 마셔라.","손에 쥔 패가 생각보다 크다. 흥정에서 물러서지 마라.","뜻밖의 돈, 뜻밖의 빈손 — 오동은 늘 극단이지. 오늘은 지키는 쪽이다.","비 오는 날엔 길을 줄여라. 미룬 일 하나만 끝내면 족하다."];
-const SAY={start:["같은 달의 패를 맞춰라. 산 자의 기억력을 보겠다.","이승에서의 마지막 놀이가 될지도 모르지. 시작해라.","패는 깔렸다. 시간은… 네 편이 아니다."],
-match:["…제법이군.","눈썰미가 산 자답지 않아.","그 달을 기억하는가. 좋다.","호오.","명부에 적어두지 — <b>맞춤</b>."],
-miss:["이승의 기억력이란 그 정도인가.","틀렸다. 삼도천이 한 뼘 가까워졌군.","패는 거짓말을 하지 않아. 네 눈이 문제지.","…다시."],
-combo:["연달아 맞추는군. <b>차사가 긴장</b>하는 일은 드문데.","이 속도라면… 하루가 아니라 이틀을 줘야겠어."],
-near:["한 쌍 남았다. 마지막까지 흔들리지 마라."]};
+
+const SAY={deal:["패를 받아라. 첫 장이 운을 말해주지.","노잣돈 걸었으면 물러서지 마라.","자, 한 장씩."],
+fold:["다이? 겁이 많군, 산 자.","현명한 건지 비겁한 건지… 명부엔 '다이'라고 적지.","판돈은 내가 챙기지."],
+cfold:["…이번 판은 내가 접지.","흥. 네 눈빛이 수상해서 다이다.","가져가라. 저승에도 체면은 있지."],
+win:["네가 이겼다. 오늘은 삼도천 건너기 이르군.","…제법이군. 명부에서 하루를 지워주마.","운이 좋은 산 자로군."],
+lose:["내 패가 높다. 노잣돈은 잘 받지.","저승 패는 원래 차사 편이야.","이승의 운도 여기까지인가."],
+draw:["비겼다. 판돈은 다음 판으로 넘어간다.","재경기다. 패를 다시 깐다."],
+bust:["노잣돈이 바닥났다. 자정이 지나면 다시 채워주마.","빈손으로는 판에 못 앉는다. 내일 오너라."],
+call:["받지.","콜. 어디 보자.","좋다, 따라가지."],
+raise:["따당이라… 배짱은 인정하지.","올린다고 겁먹을 차사가 아니다."],
+lucky:["<b>행운의 달</b>이 네 손에 있군. 이기면 두 배다."]};
 function mul32(a){return function(){a|=0;a=a+0x6D2B79F5|0;var t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
 const KST=new Date(Date.now()+9*3600e3), dstr=KST.toISOString().slice(0,10);
-const DIFFS=[["초입 (4×4)",8,4],["명부 (4×5)",10,4],["삼도천 (4×6)",12,4]];
-let di=+(localStorage.jh_di||1), snd=localStorage.jh_snd!=='0';
-let deck,open=[],lock=false,found=0,moves=0,combo=0,t0=Date.now(),timer,lastM=0;
-// ── 소리: 풍경(매칭)·목탁(실패)·징(완성) 전부 실시간 합성 ──
+const LS={get(k,d){try{const v=localStorage.getItem(k);return v===null?d:v}catch(e){return d}},set(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+let snd=LS.get('jh_snd','1')!=='0';
+// ── 소리: 풍경(이김)·목탁(짐)·징(땡)·패 소리 ──
 let AC=null;
 function ac(){if(!AC){const A=window.AudioContext||window.webkitAudioContext;if(A)AC=new A()}if(AC&&AC.resume)AC.resume();return AC}
 function tone(f,dur,type,gain,delay){const c=ac();if(!c||!snd)return;
@@ -149,60 +196,126 @@ function tone(f,dur,type,gain,delay){const c=ac();if(!c||!snd)return;
  const t=c.currentTime+(delay||0);g.gain.setValueAtTime(gain||.12,t);
  g.gain.exponentialRampToValueAtTime(.0001,t+dur);
  o.connect(g);g.connect(c.destination);o.start(t);o.stop(t+dur)}
-const sMatch=()=>{tone(1568,.9,'sine',.08);tone(2093,1.3,'sine',.05,.03);tone(3136,.7,'sine',.03,.06)}; // 풍경
-const sMiss=()=>{tone(220,.09,'square',.05);tone(180,.1,'square',.04,.07)};                              // 목탁
-const sGong=()=>{tone(98,2.6,'sine',.14);tone(196,2.2,'sine',.07,.02);tone(147,1.8,'triangle',.05,.05)};  // 징
+const sWin=()=>{tone(1568,.9,'sine',.08);tone(2093,1.3,'sine',.05,.03);tone(3136,.7,'sine',.03,.06)};
+const sLose=()=>{tone(220,.09,'square',.05);tone(180,.1,'square',.04,.07)};
+const sGong=()=>{tone(98,2.6,'sine',.14);tone(196,2.2,'sine',.07,.02);tone(147,1.8,'triangle',.05,.05)};
+const sCard=()=>{tone(900,.05,'triangle',.05);tone(600,.06,'triangle',.03,.03)};
 function say(k){const a=SAY[k];document.getElementById('say').innerHTML=a[Math.floor(Math.random()*a.length)]}
-function svgCard(m){return '<svg viewBox="0 0 100 100">'+MON[m][2]+'</svg><div class="mn">'+MON[m][1]+'</div><div class="nm">'+MON[m][0]+'</div>'}
 function wisps(el){const r=el.getBoundingClientRect();
- for(let i=0;i<3;i++){const w=document.createElement('div');w.className='burst';
+ for(let i=0;i<4;i++){const w=document.createElement('div');w.className='burst';
   w.style.left=(r.left+r.width/2)+'px';w.style.top=(r.top+r.height/2)+'px';
   w.style.setProperty('--dx',(Math.random()*44-22)+'px');
   document.body.appendChild(w);setTimeout(()=>w.remove(),950)}}
-function build(){const[,pairs,cols]=DIFFS[di];
- const rng=mul32([...dstr+di].reduce((h,c)=>(h*31+c.charCodeAt(0))|0,7));
- const months=[...Array(12).keys()].sort(()=>rng()-.5).slice(0,pairs);
- deck=[...months,...months].map((m,i)=>({m,i})).sort(()=>rng()-.5);
- open=[];lock=false;found=0;moves=0;combo=0;t0=Date.now();
- const bd=document.getElementById('bd');bd.style.gridTemplateColumns=`repeat(${cols},1fr)`;bd.innerHTML='';
- deck.forEach((c,idx)=>{const d=document.createElement('div');d.className='cd';
-  d.innerHTML='<div class="in"><div class="face bk"></div><div class="face ft">'+svgCard(c.m)+'</div></div>';
-  d.onclick=()=>flip(idx,d);bd.appendChild(d)});
- clearInterval(timer);timer=setInterval(()=>{const s=Math.floor((Date.now()-t0)/1000);
-  document.getElementById('tm').textContent=Math.floor(s/60)+':'+String(s%60).padStart(2,'0')},500);
- document.getElementById('mv').textContent=0;say('start')}
-function flip(idx,el){if(lock||el.classList.contains('f')||el.classList.contains('done'))return;
- ac();el.classList.add('f');open.push({idx,el});
- if(open.length===2){lock=true;moves++;document.getElementById('mv').textContent=moves;
-  const[a,b]=open;
-  if(deck[a.idx].m===deck[b.idx].m){combo++;lastM=deck[a.idx].m;
-   setTimeout(()=>{a.el.classList.add('done');b.el.classList.add('done');
-    wisps(a.el);wisps(b.el);sMatch();
-    open=[];lock=false;found++;
-    const total=DIFFS[di][1];
-    if(found===total)finish();
-    else if(found===total-1)say('near');
-    else say(combo>=3?'combo':'match')},400)}
-  else{combo=0;setTimeout(()=>{sMiss();a.el.classList.remove('f');b.el.classList.remove('f');open=[];lock=false;say('miss')},720)}}}
-function finish(){clearInterval(timer);sGong();
- const last=localStorage.jh_done,stk=+(localStorage.jh_stk||0);
- if(last!==dstr){const y=new Date(KST-864e5).toISOString().slice(0,10);
-  localStorage.jh_stk=(last===y?stk+1:1);localStorage.jh_done=dstr}
- document.getElementById('stk').textContent=localStorage.jh_stk;
- const sec=Math.floor((Date.now()-t0)/1000);
- document.getElementById('bigc').innerHTML=svgCard(lastM);
- document.getElementById('finT').textContent='오늘의 패 · '+MON[lastM][1]+' '+MON[lastM][0];
- document.getElementById('finF').textContent=FORT[lastM];
- document.getElementById('finS').textContent=`${DIFFS[di][0]} · ${Math.floor(sec/60)}분 ${sec%60}초 · 넘김 ${moves} · 🔥 ${localStorage.jh_stk}일째 살아있음`;
- setTimeout(()=>document.getElementById('fin').classList.add('show'),350)}
-const df=document.getElementById('df');
-DIFFS.forEach(([n],i)=>{const s=document.createElement('span');s.textContent=n;if(i===di)s.classList.add('on');
- s.onclick=()=>{di=i;localStorage.jh_di=i;[...df.children].forEach((x,j)=>x.classList.toggle('on',j===i));build()};df.appendChild(s)});
-document.getElementById('rst').onclick=build;
+// ── 섯다 패: 1~10월 × (상패, 피). 상패 = 1·3·8월은 광, 나머지는 열끗 ──
+const KWANG=[1,3,8];
+function mkDeck(){const d=[];for(let m=1;m<=10;m++){d.push({m,s:1});d.push({m,s:0})}return d}
+function shuffle(a,rng){rng=rng||Math.random;for(let i=a.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[a[i],a[j]]=[a[j],a[i]]}return a}
+function cardHTML(c,lucky){const t=c.s?(KWANG.includes(c.m)?'<span class="tag k">光</span>':'<span class="tag y">열</span>'):'';
+ return '<div class="cd f'+(lucky?' lucky':'')+'"><div class="in"><div class="face bk"></div><div class="face ft">'+t+'<svg viewBox="0 0 100 100">'+MON[c.m-1][2]+'</svg><div class="mn">'+MON[c.m-1][1]+'</div><div class="nm">'+MON[c.m-1][0]+'</div></div></div></div>'}
+function backHTML(){return '<div class="cd"><div class="in"><div class="face bk"></div><div class="face ft"></div></div></div>'}
+// 족보 평가 → {r: 점수, n: 이름, sp: 특수}
+function evalHand(a,b){
+ const ms=[a.m,b.m].sort((x,y)=>x-y), [x,y]=ms, k=(c)=>c.s&&KWANG.includes(c.m), yl=(c,m)=>c.m===m&&c.s;
+ const has=(m)=>a.m===m||b.m===m, both=(p,q)=>(a.m===p&&b.m===q)||(a.m===q&&b.m===p);
+ if(k(a)&&k(b)&&x===3&&y===8)return{r:1000,n:'38광땡'};
+ if(k(a)&&k(b)&&x===1&&y===8)return{r:950,n:'18광땡'};
+ if(k(a)&&k(b)&&x===1&&y===3)return{r:940,n:'13광땡'};
+ if(x===y)return{r:800+x,n:x===10?'장땡':x+'땡'};
+ if(both(3,7)&&((a.m===3&&a.s&&b.m===7&&b.s)||(b.m===3&&b.s&&a.m===7&&a.s)))return{r:100,n:'땡잡이',sp:'ttang'};
+ if(both(4,7)&&a.s&&b.s)return{r:101,n:'암행어사',sp:'amhaeng'};
+ if(both(4,9))return{r:103,n:'구사',sp:'gusa'};
+ if(both(1,2))return{r:760,n:'알리'};
+ if(both(1,4))return{r:750,n:'독사'};
+ if(both(1,9))return{r:740,n:'구삥'};
+ if(both(1,10))return{r:730,n:'장삥'};
+ if(both(10,4))return{r:720,n:'장사'};
+ if(both(4,6))return{r:710,n:'세륙'};
+ const g=(a.m+b.m)%10;return{r:100+g,n:g===9?'갑오':g===0?'망통':g+'끗'}}
+// 승부: 1 = 내가 이김, -1 = 짐, 0 = 비김, 'redeal' = 다시
+function judge(p,c){
+ const sp=(h,o)=>{if(h.sp==='ttang'&&o.r>=801&&o.r<=809)return 1;if(h.sp==='amhaeng'&&(o.r===950||o.r===940))return 1;return 0};
+ if(sp(p,c))return 1; if(sp(c,p))return -1;
+ if(p.sp==='gusa'&&c.r<800)return'redeal'; if(c.sp==='gusa'&&p.r<800)return'redeal';
+ const pr=p.sp==='ttang'?100:p.sp==='amhaeng'?101:p.sp==='gusa'?103:p.r, cr=c.sp==='ttang'?100:c.sp==='amhaeng'?101:c.sp==='gusa'?103:c.r;
+ return pr>cr?1:pr<cr?-1:0}
+// ── 오늘의 화투점(날짜로 정해짐) → 행운의 달 ──
+const TIERS=[[1000,'大吉 · 하늘이 돕는 날'],[900,'大吉'],[800,'吉 · 밀어붙여라'],[700,'小吉'],[107,'平 · 무난한 하루'],[101,'小凶 · 한 발 물러서라'],[0,'凶 · 오늘은 조심']];
+function fortune(){const rng=mul32([...dstr+'점'].reduce((h,c)=>(h*31+c.charCodeAt(0))|0,11));
+ const d=shuffle(mkDeck(),rng), a=d[0], b=d[1], h=evalHand(a,b), top=(a.m>=b.m?a:b);
+ const tier=(TIERS.find(t=>h.r>=t[0])||TIERS[TIERS.length-1])[1];return{a,b,h,top,tier}}
+const F=fortune();
+// ── 상태 ──
+let bank=+LS.get('sd_bank',100), bday=LS.get('sd_day','');
+if(bday!==dstr){bank=100;LS.set('sd_bank',100);LS.set('sd_day',dstr);LS.set('sd_w',0);LS.set('sd_l',0)}
+let W=+LS.get('sd_w',0), L=+LS.get('sd_l',0);
+let deck,P=[],C=[],pot=0,carry=0,stage='idle',raised=false;
+const ANTE=10;
+function ui(){document.getElementById('bank').textContent=bank;document.getElementById('pot').textContent=pot;
+ document.getElementById('rec').textContent=W+'승 '+L+'패';LS.set('sd_bank',bank)}
+function showHands(reveal){
+ document.getElementById('hp').innerHTML=P.map(c=>cardHTML(c,c.m===F.top.m)).join('')+(P.length<2?backHTML().replace('class="cd"','class="cd" style="opacity:.25"'):'');
+ document.getElementById('hc').innerHTML=C.map(c=>reveal?cardHTML(c):backHTML()).join('')+(C.length<2?backHTML().replace('class="cd"','class="cd" style="opacity:.25"'):'');
+ const np=document.getElementById('np');np.textContent=P.length===2?evalHand(P[0],P[1]).n:'';
+ document.getElementById('nc').textContent=reveal&&C.length===2?evalHand(C[0],C[1]).n:''}
+function acts(list){const el=document.getElementById('acts');el.innerHTML='';
+ list.forEach(([t,fn,cls,dis])=>{const b=document.createElement('button');b.textContent=t;if(cls)b.className=cls;b.disabled=!!dis;b.onclick=()=>{ac();fn()};el.appendChild(b)})}
+function idle(){stage='idle';
+ if(bank<ANTE){say('bust');acts([['노잣돈 없음 — 내일 다시',()=>{},'',true]]);return}
+ acts([['패 돌리기 · 판돈 '+ANTE+'냥',deal,'main']])}
+function deal(){if(bank<ANTE)return idle();
+ deck=shuffle(mkDeck());P=[deck.pop()];C=[deck.pop()];bank-=ANTE;pot=carry+ANTE*2;carry=0;raised=false;stage='first';
+ sCard();showHands(false);ui();say('deal');
+ if(P[0].m===F.top.m)say('lucky');
+ acts([['다이',fold],['콜',()=>second(false),'main'],['따당 +20',()=>second(true),'gold',bank<20]])}
+function chasaStrength(){ // 차사가 자기 패를 얼마나 믿는가(0~1)
+ if(C.length===1){const c=C[0];return Math.min(1,(c.m/10)*.6+(c.s?.3:0))}
+ const h=evalHand(C[0],C[1]);return h.r>=800?1:h.r>=700?.8:h.sp?.45:Math.max(0,(h.r-100)/12)}
+function second(raise){
+ if(raise){bank-=20;pot+=20;say('raise');
+  if(chasaStrength()<.3&&Math.random()<.4){return chasaFold()}
+  pot+=20}
+ else say('call');
+ P.push(deck.pop());C.push(deck.pop());stage='second';sCard();showHands(false);ui();
+ const half=Math.max(10,Math.floor(pot/2));
+ acts([['다이',fold],['체크',()=>show(false),'main'],['하프 +'+half,()=>show(true,half),'gold',bank<half]])}
+function show(half,amt){
+ if(half){bank-=amt;pot+=amt;
+  const st=chasaStrength();
+  if(st<.4&&Math.random()<.45)return chasaFold();
+  pot+=amt;say('call')}
+ stage='show';showHands(true);ui();
+ const hp=evalHand(P[0],P[1]),hc=evalHand(C[0],C[1]),j=judge(hp,hc);
+ if(j==='redeal'){say('draw');carry=pot;pot=0;ui();return setTimeout(idle,900)}
+ if(j===0){say('draw');carry=pot;pot=0;ui();return setTimeout(idle,900)}
+ if(j===1){let gain=pot;const lucky=P.some(c=>c.m===F.top.m);if(lucky)gain*=2;
+  bank+=gain;W++;LS.set('sd_w',W);pot=0;
+  (hp.r>=800?sGong:sWin)();document.querySelectorAll('#hp .cd').forEach(wisps);
+  document.getElementById('say').innerHTML=(lucky?'<b>행운의 달</b>로 이겼다 — 판돈 두 배. ':'')+SAY.win[Math.floor(Math.random()*SAY.win.length)];
+  streak()}
+ else{L++;LS.set('sd_l',L);pot=0;sLose();say('lose')}
+ ui();acts([['다음 판',idle,'main']])}
+function fold(){stage='show';L++;LS.set('sd_l',L);pot=0;sLose();say('fold');showHands(C.length===2);ui();acts([['다음 판',idle,'main']])}
+function chasaFold(){bank+=pot;W++;LS.set('sd_w',W);pot=0;sWin();say('cfold');ui();acts([['다음 판',idle,'main']]);streak()}
+function streak(){const last=LS.get('jh_done',''),stk=+LS.get('jh_stk',0);
+ if(last!==dstr){const y=new Date(KST-864e5).toISOString().slice(0,10);LS.set('jh_stk',last===y?stk+1:1);LS.set('jh_done',dstr)}
+ document.getElementById('stk').textContent=LS.get('jh_stk',0)}
+// ── 화투점 화면 ──
+function showFortune(){sGong();
+ document.getElementById('bigc').innerHTML='<svg viewBox="0 0 100 100">'+MON[F.top.m-1][2]+'</svg><div class="mn">'+MON[F.top.m-1][1]+'</div>';
+ document.getElementById('finT').textContent='오늘의 패 · '+F.h.n+' ('+F.a.m+'월·'+F.b.m+'월)';
+ document.getElementById('finR').textContent=F.tier;
+ document.getElementById('finF').textContent=FORT[F.top.m-1];
+ document.getElementById('finS').textContent='행운의 달: '+F.top.m+'월 '+MON[F.top.m-1][0]+' — 이 달 패를 쥐고 이기면 판돈 2배';
+ document.getElementById('fin').classList.add('show');LS.set('sd_ft',dstr)}
+document.getElementById('fortB').onclick=()=>{ac();showFortune()};
+document.getElementById('jbB').onclick=()=>document.getElementById('jb').classList.toggle('show');
 const sb=document.getElementById('snd');
 function sndUi(){sb.classList.toggle('on',snd);sb.textContent=snd?'🔔 소리':'🔕 소리'}
-sb.onclick=()=>{snd=!snd;localStorage.jh_snd=snd?'1':'0';sndUi();snd&&sMatch()};sndUi();
+sb.onclick=()=>{snd=!snd;LS.set('jh_snd',snd?'1':'0');sndUi();snd&&sWin()};sndUi();
 document.getElementById('dt').innerHTML=dstr.replace(/-/g,'.')+'<br>차사 근무일지';
-document.getElementById('stk').textContent=localStorage.jh_stk||0;
-build();if('serviceWorker'in navigator)navigator.serviceWorker.register('/hwatu/sw.js').catch(()=>{});
+document.getElementById('stk').textContent=LS.get('jh_stk',0);
+document.getElementById('luck').innerHTML='오늘의 행운의 달: <b>'+F.top.m+'월 '+MON[F.top.m-1][0]+'</b> · 점괘 '+F.tier.split(' ')[0];
+P=[];C=[];showHands(false);ui();idle();
+if(LS.get('sd_ft','')!==dstr)setTimeout(showFortune,600);
+if('serviceWorker'in navigator)navigator.serviceWorker.register('/hwatu/sw.js').catch(()=>{});
 </script></body></html>
