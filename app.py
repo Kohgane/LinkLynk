@@ -1703,6 +1703,21 @@ def dwaeji_config_api():
     return resp
 
 
+def _pig_keys(first):
+    """빠른 무료 키부터 차례로: 서버 환경변수에 있는 Groq·Cerebras·Gemini·OpenRouter·NVIDIA 키를 모두 후보로."""
+    from core import detect_llm_provider
+    order = {"groq": 0, "cerebras": 1, "gemini": 2, "openrouter": 3, "nvidia": 4}
+    seen, cands = set(), []
+    for v in [first] + [v for kk, v in sorted(os.environ.items()) if kk.endswith(("_KEY", "_TOKEN", "_API_KEY"))]:
+        v = (v or "").strip()
+        if not v or v in seen or v == "__free__":
+            continue
+        p = detect_llm_provider(v)
+        if p in order:
+            seen.add(v); cands.append((order[p], v))
+    return [v for _, v in sorted(cands, key=lambda x: x[0])][:6] + ["__free__"]
+
+
 def _pig_salvage(text):
     """잘린 JSON에서도 name 이 있는 온전한 {…} 가게 객체만 골라낸다."""
     dec = json.JSONDecoder(); out = []; i = 0
@@ -1778,7 +1793,10 @@ def dwaeji_reco_api():
     key = os.environ.get("BOIM_LLM_KEY", "").strip() or "__free__"
     # 5곳을 세세히 쓰면 1200토큰에서 JSON이 잘려 '형식 오류'가 났다 → 넉넉히 + 잘린 답에서도 온전한 가게만 건진다
     picks = []; r = {}
-    for k in ([key, "__free__"] if key != "__free__" else ["__free__", "__free__"]):
+    t0 = _t.time()
+    for k in _pig_keys(key):
+        if _t.time() - t0 > 20:                      # 워커 30초 제한 안에서 끝낸다(넘기면 500)
+            break
         try:
             r = llm_chat(k, sysp, user, max_tokens=3200)
         except Exception:
