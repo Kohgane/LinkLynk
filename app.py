@@ -1703,6 +1703,38 @@ def dwaeji_config_api():
     return resp
 
 
+def _pig_gemini(key, sysp, user):
+    """제미나이 직통 — 생각(thinking) 끄고 가벼운 모델부터. 기존 공용 호출은 무거운 모델+12초 제한이라 매번 타임아웃."""
+    import time as _tt
+    t0 = _tt.time(); last = {"ok": False, "error": "gemini"}
+    for m in ("gemini-flash-lite-latest", "gemini-2.5-flash-lite", "gemini-flash-latest"):
+        left = 24 - (_tt.time() - t0)
+        if left < 4:
+            break
+        for think in (True, False):
+            gc = {"maxOutputTokens": 1900, "temperature": 0.9, "responseMimeType": "application/json"}
+            if think:
+                gc["thinkingConfig"] = {"thinkingBudget": 0}
+            body = {"systemInstruction": {"parts": [{"text": sysp}]},
+                    "contents": [{"role": "user", "parts": [{"text": user}]}], "generationConfig": gc}
+            try:
+                rq = _ur.Request("https://generativelanguage.googleapis.com/v1beta/models/%s:generateContent?key=%s" % (m, key),
+                                 data=json.dumps(body).encode(), headers={"Content-Type": "application/json"})
+                with _ur.urlopen(rq, timeout=min(16, left)) as resp:
+                    j = json.loads(resp.read())
+                txt = "".join(p.get("text", "") for p in j["candidates"][0]["content"]["parts"])
+                if txt.strip():
+                    return {"ok": True, "text": txt}
+                last = {"ok": False, "error": "empty", "detail": m}
+                break
+            except Exception as e:
+                last = {"ok": False, "error": "gemini", "detail": "%s %s" % (m, str(e)[:50])}
+                if "400" in str(e) and think:
+                    continue          # 이 모델은 thinkingConfig 를 안 받음 → 빼고 한 번 더
+                break
+    return last
+
+
 def _pig_keys(first):
     """빠른 무료 키부터 차례로: 서버 환경변수에 있는 Groq·Cerebras·Gemini·OpenRouter·NVIDIA 키를 모두 후보로."""
     from core import detect_llm_provider
@@ -1799,7 +1831,7 @@ def dwaeji_reco_api():
         if _t.time() - t0 > 20:                      # 워커 30초 제한 안에서 끝낸다(넘기면 500)
             break
         try:
-            r = llm_chat(k, sysp, user, max_tokens=1900)
+            r = _pig_gemini(k, sysp, user) if k.startswith("AIza") else llm_chat(k, sysp, user, max_tokens=1900)
         except Exception as _e:
             _tried.append("%s:exc %s" % (_pv(k), str(_e)[:60])); continue
         if not r.get("ok"):
