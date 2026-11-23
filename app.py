@@ -1733,6 +1733,19 @@ def _pig_discover(region, food=""):
         return []
 
 
+def _pig_clean_rev(c):
+    """후기 발췌 중 그 가게 얘기만(다른 지점·해시태그 덩어리 제외) 한 줄."""
+    import re as _re
+    t = str(c.get("title") or "")
+    for s in c.get("rev") or []:
+        s = _re.sub(r"#\S+", "", s).strip(" ,.·:")
+        br = [b for b in _re.findall(r"(\S+점)\b", s) if b not in t and not b.endswith(("본점", "맛집점"))]
+        if len(s) < 20 or br:
+            continue
+        return s[:150]
+    return ""
+
+
 def _pig_from_cands(picks, cands, n):
     """AI가 고른 걸 후보 목록에 맞춰 붙이고(목록 밖 이름은 버림), 모자라면 후보 순서대로 채운다."""
     import re as _re
@@ -1758,7 +1771,7 @@ def _pig_from_cands(picks, cands, n):
         used.add(c["title"]); cat = (c.get("cat") or "").split(">")[-1]
         out.append({"name": c["title"], "area": "✓ 지도 확인 · " + (c.get("road") or ""),
                     "dish": (cat or "대표 메뉴") + " — 메뉴판 맨 위 시그니처부터",
-                    "why": ((c.get("rev") or [""])[0][:150] or "블로그 후기 %s건 중 체험단·협찬 글이 드문, 입소문으로 버틴 동네 가게." % format(int(c.get("blogs") or 0), ",")),
+                    "why": (_pig_clean_rev(c) or "블로그 후기 %s건 중 체험단·협찬 글이 드문, 입소문으로 버틴 동네 가게." % format(int(c.get("blogs") or 0), ",")),
                     "cons": "방문 전 영업시간 한 번 확인", "diary": "", "tip": "점심 피크(12~13시)만 피하면 수월",
                     "q": c["title"] + " " + " ".join((c.get("road") or "").split()[:3])})
     return out
@@ -1917,9 +1930,10 @@ def dwaeji_reco_api():
                 "발췌에 없는 메뉴·조리법·숙성 시간·숫자를 지어내면 안 된다 — 모르면 짧게 '대표 메뉴는 현장 확인'처럼 써라. "
                 "diary도 발췌의 표현을 살려 한 줄. 각 칸은 한 문장으로 짧게, 반드시 JSON 하나만.")
         user_small = user.split("후보다. ")[0] + "후보다. 반드시 이 목록에서만 골라라(name은 목록 상호 그대로):\n" + "\n".join(
-            "- %s | %s" % (c["title"], (c.get("cat") or "").split(">")[-1]) for c in cands) + "\n이 중 9곳. 메뉴·조리법·숫자는 지어내지 말고 모르면 짧게. 각 칸 한 문장, JSON 하나만."
+            "- %s | %s | 후기: %s" % (c["title"], (c.get("cat") or "").split(">")[-1], ((c.get("rev") or [""])[0])[:70]) for c in cands[:12]) + (
+            "\n이 중 9곳. ★dish·why·tip은 그 가게 '후기'에 나온 메뉴·표현으로만, 후기에 없는 메뉴·조리법·시간·숫자는 절대 지어내지 마라 — 모르면 '대표 메뉴는 현장 확인'. 각 칸 한 문장, JSON 하나만.")
     # 5곳을 세세히 쓰면 1200토큰에서 JSON이 잘려 '형식 오류'가 났다 → 넉넉히 + 잘린 답에서도 온전한 가게만 건진다
-    picks = []; r = {}; _tried = []
+    picks = []; r = {}; _tried = []; _via = ""
     from core import detect_llm_provider
     _pv = lambda x: "relay" if x == "__relay__" else detect_llm_provider(x)
     t0 = _t.time()
@@ -1941,6 +1955,7 @@ def dwaeji_reco_api():
         except Exception:
             picks = _pig_salvage(r.get("text") or "")[:12]
         if picks:
+            _via = _pv(k)
             break
     if len(cands) >= 5:
         picks = _pig_from_cands(picks, cands, 9)
@@ -1977,7 +1992,7 @@ def dwaeji_reco_api():
                     "tip": scrub_garbled(str(p.get("tip") or ""))[:80],
                     "q": scrub_garbled(str(p.get("q") or ""))[:60]})
     hist.append(now); _PIG_IP[ip] = hist
-    resp = jsonify({"ok": True, "picks": out, "left": 10 - len(hist)})
+    resp = jsonify({"ok": True, "picks": out, "left": 10 - len(hist), "via": _via or "list"})
     resp.headers["Access-Control-Allow-Origin"] = "*"
     return resp
 
