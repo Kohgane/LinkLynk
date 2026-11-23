@@ -1718,6 +1718,52 @@ def _pig_relay(sysp, user):
     return {"ok": bool(j.get("ok") and j.get("text")), "text": j.get("text", ""), "error": j.get("error", "")}
 
 
+def _pig_discover(region, food=""):
+    """브리가네 쪽에서 지역 안 실존 가게 후보를 긁어 온다(광고·체험단 비율 높은 집, 체인 지점 제외). 실패하면 []."""
+    try:
+        body = {"discover": 1, "region": region, "food": food}
+        rq = _ur.Request(_PIG_RELAY, data=json.dumps(body).encode(),
+                         headers={"Content-Type": "application/json", "X-Pig-Token": _PIG_RELAY_K,
+                                  "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/131.0 Safari/537.36",
+                                  "Cookie": "humans_21909=1"})
+        with _ur.urlopen(rq, timeout=9) as resp:
+            j = json.loads(resp.read())
+        return j.get("cands") or [] if j.get("ok") else []
+    except Exception:
+        return []
+
+
+def _pig_from_cands(picks, cands, n):
+    """AI가 고른 걸 후보 목록에 맞춰 붙이고(목록 밖 이름은 버림), 모자라면 후보 순서대로 채운다."""
+    import re as _re
+    nz = lambda s: _re.sub(r"[\s·\-_.,()]|본점$", "", str(s or "")).lower()
+    by = {nz(c["title"]): c for c in cands}
+    out, used = [], set()
+    for p in picks or []:
+        k = nz(p.get("name"))
+        c = by.get(k) or next((v for kk, v in by.items() if k and (k in kk or kk in k)), None)
+        if not c or c["title"] in used:
+            continue
+        used.add(c["title"]); p = dict(p); p["name"] = c["title"]
+        p["area"] = "✓ 지도 확인 · " + (c.get("road") or "")
+        p["q"] = c["title"] + " " + " ".join((c.get("road") or "").split()[:3])
+        out.append(p)
+        if len(out) >= n:
+            return out
+    for c in cands:
+        if len(out) >= n:
+            break
+        if c["title"] in used:
+            continue
+        used.add(c["title"]); cat = (c.get("cat") or "").split(">")[-1]
+        out.append({"name": c["title"], "area": "✓ 지도 확인 · " + (c.get("road") or ""),
+                    "dish": (cat or "대표 메뉴") + " — 메뉴판 맨 위 시그니처부터",
+                    "why": "블로그 후기 %s건 중 체험단·협찬 글이 드문, 입소문으로 버틴 동네 가게." % format(int(c.get("blogs") or 0), ","),
+                    "cons": "방문 전 영업시간 한 번 확인", "diary": "", "tip": "점심 피크(12~13시)만 피하면 수월",
+                    "q": c["title"] + " " + " ".join((c.get("road") or "").split()[:3])})
+    return out
+
+
 def _pig_verify(picks, region=""):
     """브리가네 쪽 네이버 지역검색으로 실존·영업(지도 등록) 확인. 실패하면 None(그럼 확인 없이 보여준다)."""
     try:
@@ -1855,13 +1901,22 @@ def dwaeji_reco_api():
             f"분위기·상황: {mood or '상관없음'}\n인원·예산: {party or '보통'}\n"
             "위 조건으로 로컬 찐맛집 12곳 — 반드시 '{region}' 안에 있는 가게만(다른 시·도의 같은 이름 지점 금지, 체험단·협찬 위주 집 금지)(지금도 영업 중인 실제 상호만, 지점명 정확히). 각 칸은 한 문장으로 짧게, 반드시 JSON 하나만.")
     key = os.environ.get("BOIM_LLM_KEY", "").strip() or "__free__"
+    # ★ 먼저 우리가 지도에서 실존 가게를 긁는다(지역 고정·광고집 제외·체인 지점 제외) → AI는 이 목록에서만 고른다
+    cands = _pig_discover(region, food)
+    if len(cands) >= 5:
+        _lst = "\n".join("- %s | %s | %s" % (c["title"], (c.get("cat") or "").split(">")[-1], " ".join((c.get("road") or "").split()[1:4])) for c in cands)
+        user = (f"지역: {region}\n음식 종류: {food or '무엇이든 — 그 동네 최고 시그니처로'}\n"
+                f"분위기·상황: {mood or '상관없음'}\n인원·예산: {party or '보통'}\n"
+                "아래는 우리가 네이버 지도로 실존·영업을 확인하고, 체험단·협찬 광고로 뜬 집과 체인 지점을 걸러낸 후보다. "
+                "반드시 이 목록에서만 골라라(name은 목록 상호 그대로):\n" + _lst +
+                "\n이 중 조건에 맞는 로컬 찐맛집 9곳(노포·현지인 단골집 우선). 각 칸은 한 문장으로 짧게, 반드시 JSON 하나만.")
     # 5곳을 세세히 쓰면 1200토큰에서 JSON이 잘려 '형식 오류'가 났다 → 넉넉히 + 잘린 답에서도 온전한 가게만 건진다
     picks = []; r = {}; _tried = []
     from core import detect_llm_provider
     _pv = lambda x: "relay" if x == "__relay__" else detect_llm_provider(x)
     t0 = _t.time()
     for k in _pig_keys(key):
-        if _t.time() - t0 > 16:                      # 워커 30초 제한 안에서 끝낸다(넘기면 500)
+        if _t.time() - t0 > (12 if len(cands) >= 5 else 16):                      # 워커 30초 제한 안에서 끝낸다(넘기면 500)
             break
         try:
             r = (_pig_relay(sysp, user) if k == "__relay__" else
@@ -1876,11 +1931,15 @@ def dwaeji_reco_api():
             picks = _pig_salvage(r.get("text") or "")[:12]
         if picks:
             break
-    if not picks and not r.get("ok"):
+    if len(cands) >= 5:
+        picks = _pig_from_cands(picks, cands, 9)
+        vf = None
+    elif not picks and not r.get("ok"):
         print("[dwaeji] llm fail", _tried)
         return jsonify({"ok": False, "error": "레이다가 지금 붐벼요 — 잠시 뒤 다시", "tried": _tried})
-    # ★ 우리가 먼저 영업 확인: 네이버 지도(지역검색)에 지금 올라와 있는 가게만 남긴다
-    vf = _pig_verify(picks, region)
+    else:
+        # ★ 우리가 먼저 영업 확인: 네이버 지도(지역검색)에 지금 올라와 있는 가게만 남긴다
+        vf = _pig_verify(picks, region)
     if vf is not None:
         kept = []
         for _i, p in enumerate(picks):
@@ -1891,9 +1950,9 @@ def dwaeji_reco_api():
             p["area"] = "✓ 지도 확인 · " + (v.get("road") or p.get("area") or "")
             p["q"] = v["title"] + " " + " ".join((v.get("road") or "").split()[:3])
             kept.append(p)
-        picks = kept[:5]
-    else:
-        picks = picks[:5]
+        picks = kept[:9]
+    elif len(cands) < 5:
+        picks = picks[:9]
     if not picks:
         return jsonify({"ok": False, "error": "지금 영업이 확인된 집이 없어요 — 지역을 조금 넓혀서 다시 킁킁!"})
     out = []
