@@ -1733,6 +1733,65 @@ def _pig_discover(region, food=""):
         return []
 
 
+def _pig_job_start(jid, region, food, mood, party, sysp):
+    import threading
+    def run():
+        try:
+            body = {"curate": 1, "jid": jid, "region": region, "food": food, "mood": mood, "party": party, "sys": sysp}
+            rq = _ur.Request(_PIG_RELAY, data=json.dumps(body, ensure_ascii=False).encode(),
+                             headers={"Content-Type": "application/json", "X-Pig-Token": _PIG_RELAY_K,
+                                      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/131.0 Safari/537.36",
+                                      "Cookie": "humans_21909=1"})
+            _ur.urlopen(rq, timeout=90).read()
+        except Exception:
+            pass
+    threading.Thread(target=run, daemon=True).start()
+
+
+def _pig_out(picks):
+    from core import scrub_garbled
+    out = []
+    for p in picks:
+        out.append({"name": scrub_garbled(str(p.get("name") or ""))[:40],
+                    "area": scrub_garbled(str(p.get("area") or ""))[:50],
+                    "dish": scrub_garbled(str(p.get("dish") or ""))[:70],
+                    "why": scrub_garbled(str(p.get("why") or ""))[:160],
+                    "cons": scrub_garbled(str(p.get("cons") or ""))[:80],
+                    "diary": scrub_garbled(str(p.get("diary") or ""))[:90],
+                    "tip": scrub_garbled(str(p.get("tip") or ""))[:80],
+                    "q": scrub_garbled(str(p.get("q") or ""))[:60]})
+    return out
+
+
+@app.route("/api/dwaeji/job/<jid>")
+def dwaeji_job_api(jid):
+    """후기 읽고 다듬은 결과(브리가네 쪽 파일)를 가져온다. 아직이면 done:false."""
+    import re as _re
+    if not _re.fullmatch(r"[A-Za-z0-9_-]{6,40}", jid or ""):
+        return jsonify({"ok": False, "done": True})
+    try:
+        rq = _ur.Request(_PIG_RELAY, data=json.dumps({"get": 1, "jid": jid}).encode(),
+                         headers={"Content-Type": "application/json", "X-Pig-Token": _PIG_RELAY_K,
+                                      "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/131.0 Safari/537.36",
+                                      "Cookie": "humans_21909=1"})
+        with _ur.urlopen(rq, timeout=12) as resp:
+            j = json.loads(resp.read())
+    except Exception:
+        return jsonify({"ok": True, "done": False})
+    if not j.get("done"):
+        return jsonify({"ok": True, "done": False})
+    from core import _parse_json_out
+    txt = j.get("text") or ""; cands = j.get("cands") or []
+    try:
+        picks = _parse_json_out(txt).get("picks", [])
+    except Exception:
+        picks = _pig_salvage(txt)
+    picks = [p for p in picks if isinstance(p, dict) and p.get("name")]
+    if not picks or not cands:
+        return jsonify({"ok": False, "done": True})
+    return jsonify({"ok": True, "done": True, "picks": _pig_out(_pig_from_cands(picks, cands, 9))})
+
+
 def _pig_clean_rev(c):
     """후기 발췌 중 그 가게 얘기만(다른 지점·해시태그 덩어리 제외) 한 줄."""
     import re as _re
@@ -1740,7 +1799,7 @@ def _pig_clean_rev(c):
     for s in c.get("rev") or []:
         s = _re.sub(r"#\S+", "", s).strip(" ,.·:")
         br = [b for b in _re.findall(r"(\S+점)\b", s) if b not in t and not b.endswith(("본점", "맛집점"))]
-        if len(s) < 20 or br:
+        if len(s) < 20 or br or _re.search(r"주소\s*[:：]|전화|0507|\d{2,4}-\d{3,4}-\d{4}|위치\s*[:：]", s):
             continue
         return s[:150]
     return ""
@@ -1938,8 +1997,13 @@ def dwaeji_reco_api():
     _pv = lambda x: "relay" if x == "__relay__" else detect_llm_provider(x)
     t0 = _t.time()
     _ks = _pig_keys(key)
-    if len(cands) >= 5:   # 후보+후기 본문이 커서 중계(10KB 한도)는 뒤로, 구글 직통(가벼운 모델)부터
-        _ks = [x for x in _ks if x.startswith("AIza")] + ["__relay__"] + [x for x in _ks if x != "__relay__" and not x.startswith("AIza")]
+    _jid = ""
+    if len(cands) >= 5:
+        # 실존 목록은 바로 보여 주고, 후기를 읽어 메뉴·꿀팁을 다듬는 건 브리가네 쪽에서 따로(15~25초) → 화면이 이어받아 갈아 끼운다
+        import secrets as _sc
+        _jid = _sc.token_urlsafe(9)
+        _pig_job_start(_jid, region, food, mood, party, sysp)
+        _ks = []
     for k in _ks:
         if _t.time() - t0 > (14 if len(cands) >= 5 else 16):                      # 워커 30초 제한 안에서 끝낸다(넘기면 500)
             break
@@ -1992,7 +2056,7 @@ def dwaeji_reco_api():
                     "tip": scrub_garbled(str(p.get("tip") or ""))[:80],
                     "q": scrub_garbled(str(p.get("q") or ""))[:60]})
     hist.append(now); _PIG_IP[ip] = hist
-    resp = jsonify({"ok": True, "picks": out, "left": 10 - len(hist), "via": _via or "list"})
+    resp = jsonify({"ok": True, "picks": out, "left": 10 - len(hist), "via": _via or "list", "job": _jid})
     resp.headers["Access-Control-Allow-Origin"] = "*"
     return resp
 
