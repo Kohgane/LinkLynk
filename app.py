@@ -1789,7 +1789,7 @@ def dwaeji_reco_api():
     )
     user = (f"지역: {region}\n음식 종류: {food or '무엇이든 — 그 동네 최고 시그니처로'}\n"
             f"분위기·상황: {mood or '상관없음'}\n인원·예산: {party or '보통'}\n"
-            "위 조건으로 로컬 찐맛집 5곳.")
+            "위 조건으로 로컬 찐맛집 5곳. 각 칸은 한 문장으로 짧게(전체 1,500자 안쪽), 반드시 JSON 하나만.")
     key = os.environ.get("BOIM_LLM_KEY", "").strip() or "__free__"
     # 5곳을 세세히 쓰면 1200토큰에서 JSON이 잘려 '형식 오류'가 났다 → 넉넉히 + 잘린 답에서도 온전한 가게만 건진다
     picks = []; r = {}; _tried = []
@@ -1799,7 +1799,7 @@ def dwaeji_reco_api():
         if _t.time() - t0 > 20:                      # 워커 30초 제한 안에서 끝낸다(넘기면 500)
             break
         try:
-            r = llm_chat(k, sysp, user, max_tokens=3200)
+            r = llm_chat(k, sysp, user, max_tokens=1900)
         except Exception as _e:
             _tried.append("%s:exc %s" % (_pv(k), str(_e)[:60])); continue
         if not r.get("ok"):
