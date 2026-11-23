@@ -273,7 +273,7 @@ PAGE = """<!doctype html><html lang="en"><head>
 <link rel="manifest" href="/gottago/manifest.json">
 <meta name="theme-color" content="#0b0f16">
 <link rel="apple-touch-icon" href="/gottago/icon-192.png">
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<link rel="stylesheet" href="/gottago/lf/leaflet.css">
 <style>
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{max-width:100%;overflow-x:hidden}
@@ -330,7 +330,7 @@ button{font:inherit;cursor:pointer}
 <div id="out"><div class="msg">Tap the button to see the nearest restrooms.<div class="chips" id="chips"></div></div></div>
 <p class="foot">Data &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors (ODbL). Opening hours are rarely mapped, so they are not shown. Always check on site.</p>
 </div>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="/gottago/lf/leaflet.js"></script>
 <script>
 var OUT=document.getElementById("out"),GO=document.getElementById("go"),BACK=document.getElementById("back");
 var MAPEL=document.getElementById("map");
@@ -375,7 +375,10 @@ function drawMap(lat,lng,items){
   MAPEL.classList.add("on");
   if(!map){
     map=L.map("map",{zoomControl:false,attributionControl:false}).setView([lat,lng],15);
-    L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19}).addTo(map);
+    // 지도 타일: OSM 이 막히거나 느리면(중국 등) Esri 로 한 번 갈아탄다
+    var tl=L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19}).addTo(map),te=0;
+    tl.on("tileerror",function(){if(++te===3){map.removeLayer(tl);
+      L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",{maxZoom:19}).addTo(map)}});
     L.control.zoom({position:"topright"}).addTo(map);
   }
   if(layer)map.removeLayer(layer);
