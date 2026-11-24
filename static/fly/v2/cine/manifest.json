@@ -715,6 +715,17 @@
    "poster": "/fly/v2/cine/pyramids-of-giza.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "queenstown": {
+   "built": "2026-11-24",
+   "bytes": 875583,
+   "dur": 6.0,
+   "endPitch": -18.0,
+   "endRange": 13000,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/queenstown.mp4",
+   "poster": "/fly/v2/cine/queenstown.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "raja-ampat": {
    "built": "2026-11-14",
    "bytes": 568559,
