@@ -517,6 +517,17 @@
    "poster": "/fly/v2/cine/meteora.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "milford-sound": {
+   "built": "2026-11-24",
+   "bytes": 1348418,
+   "dur": 6.0,
+   "endPitch": -18.0,
+   "endRange": 13000,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/milford-sound.mp4",
+   "poster": "/fly/v2/cine/milford-sound.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "mont-blanc": {
    "built": "2026-11-20",
    "bytes": 1217302,
