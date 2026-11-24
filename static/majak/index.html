@@ -161,8 +161,18 @@ body{font-family:var(--sans);letter-spacing:-.01em;
 #adSkip{border-radius:999px;border:1px solid var(--hair);background:transparent}
 #toast{font-family:var(--serif);letter-spacing:.04em;border:1px solid var(--hair);background:rgba(20,18,23,.85);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);box-shadow:0 10px 30px rgba(0,0,0,.5)}
 .tile svg{width:42px!important;height:58px!important;filter:none}
+</style><style id="luxfx">#fxLayer{position:fixed;inset:0;pointer-events:none;z-index:9999;overflow:hidden}
+.fxp{position:fixed;border-radius:50%;pointer-events:none;box-shadow:0 0 8px rgba(243,223,166,.6)}
+.fxp.coin{border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff1c4,#d8b46a 45%,#8a6a2c)!important;box-shadow:0 0 6px rgba(0,0,0,.4),inset 0 0 0 1px rgba(110,80,25,.6)}
+.fxflash{position:fixed;inset:0;pointer-events:none;mix-blend-mode:screen}
+.fxstamp{position:fixed;left:50%;top:40%;z-index:10000;pointer-events:none;font-family:"Gowun Batang","Noto Serif KR",serif;font-weight:700;font-size:64px;letter-spacing:.06em;
+ padding:6px 26px 10px;border:4px double currentColor;border-radius:14px;color:#f3dfa6;background:rgba(14,12,16,.72);text-shadow:0 0 24px rgba(243,223,166,.6);white-space:nowrap}
+.fxstamp.lose{color:#ef4b3a;text-shadow:0 0 24px rgba(239,75,58,.6)}
+.fxstamp.combo{font-size:46px;color:#8ff0d6;text-shadow:0 0 22px rgba(143,240,214,.7)}
+.fxripple{position:absolute;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:rgba(255,255,255,.45);pointer-events:none;animation:fxr .6s ease-out forwards}
+@keyframes fxr{to{transform:scale(28);opacity:0}}
 </style></head>
-<body>
+<body data-fx="majak">
 <div id="app">
   <div id="hud">
     <span id="lvlBadge">1층</span>
@@ -459,5 +469,74 @@ $('btnStart').onclick=()=>{ $('intro').classList.remove('on'); beep('bell'); sta
 addEventListener('resize',()=>tiles.length&&render());
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 </script>
-</body>
+<script id="luxfx">(function(){
+// ── 박진감 레이어: 게임 코드는 건드리지 않고 DOM 변화를 보고 연출만 얹는다 ──
+var GAME=document.body.getAttribute('data-fx')||'';
+var RM=window.matchMedia&&matchMedia('(prefers-reduced-motion: reduce)').matches;
+var layer=document.createElement('div');layer.id='fxLayer';document.body.appendChild(layer);
+function rect(el){var r=el.getBoundingClientRect();return{x:r.left+r.width/2,y:r.top+r.height/2,w:r.width,h:r.height}}
+function burst(x,y,opt){if(RM)return;opt=opt||{};var n=opt.n||18,cols=opt.cols||['#f3dfa6','#d8b46a','#ffffff','#e2553f'];
+ for(var i=0;i<n;i++){var p=document.createElement('i');p.className='fxp'+(opt.shape?' '+opt.shape:'');var s=(opt.size||6)*(0.6+Math.random()*0.8);
+  p.style.cssText='left:'+x+'px;top:'+y+'px;width:'+s+'px;height:'+s+'px;background:'+cols[i%cols.length];layer.appendChild(p);
+  var a=Math.random()*Math.PI*2,d=(opt.dist||70)*(0.5+Math.random()),dx=Math.cos(a)*d,dy=Math.sin(a)*d-(opt.lift||20);
+  p.animate([{transform:'translate(-50%,-50%) scale(1)',opacity:1},{transform:'translate('+(dx-s/2)+'px,'+(dy+(opt.fall||40))+'px) scale(.2) rotate('+(Math.random()*540)+'deg)',opacity:0}],
+   {duration:(opt.dur||700)+Math.random()*300,easing:'cubic-bezier(.15,.7,.3,1)'}).onfinish=function(){this.effect.target.remove()}}}
+function rain(cols,n){if(RM)return;for(var i=0;i<(n||40);i++){(function(i){setTimeout(function(){var p=document.createElement('i');p.className='fxp coin';
+ var x=Math.random()*innerWidth,s=10+Math.random()*10;p.style.cssText='left:'+x+'px;top:-20px;width:'+s+'px;height:'+s+'px;background:'+cols[i%cols.length];layer.appendChild(p);
+ p.animate([{transform:'translateY(0) rotateY(0)'},{transform:'translateY('+(innerHeight+60)+'px) rotateY('+(720+Math.random()*720)+'deg)'}],{duration:1400+Math.random()*900,easing:'cubic-bezier(.4,.1,.7,1)'}).onfinish=function(){p.remove()}},i*30)})(i)}}
+function shake(k){if(RM)return;var b=document.getElementById('app')||document.body;b.animate([{transform:'translate(0,0)'},{transform:'translate('+(-6*k)+'px,'+(3*k)+'px)'},{transform:'translate('+(5*k)+'px,'+(-4*k)+'px)'},{transform:'translate('+(-3*k)+'px,'+(2*k)+'px)'},{transform:'translate(0,0)'}],{duration:360,easing:'ease-out'})}
+function flash(c){if(RM)return;var f=document.createElement('div');f.className='fxflash';f.style.background=c;layer.appendChild(f);f.animate([{opacity:.55},{opacity:0}],{duration:520}).onfinish=function(){f.remove()}}
+function stamp(txt,cls){var s=document.createElement('div');s.className='fxstamp '+(cls||'');s.textContent=txt;layer.appendChild(s);
+ s.animate([{transform:'translate(-50%,-50%) scale(3) rotate(-14deg)',opacity:0},{transform:'translate(-50%,-50%) scale(.92) rotate(-8deg)',opacity:1,offset:.35},{transform:'translate(-50%,-50%) scale(1) rotate(-8deg)',opacity:1,offset:.8},{transform:'translate(-50%,-60%) scale(1.05) rotate(-8deg)',opacity:0}],{duration:1500,easing:'cubic-bezier(.2,.9,.25,1)'}).onfinish=function(){s.remove()}}
+function vib(ms){try{navigator.vibrate&&navigator.vibrate(ms)}catch(e){}}
+window.FX={burst:burst,rain:rain,shake:shake,flash:flash,stamp:stamp};
+
+// 버튼 눌림
+document.addEventListener('pointerdown',function(e){var b=e.target.closest&&e.target.closest('button');if(!b||RM)return;
+ b.animate([{transform:'scale(1)'},{transform:'scale(.93)'},{transform:'scale(1.03)'},{transform:'scale(1)'}],{duration:260});
+ var r=b.getBoundingClientRect(),w=document.createElement('i');w.className='fxripple';w.style.cssText='left:'+(e.clientX-r.left)+'px;top:'+(e.clientY-r.top)+'px';
+ if(getComputedStyle(b).position==='static')b.style.position='relative';b.style.overflow='hidden';b.appendChild(w);setTimeout(function(){w.remove()},600)},true);
+
+if(GAME==='hwatu'){
+ var dealN=0;
+ var mo=new MutationObserver(function(ms){var added=[];ms.forEach(function(m){m.addedNodes.forEach(function(n){if(n.nodeType===1){if(n.classList.contains('cd'))added.push(n);else n.querySelectorAll&&n.querySelectorAll('.cd').forEach(function(c){added.push(c)})}})});
+  added.forEach(function(c,i){if(RM)return;var face=c.classList.contains('f');
+   if(face){c.animate([{transform:'perspective(700px) rotateY(180deg) scale(1.08)',filter:'brightness(2)'},{transform:'perspective(700px) rotateY(0) scale(1.08)',filter:'brightness(1.4)',offset:.6},{transform:'perspective(700px) rotateY(0) scale(1)',filter:'brightness(1)'}],{duration:620,delay:i*140,easing:'cubic-bezier(.2,.8,.2,1)',fill:'backwards'});
+    setTimeout(function(){var r=rect(c);burst(r.x,r.y,{n:14,dist:60,cols:['#f3dfa6','#ffffff','#d8b46a']});if(c.classList.contains('lucky'))burst(r.x,r.y,{n:22,dist:90,cols:['#8ff0d6','#f3dfa6']})},380+i*140)}
+   else{c.animate([{transform:'translate(0,-46vh) rotate(-38deg) scale(.55)',opacity:0},{transform:'translate(0,8px) rotate(4deg) scale(1.04)',opacity:1,offset:.75},{transform:'none',opacity:1}],{duration:560,delay:(dealN++%4)*110,easing:'cubic-bezier(.2,.9,.3,1)',fill:'backwards'})}});
+  if(added.length)setTimeout(function(){dealN=0},700)});
+ mo.observe(document.body,{childList:true,subtree:true});
+ // 판돈·전적 변화
+ var lastPot=null,lastW=null,lastL=null;
+ setInterval(function(){var pb=document.querySelector('.pot b');if(pb){var v=pb.textContent;if(lastPot!==null&&v!==lastPot&&!RM){pb.animate([{transform:'scale(1)'},{transform:'scale(1.6)',color:'#f3dfa6'},{transform:'scale(1)'}],{duration:420});var r=rect(pb);burst(r.x,r.y,{n:10,dist:45,cols:['#f3dfa6','#d8b46a'],shape:'coin'})}lastPot=v}
+  var m=(document.querySelector('.meta')||{}).textContent||'',mm=m.match(/(\d+)\s*승\s*(\d+)\s*패/);if(mm){var w=+mm[1],l=+mm[2];
+   if(lastW!==null&&w>lastW){stamp('승!','win');rain(['#f3dfa6','#d8b46a','#fff1c4'],46);shake(1.2);flash('rgba(243,223,166,.5)');vib([30,40,60])}
+   if(lastL!==null&&l>lastL){stamp('패','lose');shake(2);flash('rgba(200,30,20,.55)');vib(120)}
+   lastW=w;lastL=l}},250);
+}
+if(GAME==='majak'){
+ var built=0;
+ var mo2=new MutationObserver(function(ms){var tiles=[];ms.forEach(function(m){
+   if(m.type==='attributes'&&m.target.classList&&m.target.classList.contains('tile')){var t=m.target;
+    if(t.classList.contains('gone')&&!t._fxGone){t._fxGone=1;onGone(t)}
+    if(t.classList.contains('sel')&&!t._fxSel){t._fxSel=1;var r=rect(t);burst(r.x,r.y,{n:8,dist:34,dur:420,cols:['#f3dfa6','#ffffff']})}
+    if(!t.classList.contains('sel'))t._fxSel=0}
+   m.addedNodes&&m.addedNodes.forEach(function(n){if(n.nodeType===1&&n.classList.contains('tile'))tiles.push(n)})});
+  if(tiles.length>6&&!RM){tiles.forEach(function(t,i){t.animate([{transform:'translateY(-60px) rotate('+(Math.random()*40-20)+'deg) scale(.4)',opacity:0},{opacity:1,offset:.6},{transform:'none',opacity:1}],{duration:480,delay:Math.min(i*12,700),easing:'cubic-bezier(.2,.9,.3,1.2)',fill:'backwards'})})}});
+ mo2.observe(document.body,{childList:true,subtree:true,attributes:true,attributeFilter:['class']});
+ var pairT=0,pairN=0;
+ function onGone(t){var r=rect(t);burst(r.x,r.y,{n:20,dist:80,cols:['#f3dfa6','#d8b46a','#ffffff','#c8231b','#11804a']});
+  if(RM)return;var g=t.cloneNode(true);g.className='tile fxghost';g.style.cssText='position:fixed;left:'+(r.x-r.w/2)+'px;top:'+(r.y-r.h/2)+'px;width:'+r.w+'px;height:'+r.h+'px;margin:0;z-index:9998;pointer-events:none';layer.appendChild(g);
+  g.animate([{transform:'scale(1.15) rotate(0)',opacity:1,filter:'brightness(1.6)'},{transform:'translateY(-90px) scale(.3) rotate('+(Math.random()>.5?200:-200)+'deg)',opacity:0,filter:'brightness(2.5)'}],{duration:620,easing:'cubic-bezier(.3,.6,.4,1)'}).onfinish=function(){g.remove()};
+  var now=Date.now();if(now-pairT<300)return;pairT=now;pairN++;vib(18)}
+ var lastC=null;
+ setInterval(function(){var cb=document.querySelector('#hud .stat b.combo')||document.querySelector('.combo');if(!cb)return;var v=parseInt((cb.textContent||'').replace(/\D/g,''))||0;
+  if(lastC!==null&&v>lastC&&v>=2){stamp('연타 ×'+v,'combo');shake(Math.min(.6+v*.25,2.2));if(v>=4){flash('rgba(243,223,166,.35)');rain(['#f3dfa6','#d8b46a'],14+v*4)}vib(v>=4?[20,30,40]:25)}
+  lastC=v},150);
+ var resOn=false;setInterval(function(){var r=document.querySelector('#res.on,.modal.on #resTitle');var on=!!(document.getElementById('res')&&document.getElementById('res').classList.contains('on'));
+  if(on&&!resOn){var t=(document.getElementById('resTitle')||{}).textContent||'';if(!/실패|끝|over|패/i.test(t)){rain(['#f3dfa6','#d8b46a','#c8231b','#11804a','#ffffff'],70);stamp('판 정리!','win');vib([40,60,80])}else{shake(1.6);flash('rgba(200,30,20,.5)')}}
+  resOn=on},200);
+}
+})();
+</script></body>
 </html>
