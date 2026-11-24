@@ -171,6 +171,16 @@ body{font-family:var(--sans);letter-spacing:-.01em;
 .fxstamp.combo{font-size:46px;color:#8ff0d6;text-shadow:0 0 22px rgba(143,240,214,.7)}
 .fxripple{position:absolute;width:12px;height:12px;margin:-6px 0 0 -6px;border-radius:50%;background:rgba(255,255,255,.45);pointer-events:none;animation:fxr .6s ease-out forwards}
 @keyframes fxr{to{transform:scale(28);opacity:0}}
+.tile.miss{animation:jkMiss .44s cubic-bezier(.36,.07,.19,.97)}
+@keyframes jkMiss{0%,100%{translate:0 0;filter:none}15%{translate:-6px 0;filter:drop-shadow(0 0 10px rgba(220,40,25,.95)) sepia(.6) saturate(3) hue-rotate(-25deg)}35%{translate:5px 0}55%{translate:-4px 0}75%{translate:3px 0}}
+.tile.nope{animation:jkNope .3s}
+@keyframes jkNope{25%{translate:-3px 0}75%{translate:3px 0}}
+.minus{position:fixed;z-index:9999;pointer-events:none;transform:translate(-50%,-50%);font:800 22px "Gowun Batang",serif;color:#ef4b3a;text-shadow:0 0 12px rgba(239,75,58,.7),0 2px 4px #000;animation:jkMinus .9s ease-out forwards}
+@keyframes jkMinus{0%{opacity:0;transform:translate(-50%,-20%) scale(.6)}20%{opacity:1;transform:translate(-50%,-60%) scale(1.25)}100%{opacity:0;transform:translate(-50%,-180%) scale(1)}}
+#stIQ.hit{animation:jkHit .6s}
+@keyframes jkHit{30%{color:#ef4b3a;transform:scale(1.35)}}
+#stIQ{display:inline-block}
+#board.numb{pointer-events:none;filter:grayscale(.85) brightness(.7);transition:filter .2s}
 </style></head>
 <body data-fx="majak">
 <div id="app">
@@ -378,7 +388,7 @@ function unlockNear(t){
 /* ══ 입력 ══ */
 $('board').addEventListener('pointerdown',e=>{
   const d=e.target.closest('.tile'); if(!d) return;
-  const t=tiles[+d.dataset.i]; if(t.gone||t.lock||!isFree(t)) {beep('bad');return;}
+  const t=tiles[+d.dataset.i]; if(t.gone||t.lock||!isFree(t)) {beep('bad');if(!t.gone){t.el.classList.remove('nope');void t.el.offsetWidth;t.el.classList.add('nope');}return;}
   beep('tak');
   if(sel===t){t.el.classList.remove('sel');sel=null;return;}
   if(sel&&sel.motif===t.motif){
@@ -389,14 +399,27 @@ $('board').addEventListener('pointerdown',e=>{
     $('stCombo').textContent=combo;
     beep(combo>=3?'drop':'bell');
     spawnWisp(t.el);
-    sel=null; refresh();
+    sel=null; missRun=0; refresh();
     if(tiles.every(x=>x.gone)) win();
     else if(!hasMove()) { toast('길이 막혔다 — 패를 섞는다'); setTimeout(shuffle,800); }
   } else {
-    if(sel){sel.el.classList.remove('sel');mistakes++;updIQ();}
+    if(sel){const a=sel;a.el.classList.remove('sel');mistakes++;updIQ();sel=null;penalty(a,t);return;}
     sel=t; t.el.classList.add('sel');
   }
 });
+let missRun=0;
+/* 헛짚기 벌칙: 콤보 끊김 + 3초 + 혼력 깎임, 세 번 연속이면 1.5초 손 저림 */
+function penalty(a,b){ combo=0; $('stCombo').textContent=0; t0-=3000; tick(); missRun++;
+  [a.el,b.el].forEach(el=>{el.classList.remove('miss');void el.offsetWidth;el.classList.add('miss');});
+  setTimeout(()=>{a.el.classList.remove('miss');b.el.classList.remove('miss');},460);
+  const r=b.el.getBoundingClientRect(), f=document.createElement('div'); f.className='minus'; f.textContent='−3초';
+  f.style.left=(r.left+r.width/2)+'px'; f.style.top=(r.top)+'px'; document.body.appendChild(f); setTimeout(()=>f.remove(),900);
+  const iq=$('stIQ'); iq.classList.remove('hit'); void iq.offsetWidth; iq.classList.add('hit');
+  try{navigator.vibrate&&navigator.vibrate([50,40,50]);}catch(e){}
+  if(window.FX){FX.shake(1.1);FX.flash('rgba(200,30,20,.28)');}
+  beep('bad');
+  if(missRun>=3){ missRun=0; toast('손이 떨린다 — 잠깐 숨 고르기'); $('board').classList.add('numb'); setTimeout(()=>$('board').classList.remove('numb'),1500); }
+}
 function hasMove(){ const f=tiles.filter(t=>!t.gone&&!t.lock&&isFree(t));
   for(let i=0;i<f.length;i++) for(let j=i+1;j<f.length;j++) if(f[i].motif===f[j].motif) return true; return false; }
 function shuffle(depth){ depth=depth||0; const alive=tiles.filter(t=>!t.gone); const ms=alive.map(t=>t.motif).sort(()=>Math.random()-.5);
