@@ -1753,7 +1753,7 @@ def _pig_vague(p):
     t = " ".join(str(p.get(k) or "") for k in ("dish", "why"))
     if _re.search(r"판단\s*불가|정보가\s*(없|부족)|확인\s*불가|알\s*수\s*없|특징적인 정보", t):
         return True
-    return bool(_re.search(r"^\s*(특이\s*사항\s*없|딱히\s*없|맛에 대한 정보)|현장\s*확인", str(p.get("why") or "")))
+    return bool(_re.search(r"^\s*(특이\s*사항\s*없|딱히\s*없|맛에 대한 정보)|현장\s*확인|구체적\s*언급|후기\s*없", str(p.get("why") or "")))
 
 
 def _pig_job_local(jid, sysp, user, user_small, cands, key):
