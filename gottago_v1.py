@@ -206,6 +206,7 @@ def gg_near():
     for d, t in out[:20]:
         items.append({"lat": t["lat"], "lng": t["lng"], "label": ident(t),
                       "user": 1 if t.get("ty") == "user" else 0,
+                      "poi": 1 if t.get("ty") == "poi" else 0,
                       "fee": t.get("fee", 0), "h24": t.get("h24", 0),
                       "wc": 1 if "휠체어" in (t.get("access") or "") else 0,
                       "baby": 1 if "기저귀" in (t.get("access") or "") else 0,
@@ -269,7 +270,7 @@ def gg_page():
 PAGE = """<!doctype html><html lang="en"><head>
 <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>GottaGo - Restroom Finder</title>
-<meta name="description" content="Find the nearest public restroom in 20 cities worldwide. Free, wheelchair-accessible filters and a map.">
+<meta name="description" content="Find the nearest public restroom in 40+ cities worldwide incl. Korea, China, Japan. Free, wheelchair-accessible filters and a map.">
 <link rel="manifest" href="/gottago/manifest.json">
 <meta name="theme-color" content="#0b0f16">
 <link rel="apple-touch-icon" href="/gottago/icon-192.png">
@@ -318,6 +319,7 @@ button{font:inherit;cursor:pointer}
  border-radius:12px;padding:13px;font-size:14px;margin-top:14px;display:none}
 .add.on{display:block}
 .add:active{background:#1a2430}
+.ptag{background:#2a2312;border-color:#5c4a1f;color:#e6c46c}
 .utag{background:#122a1e;border-color:#1f5c46;color:#6cd6a0}
 .foot{color:#5d6b7c;font-size:11px;margin-top:22px;line-height:1.6}
 .foot a{color:#5f9fe0}
@@ -345,7 +347,7 @@ var KD={"Find restrooms near me":"내 주변 화장실 찾기","Locating...":"�
 "Location permission denied.":"위치 권한이 꺼져 있습니다.","Pick a city below.":"아래에서 도시를 고르세요.","You are here":"내 위치",
 "Searching...":"찾는 중…","Not covered here yet.":"여기는 아직 데이터가 없습니다.","Nearest supported city: ":"가장 가까운 지원 도시: ",
 "Nothing within 4 km with these filters.":"이 조건으로 4km 안에 없습니다.","mapped":"곳 등록","Paid":"유료","Free":"무료","Reported":"제보","Baby":"기저귀대",
-"Public restroom":"공중화장실","min":"분","Request failed.":"요청 실패","+ Add a restroom you found here":"+ 여기 있는 화장실 제보하기","Restroom Finder":"화장실 레이다","My location":"내 위치"};
+"Public restroom":"공중화장실","min":"분","Request failed.":"요청 실패","+ Add a restroom you found here":"+ 여기 있는 화장실 제보하기","Restroom Finder":"화장실 레이다","My location":"내 위치","Inside venue":"매장·역 안"};
 function T(t){return KO&&KD[t]?KD[t]:t;}
 function esc(t){var d=document.createElement("div");d.textContent=t==null?"":t;return d.innerHTML;}
 function home(){
@@ -399,7 +401,11 @@ function drawMap(lat,lng,items){
   if(!map){
     map=L.map("map",{zoomControl:false,attributionControl:false}).setView([lat,lng],15);
     // 지도 타일: OSM 이 막히거나 느리면(중국 등) Esri 로 한 번 갈아탄다
-    var tl=L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{maxZoom:19}).addTo(map),te=0;
+    // 중국: 우리 춘천 입구(cn.)가 OSM 타일을 받아 7일 캐시해 준다
+    var tz="";try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||"";}catch(e){}
+    var CNZ=/Shanghai|Chongqing|Chungking|Harbin|Urumqi|Kashgar|Macau|PRC/.test(tz);
+    var TURL=(location.hostname.indexOf("cn.")===0?"/osm/":(CNZ?"https://cn.kohganemultishop.org/osm/":"https://tile.openstreetmap.org/"))+"{z}/{x}/{y}.png";
+    var tl=L.tileLayer(TURL,{maxZoom:19}).addTo(map),te=0;
     tl.on("tileerror",function(){if(++te===3){map.removeLayer(tl);
       L.tileLayer("https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",{maxZoom:19}).addTo(map)}});
     L.control.zoom({position:"topright"}).addTo(map);
@@ -469,6 +475,7 @@ function query(lat,lng,keep){
         +esc(it.label||T("Public restroom"))+'</div><div class="tags">';
       h+='<span class="tag">'+(it.fee?T("Paid"):T("Free"))+'</span>';
    if(it.user)h+='<span class="tag utag">'+T("Reported")+'</span>';
+   if(it.poi)h+='<span class="tag ptag">'+T("Inside venue")+'</span>';
       if(it.h24)h+='<span class="tag">24h</span>';
       if(it.wc)h+='<span class="tag">'+T("Wheelchair")+'</span>';
       if(it.baby)h+='<span class="tag">'+T("Baby")+'</span>';
