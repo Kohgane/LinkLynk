@@ -100,12 +100,12 @@ def _in_kr(lat, lng):
     return 33.0 <= lat <= 38.7 and 124.5 <= lng <= 131.9
 
 
-def _reviews(names, area):
+def _reviews(names, area, strict=False):
     """가게 이름(들)로 블로그를 찾아, 그 가게 얘기이면서 먹은 얘기인 발췌만 최대 4개."""
     its = []
     for nm in [x for x in names if x][:2]:
         try:
-            its += _naver('blog', '%s %s' % (area, nm), 10)
+            its += _naver('blog', '%s %s%s' % (area, nm, ' 맛집' if strict else ''), 10)
         except Exception:
             pass
     out, seen = [], set()
@@ -114,7 +114,7 @@ def _reviews(names, area):
         d, t = _strip(it.get('description')), _strip(it.get('title'))
         if len(d) < 30 or d[:40] in seen or AD.search(d + t) or 'copyright' in d.lower():
             continue
-        if keys and not any(k in re.sub(r'\s', '', d + t).lower() for k in keys):
+        if keys and not any(k in re.sub(r'\s', '', (t if strict else d + t)).lower() for k in keys):   # 해외는 글 제목에 가게 이름이 있어야(동명 화가·공연 글 차단)
             continue
         if not re.search(r'맛|메뉴|먹|식당|국물|고기|가격|위안|웨이팅|주문|요리|음식', d):   # 원·면 한 글자는 '2천억 원' 같은 남의 얘기까지 걸러 못 낸다
             continue
@@ -198,7 +198,7 @@ def _glob(region, food, lat, lng):
             break
     rows = rows[:24]
     with ThreadPoolExecutor(12) as ex:
-        revs = list(ex.map(lambda c: _reviews([c['ko'], c['en'], c['local']], city), rows))
+        revs = list(ex.map(lambda c: _reviews([c['ko'], c['en'], c['local']], city, True), rows))
     for c, rv in zip(rows, revs):
         c['rev'] = rv or ['(한국어 후기 없음 — 지도 정보: %s%s)' % (c['cat'], (' · 영업 ' + c['oh']) if c['oh'] else '')]
     rows.sort(key=lambda c: c['rev'][0].startswith('('))
