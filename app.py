@@ -1719,7 +1719,15 @@ def _pig_relay(sysp, user):
 
 
 def _pig_discover(region, food="", lat=None, lng=None):
-    """브리가네 쪽에서 지역 안 실존 가게 후보를 긁어 온다(광고·체험단 비율 높은 집, 체인 지점 제외). 실패하면 []."""
+    """실존 가게 후보 — 렌더 안(네이버 지역검색·오픈스트리트맵)에서 먼저 긁고, 모자랄 때만 브리가네(블루호스트)에 묻는다."""
+    cs = []
+    try:
+        import pig_local
+        cs = pig_local.discover(region, food, lat, lng).get("cands") or []
+        if len(cs) >= 5:
+            return cs
+    except Exception:
+        cs = []
     try:
         body = {"discover": 1, "region": region, "food": food, "lat": lat, "lng": lng}
         rq = _ur.Request(_PIG_RELAY, data=json.dumps(body).encode(),
@@ -1728,19 +1736,51 @@ def _pig_discover(region, food="", lat=None, lng=None):
                                   "Cookie": "humans_21909=1"})
         with _ur.urlopen(rq, timeout=8) as resp:
             j = json.loads(resp.read())
-        if j.get("ok"):
-            return j.get("cands") or []
+        bc = (j.get("cands") or []) if j.get("ok") else []
+        if len(bc) > len(cs):
+            return bc
     except Exception:
         pass
-    # 블루호스트가 막히면(429·과부하) 렌더 안에서 직접 긁는다 — 한 곳이 막혀도 레이다는 돈다
-    try:
-        import pig_local
-        cs = pig_local.discover(region, food, lat, lng).get("cands") or []
-        for c in cs:
-            c["_local"] = 1
-        return cs
-    except Exception:
-        return []
+    return cs
+
+
+_PIG_JOBDIR = "/tmp/pigjobs"
+
+
+def _pig_job_local(jid, sysp, user, user_small, cands, key):
+    """후기 읽고 다듬기 — 렌더 안 스레드에서(무료 키 사슬 → 마지막에 브리가네). 결과는 /tmp 파일(워커끼리 공유)."""
+    import threading, time
+    os.makedirs(_PIG_JOBDIR, exist_ok=True)
+    fp = os.path.join(_PIG_JOBDIR, jid + ".json")
+
+    def save(o):
+        tmp = fp + ".tmp"
+        with open(tmp, "w") as f:
+            json.dump(o, f, ensure_ascii=False)
+        os.replace(tmp, fp)
+    save({"done": 0, "at": time.time()})
+
+    def run():
+        from core import llm_chat, _parse_json_out
+        ks = [k for k in _pig_keys(key) if k not in ("__relay__", "__free__")] + ["__free__", "__relay__"]
+        text = ""
+        for k in ks:
+            try:
+                r = (_pig_relay(sysp, user_small or user) if k == "__relay__" else
+                     _pig_gemini(k, sysp, user) if k.startswith("AIza") else llm_chat(k, sysp, user, max_tokens=3200))
+            except Exception:
+                continue
+            if not (r.get("ok") and r.get("text")):
+                continue
+            try:
+                ps = _parse_json_out(r["text"]).get("picks", [])
+            except Exception:
+                ps = _pig_salvage(r["text"])
+            if ps:
+                text = r["text"]
+                break
+        save({"done": 1, "text": text, "cands": cands})
+    threading.Thread(target=run, daemon=True).start()
 
 
 def _pig_job_start(jid, region, food, mood, party, sysp, lat=None, lng=None):
@@ -1793,14 +1833,27 @@ def dwaeji_job_api(jid):
     import re as _re
     if not _re.fullmatch(r"[A-Za-z0-9_-]{6,40}", jid or ""):
         return jsonify({"ok": False, "done": True})
-    try:
+    import time
+    _fp = os.path.join(_PIG_JOBDIR, jid + ".json")
+    if os.path.exists(_fp):
+        try:
+            with open(_fp) as f:
+                j = json.load(f)
+        except Exception:
+            j = {"done": 0, "at": time.time()}
+        if not j.get("done"):
+            if time.time() - float(j.get("at") or 0) > 150:
+                return jsonify({"ok": False, "done": True})
+            return jsonify({"ok": True, "done": False})
+    else:
+      try:
         rq = _ur.Request(_PIG_RELAY, data=json.dumps({"get": 1, "jid": jid}).encode(),
                          headers={"Content-Type": "application/json", "X-Pig-Token": _PIG_RELAY_K,
                                       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/131.0 Safari/537.36",
                                       "Cookie": "humans_21909=1"})
         with _ur.urlopen(rq, timeout=12) as resp:
             j = json.loads(resp.read())
-    except Exception:
+      except Exception:
         return jsonify({"ok": True, "done": False})
     if not j.get("done"):
         return jsonify({"ok": True, "done": False})
@@ -1863,7 +1916,14 @@ def _pig_from_cands(picks, cands, n):
 
 
 def _pig_verify(picks, region=""):
-    """브리가네 쪽 네이버 지역검색으로 실존·영업(지도 등록) 확인. 실패하면 None(그럼 확인 없이 보여준다)."""
+    """네이버 지역검색으로 실존·영업(지도 등록) 확인 — 렌더 먼저, 안 되면 브리가네. 둘 다 실패하면 None(확인 없이 보여준다)."""
+    try:
+        import pig_local
+        v = pig_local.verify(picks, region)
+        if v is not None:
+            return v
+    except Exception:
+        pass
     try:
         body = {"region": region, "verify": [{"name": str(p.get("name") or ""), "area": str(p.get("area") or "")} for p in picks]}
         rq = _ur.Request(_PIG_RELAY, data=json.dumps(body).encode(),
@@ -2038,13 +2098,11 @@ def dwaeji_reco_api():
     t0 = _t.time()
     _ks = _pig_keys(key)
     _jid = ""
-    if len(cands) >= 5 and any(c.get("_local") for c in cands):
-        _ks = []          # 예비 경로(브리가네 막힘): 확인된 목록+후기 발췌를 바로 보여 준다
-    elif len(cands) >= 5:
+    if len(cands) >= 5:
         # 실존 목록은 바로 보여 주고, 후기를 읽어 메뉴·꿀팁을 다듬는 건 브리가네 쪽에서 따로(15~25초) → 화면이 이어받아 갈아 끼운다
         import secrets as _sc
         _jid = _sc.token_urlsafe(9)
-        _pig_job_start(_jid, region, food, mood, party, sysp, _lat, _lng)
+        _pig_job_local(_jid, sysp, user, user_small, cands, key)
         _ks = []
     for k in _ks:
         if _t.time() - t0 > (14 if len(cands) >= 5 else 16):                      # 워커 30초 제한 안에서 끝낸다(넘기면 500)
