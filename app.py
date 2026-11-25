@@ -1747,6 +1747,13 @@ def _pig_discover(region, food="", lat=None, lng=None):
 _PIG_JOBDIR = "/tmp/pigjobs"
 
 
+def _pig_vague(p):
+    """AI가 '판단 불가·정보 없음'처럼 빈말을 쓴 가게인지 — 그런 칸은 목록(후기 발췌)보다 못하다."""
+    import re as _re
+    t = " ".join(str(p.get(k) or "") for k in ("dish", "why"))
+    return bool(_re.search(r"판단\s*불가|정보가\s*(없|부족)|확인\s*불가|알\s*수\s*없|특징적인 정보", t))
+
+
 def _pig_job_local(jid, sysp, user, user_small, cands, key):
     """후기 읽고 다듬기 — 렌더 안 스레드에서(무료 키 사슬 → 마지막에 브리가네). 결과는 /tmp 파일(워커끼리 공유)."""
     import threading, time
@@ -1763,23 +1770,30 @@ def _pig_job_local(jid, sysp, user, user_small, cands, key):
     def run():
         from core import llm_chat, _parse_json_out
         ks = [k for k in _pig_keys(key) if k not in ("__relay__", "__free__")] + ["__free__", "__relay__"]
-        text = ""
+        text, tried, t0 = "", [], time.time()
         for k in ks:
+            if time.time() - t0 > 100:
+                tried.append("budget")
+                break
             try:
                 r = (_pig_relay(sysp, user_small or user) if k == "__relay__" else
                      _pig_gemini(k, sysp, user) if k.startswith("AIza") else llm_chat(k, sysp, user, max_tokens=3200))
-            except Exception:
+            except Exception as e:
+                tried.append("exc:" + type(e).__name__)
                 continue
             if not (r.get("ok") and r.get("text")):
+                tried.append("fail:" + str(r.get("error") or "")[:30])
                 continue
             try:
                 ps = _parse_json_out(r["text"]).get("picks", [])
             except Exception:
                 ps = _pig_salvage(r["text"])
-            if ps:
+            ps = [x for x in ps if isinstance(x, dict) and x.get("name")]
+            if ps and sum(1 for x in ps if not _pig_vague(x)) >= max(3, len(ps) // 2):
                 text = r["text"]
                 break
-        save({"done": 1, "text": text, "cands": cands})
+            tried.append("vague")
+        save({"done": 1, "text": text, "cands": cands, "tried": tried})
     threading.Thread(target=run, daemon=True).start()
 
 
@@ -1863,9 +1877,9 @@ def dwaeji_job_api(jid):
         picks = _parse_json_out(txt).get("picks", [])
     except Exception:
         picks = _pig_salvage(txt)
-    picks = [p for p in picks if isinstance(p, dict) and p.get("name")]
+    picks = [p for p in picks if isinstance(p, dict) and p.get("name") and not _pig_vague(p)]
     if not picks or not cands:
-        return jsonify({"ok": False, "done": True})
+        return jsonify({"ok": False, "done": True, "tried": j.get("tried") or []})
     return jsonify({"ok": True, "done": True, "picks": _pig_out(_pig_from_cands(picks, cands, 9))})
 
 
