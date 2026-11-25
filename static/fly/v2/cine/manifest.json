@@ -847,6 +847,17 @@
    "poster": "/fly/v2/cine/taj-mahal.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "teotihuacan": {
+   "built": "2026-11-25",
+   "bytes": 1319379,
+   "dur": 6.0,
+   "endPitch": -22.0,
+   "endRange": 7000,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/teotihuacan.mp4",
+   "poster": "/fly/v2/cine/teotihuacan.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "tiger-s-nest": {
    "built": "2026-11-17",
    "bytes": 740928,
