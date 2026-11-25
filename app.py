@@ -1748,6 +1748,18 @@ def _pig_job_start(jid, region, food, mood, party, sysp, lat=None, lng=None):
     threading.Thread(target=run, daemon=True).start()
 
 
+def _pig_intl(o, p):
+    """해외 가게는 상호(일본어·중국어 등)를 지우지 않는다 — 지도 검색에 그대로 써야 한다. 빈 괄호는 치운다."""
+    import re as _re
+    if str(p.get("cc") or "") not in ("", "KR"):
+        o["name"] = str(p.get("name") or "").strip()[:40]
+        o["q"] = str(p.get("q") or p.get("name") or "").strip()[:60]
+        o["area"] = str(p.get("area") or "").strip()[:60]
+    for k in ("dish", "why", "cons", "diary", "tip"):
+        o[k] = _re.sub(r"\(\s*\)|（\s*）", "", o.get(k) or "").strip()
+    return o
+
+
 def _pig_out(picks):
     from core import scrub_garbled
     out = []
@@ -1761,6 +1773,7 @@ def _pig_out(picks):
                     "tip": scrub_garbled(str(p.get("tip") or ""))[:80],
                     "q": scrub_garbled(str(p.get("q") or ""))[:60],
                     "lat": p.get("lat"), "lng": p.get("lng"), "cc": str(p.get("cc") or "")[:2]})
+        _pig_intl(out[-1], p)
     return out
 
 
@@ -2063,6 +2076,7 @@ def dwaeji_reco_api():
                     "tip": scrub_garbled(str(p.get("tip") or ""))[:80],
                     "q": scrub_garbled(str(p.get("q") or ""))[:60],
                     "lat": p.get("lat"), "lng": p.get("lng"), "cc": str(p.get("cc") or "")[:2]})
+        _pig_intl(out[-1], p)
     hist.append(now); _PIG_IP[ip] = hist
     resp = jsonify({"ok": True, "picks": out, "left": 10 - len(hist), "via": _via or "list", "job": _jid})
     resp.headers["Access-Control-Allow-Origin"] = "*"
