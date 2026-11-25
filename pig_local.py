@@ -201,3 +201,32 @@ def discover(region, food='', lat=None, lng=None):
         if len(g) >= 3:
             rows = g
     return {'ok': True, 'cands': rows}
+
+
+def verify(picks, region=''):
+    """AI가 낸 가게 이름을 네이버 지역검색으로 실존·지역 확인. 키가 없으면 None(확인 없이 보여 준다)."""
+    if not _pick_key():
+        return None
+    toks = [t for t in re.split(r'\s+', region or '') if len(t) >= 2]
+    nz = lambda s: re.sub(r'[\s·\-_.,()]|본점$', '', _strip(s or '')).lower()
+
+    def one(ip):
+        i, p = ip
+        nm = str(p.get('name') or '').split('(')[0].strip()
+        if not nm:
+            return None
+        try:
+            items = _naver('local', '%s %s' % (region, nm), 5)
+        except Exception:
+            return None
+        k = nz(nm)
+        for it in items:
+            t = _strip(it.get('title')); road = it.get('roadAddress') or it.get('address') or ''
+            if toks and not any(x in road for x in toks):
+                continue
+            if k and (k in nz(t) or nz(t) in k):
+                return {'i': i, 'title': t, 'road': road}
+        return None
+    with ThreadPoolExecutor(8) as ex:
+        res = [r for r in ex.map(one, list(enumerate(picks))) if r]
+    return {r['i']: r for r in res}
