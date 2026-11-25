@@ -3,11 +3,12 @@
 국내: 네이버 지역검색(지도 등록 가게) + 블로그 후기 발췌(체험단·협찬 글 제외)
 해외: 오픈스트리트맵(노미나팀) 식당 + 한국인 블로그 후기 발췌
 키는 렌더 환경변수 NAVER_CLIENT_ID / NAVER_CLIENT_SECRET 만 쓴다."""
-import os, re, json, time, urllib.request, urllib.parse
+import os, re, json, time, urllib.request, urllib.parse, urllib.error
 from concurrent.futures import ThreadPoolExecutor
 
 AD = re.compile(r'체험단|협찬|원고료|소정의|제공받아|지원받아|업체로부터')
-CHAIN = re.compile(r'(맥도날드|버거킹|롯데리아|KFC|스타벅스|이디야|투썸|파리바게뜨|뚜레쥬르|본죽|김밥천국|맘스터치|서브웨이|도미노|피자헛|교촌|BBQ|bhc|굽네)', re.I)
+CHAIN = re.compile(r'(맥도날드|버거킹|롯데리아|KFC|스타벅스|이디야|투썸|파리바게뜨|뚜레쥬르|본죽|김밥천국|맘스터치|서브웨이|도미노|피자헛|교촌|BBQ|bhc|굽네|'
+                   r'McDonald|Burger King|Starbucks|Subway|Domino|Pizza Hut|Hooters|Costa|Luckin|瑞幸|麦当劳|肯德基|星巴克|必胜客|汉堡王|德克士|Tim Hortons|Shake Shack|Wagas)', re.I)
 FOODK = {'국밥': '국밥', '고기': '고기집', '회': '횟집', '면': '칼국수', '백반': '백반', '분식': '분식', '중식': '중국집', '빵': '빵집'}
 NUA = {'User-Agent': 'DwaejiRadar/1.0 (+https://apps.kohganemultishop.org/dwaeji)'}
 
@@ -16,11 +17,64 @@ def _strip(s):
     return re.sub(r'<[^>]+>|&[a-z#0-9]+;', '', s or '').strip()
 
 
-def _naver(kind, q, n=5):
+DIAG = {}
+_KEYS = {'ok': None, 'at': 0}
+
+
+def _key_pool():
+    """검색 API 키 후보: 전용 환경변수 → 로그인용 환경변수 → 회원이 저장해 둔 네이버 키(암호화 저장분)."""
+    pool = []
+    for a, b in (('NAVER_SEARCH_ID', 'NAVER_SEARCH_SECRET'), ('NAVER_CLIENT_ID', 'NAVER_CLIENT_SECRET')):
+        if os.environ.get(a) and os.environ.get(b):
+            pool.append((os.environ[a], os.environ[b], 'env:' + a))
+    try:
+        import store
+        rows = store._q("SELECT id FROM linklynk_users WHERE naver_id_enc IS NOT NULL LIMIT 8", (), fetch="all") or []
+        for r in rows:
+            k = store.get_naver_keys(r.get('id') if isinstance(r, dict) else r[0])
+            if k:
+                pool.append((k['client_id'], k['client_secret'], 'user'))
+    except Exception as e:
+        DIAG['store'] = type(e).__name__
+    return pool
+
+
+def _naver_raw(kind, q, n, cid, csec):
     rq = urllib.request.Request('https://openapi.naver.com/v1/search/%s.json?display=%d&query=%s' % (kind, n, urllib.parse.quote(q)),
-                                headers={'X-Naver-Client-Id': os.environ.get('NAVER_CLIENT_ID', ''),
-                                         'X-Naver-Client-Secret': os.environ.get('NAVER_CLIENT_SECRET', '')})
+                                headers={'X-Naver-Client-Id': cid, 'X-Naver-Client-Secret': csec})
     return json.load(urllib.request.urlopen(rq, timeout=6)).get('items', [])
+
+
+def _pick_key():
+    if _KEYS['ok'] and time.time() - _KEYS['at'] < 3600:
+        return _KEYS['ok']
+    tried = []
+    for cid, csec, src in _key_pool():
+        try:
+            _naver_raw('local', '서울 맛집', 1, cid, csec)
+            _KEYS.update(ok=(cid, csec), at=time.time())
+            DIAG['key'] = src
+            DIAG['tried'] = tried
+            return _KEYS['ok']
+        except urllib.error.HTTPError as e:
+            tried.append('%s:%s' % (src, e.code))
+        except Exception as e:
+            tried.append('%s:%s' % (src, type(e).__name__))
+    DIAG['key'] = None
+    DIAG['tried'] = tried
+    return None
+
+
+def _naver(kind, q, n=5):
+    k = _pick_key()
+    if not k:
+        raise RuntimeError('no naver search key')
+    return _naver_raw(kind, q, n, k[0], k[1])
+
+
+def diag():
+    _pick_key()
+    return dict(DIAG)
 
 
 def _nom(path, params, t=8):
