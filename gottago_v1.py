@@ -10,18 +10,86 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 DATA = os.path.join(HERE, "tools", "toilets_world")
 _cache, _lock = {}, threading.Lock()
 _meta = None
+_msig = -1
+# 중국 도시: 오라클(cn 엣지)에서 모으는 대로 렌더가 직접 당겨 온다 — 블루호스트·깃 커밋 없이 새 도시가 붙는다
+EXTRA = "/tmp/gg_world_extra"
+CN_SRC = os.environ.get("GG_CN_SRC", "https://cn.kohganemultishop.org/_ggcn_q8v3/")
+
+
+def _cn_sync_once():
+    import urllib.request as _u
+    global _meta
+    os.makedirs(EXTRA, exist_ok=True)
+    get = lambda u: _u.urlopen(_u.Request(u, headers={"User-Agent": "GottaGo/1.0"}), timeout=30).read()
+    idx = json.loads(get(CN_SRC))
+    added = 0
+    for it in idx:
+        nm = it.get("name") or ""
+        if not nm.endswith(".meta.json"):
+            continue
+        key = nm[:-10]
+        if os.path.exists(os.path.join(DATA, key + ".meta.json")):
+            continue                                   # 깃에 이미 있는 도시는 깃 것을 쓴다
+        mp = os.path.join(EXTRA, nm)
+        try:
+            m = json.loads(get(CN_SRC + nm))
+            if int(m.get("count") or 0) < 30 or len(m.get("bbox") or []) != 4:
+                continue
+            old = json.load(open(mp, encoding="utf-8")) if os.path.exists(mp) else None
+            if old and old.get("count") == m.get("count") and os.path.exists(os.path.join(EXTRA, key + ".json")):
+                continue
+            rows = json.loads(get(CN_SRC + key + ".json"))
+            if not isinstance(rows, list) or not all(isinstance(r, dict) and "lat" in r and "lng" in r for r in rows[:50]):
+                continue
+            with open(os.path.join(EXTRA, key + ".json.%d.tmp" % os.getpid()), "w", encoding="utf-8") as f:
+                json.dump(rows, f, ensure_ascii=False)
+            os.replace(os.path.join(EXTRA, key + ".json.%d.tmp" % os.getpid()), os.path.join(EXTRA, key + ".json"))
+            with open(mp, "w", encoding="utf-8") as f:
+                json.dump(m, f, ensure_ascii=False)
+            with _lock:
+                _cache.pop(key, None)
+            added += 1
+        except Exception:
+            continue
+    if added:
+        _meta = None
+    return added
+
+
+def _cn_sync_loop():
+    import time as _t
+    _t.sleep(20)
+    while True:
+        try:
+            _cn_sync_once()
+        except Exception:
+            pass
+        _t.sleep(6 * 3600)
+
+
+threading.Thread(target=_cn_sync_loop, daemon=True).start()
 
 
 def metas():
-    global _meta
-    if _meta is None:
-        out = []
-        try:
-            for f in sorted(os.listdir(DATA)):
-                if f.endswith(".meta.json"):
-                    out.append(json.load(open(os.path.join(DATA, f), encoding="utf-8")))
-        except Exception:
-            pass
+    global _meta, _msig
+    try:
+        sig = len([f for f in os.listdir(EXTRA) if f.endswith(".meta.json")])
+    except Exception:
+        sig = 0
+    if _meta is None or sig != _msig:
+        _msig = sig
+        out, seen = [], set()
+        for d in (DATA, EXTRA):
+            try:
+                for f in sorted(os.listdir(d)):
+                    if f.endswith(".meta.json") and f not in seen:
+                        try:
+                            out.append(json.load(open(os.path.join(d, f), encoding="utf-8")))
+                            seen.add(f)
+                        except Exception:
+                            pass
+            except Exception:
+                pass
         _meta = out
     return _meta
 
@@ -46,6 +114,8 @@ def load(key):
     with _lock:
         if key not in _cache:
             p = os.path.join(DATA, "%s.json" % key)
+            if not os.path.exists(p):
+                p = os.path.join(EXTRA, "%s.json" % key)
             try:
                 _cache[key] = json.load(open(p, encoding="utf-8"))
             except Exception:
