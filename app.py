@@ -1945,6 +1945,16 @@ def _pig_salvage(text):
     return out
 
 
+@app.route("/api/dwaeji/diag")
+def dwaeji_diag_api():
+    """예비 경로 점검: 네이버 검색 키가 어디서 잡혔는지(값은 안 보임)만 알려 준다."""
+    try:
+        import pig_local
+        return jsonify(pig_local.diag())
+    except Exception as e:
+        return jsonify({"err": type(e).__name__})
+
+
 @app.route("/api/dwaeji/reco", methods=["POST", "OPTIONS"])
 def dwaeji_reco_api():
     """돼지레이다 — 로컬 찐맛집 추천. 프랜차이즈·관광 호객집 배제. IP당 하루 10회."""
