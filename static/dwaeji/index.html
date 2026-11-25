@@ -169,8 +169,10 @@ let HERE=null;
 function mapLinks(p,q){
   if(!p.cc||p.cc==='KR')return `<a class="nv" target="_blank" href="https://map.naver.com/p/search/${q}">네이버지도</a><a class="kk" target="_blank" href="https://map.kakao.com/?q=${q}">카카오맵</a>`;
   const g=p.lat?`https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lng}`:`https://www.google.com/maps/search/?api=1&query=${q}`;
-  if(p.cc==='CN'&&p.lat)return `<a class="nv" target="_blank" href="https://uri.amap.com/marker?position=${p.lng},${p.lat}&name=${encodeURIComponent(p.name)}&coordinate=wgs84&callnative=1">가오더지도</a><a class="kk" target="_blank" href="${g}">구글지도</a>`;
-  return `<a class="nv" target="_blank" href="${g}">구글지도</a><a class="kk" target="_blank" href="https://maps.apple.com/?q=${encodeURIComponent(p.name)}&ll=${p.lat},${p.lng}">애플지도</a>`;
+  const ap=p.lat?`https://maps.apple.com/?q=${encodeURIComponent(p.name)}&ll=${p.lat},${p.lng}`:`https://maps.apple.com/?q=${q}`;
+  if(p.cc==='CN'){const am=p.lat?`https://uri.amap.com/marker?position=${p.lng},${p.lat}&name=${encodeURIComponent(p.name)}&coordinate=wgs84&callnative=1`:`https://uri.amap.com/search?keyword=${encodeURIComponent(p.name.replace(/\s*\(.*$/,''))}&callnative=1`;
+    return `<a class="nv" target="_blank" href="${am}">가오더지도</a><a class="kk" target="_blank" href="${ap}">애플지도</a>`;}
+  return `<a class="nv" target="_blank" href="${g}">구글지도</a><a class="kk" target="_blank" href="${ap}">애플지도</a>`;
 }
 function good(t){t=String(t||'').trim();return t.length>2&&!/^(딱히\s*)?없(음|다|습니다)\.?$|^-$|^정보\s*없음/.test(t);}
 // 📍 지금 여기 — 위치를 동네 이름으로 바꿔 넣는다
