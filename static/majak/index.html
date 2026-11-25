@@ -204,6 +204,11 @@ body{font-family:var(--sans);letter-spacing:-.01em;
 #intro .card h2 .flip{display:inline-block;transform:none!important;-webkit-text-fill-color:#d23a2a;color:#d23a2a;background:none;
  text-shadow:0 0 18px rgba(210,58,42,.55);animation:mjSeung 3.2s ease-in-out infinite}
 @keyframes mjSeung{0%,100%{opacity:1}46%{opacity:1}50%{opacity:.35}54%{opacity:1}58%{opacity:.6}62%{opacity:1}}
+.diffRow{display:flex;gap:6px;margin:12px 0 6px}
+.diffRow button{flex:1;padding:9px 0;border-radius:999px;border:1px solid rgba(216,180,106,.3);background:rgba(255,255,255,.03);color:#b9a89a;font-size:12.5px;font-weight:700;letter-spacing:.04em;font-family:inherit}
+.diffRow button.on{color:#1a1410;border-color:transparent;background:linear-gradient(100deg,#9c7a2c,#d8b46a 40%,#f3dfa6 60%,#d8b46a)}
+.diffRow button[data-d=hell].on{color:#f3eee2;background:linear-gradient(160deg,#b8321f,#6a170d)}
+.diffNote{font-size:11.5px;line-height:1.55;color:#9c8f7c;min-height:34px;margin-bottom:10px}
 </style></head>
 <body data-fx="majak">
 <div id="app">
@@ -225,6 +230,7 @@ body{font-family:var(--sans);letter-spacing:-.01em;
 <div class="modal on" id="intro"><div class="card">
   <h2>저<span class="flip">승</span>마작</h2>
   <p>차사의 패방(牌房)에 들었다.<br>같은 문양의 열린 패 두 장을 맞춰<br>모든 패를 거두면 다음 층으로.<br><br>글자든 문양이든, 같은 패끼리 맞춰라.</p>
+  <div class="diffRow" id="diffI"><button data-d="easy">순한 혼</button><button data-d="normal">보통</button><button data-d="hard">독한 혼</button><button data-d="hell">염라</button></div><div class="diffNote" id="diffIN"></div>
   <button id="btnStart" style="width:100%;background:var(--crim);border:none;color:var(--paper);padding:14px;border-radius:12px;font-weight:900;font-size:16px">패방 입장</button>
   <div id="adFreeUntil">🕯️ 5층까지는 광고가 없다 — 차사의 예우다.</div>
 </div></div>
@@ -235,6 +241,7 @@ body{font-family:var(--sans);letter-spacing:-.01em;
   <div class="optRow"><span>🔔 소리</span><button class="tog on" id="togSnd"></button></div>
   <div class="optRow"><span>🕯️ 자동 힌트</span><button class="tog" id="togHint"></button></div>
   <div class="optRow adfreeRow" id="rowAdfree"><span>👑 <b>광고 없음</b> — 영원히</span><span style="color:var(--gold);font-weight:900">₩9,900 ›</span></div>
+  <div style="margin:10px 0 4px;font-size:12px;color:#b9a89a">난이도 (바꾸면 이 층부터 다시)</div><div class="diffRow" id="diffO"><button data-d="easy">순한 혼</button><button data-d="normal">보통</button><button data-d="hard">독한 혼</button><button data-d="hell">염라</button></div><div class="diffNote" id="diffON"></div>
   <button id="btnRestartOpt">↻ 이 층 재시작</button>
 </div></div>
 
@@ -320,6 +327,13 @@ function layoutFor(lv){
   return P;
 }
 
+/* ══ 난이도 ══ */
+const DIFF={easy:{n:'순한 혼',tag:'순',kinds:6,lockAt:99,fogAt:99,gm:0,hint:0,hintMax:99,shufMax:99,miss:0,numb:99,limit:0},
+ normal:{n:'보통',tag:'',kinds:12,lockAt:6,fogAt:11,gm:1,hint:2,hintMax:99,shufMax:99,miss:3,numb:3,limit:0},
+ hard:{n:'독한 혼',tag:'독',kinds:12,lockAt:2,fogAt:4,gm:1.5,hint:3,hintMax:3,shufMax:2,miss:5,numb:3,limit:0},
+ hell:{n:'염라',tag:'염라',kinds:12,lockAt:1,fogAt:1,gm:2,hint:0,hintMax:0,shufMax:1,miss:8,numb:2,limit:4}};
+let DK=(function(){try{return localStorage.getItem('jak_diff')||'normal'}catch(e){return 'normal'}})(); if(!DIFF[DK])DK='normal'; let D=DIFF[DK];
+let hintLeft=99, shufLeft=99, limT=0;
 /* ══ 게임 상태 ══ */
 let lv=+(localStorage.getItem('jak_lv')||1), tiles=[], sel=null, t0=0, timer=null,
     combo=0, maxCombo=0, lastMatch=0, mistakes=0, snd=true, autoHint=false, adFree=localStorage.getItem('jak_adfree')==='1';
@@ -346,6 +360,7 @@ function isFree(tl){ if(tl.gone) return false;
   return !(L&&R); }
 
 /* ══ 풀 수 있는 배분 (역방향 딜) ══ */
+function DM(){ return MK.slice(0,D.kinds); }
 function deal(pos,lvl){
   const T=pos.map(([x,y,z],i)=>({x,y,z,i,motif:null,gone:false,lock:false,fog:false}));
   const alive=()=>T.filter(t=>!t.gone);
@@ -358,16 +373,16 @@ function deal(pos,lvl){
   while(alive().length){
     const f=alive().filter(freeOf);
     if(f.length<2){ const rest=alive().filter(t=>!t.motif);
-      for(let k=0;k<rest.length;k+=2){const m=MK[(mi++)%MK.length];rest[k].motif=m;if(rest[k+1])rest[k+1].motif=m;} break; }
+      for(let k=0;k<rest.length;k+=2){const m=DM()[(mi++)%DM().length];rest[k].motif=m;if(rest[k+1])rest[k+1].motif=m;} break; }
     const a=f.splice(Math.random()*f.length|0,1)[0];
     const b=f.splice(Math.random()*f.length|0,1)[0];
-    a.motif=b.motif=MK[(mi++)%MK.length]; a.gone=b.gone=true;
+    a.motif=b.motif=DM()[(mi++)%DM().length]; a.gone=b.gone=true;
   }
   T.forEach(t=>t.gone=false);
   // 기믹: 6층+ 쇠사슬, 11층+ 안개 (비결① 10단계 기믹)
-  if(lvl>=6){ const c=Math.min(2+((lvl/5)|0), 6);
+  if(lvl>=D.lockAt){ const c=Math.round(Math.min(2+((lvl/5)|0), 6)*D.gm);
     T.filter(t=>t.z===0).sort(()=>Math.random()-.5).slice(0,c).forEach(t=>t.lock=true); }
-  if(lvl>=11){ const c=Math.min(3+((lvl/5)|0), 8);
+  if(lvl>=D.fogAt){ const c=Math.round(Math.min(3+((lvl/5)|0), 8)*D.gm);
     T.sort(()=>Math.random()-.5).slice(0,c).forEach(t=>{if(!t.lock)t.fog=true;});
     T.sort((a,b)=>a.i-b.i); }
   return T;
@@ -434,34 +449,70 @@ $('board').addEventListener('pointerdown',e=>{
 });
 let missRun=0;
 /* 헛짚기 벌칙: 콤보 끊김 + 3초 + 혼력 깎임, 세 번 연속이면 1.5초 손 저림 */
-function penalty(a,b){ combo=0; $('stCombo').textContent=0; t0-=3000; tick(); missRun++;
+function penalty(a,b){ combo=0; $('stCombo').textContent=0; t0-=D.miss*1000; tick(); missRun++;
   [a.el,b.el].forEach(el=>{el.classList.remove('miss');void el.offsetWidth;el.classList.add('miss');});
   setTimeout(()=>{a.el.classList.remove('miss');b.el.classList.remove('miss');},460);
-  const r=b.el.getBoundingClientRect(), f=document.createElement('div'); f.className='minus'; f.textContent='−3초';
+  const r=b.el.getBoundingClientRect(), f=document.createElement('div'); f.className='minus'; f.textContent=D.miss?'−'+D.miss+'초':'헛짚음';
   f.style.left=(r.left+r.width/2)+'px'; f.style.top=(r.top)+'px'; document.body.appendChild(f); setTimeout(()=>f.remove(),900);
   const iq=$('stIQ'); iq.classList.remove('hit'); void iq.offsetWidth; iq.classList.add('hit');
   try{navigator.vibrate&&navigator.vibrate([50,40,50]);}catch(e){}
   if(window.FX){FX.shake(1.1);FX.flash('rgba(200,30,20,.28)');}
   beep('bad');
-  if(missRun>=3){ missRun=0; toast('손이 떨린다 — 잠깐 숨 고르기'); $('board').classList.add('numb'); setTimeout(()=>$('board').classList.remove('numb'),1500); }
+  if(missRun>=D.numb){ missRun=0; toast('손이 떨린다 — 잠깐 숨 고르기'); $('board').classList.add('numb'); setTimeout(()=>$('board').classList.remove('numb'),1500); }
 }
 function hasMove(){ const f=tiles.filter(t=>!t.gone&&!t.lock&&isFree(t));
   for(let i=0;i<f.length;i++) for(let j=i+1;j<f.length;j++) if(f[i].motif===f[j].motif) return true; return false; }
-function shuffle(depth){ depth=depth||0; const alive=tiles.filter(t=>!t.gone); const ms=alive.map(t=>t.motif).sort(()=>Math.random()-.5);
-  alive.forEach((t,k)=>{t.motif=ms[k]; if(!t.fog)t.el.innerHTML=M[t.motif];}); sel=null;
+// ★섞기 = 남은 패로 '끝까지 풀리는 순서'를 거꾸로 깔아 문양을 다시 나눈다(막다른 판이 안 나옴).
+//   패 놓인 모양 자체가 막혀 있으면(예: 두 장이 위아래로 겹쳐 남음) 차사가 남은 패를 한 줄로 펼친다.
+function solvAssign(alive){
+  const cnt={}; alive.forEach(t=>cnt[t.motif]=(cnt[t.motif]||0)+1);
+  const pairs=[]; Object.keys(cnt).forEach(m=>{for(let k=0;k<(cnt[m]>>1);k++)pairs.push(m)});
+  if(pairs.length*2!==alive.length) return false;
+  for(let tryN=0;tryN<30;tryN++){
+    pairs.sort(()=>Math.random()-.5); const asg=new Map(); let ok=true, pi=0;
+    alive.forEach(t=>t.gone=false);
+    while(alive.some(t=>!t.gone)){
+      const f=alive.filter(t=>!t.gone&&isFree(t));
+      if(f.length<2){ok=false;break}
+      const a=f.splice(Math.random()*f.length|0,1)[0], b=f.splice(Math.random()*f.length|0,1)[0];
+      asg.set(a,pairs[pi]); asg.set(b,pairs[pi]); pi++; a.gone=b.gone=true;
+    }
+    alive.forEach(t=>t.gone=false);
+    if(ok){ alive.forEach(t=>t.motif=asg.get(t)); return true; }
+  }
+  return false;
+}
+function spreadFlat(alive){
+  const yy=Math.min(...alive.map(t=>t.y)), xx=Math.min(...alive.map(t=>t.x));
+  alive.forEach((t,k)=>{t.x=xx+(k%8)*2; t.y=yy+((k/8)|0)*2; t.z=0; t.lock=false;});
+  render(); refresh(); toast('길이 막혀 차사가 남은 패를 펼쳤다');
+}
+function shuffle(depth){ depth=depth||0; const alive=tiles.filter(t=>!t.gone);
+  if(!alive.length) return;
+  if(!solvAssign(alive)){ spreadFlat(alive); if(!solvAssign(alive)){ const ms=alive.map(t=>t.motif).sort(()=>Math.random()-.5); alive.forEach((t,k)=>t.motif=ms[k]); } }
+  alive.forEach(t=>{ if(!t.fog&&t.el) t.el.innerHTML=M[t.motif]; }); sel=null;
   tiles.forEach(t=>t.el&&t.el.classList.remove('sel')); refresh();
-  if(!hasMove()&&alive.length&&depth<25) shuffle(depth+1); }
-$('btnShuffle').onclick=()=>{beep('tak');shuffle();};
-$('btnHint').onclick=()=>{ const f=tiles.filter(t=>!t.gone&&!t.lock&&isFree(t));
+  if(!hasMove()){
+    // 열린 짝이 쇠사슬에 묶여 있으면 사슬 하나를 풀어 준다
+    const lk=alive.filter(t=>t.lock&&isFree(t));
+    if(lk.length){ const t=lk[Math.random()*lk.length|0]; t.lock=false; t.el&&t.el.classList.remove('lock'); toast('차사가 쇠사슬 하나를 풀어 줬다'); refresh(); }
+    if(depth<8&&!hasMove()) shuffle(depth+1); } }
+
+$('btnShuffle').onclick=()=>{ if(shufLeft<=0){beep('bad');toast(D.n+' — 이 층은 더 못 섞는다');return;}
+  if(D.shufMax<99){shufLeft--;toast('패 섞기 · 남은 '+shufLeft+'번');} beep('tak');shuffle();};
+$('btnHint').onclick=()=>{ if(hintLeft<=0){beep('bad');toast(D.hintMax===0?'염라 앞에 혼불은 없다':'이 층 혼불을 다 썼다');return;}
+  const f=tiles.filter(t=>!t.gone&&!t.lock&&isFree(t));
   for(let i=0;i<f.length;i++) for(let j=i+1;j<f.length;j++) if(f[i].motif===f[j].motif){
     f[i].el.classList.add('hintP');f[j].el.classList.add('hintP');
     setTimeout(()=>{f[i].el.classList.remove('hintP');f[j].el.classList.remove('hintP');},2000);
-    mistakes+=2;updIQ();return;}
+    mistakes+=D.hint;updIQ(); if(D.hintMax<99){hintLeft--;toast('혼불 · 남은 '+hintLeft+'번');} return;}
   toast('맞출 짝이 없다 — 섞어라'); };
 
 /* ══ 혼력(IQ풍) & 타이머 ══ */
 function updIQ(){ $('stIQ').textContent=Math.max(60,142.4-mistakes*2.7).toFixed(1); }
 function tick(){ const s=((Date.now()-t0)/1000)|0;
+  if(limT&&s>=limT&&tiles.some(t=>!t.gone)){ clearInterval(timer); beep('bad'); toast('시간이 다 됐다 — 염라가 판을 엎는다'); if(window.FX){FX.shake(2);FX.flash('rgba(200,30,20,.5)');} setTimeout(start,1600); return; }
+  if(limT){ const r=limT-s; $('stTime').textContent=String(r/60|0).padStart(2,'0')+':'+String(r%60).padStart(2,'0'); $('stTime').style.color=r<=15?'#ef4b3a':''; return; }
   $('stTime').textContent=String(s/60|0).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); }
 
 /* ══ 혼불 파티클 ══ */
@@ -506,16 +557,24 @@ function toast(m){ const t=$('toast'); t.textContent=m; t.style.opacity=1; setTi
 
 /* ══ 시작 ══ */
 function start(){
-  $('lvlBadge').textContent=lv+'층';
+  $('lvlBadge').textContent=lv+'층'+(D.tag?' · '+D.tag:'');
+  hintLeft=D.hintMax; shufLeft=D.shufMax;
   tiles=deal(layoutFor(lv),lv); sel=null; combo=0; maxCombo=0; mistakes=0; lastMatch=0;
   $('stCombo').textContent=0; updIQ();
-  render(); t0=Date.now(); clearInterval(timer); timer=setInterval(tick,500); tick();
+  limT=D.limit?tiles.length*D.limit:0; render(); t0=Date.now(); clearInterval(timer); timer=setInterval(tick,500); tick();
   if(!hasMove()) shuffle();
 }
 setInterval(()=>{ if(autoHint&&sel===null&&tiles.length&&!tiles.every(t=>t.gone)) $('btnHint').click(); },20000);
 $('btnStart').onclick=()=>{ $('intro').classList.remove('on'); beep('bell'); start(); };
 addEventListener('resize',()=>tiles.length&&render());
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
+
+const DNOTE={"easy": "문양 6가지 · 쇠사슬·안개 없음 · 혼불·섞기 무제한, 헛짚어도 시간 안 깎임", "normal": "문양 12가지 · 6층부터 쇠사슬, 11층부터 안개 · 헛짚으면 3초", "hard": "2층부터 쇠사슬, 4층부터 안개(1.5배) · 혼불 3번·섞기 2번 · 헛짚으면 5초", "hell": "1층부터 쇠사슬·안개 2배 · 혼불 없음·섞기 1번 · 헛짚으면 8초 · 제한시간(패당 4초) 넘기면 판이 엎어진다"};
+function paintDiff(){ ['diffI','diffO'].forEach(id=>{const r=$(id); if(!r)return; r.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.d===DK)); $(id+'N').textContent=DNOTE[DK];}); }
+function setDiff(k,restart){ DK=k; D=DIFF[k]; try{localStorage.setItem('jak_diff',k)}catch(e){} paintDiff(); if(restart){ document.querySelectorAll('.modal.on').forEach(m=>{if(m.id!=='intro')m.classList.remove('on')}); start(); toast(D.n+' — '+lv+'층부터'); } }
+$('diffI').addEventListener('click',e=>{const b=e.target.closest('button'); if(b)setDiff(b.dataset.d,false);});
+$('diffO').addEventListener('click',e=>{const b=e.target.closest('button'); if(b)setDiff(b.dataset.d,true);});
+paintDiff();
 </script>
 <script id="luxfx">(function(){
 // ── 박진감 레이어: 게임 코드는 건드리지 않고 DOM 변화를 보고 연출만 얹는다 ──
