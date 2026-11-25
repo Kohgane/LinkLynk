@@ -134,7 +134,7 @@ def _kr(region, food):
                     continue
                 seen.add(t)
                 rows.append({'title': t, 'road': road, 'cat': cat, 'cc': ''})
-    area = toks[0] if toks else region
+    area = ' '.join(toks[-2:]) if toks else region     # '서울 종로'처럼 시+동네 — 첫 토큰(서울)만 쓰면 후기가 다른 동네로 샌다
     with ThreadPoolExecutor(12) as ex:
         revs = list(ex.map(lambda c: _reviews([c['title']], area), rows[:16]))
     for c, rv in zip(rows, revs):
@@ -172,7 +172,7 @@ def _glob(region, food, lat, lng):
         for r in rs:
             nd = r.get('namedetails') or {}; ex = r.get('extratags') or {}
             nm = nd.get('name') or r.get('name') or ''
-            if not nm or nm in seen or ex.get('brand'):
+            if not nm or nm in seen or ex.get('brand') or CHAIN.search(nm + ' ' + (nd.get('name:en') or '')):
                 continue
             seen.add(nm)
             ad = r.get('address') or {}
