@@ -1718,10 +1718,10 @@ def _pig_relay(sysp, user):
     return {"ok": bool(j.get("ok") and j.get("text")), "text": j.get("text", ""), "error": j.get("error", "")}
 
 
-def _pig_discover(region, food=""):
+def _pig_discover(region, food="", lat=None, lng=None):
     """브리가네 쪽에서 지역 안 실존 가게 후보를 긁어 온다(광고·체험단 비율 높은 집, 체인 지점 제외). 실패하면 []."""
     try:
-        body = {"discover": 1, "region": region, "food": food}
+        body = {"discover": 1, "region": region, "food": food, "lat": lat, "lng": lng}
         rq = _ur.Request(_PIG_RELAY, data=json.dumps(body).encode(),
                          headers={"Content-Type": "application/json", "X-Pig-Token": _PIG_RELAY_K,
                                   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/131.0 Safari/537.36",
@@ -1733,11 +1733,11 @@ def _pig_discover(region, food=""):
         return []
 
 
-def _pig_job_start(jid, region, food, mood, party, sysp):
+def _pig_job_start(jid, region, food, mood, party, sysp, lat=None, lng=None):
     import threading
     def run():
         try:
-            body = {"curate": 1, "jid": jid, "region": region, "food": food, "mood": mood, "party": party, "sys": sysp}
+            body = {"curate": 1, "jid": jid, "region": region, "food": food, "mood": mood, "party": party, "sys": sysp, "lat": lat, "lng": lng}
             rq = _ur.Request(_PIG_RELAY, data=json.dumps(body, ensure_ascii=False).encode(),
                              headers={"Content-Type": "application/json", "X-Pig-Token": _PIG_RELAY_K,
                                       "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/131.0 Safari/537.36",
@@ -1759,7 +1759,8 @@ def _pig_out(picks):
                     "cons": scrub_garbled(str(p.get("cons") or ""))[:80],
                     "diary": scrub_garbled(str(p.get("diary") or ""))[:90],
                     "tip": scrub_garbled(str(p.get("tip") or ""))[:80],
-                    "q": scrub_garbled(str(p.get("q") or ""))[:60]})
+                    "q": scrub_garbled(str(p.get("q") or ""))[:60],
+                    "lat": p.get("lat"), "lng": p.get("lng"), "cc": str(p.get("cc") or "")[:2]})
     return out
 
 
@@ -1818,7 +1819,8 @@ def _pig_from_cands(picks, cands, n):
             continue
         used.add(c["title"]); p = dict(p); p["name"] = c["title"]
         p["area"] = "✓ 지도 확인 · " + (c.get("road") or "")
-        p["q"] = c["title"] + " " + " ".join((c.get("road") or "").split()[:3])
+        p["q"] = (c.get("local") or c["title"]) + ("" if c.get("cc") else " " + " ".join((c.get("road") or "").split()[:3]))
+        p["lat"], p["lng"], p["cc"] = c.get("lat"), c.get("lng"), c.get("cc", "")
         out.append(p)
         if len(out) >= n:
             return out
@@ -1829,6 +1831,7 @@ def _pig_from_cands(picks, cands, n):
             continue
         used.add(c["title"]); cat = (c.get("cat") or "").split(">")[-1]
         out.append({"name": c["title"], "area": "✓ 지도 확인 · " + (c.get("road") or ""),
+                    "lat": c.get("lat"), "lng": c.get("lng"), "cc": c.get("cc", ""),
                     "dish": (cat or "대표 메뉴") + " — 메뉴판 맨 위 시그니처부터",
                     "why": (_pig_clean_rev(c) or "블로그 후기 %s건 중 체험단·협찬 글이 드문, 입소문으로 버틴 동네 가게." % format(int(c.get("blogs") or 0), ",")),
                     "cons": "방문 전 영업시간 한 번 확인", "diary": "", "tip": "점심 피크(12~13시)만 피하면 수월",
@@ -1944,6 +1947,10 @@ def dwaeji_reco_api():
     food = (d.get("food") or "").strip()[:30]
     mood = (d.get("mood") or "").strip()[:40]
     party = (d.get("party") or "").strip()[:20]
+    try:
+        _lat, _lng = float(d.get("lat")), float(d.get("lng"))
+    except Exception:
+        _lat = _lng = None
     if len(region) < 2:
         return jsonify({"ok": False, "error": "지역을 알려주세요 (예: 부산 남포동)"}), 400
     from core import llm_chat, _parse_json_out, scrub_garbled
@@ -1974,7 +1981,7 @@ def dwaeji_reco_api():
             "위 조건으로 로컬 찐맛집 12곳 — 반드시 '{region}' 안에 있는 가게만(다른 시·도의 같은 이름 지점 금지, 체험단·협찬 위주 집 금지)(지금도 영업 중인 실제 상호만, 지점명 정확히). 각 칸은 한 문장으로 짧게, 반드시 JSON 하나만.")
     key = os.environ.get("BOIM_LLM_KEY", "").strip() or "__free__"
     # ★ 먼저 우리가 지도에서 실존 가게를 긁는다(지역 고정·광고집 제외·체인 지점 제외) → AI는 이 목록에서만 고른다
-    cands = _pig_discover(region, food)
+    cands = _pig_discover(region, food, _lat, _lng)
     user_small = user
     if len(cands) >= 5:
         user_small = None
@@ -2002,7 +2009,7 @@ def dwaeji_reco_api():
         # 실존 목록은 바로 보여 주고, 후기를 읽어 메뉴·꿀팁을 다듬는 건 브리가네 쪽에서 따로(15~25초) → 화면이 이어받아 갈아 끼운다
         import secrets as _sc
         _jid = _sc.token_urlsafe(9)
-        _pig_job_start(_jid, region, food, mood, party, sysp)
+        _pig_job_start(_jid, region, food, mood, party, sysp, _lat, _lng)
         _ks = []
     for k in _ks:
         if _t.time() - t0 > (14 if len(cands) >= 5 else 16):                      # 워커 30초 제한 안에서 끝낸다(넘기면 500)
@@ -2054,7 +2061,8 @@ def dwaeji_reco_api():
                     "cons": scrub_garbled(str(p.get("cons") or ""))[:80],
                     "diary": scrub_garbled(str(p.get("diary") or ""))[:90],
                     "tip": scrub_garbled(str(p.get("tip") or ""))[:80],
-                    "q": scrub_garbled(str(p.get("q") or ""))[:60]})
+                    "q": scrub_garbled(str(p.get("q") or ""))[:60],
+                    "lat": p.get("lat"), "lng": p.get("lng"), "cc": str(p.get("cc") or "")[:2]})
     hist.append(now); _PIG_IP[ip] = hist
     resp = jsonify({"ok": True, "picks": out, "left": 10 - len(hist), "via": _via or "list", "job": _jid})
     resp.headers["Access-Control-Allow-Origin"] = "*"
