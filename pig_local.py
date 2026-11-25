@@ -180,7 +180,7 @@ def _glob(region, food, lat, lng):
         vb = '%f,%f,%f,%f' % (lng - span, lat + span, lng + span, lat - span)
         try:
             rs = _nom('search', {'format': 'jsonv2', 'amenity': am, 'viewbox': vb, 'bounded': 1, 'limit': 50,
-                                 'extratags': 1, 'namedetails': 1, 'addressdetails': 1, 'accept-language': 'ko'})
+                                 'extratags': 1, 'namedetails': 1, 'addressdetails': 1, 'accept-language': 'ko,zh,en'})
         except Exception:
             rs = []
         for r in rs:
@@ -191,7 +191,7 @@ def _glob(region, food, lat, lng):
             seen.add(nm)
             ad = r.get('address') or {}
             rows.append({'title': nd.get('name:ko') or nm, 'local': nm, 'ko': nd.get('name:ko') or '', 'en': nd.get('name:en') or '',
-                         'road': ' '.join(x for x in [ad.get('road'), ad.get('house_number'), ad.get('suburb')] if x),
+                         'road': ' '.join(x for x in [ad.get('road'), ad.get('house_number'), ad.get('suburb')] if x and not re.search(r'[Ѐ-ӿ]', x)),   # 러시아어 표기 섞임 방지
                          'cat': (ex.get('cuisine') or am).replace(';', ', '), 'oh': ex.get('opening_hours', ''),
                          'lat': float(r['lat']), 'lng': float(r['lon']), 'cc': cc})
         if len(rows) >= 12:
