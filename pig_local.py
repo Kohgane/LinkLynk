@@ -112,11 +112,11 @@ def _reviews(names, area):
     keys = [re.sub(r'\s', '', k)[:5].lower() for k in names if k]
     for it in its:
         d, t = _strip(it.get('description')), _strip(it.get('title'))
-        if len(d) < 30 or d[:40] in seen or AD.search(d + t):
+        if len(d) < 30 or d[:40] in seen or AD.search(d + t) or 'copyright' in d.lower():
             continue
         if keys and not any(k in re.sub(r'\s', '', d + t).lower() for k in keys):
             continue
-        if not re.search(r'맛|메뉴|먹|식당|국물|고기|면|가격|원|위안|엔|웨이팅|주문', d):
+        if not re.search(r'맛|메뉴|먹|식당|국물|고기|가격|위안|웨이팅|주문|요리|음식', d):   # 원·면 한 글자는 '2천억 원' 같은 남의 얘기까지 걸러 못 낸다
             continue
         seen.add(d[:40]); out.append(d[:170])
         if len(out) >= 4:
