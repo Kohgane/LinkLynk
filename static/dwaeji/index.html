@@ -35,6 +35,10 @@ input::placeholder{color:#6a5a58}
 .pick .area{font-size:12px;color:var(--sub)}
 .pick .dish{display:inline-block;background:#160f11;border:1px solid var(--line);color:var(--pink);font-size:12px;font-weight:700;padding:4px 10px;border-radius:8px;margin:8px 0 6px}
 .pick .why{font-size:13px;line-height:1.6;color:#e8d8d2}
+.rgrow{display:flex;gap:8px}.rgrow input{flex:1;min-width:0}
+#here{flex:none;border:1px solid #e05572;background:rgba(224,85,114,.12);color:#ff8fa3;border-radius:12px;padding:0 12px;font-size:14px;font-weight:800;white-space:nowrap}
+#here:disabled{opacity:.6}
+#hereMsg{font-size:12px;color:#c9a086;margin-top:6px;min-height:0}
 .pick .tip{font-size:12px;color:var(--sub);margin-top:5px}
 .pick .diary{font-size:13px;color:#f5c6b8;font-style:italic;margin-top:8px;padding:8px 10px;background:#1c1316;border-left:3px solid var(--pink);border-radius:0 8px 8px 0;line-height:1.5}
 .pick .cons{font-size:12px;color:#c9a086;margin-top:6px}
@@ -59,7 +63,7 @@ input::placeholder{color:#6a5a58}
   <div id="wizard">
     <div class="step">
       <h2>① 어디로 갑니까?</h2>
-      <input type="text" id="region" placeholder="예: 부산 남포동 / 전주 한옥마을 근처 / 서울 을지로">
+      <div class="rgrow"><input type="text" id="region" placeholder="예: 서울 을지로 / 부산 남포동"><button type="button" id="here">📍 지금 여기</button></div><div id="hereMsg"></div>
     </div>
     <div class="step">
       <h2>② 뭐가 당깁니까?</h2>
@@ -91,7 +95,7 @@ input::placeholder{color:#6a5a58}
   <div id="err"></div>
   <div id="res"></div>
   <button id="again">🐽 조건 바꿔 다시 킁킁</button>
-  <div id="notice">AI가 아는 로컬 정보 기반이라 폐업·이전이 있을 수 있어요.<br>방문 전 지도 링크에서 영업 여부를 꼭 확인!</div>
+  <div id="notice">네이버 지도에 있는 가게만, 체험단·협찬 글이 많은 집은 빼고 골라요.<br>휴무·브레이크타임은 지도 링크에서 한 번 더 확인!</div>
 </div>
 
 <script>
@@ -126,8 +130,8 @@ $('go').onclick=async()=>{
         <div class="dish">🍽 ${esc(p.dish)}</div>
         <div class="why">${esc(p.why)}</div>
         ${p.diary?`<div class="diary">"${esc(p.diary)}"</div>`:''}
-        ${p.cons&&p.cons!=='딱히 없음'?`<div class="cons">😥 ${esc(p.cons)}</div>`:''}
-        <div class="tip">💡 ${esc(p.tip)}</div>
+        ${good(p.cons)?`<div class="cons">😥 ${esc(p.cons)}</div>`:''}
+        ${good(p.tip)&&!/추천한다\.?$|추천합니다\.?$/.test(p.tip)?`<div class="tip">💡 ${esc(p.tip)}</div>`:''}
         <div class="maps">
           <a class="nv" target="_blank" href="https://map.naver.com/p/search/${q}">네이버지도</a>
           <a class="kk" target="_blank" href="https://map.kakao.com/?q=${q}">카카오맵</a>
@@ -163,6 +167,23 @@ $('go').onclick=async()=>{
 };
 function showErr(m){$('err').textContent='🐷 '+m;$('err').style.display='block';$('wizard').style.display='block';}
 $('again').onclick=()=>{$('wizard').style.display='block';$('res').innerHTML='';$('again').style.display='none';window.scrollTo({top:0,behavior:'smooth'});};
+function good(t){t=String(t||'').trim();return t.length>2&&!/^(딱히\s*)?없(음|다|습니다)\.?$|^-$|^정보\s*없음/.test(t);}
+// 📍 지금 여기 — 위치를 동네 이름으로 바꿔 넣는다
+$('here').onclick=()=>{const b=$('here'),m=$('hereMsg');
+  if(!navigator.geolocation){m.textContent='이 기기는 위치를 지원하지 않아요 — 동네 이름을 적어 주세요';return;}
+  b.disabled=true;b.textContent='📍 찾는 중…';m.textContent='';
+  navigator.geolocation.getCurrentPosition(async p=>{
+    const la=p.coords.latitude,lo=p.coords.longitude;let name='';
+    try{const r=await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=16&accept-language=ko&lat='+la+'&lon='+lo);const j=await r.json();const a=j.address||{};
+      const city=(a.city||a.province||a.state||'').replace(/(특별시|광역시|특별자치시|특별자치도)$/,'');
+      const dong=(a.suburb||a.quarter||a.neighbourhood||a.village||a.town||'').replace(/(\d*|제\d+)동$/,'');
+      name=[city,a.borough||a.county||'',dong].filter(Boolean).join(' ');}catch(e){}
+    if(!name){try{const r=await fetch('https://api.bigdatacloud.net/data/reverse-geocode-client?localityLanguage=ko&latitude='+la+'&longitude='+lo);const j=await r.json();
+      name=[(j.city||j.principalSubdivision||'').replace(/(특별시|광역시|특별자치시|특별자치도)$/,''),(j.locality||'').replace(/(\d*)동$/,'')].filter(Boolean).join(' ');}catch(e){}}
+    b.disabled=false;b.textContent='📍 지금 여기';
+    if(name){$('region').value=name;$('region').style.borderColor='';m.textContent='✓ '+name+' 근처로 찾을게요';}
+    else m.textContent='동네 이름을 못 찾았어요 — 직접 적어 주세요';
+  },()=>{b.disabled=false;b.textContent='📍 지금 여기';m.textContent='위치 권한이 꺼져 있어요 — 동네 이름을 적어 주세요';},{enableHighAccuracy:false,timeout:10000,maximumAge:120000});};
 function esc(s){return String(s||'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));}
 </script>
 </body>
