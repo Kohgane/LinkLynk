@@ -18,6 +18,8 @@ def _strip(s):
 
 
 DIAG = {}
+import threading as _th
+_RL, _RL_T = _th.Lock(), [0.0]
 _KEYS = {'ok': None, 'at': 0}
 
 
@@ -42,7 +44,19 @@ def _key_pool():
 def _naver_raw(kind, q, n, cid, csec):
     rq = urllib.request.Request('https://openapi.naver.com/v1/search/%s.json?display=%d&query=%s' % (kind, n, urllib.parse.quote(q)),
                                 headers={'X-Naver-Client-Id': cid, 'X-Naver-Client-Secret': csec})
-    return json.load(urllib.request.urlopen(rq, timeout=6)).get('items', [])
+    for att in range(3):
+        with _RL:                                      # 네이버 검색 API는 초당 10건 — 몰아 쏘면 429로 후기가 통째로 빈다
+            w = _RL_T[0] + 0.12 - time.time()
+            if w > 0:
+                time.sleep(w)
+            _RL_T[0] = time.time()
+        try:
+            return json.load(urllib.request.urlopen(rq, timeout=6)).get('items', [])
+        except urllib.error.HTTPError as e:
+            if e.code != 429 or att == 2:
+                raise
+            DIAG['429'] = DIAG.get('429', 0) + 1
+            time.sleep(0.6 * (att + 1))
 
 
 def _pick_key():
