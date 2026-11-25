@@ -1726,9 +1726,19 @@ def _pig_discover(region, food="", lat=None, lng=None):
                          headers={"Content-Type": "application/json", "X-Pig-Token": _PIG_RELAY_K,
                                   "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/131.0 Safari/537.36",
                                   "Cookie": "humans_21909=1"})
-        with _ur.urlopen(rq, timeout=11) as resp:
+        with _ur.urlopen(rq, timeout=8) as resp:
             j = json.loads(resp.read())
-        return j.get("cands") or [] if j.get("ok") else []
+        if j.get("ok"):
+            return j.get("cands") or []
+    except Exception:
+        pass
+    # 블루호스트가 막히면(429·과부하) 렌더 안에서 직접 긁는다 — 한 곳이 막혀도 레이다는 돈다
+    try:
+        import pig_local
+        cs = pig_local.discover(region, food, lat, lng).get("cands") or []
+        for c in cs:
+            c["_local"] = 1
+        return cs
     except Exception:
         return []
 
@@ -2018,7 +2028,9 @@ def dwaeji_reco_api():
     t0 = _t.time()
     _ks = _pig_keys(key)
     _jid = ""
-    if len(cands) >= 5:
+    if len(cands) >= 5 and any(c.get("_local") for c in cands):
+        _ks = []          # 예비 경로(브리가네 막힘): 확인된 목록+후기 발췌를 바로 보여 준다
+    elif len(cands) >= 5:
         # 실존 목록은 바로 보여 주고, 후기를 읽어 메뉴·꿀팁을 다듬는 건 브리가네 쪽에서 따로(15~25초) → 화면이 이어받아 갈아 끼운다
         import secrets as _sc
         _jid = _sc.token_urlsafe(9)
