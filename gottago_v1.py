@@ -292,9 +292,13 @@ button{font:inherit;cursor:pointer}
 .f{display:flex;gap:7px;margin:12px 0 0;flex-wrap:wrap}
 .f button{background:#141a24;border:1px solid #24303f;color:#9fb0c2;border-radius:999px;padding:7px 13px;font-size:12.5px}
 .f button.on{background:#123430;border-color:#1ab2aa;color:#7ff0e2}
-#map{height:240px;border-radius:14px;margin-top:14px;display:none;background:#141a24}
+#map{height:min(46vh,380px);position:relative;border-radius:14px;margin-top:14px;display:none;background:#141a24}
 #map.on{display:block}
 .leaflet-container{background:#141a24}
+.me{width:18px;height:18px;border-radius:50%;background:#2f8cff;border:3px solid #fff;box-shadow:0 0 0 0 rgba(47,140,255,.6);animation:mep 1.8s infinite}
+@keyframes mep{0%{box-shadow:0 0 0 0 rgba(47,140,255,.55)}80%{box-shadow:0 0 0 22px rgba(47,140,255,0)}100%{box-shadow:0 0 0 0 rgba(47,140,255,0)}}
+.locb{position:absolute;right:10px;bottom:12px;z-index:800;width:44px;height:44px;border-radius:12px;border:1px solid #24303f;background:#0f1520;color:#7ff0e2;font-size:20px;line-height:1;box-shadow:0 4px 14px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center}
+.locb:active{transform:scale(.94)}
 .city{color:#7f8ea0;font-size:12px;margin:14px 0 4px}
 .row{display:flex;gap:10px;align-items:center;padding:12px 2px;border-bottom:1px solid #18202b;cursor:pointer}
 .row.sel{background:#111a1f}
@@ -325,7 +329,7 @@ button{font:inherit;cursor:pointer}
 <p class="sub">Restroom Finder</p>
 <button class="go" id="go">Find restrooms near me</button>
 <div class="f"><button id="ffree">Free only</button><button id="fwc">Wheelchair</button></div>
-<div id="map"></div>
+<div id="map"><button class="locb" id="locb" aria-label="My location" title="My location">&#10148;</button></div>
 <button class="add" id="addBtn">+ Add a restroom you found here</button>
 <div id="out"><div class="msg">Tap the button to see the nearest restrooms.<div class="chips" id="chips"></div></div></div>
 <p class="foot">Data &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors (ODbL). Opening hours are rarely mapped, so they are not shown. Always check on site.</p>
@@ -334,11 +338,19 @@ button{font:inherit;cursor:pointer}
 <script>
 var OUT=document.getElementById("out"),GO=document.getElementById("go"),BACK=document.getElementById("back");
 var MAPEL=document.getElementById("map");
-var free=0,wc=0,last=null,map=null,layer=null,marks=[];
+var free=0,wc=0,last=null,map=null,layer=null,marks=[],me=null,meMark=null;
+var KO=/^ko/i.test(navigator.language||"");
+var KD={"Find restrooms near me":"내 주변 화장실 찾기","Locating...":"내 위치 찾는 중…","Free only":"무료만","Wheelchair":"휠체어",
+"Tap the button to see the nearest restrooms.":"위치를 켜면 가장 가까운 화장실이 바로 나옵니다.","Geolocation not supported.":"이 기기는 위치를 지원하지 않습니다.",
+"Location permission denied.":"위치 권한이 꺼져 있습니다.","Pick a city below.":"아래에서 도시를 고르세요.","You are here":"내 위치",
+"Searching...":"찾는 중…","Not covered here yet.":"여기는 아직 데이터가 없습니다.","Nearest supported city: ":"가장 가까운 지원 도시: ",
+"Nothing within 4 km with these filters.":"이 조건으로 4km 안에 없습니다.","mapped":"곳 등록","Paid":"유료","Free":"무료","Reported":"제보","Baby":"기저귀대",
+"Public restroom":"공중화장실","min":"분","Request failed.":"요청 실패","+ Add a restroom you found here":"+ 여기 있는 화장실 제보하기","Restroom Finder":"화장실 레이다","My location":"내 위치"};
+function T(t){return KO&&KD[t]?KD[t]:t;}
 function esc(t){var d=document.createElement("div");d.textContent=t==null?"":t;return d.innerHTML;}
 function home(){
   last=null; MAPEL.classList.remove("on"); BACK.classList.remove("on");
-  OUT.innerHTML='<div class="msg">Tap the button to see the nearest restrooms.<div class="chips" id="chips"></div></div>';
+  OUT.innerHTML='<div class="msg">'+T("Tap the button to see the nearest restrooms.")+'<div class="chips" id="chips"></div></div>';
   fillChips("chips");
 }
 function fillChips(id){
@@ -353,6 +365,10 @@ function fillChips(id){
   });
 }
 fillChips("chips");
+if(KO){document.documentElement.lang="ko";GO.textContent=T(GO.textContent);
+  ["ffree","fwc"].forEach(function(id){var b=document.getElementById(id);b.textContent=T(b.textContent);});
+  var ab=document.getElementById("addBtn");ab.textContent=T(ab.textContent);
+  var sb=document.querySelector(".sub");if(sb)sb.textContent=T(sb.textContent);}
 BACK.onclick=function(){ if(history.state&&history.state.r){history.back();} else {home();} };
 window.addEventListener("popstate",function(){ home(); });
 function tg(id,set){var b=document.getElementById(id);
@@ -360,17 +376,24 @@ function tg(id,set){var b=document.getElementById(id);
 tg("ffree",function(){free=free?0:1;});
 tg("fwc",function(){wc=wc?0:1;});
 GO.onclick=function(){
-  if(!navigator.geolocation){OUT.innerHTML='<div class="msg">Geolocation not supported.</div>';return;}
-  GO.disabled=true;GO.textContent="Locating...";
+  if(!navigator.geolocation){OUT.innerHTML='<div class="msg">'+T("Geolocation not supported.")+'</div>';return;}
+  GO.disabled=true;GO.textContent=T("Locating...");
   navigator.geolocation.getCurrentPosition(function(p){
-    GO.disabled=false;GO.textContent="Find restrooms near me";
-    query(p.coords.latitude,p.coords.longitude);
+    GO.disabled=false;GO.textContent=T("Find restrooms near me");
+    me=[p.coords.latitude,p.coords.longitude];
+    query(me[0],me[1],!!last);
   },function(){
-    GO.disabled=false;GO.textContent="Find restrooms near me";
-    OUT.innerHTML='<div class="msg">Location permission denied.<br>Pick a city below.<div class="chips" id="chips2"></div></div>';
+    GO.disabled=false;GO.textContent=T("Find restrooms near me");
+    OUT.innerHTML='<div class="msg">'+T("Location permission denied.")+'<br>'+T("Pick a city below.")+'<div class="chips" id="chips2"></div></div>';
     fillChips("chips2");
-  },{enableHighAccuracy:true,timeout:12000,maximumAge:60000});
+  },{enableHighAccuracy:true,timeout:12000,maximumAge:30000});
 };
+// 내 위치 버튼: 지도 위 오른쪽 아래 — 누르면 다시 내 위치로
+document.getElementById("locb").onclick=function(e){e.stopPropagation();
+  if(map&&me){map.setView(me,17);if(meMark)meMark.openPopup();}
+  GO.onclick();};
+// 앱을 열면 바로 내 위치로 찾는다(버튼 누를 필요 없음)
+setTimeout(function(){GO.onclick();},250);
 function drawMap(lat,lng,items){
   MAPEL.classList.add("on");
   if(!map){
@@ -384,15 +407,20 @@ function drawMap(lat,lng,items){
   if(layer)map.removeLayer(layer);
   marks=[];
   layer=L.layerGroup().addTo(map);
-  L.circleMarker([lat,lng],{radius:7,color:"#7ff0e2",fillColor:"#1ab2aa",fillOpacity:1,weight:2})
-    .addTo(layer).bindPopup("You are here");
+  if(me){meMark=L.marker(me,{icon:L.divIcon({className:"",html:'<div class="me"></div>',iconSize:[18,18],iconAnchor:[9,9]}),zIndexOffset:1000})
+    .addTo(layer).bindPopup(T("You are here"));}
   var pts=[[lat,lng]];
   items.forEach(function(it,i){
     var m=L.marker([it.lat,it.lng]).addTo(layer)
-      .bindPopup("<b>"+esc(it.label||"Public restroom")+"</b><br>"+it.dist+" m &middot; "+it.walk+" min");
+      .bindPopup("<b>"+esc(it.label||T("Public restroom"))+"</b><br>"+it.dist+" m &middot; "+it.walk+" "+T("min"));
     marks.push(m); pts.push([it.lat,it.lng]);
   });
-  map.fitBounds(pts,{padding:[28,28],maxZoom:16});
+  // 내 위치가 한가운데, 가장 가까운 세 곳까지만 보이게 — 손가락으로 확대할 일 없게
+  var near=pts.slice(0,4);
+  if(near.length>1){var b=L.latLngBounds(near);var z=Math.min(map.getBoundsZoom(b.pad(.25)),17);
+    var c=[lat,lng];var dl=0;near.forEach(function(p){dl=Math.max(dl,Math.abs(p[0]-c[0]),Math.abs(p[1]-c[1]))});
+    map.setView(c,Math.max(Math.min(map.getBoundsZoom(L.latLngBounds([[c[0]-dl,c[1]-dl],[c[0]+dl,c[1]+dl]]).pad(.15)),17),14));}
+  else map.setView([lat,lng],16);
   setTimeout(function(){map.invalidateSize();},80);
 }
 document.getElementById("addBtn").onclick=function(){
@@ -408,43 +436,43 @@ document.getElementById("addBtn").onclick=function(){
     fetch("/api/gg/report",{method:"POST",headers:{"Content-Type":"application/json"},
       body:JSON.stringify({lat:p.coords.latitude,lng:p.coords.longitude,name:nm,fee:fee,wc:wc})})
      .then(function(r){return r.json();}).then(function(d){
-       b.disabled=false;b.textContent="+ Add a restroom you found here";
+       b.disabled=false;b.textContent=T("+ Add a restroom you found here");
        if(d.ok){alert("Thanks. Your report is live.");query(p.coords.latitude,p.coords.longitude,true);}
        else alert("Could not save: "+(d.error||"unknown"));
      }).catch(function(){b.disabled=false;
-       b.textContent="+ Add a restroom you found here";alert("Request failed.");});
+       b.textContent=T("+ Add a restroom you found here");alert("Request failed.");});
   },function(){b.disabled=false;
-    b.textContent="+ Add a restroom you found here";alert("Location permission denied.");},
+    b.textContent=T("+ Add a restroom you found here");alert("Location permission denied.");},
   {enableHighAccuracy:true,timeout:15000,maximumAge:0});
 };
 function query(lat,lng,keep){
   last=[lat,lng];
   BACK.classList.add("on");
   if(!keep){ try{history.pushState({r:1},"","#results");}catch(e){} }
-  OUT.innerHTML='<div class="msg">Searching...</div>';
+  OUT.innerHTML='<div class="msg">'+T("Searching...")+'</div>';
   fetch("/api/gg/near?lat="+lat+"&lng="+lng+(free?"&free=1":"")+(wc?"&wc=1":""))
    .then(function(r){return r.json();}).then(function(d){
     if(!d.ok){OUT.innerHTML='<div class="msg">'+esc(d.error)+'</div>';return;}
     if(!d.covered){
       MAPEL.classList.remove("on");
       document.getElementById("addBtn").classList.remove("on");
-      OUT.innerHTML='<div class="msg">Not covered here yet.<br>Nearest supported city: <b>'
+      OUT.innerHTML='<div class="msg">'+T("Not covered here yet.")+'<br>'+T("Nearest supported city: ")+'<b>'
         +esc(d.nearest)+'</b> ('+d.nearest_km+' km)<div class="chips" id="chips3"></div></div>';
       fillChips("chips3"); return;}
     if(!d.items.length){
       MAPEL.classList.remove("on");
       document.getElementById("addBtn").classList.remove("on");
-      OUT.innerHTML='<div class="msg">Nothing within 4 km with these filters.</div>';return;}
-    var h='<div class="city">'+esc(d.city)+' &middot; '+d.total+' mapped</div>';
+      OUT.innerHTML='<div class="msg">'+T("Nothing within 4 km with these filters.")+'</div>';return;}
+    var h='<div class="city">'+esc(d.city)+' &middot; '+d.total+' '+T("mapped")+'</div>';
     d.items.forEach(function(it,i){
       h+='<div class="row" data-i="'+i+'"><div class="n"><div class="lb'+(it.label?"":" dim")+'">'
-        +esc(it.label||"Public restroom")+'</div><div class="tags">';
-      h+='<span class="tag">'+(it.fee?"Paid":"Free")+'</span>';
-   if(it.user)h+='<span class="tag utag">Reported</span>';
+        +esc(it.label||T("Public restroom"))+'</div><div class="tags">';
+      h+='<span class="tag">'+(it.fee?T("Paid"):T("Free"))+'</span>';
+   if(it.user)h+='<span class="tag utag">'+T("Reported")+'</span>';
       if(it.h24)h+='<span class="tag">24h</span>';
-      if(it.wc)h+='<span class="tag">Wheelchair</span>';
-      if(it.baby)h+='<span class="tag">Baby</span>';
-      h+='</div></div><div class="d"><b>'+it.dist+'m</b><span>'+it.walk+' min</span></div></div>';
+      if(it.wc)h+='<span class="tag">'+T("Wheelchair")+'</span>';
+      if(it.baby)h+='<span class="tag">'+T("Baby")+'</span>';
+      h+='</div></div><div class="d"><b>'+it.dist+'m</b><span>'+it.walk+' '+T("min")+'</span></div></div>';
     });
     OUT.innerHTML=h;
     drawMap(lat,lng,d.items);
@@ -458,7 +486,7 @@ function query(lat,lng,keep){
           MAPEL.scrollIntoView({behavior:"smooth",block:"center"});}
       };
     });
-   }).catch(function(){OUT.innerHTML='<div class="msg">Request failed.</div>';});
+   }).catch(function(){OUT.innerHTML='<div class="msg">'+T("Request failed.")+'</div>';});
 }
 </script></body></html>"""
 
