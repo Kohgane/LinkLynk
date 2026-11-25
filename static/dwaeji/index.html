@@ -63,7 +63,7 @@ input::placeholder{color:#6a5a58}
   <div id="wizard">
     <div class="step">
       <h2>① 어디로 갑니까?</h2>
-      <div class="rgrow"><input type="text" id="region" placeholder="예: 서울 을지로 / 부산 남포동"><button type="button" id="here">📍 지금 여기</button></div><div id="hereMsg"></div>
+      <div class="rgrow"><input type="text" id="region" placeholder="예: 서울 을지로 / 도쿄 신주쿠 / 상하이 신천지"><button type="button" id="here">📍 지금 여기</button></div><div id="hereMsg"></div>
     </div>
     <div class="step">
       <h2>② 뭐가 당깁니까?</h2>
@@ -95,7 +95,7 @@ input::placeholder{color:#6a5a58}
   <div id="err"></div>
   <div id="res"></div>
   <button id="again">🐽 조건 바꿔 다시 킁킁</button>
-  <div id="notice">네이버 지도에 있는 가게만, 체험단·협찬 글이 많은 집은 빼고 골라요.<br>휴무·브레이크타임은 지도 링크에서 한 번 더 확인!</div>
+  <div id="notice">국내는 네이버 지도, 해외는 오픈 지도에 있는 가게만 — 체험단·협찬 글 많은 집은 빼고, 한국인 실제 후기로 골라요.<br>휴무·브레이크타임은 지도 링크에서 한 번 더 확인!</div>
 </div>
 
 <script>
@@ -118,7 +118,7 @@ $('go').onclick=async()=>{
   $('loading').style.display='block';$('again').style.display='none';
   try{
     const r=await fetch('/api/dwaeji/reco',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({region,food:val($('foodChips')),mood:val($('moodChips')),party:val($('partyChips'))})});
+      body:JSON.stringify(Object.assign({region,food:val($('foodChips')),mood:val($('moodChips')),party:val($('partyChips'))},HERE&&HERE.name===region?{lat:HERE.lat,lng:HERE.lng}:{}))});
     const d=await r.json();
     $('loading').style.display='none';
     if(!d.ok){showErr(d.error||'탐지 실패');return;}
@@ -132,10 +132,7 @@ $('go').onclick=async()=>{
         ${p.diary?`<div class="diary">"${esc(p.diary)}"</div>`:''}
         ${good(p.cons)?`<div class="cons">😥 ${esc(p.cons)}</div>`:''}
         ${good(p.tip)&&!/추천한다\.?$|추천합니다\.?$/.test(p.tip)?`<div class="tip">💡 ${esc(p.tip)}</div>`:''}
-        <div class="maps">
-          <a class="nv" target="_blank" href="https://map.naver.com/p/search/${q}">네이버지도</a>
-          <a class="kk" target="_blank" href="https://map.kakao.com/?q=${q}">카카오맵</a>
-        </div>`;
+        <div class="maps">${mapLinks(p,q)}</div>`;
       $('res').insertBefore(el,$('res').querySelector('#shareMap'));
     });};
     draw(d.picks);
@@ -167,6 +164,14 @@ $('go').onclick=async()=>{
 };
 function showErr(m){$('err').textContent='🐷 '+m;$('err').style.display='block';$('wizard').style.display='block';}
 $('again').onclick=()=>{$('wizard').style.display='block';$('res').innerHTML='';$('again').style.display='none';window.scrollTo({top:0,behavior:'smooth'});};
+let HERE=null;
+// 나라별 지도: 한국=네이버·카카오, 중국=가오더·구글, 그 밖=구글
+function mapLinks(p,q){
+  if(!p.cc||p.cc==='KR')return `<a class="nv" target="_blank" href="https://map.naver.com/p/search/${q}">네이버지도</a><a class="kk" target="_blank" href="https://map.kakao.com/?q=${q}">카카오맵</a>`;
+  const g=p.lat?`https://www.google.com/maps/search/?api=1&query=${p.lat},${p.lng}`:`https://www.google.com/maps/search/?api=1&query=${q}`;
+  if(p.cc==='CN'&&p.lat)return `<a class="nv" target="_blank" href="https://uri.amap.com/marker?position=${p.lng},${p.lat}&name=${encodeURIComponent(p.name)}&coordinate=wgs84&callnative=1">가오더지도</a><a class="kk" target="_blank" href="${g}">구글지도</a>`;
+  return `<a class="nv" target="_blank" href="${g}">구글지도</a><a class="kk" target="_blank" href="https://maps.apple.com/?q=${encodeURIComponent(p.name)}&ll=${p.lat},${p.lng}">애플지도</a>`;
+}
 function good(t){t=String(t||'').trim();return t.length>2&&!/^(딱히\s*)?없(음|다|습니다)\.?$|^-$|^정보\s*없음/.test(t);}
 // 📍 지금 여기 — 위치를 동네 이름으로 바꿔 넣는다
 $('here').onclick=()=>{const b=$('here'),m=$('hereMsg');
@@ -181,7 +186,7 @@ $('here').onclick=()=>{const b=$('here'),m=$('hereMsg');
     if(!name){try{const r=await fetch('https://api.bigdatacloud.net/data/reverse-geocode-client?localityLanguage=ko&latitude='+la+'&longitude='+lo);const j=await r.json();
       name=[(j.city||j.principalSubdivision||'').replace(/(특별시|광역시|특별자치시|특별자치도)$/,''),(j.locality||'').replace(/(\d*)동$/,'')].filter(Boolean).join(' ');}catch(e){}}
     b.disabled=false;b.textContent='📍 지금 여기';
-    if(name){$('region').value=name;$('region').style.borderColor='';m.textContent='✓ '+name+' 근처로 찾을게요';}
+    if(name){HERE={lat:la,lng:lo,name};$('region').value=name;$('region').style.borderColor='';m.textContent='✓ '+name+' 근처로 찾을게요';}
     else m.textContent='동네 이름을 못 찾았어요 — 직접 적어 주세요';
   },()=>{b.disabled=false;b.textContent='📍 지금 여기';m.textContent='위치 권한이 꺼져 있어요 — 동네 이름을 적어 주세요';},{enableHighAccuracy:false,timeout:10000,maximumAge:120000});};
 function esc(s){return String(s||'').replace(/[<>&"]/g,c=>({'<':'&lt;','>':'&gt;','&':'&amp;','"':'&quot;'}[c]));}
