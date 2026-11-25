@@ -817,7 +817,7 @@ def boim_guide():
 
 @app.route("/ads.txt")
 def _ads_txt():
-    return Response("google.com, pub-9571193552507188, DIRECT, f08c47fec0942fa0\n",
+    return Response("google.com, pub-2256918215878866, DIRECT, f08c47fec0942fa0\ngoogle.com, pub-9571193552507188, DIRECT, f08c47fec0942fa0\n",
                     mimetype="text/plain")
 
 @app.route("/robots.txt")
@@ -4134,9 +4134,14 @@ except Exception as _e:
 #   canonical 이 없는 페이지에만 linklynk 쪽 canonical 을 같이 넣는다.
 # ★실패해도 페이지는 그대로 나간다. 광고보다 앱이 먼저다.
 ADS_HOST = "apps.kohganemultishop.org"
-_ADS_TAG = ('<script async src="https://pagead2.googlesyndication.com/pagead/js/'
-            'adsbygoogle.js?client=ca-pub-9571193552507188" '
-            'crossorigin="anonymous"></script>')
+# ★아이폰 앱(웹뷰) 안에서는 애드센스를 안 띄운다(정책: 앱 웹뷰 애드센스 금지 → 앱은 애드몹).
+#   앱 껍데기가 window.webkit.messageHandlers.kg 를 심어 두니 그걸로 가른다.
+ADS_PUB = "ca-pub-2256918215878866"
+_ADS_TAG = ('<meta name="google-adsense-account" content="%s">'
+            '<script>(function(){try{if(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.kg)return;}catch(e){}'
+            'var s=document.createElement("script");s.async=true;s.crossOrigin="anonymous";'
+            's.src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=%s";'
+            'document.head.appendChild(s);})();</script>') % (ADS_PUB, ADS_PUB)
 _ADS_SKIP = ("/api/", "/t/", "/auth/", "/boim/pay/", "/boim/r/")
 
 
