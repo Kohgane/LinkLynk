@@ -225,6 +225,11 @@ body::before{background:
 .fin .bigcard{overflow:hidden;position:relative}
 .fin .bigcard img.art{position:absolute;inset:5px;width:calc(100% - 10px);height:calc(100% - 10px);object-fit:cover;border-radius:10px}
 .fin .bigcard .mn{position:absolute;left:0;right:0;bottom:10px;text-align:center;z-index:2;text-shadow:0 1px 6px #000}
+.diff{display:flex!important;flex-direction:row!important;gap:6px;justify-content:center;margin:2px auto 8px;width:100%;max-width:420px;box-sizing:border-box;align-self:center}
+.diff button{white-space:nowrap;min-width:0;writing-mode:horizontal-tb}
+.diff button{flex:1;font-family:var(--serif,serif);font-size:13px;letter-spacing:.08em;padding:8px 0;border-radius:999px;border:1px solid rgba(216,180,106,.25);background:rgba(255,255,255,.03);color:#a89d87}
+.diff button.on{color:#1a1410;border-color:transparent;background:linear-gradient(100deg,#9c7a2c,#d8b46a 40%,#f3dfa6 60%,#d8b46a)}
+.diff button[data-d=hell].on{color:#f3eee2;background:linear-gradient(160deg,#b8321f,#6a170d)}
 </style></head><body data-fx="hwatu"><svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
 <filter id="mhRough" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="3"/><feDisplacementMap in="SourceGraphic" scale="0.7"/></filter>
 <filter id="mhPaper" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="1.2" numOctaves="3" seed="9"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 .95  0 0 0 0 .85  0 0 0 .09 0"/><feComposite in2="SourceGraphic" operator="in"/></filter>
@@ -266,6 +271,7 @@ body::before{background:
  <div class="pot"><span class="coin"></span>판돈 <b id="pot">0</b>냥</div>
  <div class="seat"><div class="hname" id="np"></div><div class="hand" id="hp"></div><div class="who">산 자 (나)</div></div>
 </div>
+<div class="diff z" id="diff"><button data-d="easy">순한</button><button data-d="normal">보통</button><button data-d="hard">독한</button><button data-d="hell">염라</button></div>
 <div class="acts z" id="acts"></div>
 <div class="luck z" id="luck"></div>
 <div class="tools z"><button id="fortB">📜 오늘의 화투점</button><button id="jbB">족보</button><button id="snd">🔔 소리</button></div>
@@ -379,7 +385,13 @@ let bank=+LS.get('sd_bank',100), bday=LS.get('sd_day','');
 if(bday!==dstr){bank=100;LS.set('sd_bank',100);LS.set('sd_day',dstr);LS.set('sd_w',0);LS.set('sd_l',0)}
 let W=+LS.get('sd_w',0), L=+LS.get('sd_l',0);
 let deck,P=[],C=[],pot=0,carry=0,stage='idle',raised=false;
-const ANTE=10;
+// ── 난이도(차사 성깔) ──
+const DIFF={easy:{n:'순한 차사',ante:10,fold:.55,bluff:.05,bet:.5,lucky:2,lead:.75},
+ normal:{n:'보통 차사',ante:10,fold:.3,bluff:.2,bet:.5,lucky:2,lead:.6},
+ hard:{n:'독한 차사',ante:20,fold:.15,bluff:.32,bet:.75,lucky:2,lead:.5},
+ hell:{n:'염라 차사',ante:30,fold:.05,bluff:.45,bet:1,lucky:1.5,lead:.4}};
+let DK=LS.get('jh_diff','normal');if(!DIFF[DK])DK='normal';let D=DIFF[DK];
+let ANTE=D.ante;
 function ui(){document.getElementById('bank').textContent=bank;document.getElementById('pot').textContent=pot;
  document.getElementById('rec').textContent=W+'승 '+L+'패';LS.set('sd_bank',bank)}
 function showHands(reveal){
@@ -389,21 +401,27 @@ function showHands(reveal){
  document.getElementById('nc').textContent=reveal&&C.length===2?evalHand(C[0],C[1]).n:''}
 function acts(list){const el=document.getElementById('acts');el.innerHTML='';
  list.forEach(([t,fn,cls,dis])=>{const b=document.createElement('button');b.textContent=t;if(cls)b.className=cls;b.disabled=!!dis;b.onclick=()=>{ac();fn()};el.appendChild(b)})}
-function idle(){stage='idle';
+function setDiff(k){if(stage!=='idle'&&stage!=='show'){say2('판이 끝나면 바꿔라, 산 자.');return}
+ DK=k;D=DIFF[k];ANTE=D.ante;LS.set('jh_diff',k);paintDiff();
+ document.getElementById('say').innerHTML='<b>'+D.n+'</b>가 앉았다. 판돈 '+ANTE+'냥'+(k==='hell'?' — 염라는 허세도, 배짱도 끝까지 간다.':k==='easy'?' — 오늘은 봐주지.':'.');idle()}
+function say2(t){document.getElementById('say').innerHTML=t}
+function paintDiff(){document.querySelectorAll('#diff button').forEach(b=>b.classList.toggle('on',b.dataset.d===DK))}
+function idle(){stage='idle';paintDiff();
  if(bank<ANTE){say('bust');acts([['노잣돈 없음 — 내일 다시',()=>{},'',true]]);return}
  acts([['패 돌리기 · 판돈 '+ANTE+'냥',deal,'main']])}
 function deal(){if(bank<ANTE)return idle();
  deck=shuffle(mkDeck());P=[deck.pop()];C=[deck.pop()];bank-=ANTE;pot=carry+ANTE*2;carry=0;raised=false;stage='first';
  sCard();showHands(false);ui();say('deal');
  if(P[0].m===F.top.m)say('lucky');
- acts([['다이',fold],['콜',()=>second(false),'main'],['따당 +20',()=>second(true),'gold',bank<20]])}
+ acts([['다이',fold],['콜',()=>second(false),'main'],['따당 +'+ANTE*2,()=>second(true),'gold',bank<ANTE*2]])}
 function chasaStrength(){ // 차사가 자기 패를 얼마나 믿는가(0~1)
  if(C.length===1){const c=C[0];return Math.min(1,(c.m/10)*.5+(c.s?.3:0)+(c.m===1?.2:0))}
  const h=evalHand(C[0],C[1]);return h.r>=800?1:h.r>=700?.8:h.sp?.45:Math.max(0,(h.r-100)/12)}
 function second(raise){
- if(raise){bank-=20;pot+=20;say('raise');
-  if(chasaStrength()<.2&&Math.random()<.3){return chasaFold()}
-  pot+=20}
+ const R2=ANTE*2;
+ if(raise){bank-=R2;pot+=R2;say('raise');
+  if(chasaStrength()<.25&&Math.random()<D.fold){return chasaFold()}
+  pot+=R2}
  else say('call');
  P.push(deck.pop());C.push(deck.pop());stage='second';sCard();showHands(false);ui();
  const half=Math.max(10,Math.floor(pot/2));
@@ -411,10 +429,10 @@ function second(raise){
 function show(half,amt){
  const st=chasaStrength();
  if(half){bank-=amt;pot+=amt;
-  if(st<.25&&Math.random()<.3)return chasaFold();
+  if(st<.25&&Math.random()<D.fold)return chasaFold();
   pot+=amt;say('call');
-  if(st>=.85&&bank>0){return chasaBet(Math.max(10,Math.floor(pot/2)))}}
- else if(st>=.6||Math.random()<.2){return chasaBet(Math.max(10,Math.floor(pot/2)))}   // 차사가 먼저 따당(센 패 또는 허세)
+  if(st>=.85&&bank>0){return chasaBet(Math.max(ANTE,Math.floor(pot*D.bet)))}}
+ else if(st>=D.lead||Math.random()<D.bluff){return chasaBet(Math.max(ANTE,Math.floor(pot*D.bet)))}   // 차사가 먼저 따당(센 패 또는 허세)
  reveal()}
 function chasaBet(b){pot+=b;ui();
  document.getElementById('say').innerHTML=['따당. <b>'+b+'냥</b> 더. 받을 테냐, 산 자?','<b>'+b+'냥</b> 올리지. 네 패가 그만한가?','차사가 <b>'+b+'냥</b>을 던졌다. 겁나면 다이해라.'][Math.floor(Math.random()*3)];
@@ -425,7 +443,7 @@ function reveal(){
  const hp=evalHand(P[0],P[1]),hc=evalHand(C[0],C[1]),j=judge(hp,hc);
  if(j==='redeal'){say('draw');carry=pot;pot=0;ui();return setTimeout(idle,900)}
  if(j===0){L++;LS.set('sd_l',L);pot=0;sLose();document.getElementById('say').innerHTML='같은 끗이면 <b>선 잡은 차사</b> 몫이다.';ui();return acts([['다음 판',idle,'main']])}
- if(j===1){let gain=pot;const lucky=P.some(c=>c.m===F.top.m);if(lucky)gain*=2;
+ if(j===1){let gain=pot;const lucky=P.some(c=>c.m===F.top.m);if(lucky)gain=Math.round(gain*D.lucky);
   bank+=gain;W++;LS.set('sd_w',W);pot=0;
   (hp.r>=800?sGong:sWin)();document.querySelectorAll('#hp .cd').forEach(wisps);
   document.getElementById('say').innerHTML=(lucky?'<b>행운의 달</b>로 이겼다 — 판돈 두 배. ':'')+SAY.win[Math.floor(Math.random()*SAY.win.length)];
@@ -456,6 +474,8 @@ document.getElementById('luck').innerHTML='오늘의 행운의 달: <b>'+F.top.m
 P=[];C=[];showHands(false);ui();idle();
 if(LS.get('sd_ft','')!==dstr)setTimeout(showFortune,600);
 if('serviceWorker'in navigator)navigator.serviceWorker.register('/hwatu/sw.js').catch(()=>{});
+
+document.querySelectorAll('#diff button').forEach(b=>b.onclick=()=>setDiff(b.dataset.d));paintDiff();
 </script><script id="luxfx">(function(){
 // ── 박진감 레이어: 게임 코드는 건드리지 않고 DOM 변화를 보고 연출만 얹는다 ──
 var GAME=document.body.getAttribute('data-fx')||'';
