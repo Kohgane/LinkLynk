@@ -204,12 +204,13 @@ body{font-family:var(--sans);letter-spacing:-.01em;
 #intro .card h2 .flip{display:inline-block;transform:none!important;-webkit-text-fill-color:#d23a2a;color:#d23a2a;background:none;
  text-shadow:0 0 18px rgba(210,58,42,.55);animation:mjSeung 3.2s ease-in-out infinite}
 @keyframes mjSeung{0%,100%{opacity:1}46%{opacity:1}50%{opacity:.35}54%{opacity:1}58%{opacity:.6}62%{opacity:1}}
-.diffRow{display:flex;gap:6px;margin:12px 0 6px}
-.diffRow button{flex:1;padding:9px 0;border-radius:999px;border:1px solid rgba(216,180,106,.3);background:rgba(255,255,255,.03);color:#b9a89a;font-size:12.5px;font-weight:700;letter-spacing:.04em;font-family:inherit}
+.diffRow{display:grid;grid-template-columns:repeat(5,1fr);gap:5px;margin:12px 0 6px}
+.diffRow button{padding:8px 0;border-radius:999px;border:1px solid rgba(216,180,106,.3);background:rgba(255,255,255,.03);color:#b9a89a;font-size:12.5px;font-weight:700;letter-spacing:.04em;font-family:inherit}
 .diffRow button.on{color:#1a1410;border-color:transparent;background:linear-gradient(100deg,#9c7a2c,#d8b46a 40%,#f3dfa6 60%,#d8b46a)}
-.diffRow button[data-d=hell].on{color:#f3eee2;background:linear-gradient(160deg,#b8321f,#6a170d)}
+.diffRow button[data-d=j9].on,.diffRow button[data-d=j10].on{color:#f3eee2;background:linear-gradient(160deg,#b8321f,#6a170d)}
 .diffNote{font-size:11.5px;line-height:1.55;color:#9c8f7c;min-height:34px;margin-bottom:10px}
-</style></head>
+</style><script src="kgad.js"></script>
+</head>
 <body data-fx="majak">
 <div id="app">
   <div id="hud">
@@ -217,6 +218,7 @@ body{font-family:var(--sans);letter-spacing:-.01em;
     <div class="stat">시간<b id="stTime">00:00</b></div>
     <div class="stat">혼력<b id="stIQ">100.0</b></div>
     <div class="stat">콤보<b class="combo" id="stCombo">0</b></div>
+    <div class="stat">노잣돈<b id="stCoin" style="color:var(--gold)">0</b></div>
     <button id="btnOpt">☰</button>
   </div>
   <div id="boardWrap" style="background:radial-gradient(ellipse at center,rgba(10,8,13,.25),rgba(10,8,13,.72))"><div id="board"></div></div>
@@ -229,10 +231,10 @@ body{font-family:var(--sans);letter-spacing:-.01em;
 <!-- 인트로 -->
 <div class="modal on" id="intro"><div class="card">
   <h2>저<span class="flip">승</span>마작</h2>
-  <p>차사의 패방(牌房)에 들었다.<br>같은 문양의 열린 패 두 장을 맞춰<br>모든 패를 거두면 다음 층으로.<br><br>글자든 문양이든, 같은 패끼리 맞춰라.</p>
-  <div class="diffRow" id="diffI"><button data-d="easy">순한 혼</button><button data-d="normal">보통</button><button data-d="hard">독한 혼</button><button data-d="hell">염라</button></div><div class="diffNote" id="diffIN"></div>
+  <p>차사가 <b style="color:#e8e2d6">검은 표</b>를 내밀었다 — 지옥행.<br>시왕 열 분의 심판을 패로 버티면 혼불 빛이 오른다.<br><br>차사의 패방(牌房)에 들었다.<br>같은 문양의 열린 패 두 장을 맞춰<br>모든 패를 거두면 다음 층으로.<br><br>글자든 문양이든, 같은 패끼리 맞춰라.</p>
+  <div class="diffRow" id="diffI"><button data-d="j1">도산</button><button data-d="j2">화탕</button><button data-d="j3">한빙</button><button data-d="j4">검수</button><button data-d="j5">발설</button><button data-d="j6">독사</button><button data-d="j7">거해</button><button data-d="j8">철상</button><button data-d="j9">풍도</button><button data-d="j10">흑암</button></div><div class="diffNote" id="diffIN"></div>
   <button id="btnStart" style="width:100%;background:var(--crim);border:none;color:var(--paper);padding:14px;border-radius:12px;font-weight:900;font-size:16px">패방 입장</button>
-  <div id="adFreeUntil">🕯️ 5층까지는 광고가 없다 — 차사의 예우다.</div>
+  <div id="adFreeUntil">🕯️ 5층까지는 광고가 없다 — 차사의 예우다. · 노잣돈은 판을 깨서 모은다.</div><div id="soulC" style="font-size:12px;color:#9c8f7c;margin-top:8px"></div>
 </div></div>
 
 <!-- 옵션 -->
@@ -240,25 +242,21 @@ body{font-family:var(--sans);letter-spacing:-.01em;
   <button class="xbtn" data-x="optM">✕</button><h2>옵션</h2>
   <div class="optRow"><span>🔔 소리</span><button class="tog on" id="togSnd"></button></div>
   <div class="optRow"><span>🕯️ 자동 힌트</span><button class="tog" id="togHint"></button></div>
-  <div class="optRow adfreeRow" id="rowAdfree"><span>👑 <b>광고 없음</b> — 영원히</span><span style="color:var(--gold);font-weight:900">₩9,900 ›</span></div>
-  <div style="margin:10px 0 4px;font-size:12px;color:#b9a89a">난이도 (바꾸면 이 층부터 다시)</div><div class="diffRow" id="diffO"><button data-d="easy">순한 혼</button><button data-d="normal">보통</button><button data-d="hard">독한 혼</button><button data-d="hell">염라</button></div><div class="diffNote" id="diffON"></div>
+  <div class="optRow adfreeRow" id="rowCoin"><span>💰 <b>노잣돈 받기</b> — 뱃사공 심부름</span><span style="color:var(--gold);font-weight:900" id="rowCoinN">+50냥 ›</span></div>
+  <div style="margin:10px 0 4px;font-size:12px;color:#b9a89a">지옥 고르기 — 시왕 열 분의 심판 (바꾸면 이 층부터 다시)</div><div class="diffRow" id="diffO"><button data-d="j1">도산</button><button data-d="j2">화탕</button><button data-d="j3">한빙</button><button data-d="j4">검수</button><button data-d="j5">발설</button><button data-d="j6">독사</button><button data-d="j7">거해</button><button data-d="j8">철상</button><button data-d="j9">풍도</button><button data-d="j10">흑암</button></div><div class="diffNote" id="diffON"></div>
   <button id="btnRestartOpt">↻ 이 층 재시작</button>
 </div></div>
 
-<!-- 광고없음 상품 -->
-<div class="modal" id="iapM"><div class="card">
-  <button class="xbtn" data-x="iapM">✕</button><h2>👑 광고 없음</h2>
-  <p style="font-size:13px;color:#b9a89a;line-height:1.7">한 번 바치면 <b style="color:var(--gold)">영원히</b> 광고가 뜨지 않는다.<br>노잣돈 ₩9,900 — 뱃사공이 좋아한다.</p>
-  <button id="btnBuy" style="width:100%;margin-top:14px;background:linear-gradient(#d4af5a,#b8923e);border:none;color:#1a1420;padding:13px;border-radius:12px;font-weight:900;font-size:16px">₩9,900 바치기</button>
-  <div style="font-size:11px;color:#6a6072;margin-top:10px;text-align:center">결제 연동 준비 중 — 지금은 구경만</div>
+<!-- 노잣돈 쓰기 -->
+<div class="modal" id="buyM"><div class="card">
+  <h2 id="buyT" style="font-size:18px"></h2><p id="buyP" style="font-size:13px;color:#b9a89a;line-height:1.7"></p>
+  <button id="buyY" style="width:100%;margin-top:10px;background:linear-gradient(#d4af5a,#b8923e);border:none;color:#1a1420;padding:13px;border-radius:12px;font-weight:900;font-size:15px"></button>
+  <button id="buyAd" style="width:100%;margin-top:8px;background:#171221;border:1.5px solid #3a3342;color:var(--paper);padding:11px;border-radius:12px;font-weight:700;font-size:14px">💰 노잣돈 받기 (+50냥)</button>
+  <button id="buyN" style="width:100%;margin-top:8px;background:none;border:none;color:#8a8078;padding:8px;font-size:13px">그만두기</button>
 </div></div>
 
-<!-- 광고 슬롯 -->
-<div class="modal" id="adM"><div class="card" id="adCard">
-  <h2 style="font-size:16px;color:#8a8078">혼불 쉼터</h2>
-  <div id="adBox">🏮<div>광고 자리</div><div style="font-size:11px">(뱃사공: "광고나 한 편 보고 가라")</div></div>
-  <button id="adSkip" disabled>3초 뒤 지나갈 수 있다…</button>
-</div></div>
+
+
 
 <!-- 결과 -->
 <div class="modal" id="resM"><div class="card" id="resCard">
@@ -328,12 +326,41 @@ function layoutFor(lv){
 }
 
 /* ══ 난이도 ══ */
-const DIFF={easy:{n:'순한 혼',tag:'순',kinds:6,lockAt:99,fogAt:99,gm:0,hint:0,hintMax:99,shufMax:99,miss:0,numb:99,limit:0},
- normal:{n:'보통',tag:'',kinds:12,lockAt:6,fogAt:11,gm:1,hint:2,hintMax:99,shufMax:99,miss:3,numb:3,limit:0},
- hard:{n:'독한 혼',tag:'독',kinds:12,lockAt:2,fogAt:4,gm:1.5,hint:3,hintMax:3,shufMax:2,miss:5,numb:3,limit:0},
- hell:{n:'염라',tag:'염라',kinds:12,lockAt:1,fogAt:1,gm:2,hint:0,hintMax:0,shufMax:1,miss:8,numb:2,limit:4}};
-let DK=(function(){try{return localStorage.getItem('jak_diff')||'normal'}catch(e){return 'normal'}})(); if(!DIFF[DK])DK='normal'; let D=DIFF[DK];
+const JIOK=[
+ ['진광대왕','도산지옥','칼산을 맨발로 — 몸풀기 판'],
+ ['초강대왕','화탕지옥','끓는 솥 — 문양이 늘어난다'],
+ ['송제대왕','한빙지옥','얼음 속 — 쇠사슬이 언다'],
+ ['오관대왕','검수지옥','칼날 숲 — 안개가 낀다'],
+ ['염라대왕','발설지옥','혀를 뽑는 곳 — 헛짚으면 아프다'],
+ ['변성대왕','독사지옥','독사굴 — 혼불이 귀하다'],
+ ['태산대왕','거해지옥','톱 지옥 — 시간이 흐른다'],
+ ['평등대왕','철상지옥','쇠평상 — 거의 다 묶였다'],
+ ['도시대왕','풍도지옥','바람 지옥 — 혼불 없음'],
+ ['오도전륜대왕','흑암지옥','칠흑 — 마지막 심판']];
+const _T=(a)=>a; // 열 단계 표(1→10)
+const _kinds=[6,8,10,12,12,12,12,12,12,12],_lock=[99,9,6,4,3,2,2,1,1,1],_fog=[99,99,10,7,5,4,3,2,1,1],
+ _gm=[0,.6,1,1,1.2,1.4,1.6,1.8,2,2.4],_hint=[0,1,1,2,2,3,3,3,4,4],_hm=[99,99,8,5,4,3,2,1,0,0],_sm=[99,99,6,4,3,2,2,1,1,1],
+ _miss=[0,1,2,3,4,5,6,7,8,10],_numb=[99,5,4,3,3,3,3,2,2,2],_lim=[0,0,0,0,0,0,7,6,5,4];
+const DIFF={};JIOK.forEach((J,i)=>{DIFF['j'+(i+1)]={n:J[1],king:J[0],lore:J[2],tag:J[1].replace('지옥',''),tier:i+1,kinds:_kinds[i],lockAt:_lock[i],fogAt:_fog[i],gm:_gm[i],
+ hint:_hint[i],hintMax:_hm[i],shufMax:_sm[i],miss:_miss[i],numb:_numb[i],limit:_lim[i]}});
+const _OLD={easy:'j1',normal:'j3',hard:'j6',hell:'j9'};
+let DK=(function(){try{return localStorage.getItem('jak_diff')||'j3'}catch(e){return 'j3'}})(); if(_OLD[DK])DK=_OLD[DK]; if(!DIFF[DK])DK='j3'; let D=DIFF[DK];
 let hintLeft=99, shufLeft=99, limT=0;
+/* 노잣돈: 판을 깨서 번다 · 매일 뱃사공 녹봉 · 심부름(게임용 보상 광고, 없으면 그냥) — 돈 내고 사는 것 없음 */
+const _LS={g(k,d){try{const v=localStorage.getItem(k);return v===null?d:v}catch(e){return d}},s(k,v){try{localStorage.setItem(k,v)}catch(e){}}};
+let coin=+_LS.g('jak_coin',120); const _today=new Date().toDateString();
+if(_LS.g('jak_coinday','')!==_today){coin+=60;_LS.s('jak_coinday',_today);_LS.s('jak_errand',0);setTimeout(()=>toast('🛶 뱃사공 녹봉 +60냥'),900);}
+function coinUI(d){_LS.s('jak_coin',coin);const b=document.getElementById('stCoin');if(!b)return;b.textContent=coin;if(d){b.animate([{transform:'scale(1.5)'},{transform:'scale(1)'}],{duration:420});}}
+const ITEM={hint:{n:'🕯️ 혼불 한 번',c:15},shuf:{n:'🌀 패 섞기 한 번',c:25},time:{n:'⏳ 30초 더',c:30}};
+function errand(after){const k=+_LS.g('jak_errand',0);if(k>=8){toast('오늘 심부름은 끝 — 판을 깨서 벌어라');return after&&after(false);}
+ const go=(viaAd)=>{coin+=50;_LS.s('jak_errand',k+1);coinUI(1);toast(viaAd?'💰 심부름 값 +50냥':'💰 뱃사공이 그냥 쥐여 준다 +50냥');after&&after(true);};
+ if(window.KGAD)KGAD.reward('majak-coin',go);else go(false);}
+function offer(kind,onBuy,onNo){const it=ITEM[kind];$('buyT').textContent=it.n+' — '+it.c+'냥';
+ $('buyP').innerHTML='지금 노잣돈 <b style="color:var(--gold)">'+coin+'냥</b>.'+(coin<it.c?'<br>모자라다 — 심부름으로 받아 와라.':'');
+ $('buyY').textContent=coin>=it.c?it.c+'냥 내고 쓰기':'노잣돈이 모자라다';$('buyY').disabled=coin<it.c;
+ $('buyY').onclick=()=>{if(coin<it.c)return;coin-=it.c;coinUI(1);$('buyM').classList.remove('on');onBuy();};
+ $('buyAd').onclick=()=>errand(()=>offer(kind,onBuy,onNo));
+ $('buyN').onclick=()=>{$('buyM').classList.remove('on');onNo&&onNo();};$('buyM').classList.add('on');}
 /* ══ 게임 상태 ══ */
 let lv=+(localStorage.getItem('jak_lv')||1), tiles=[], sel=null, t0=0, timer=null,
     combo=0, maxCombo=0, lastMatch=0, mistakes=0, snd=true, autoHint=false, adFree=localStorage.getItem('jak_adfree')==='1';
@@ -498,9 +525,9 @@ function shuffle(depth){ depth=depth||0; const alive=tiles.filter(t=>!t.gone);
     if(lk.length){ const t=lk[Math.random()*lk.length|0]; t.lock=false; t.el&&t.el.classList.remove('lock'); toast('차사가 쇠사슬 하나를 풀어 줬다'); refresh(); }
     if(depth<8&&!hasMove()) shuffle(depth+1); } }
 
-$('btnShuffle').onclick=()=>{ if(shufLeft<=0){beep('bad');toast(D.n+' — 이 층은 더 못 섞는다');return;}
+$('btnShuffle').onclick=()=>{ if(shufLeft<=0){beep('bad');offer('shuf',()=>{shufLeft++;$('btnShuffle').click();});return;}
   if(D.shufMax<99){shufLeft--;toast('패 섞기 · 남은 '+shufLeft+'번');} beep('tak');shuffle();};
-$('btnHint').onclick=()=>{ if(hintLeft<=0){beep('bad');toast(D.hintMax===0?'염라 앞에 혼불은 없다':'이 층 혼불을 다 썼다');return;}
+$('btnHint').onclick=()=>{ if(hintLeft<=0){beep('bad');offer('hint',()=>{hintLeft++;$('btnHint').click();});return;}
   const f=tiles.filter(t=>!t.gone&&!t.lock&&isFree(t));
   for(let i=0;i<f.length;i++) for(let j=i+1;j<f.length;j++) if(f[i].motif===f[j].motif){
     f[i].el.classList.add('hintP');f[j].el.classList.add('hintP');
@@ -511,7 +538,7 @@ $('btnHint').onclick=()=>{ if(hintLeft<=0){beep('bad');toast(D.hintMax===0?'염�
 /* ══ 혼력(IQ풍) & 타이머 ══ */
 function updIQ(){ $('stIQ').textContent=Math.max(60,142.4-mistakes*2.7).toFixed(1); }
 function tick(){ const s=((Date.now()-t0)/1000)|0;
-  if(limT&&s>=limT&&tiles.some(t=>!t.gone)){ clearInterval(timer); beep('bad'); toast('시간이 다 됐다 — 염라가 판을 엎는다'); if(window.FX){FX.shake(2);FX.flash('rgba(200,30,20,.5)');} setTimeout(start,1600); return; }
+  if(limT&&s>=limT&&tiles.some(t=>!t.gone)){ clearInterval(timer); beep('bad'); if(window.FX){FX.shake(2);FX.flash('rgba(200,30,20,.5)');} const _p=Date.now(); offer('time',()=>{limT+=30;t0+=Date.now()-_p;timer=setInterval(tick,500);tick();},()=>{toast('시간이 다 됐다 — '+D.king+'이 판을 엎는다');setTimeout(start,900);}); return; }
   if(limT){ const r=limT-s; $('stTime').textContent=String(r/60|0).padStart(2,'0')+':'+String(r%60).padStart(2,'0'); $('stTime').style.color=r<=15?'#ef4b3a':''; return; }
   $('stTime').textContent=String(s/60|0).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); }
 
@@ -532,10 +559,13 @@ function win(){ clearInterval(timer); beep('bell');
   $('rIQ').textContent=$('stIQ').textContent;
   $('rCombo').textContent=maxCombo;
   $('chasaLine').textContent='차사: '+CH[Math.random()*CH.length|0];
+  const earn=6+D.tier*4+Math.floor(maxCombo*1.5)+(mistakes===0?10:0); coin+=earn; coinUI(1);
+  $('chasaLine').textContent='차사: '+CH[Math.random()*CH.length|0]+'  · 노잣돈 +'+earn+'냥';
+  const best=+_LS.g('jak_best',0); if(D.tier>best){_LS.s('jak_best',D.tier);}
   const show=()=>$('resM').classList.add('on');
-  if(!adFree && lv>AD_FREE_LEVELS) showAd(show); else show();
+  if(lv>AD_FREE_LEVELS && lv%2===0 && window.KGAD) KGAD.breakAd('majak-'+lv, show); else show();
 }
-function showAd(after){ $('adM').classList.add('on');
+function showAd(after){ return after&&after();
   const b=$('adSkip'); b.disabled=true; let n=3;
   b.textContent='3초 뒤 지나갈 수 있다…';
   const iv=setInterval(()=>{ n--; if(n<=0){clearInterval(iv);b.disabled=false;b.textContent='지나가기 →';} else b.textContent=n+'초 뒤 지나갈 수 있다…';},1000);
@@ -548,16 +578,16 @@ $('btnOpt').onclick=()=>$('optM').classList.add('on');
 document.querySelectorAll('.xbtn').forEach(b=>b.onclick=()=>$(b.dataset.x).classList.remove('on'));
 $('togSnd').onclick=e=>{snd=!snd;e.target.classList.toggle('on',snd);};
 $('togHint').onclick=e=>{autoHint=!autoHint;e.target.classList.toggle('on',autoHint);};
-$('rowAdfree').onclick=()=>{$('optM').classList.remove('on');$('iapM').classList.add('on');};
-$('btnBuy').onclick=()=>{ adFree=true; localStorage.setItem('jak_adfree','1');
-  $('iapM').classList.remove('on'); toast('👑 뱃사공이 흡족해한다 — 광고 영구 제거 (데모)'); };
+$('rowCoin').onclick=()=>errand();
 $('btnRestartOpt').onclick=()=>{$('optM').classList.remove('on');start();};
 
 function toast(m){ const t=$('toast'); t.textContent=m; t.style.opacity=1; setTimeout(()=>t.style.opacity=0,2200); }
 
 /* ══ 시작 ══ */
 function start(){
-  $('lvlBadge').textContent=lv+'층'+(D.tag?' · '+D.tag:'');
+  $('lvlBadge').textContent=lv+'층 · '+D.tag; coinUI();
+  { const b=+_LS.g('jak_best',0), C=['#9a948c','#9a948c','#7fb2e8','#7fb2e8','#7fe8d0','#e8b26a','#e8b26a','#e2553f','#e2553f','#f3dfa6','#ffffff'][b];
+    const sc=$('soulC'); if(sc) sc.innerHTML='혼불 빛깔 <b style="color:'+C+';text-shadow:0 0 8px '+C+'">●</b> — '+(b?JIOK[b-1][1]+'까지 버텼다':'아직 심판 전'); }
   hintLeft=D.hintMax; shufLeft=D.shufMax;
   tiles=deal(layoutFor(lv),lv); sel=null; combo=0; maxCombo=0; mistakes=0; lastMatch=0;
   $('stCombo').textContent=0; updIQ();
@@ -569,7 +599,9 @@ $('btnStart').onclick=()=>{ $('intro').classList.remove('on'); beep('bell'); sta
 addEventListener('resize',()=>tiles.length&&render());
 if('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(()=>{});
 
-const DNOTE={"easy": "문양 6가지 · 쇠사슬·안개 없음 · 혼불·섞기 무제한, 헛짚어도 시간 안 깎임", "normal": "문양 12가지 · 6층부터 쇠사슬, 11층부터 안개 · 헛짚으면 3초", "hard": "2층부터 쇠사슬, 4층부터 안개(1.5배) · 혼불 3번·섞기 2번 · 헛짚으면 5초", "hell": "1층부터 쇠사슬·안개 2배 · 혼불 없음·섞기 1번 · 헛짚으면 8초 · 제한시간(패당 4초) 넘기면 판이 엎어진다"};
+function DNOTE_(d){const f=x=>x>=99?'없음':x+'층부터';return d.king+' · '+d.lore+' — 문양 '+d.kinds+' · 쇠사슬 '+f(d.lockAt)+' · 안개 '+f(d.fogAt)
+ +' · 혼불 '+(d.hintMax>=99?'∞':d.hintMax)+' · 섞기 '+(d.shufMax>=99?'∞':d.shufMax)+(d.miss?' · 헛짚으면 '+d.miss+'초':'')+(d.limit?' · 제한시간(패당 '+d.limit+'초)':'');}
+const DNOTE=new Proxy({},{get:(o,k)=>DIFF[k]?DNOTE_(DIFF[k]):''});
 function paintDiff(){ ['diffI','diffO'].forEach(id=>{const r=$(id); if(!r)return; r.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.d===DK)); $(id+'N').textContent=DNOTE[DK];}); }
 function setDiff(k,restart){ DK=k; D=DIFF[k]; try{localStorage.setItem('jak_diff',k)}catch(e){} paintDiff(); if(restart){ document.querySelectorAll('.modal.on').forEach(m=>{if(m.id!=='intro')m.classList.remove('on')}); start(); toast(D.n+' — '+lv+'층부터'); } }
 $('diffI').addEventListener('click',e=>{const b=e.target.closest('button'); if(b)setDiff(b.dataset.d,false);});
