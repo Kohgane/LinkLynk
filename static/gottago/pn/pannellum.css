@@ -7,7 +7,7 @@
     width: 100%;
     height: 100%;
     font-family: Helvetica, "Nimbus Sans L", "Liberation Sans", Arial, sans-serif;
-    background: #f4f4f4 url('img/background.svg') repeat;
+    background: #0b0f16;
     -webkit-user-select: none;
     -khtml-user-select: none;
     -moz-user-select: none;
@@ -32,16 +32,16 @@
 
 .pnlm-grab {
     cursor: grab;
-    cursor: url('img/grab.svg') 12 8, default;
+    cursor: grab;
 }
 
 .pnlm-grabbing {
     cursor: grabbing;
-    cursor: url('img/grabbing.svg') 12 8, default;
+    cursor: grabbing;
 }
 
 .pnlm-sprite {
-    background-image: url('img/sprites.svg');
+    background-image: none;
 }
 
 .pnlm-container:-moz-full-screen {
@@ -388,7 +388,7 @@ div.pnlm-tooltip:hover span:after {
     right: 4px;
     bottom: 4px;
     border-radius: 25px;
-    background-image: url('img/compass.svg');
+    background-image: none;
     cursor: default;
     display: none;
 }
