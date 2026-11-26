@@ -650,7 +650,7 @@ function bearing(a,b,c,d){var y=Math.sin((d-b)*Math.PI/180)*Math.cos(c*Math.PI/1
 function kakao(cb){if(window.kakao&&kakao.maps&&kakao.maps.Roadview)return cb();if(!kload){kload=[];var s=document.createElement("script");
   s.src="https://dapi.kakao.com/v2/maps/sdk.js?autoload=false&appkey="+KKEY;s.onload=function(){kakao.maps.load(function(){kload.forEach(function(f){f()});kload=[];})};
   s.onerror=function(){kload.forEach(function(f){f(1)});kload=[];};document.head.appendChild(s);}kload.push(cb);}
-var PV=null,PIPW=0;
+var PV=null,PIPW=0,RVN=0;   /* RVN: 마지막으로 누른 입구보기 번호 — 늦게 도착한 이전 사진이 덮어쓰지 못하게 */
 function pipEl(id){return document.getElementById(id);}
 function pipMsg(t){pipEl("pipMsg").textContent=t||"";}
 function pipSize(w){var W=innerWidth,H=innerHeight,p=pipEl("pip");w=Math.max(150,Math.min(w,W-12));var h=Math.min(Math.round(w*0.75),H-60);
@@ -683,7 +683,7 @@ function pnShow(cfg,src){if(PV){try{PV.destroy()}catch(e){}PV=null;}pipEl("pipV"
   cfg.autoLoad=true;cfg.showControls=false;cfg.hfov=cfg.hfov||95;cfg.minHfov=40;cfg.maxHfov=120;cfg.compass=false;cfg.mouseZoom=true;
   PV=pannellum.viewer("pipV",cfg);PV.on("load",function(){pipMsg("");});PV.on("error",function(){pipMsg(KO?"거리 사진을 못 불러왔습니다.":"Couldn't load street photo.");});
   pipEl("pipS").textContent=src;}
-function rvNaver(it){return fetch("https://panorama.map.naver.com/api/v2/nearby/"+it.lng+"/"+it.lat).then(function(r){return r.json()}).then(function(j){
+function rvNaver(it){var tk=RVN;return fetch("https://panorama.map.naver.com/api/v2/nearby/"+it.lng+"/"+it.lat).then(function(r){return r.json()}).then(function(j){
   var f=(j.features||[])[0];if(!f)return false;var c=f.geometry.coordinates,id=encodeURIComponent(f.properties.id);
   if(Math.hypot((c[1]-it.lat)*111320,(c[0]-it.lng)*111320*Math.cos(it.lat*Math.PI/180))>150)return false;
   /* 면 하나 = 512 타일 2x2(1024px) — 캔버스로 이어 붙인다 */
@@ -692,25 +692,25 @@ function rvNaver(it){return fetch("https://panorama.map.naver.com/api/v2/nearby/
       im.onload=function(){cx.drawImage(im,(t[0]-1)*512,(t[1]-1)*512);if(--left===0)fin();};im.onerror=function(){bad++;if(--left===0)fin();};
       im.src="https://panorama.pstatic.net/image/"+id+"/512/M/"+x+"/"+t[0]+"/"+t[1];});
     function fin(){if(bad>1)rej();else res(cv.toDataURL("image/jpeg",0.88));}});};
-  return Promise.all(["f","r","b","l","u","d"].map(face)).then(function(fs){
+  return Promise.all(["f","r","b","l","u","d"].map(face)).then(function(fs){if(tk!==RVN)return true;
     pnShow({type:"cubemap",cubeMap:fs,yaw:bearing(c[1],c[0],it.lat,it.lng),pitch:-4,northOffset:0},"NAVER");return true;});});}
-function rvTencent(it){var g=inCN(it.lat,it.lng)?gcj(it.lat,it.lng):[it.lat,it.lng];
-  return fetch("https://sv.map.qq.com/xf?lat="+g[0]+"&lng="+g[1]+"&r=150&output=json").then(function(r){return r.json()}).then(function(j){
+function rvTencent(it){var tk=RVN,g=inCN(it.lat,it.lng)?gcj(it.lat,it.lng):[it.lat,it.lng];
+  return fetch("https://sv.map.qq.com/xf?lat="+g[0]+"&lng="+g[1]+"&r=250&output=json").then(function(r){return r.json()}).then(function(j){
   var d=j.detail||{};if(!d.svid)return false;var R=20037508.34,plng=d.x/R*180,plat=Math.atan(Math.exp(d.y/R*Math.PI))*360/Math.PI-90;
   var cv=document.createElement("canvas");cv.width=4096;cv.height=2048;var cx=cv.getContext("2d"),left=32,bad=0;
   return new Promise(function(res){
     for(var y=0;y<4;y++)for(var x=0;x<8;x++)(function(x,y){var im=new Image();im.crossOrigin="anonymous";
       im.onload=function(){cx.drawImage(im,x*512,y*512,512,512);if(--left===0)fin();};im.onerror=function(){bad++;if(--left===0)fin();};
       im.src="https://sv"+((x+y)%4+1)+".map.qq.com/tile?svid="+d.svid+"&x="+x+"&y="+y+"&from=web&level=2";})(x,y);
-    function fin(){if(bad>24)return res(false);var h=d.heading||0;
+    function fin(){if(tk!==RVN)return res(true);if(bad>24)return res(false);var h=d.heading||0;
       pnShow({type:"equirectangular",panorama:cv.toDataURL("image/jpeg",0.86),northOffset:h,yaw:((bearing(plat,plng,g[0],g[1])-h+540)%360)-180,pitch:-4,haov:360,vaov:180},"Tencent");res(true);}
   });});}
-function rv(it){var p=pipEl("pip");p.classList.add("on");if(!PIPW)pipSize(Math.min(innerWidth*0.72,420));
+function rv(it){var my=++RVN,p=pipEl("pip");p.classList.add("on");if(!PIPW)pipSize(Math.min(innerWidth*0.72,420));
   pipEl("pipT").textContent="📷 "+(it.label||T(MODE==="ph"?"Pharmacy":"Public restroom"))+" · "+it.dist+"m";
   if(PV){try{PV.destroy()}catch(e){}PV=null;}pipEl("pipV").innerHTML="";pipEl("pipS").textContent="";pipMsg(KO?"거리 사진 불러오는 중…":"Loading street view…");
   var kr=it.lat>33&&it.lat<38.7&&it.lng>124.5&&it.lng<131.9;
   var tries=kr?[rvNaver,rvTencent]:(inCN(it.lat,it.lng)?[rvTencent,rvNaver]:[rvNaver,rvTencent]);
-  (function nx(i){if(i>=tries.length){pipMsg(KO?"이 근처는 거리 사진이 아직 없습니다. 지도의 핀 위치를 참고해 주세요.":"No street photo near here yet. Use the map pin.");return;}
+  (function nx(i){if(my!==RVN)return;if(i>=tries.length){pipMsg(KO?"이 근처는 거리 사진이 아직 없습니다. 지도의 핀 위치를 참고해 주세요.":"No street photo near here yet. Use the map pin.");return;}
     tries[i](it).then(function(ok){if(!ok)nx(i+1);}).catch(function(){nx(i+1);});})(0);}
 document.getElementById("rvC").onclick=function(){document.getElementById("rvM").classList.remove("on");document.getElementById("rvV").innerHTML="";};
 function query(lat,lng,keep){
