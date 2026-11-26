@@ -11,6 +11,17 @@
    "poster": "/fly/v2/cine/acropolis.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "alhambra": {
+   "built": "2026-11-26",
+   "bytes": 1899470,
+   "dur": 6.0,
+   "endPitch": -22.0,
+   "endRange": 6000,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/alhambra.mp4",
+   "poster": "/fly/v2/cine/alhambra.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "amazon": {
    "built": "2026-11-03",
    "bytes": 867471,
