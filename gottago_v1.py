@@ -132,7 +132,7 @@ def ident(r):
 
 
 # ── 사용자 제보: 신규 화장실 위치 (해외 전용, 국내 reports.json 과 분리)
-import urllib.request, datetime, re as _re
+import urllib.request, urllib.parse, datetime, re as _re
 
 SB_URL = os.environ.get("SUPABASE_URL", "").rstrip("/")
 SB_KEY = os.environ.get("SUPABASE_SERVICE_KEY", "") or os.environ.get("SUPABASE_KEY", "")
@@ -285,6 +285,96 @@ def gg_near():
                     "cc": m.get("cc", ""), "total": len(rows), "items": items})
 
 
+_PH_CACHE = {}
+_OVP = ["https://overpass-api.de/api/interpreter", "https://overpass.kumi.systems/api/interpreter",
+        "https://maps.mail.ru/osm/tools/overpass/api/interpreter"]
+
+
+def _ph_osm(lat, lng, rad=2500):
+    q = '[out:json][timeout:20];nwr["amenity"="pharmacy"](around:%d,%f,%f);out center 80;' % (rad, lat, lng)
+    data = ("data=" + urllib.parse.quote(q)).encode()
+    for u in _OVP:
+        try:
+            rq = urllib.request.Request(u, data=data, headers={"User-Agent": "GottaGo/1.0 (+https://apps.kohganemultishop.org/gottago)"})
+            els = json.load(urllib.request.urlopen(rq, timeout=22)).get("elements", [])
+            out = []
+            for e in els:
+                tg = e.get("tags") or {}
+                la = e.get("lat") or (e.get("center") or {}).get("lat")
+                lo = e.get("lon") or (e.get("center") or {}).get("lon")
+                if la is None:
+                    continue
+                oh = tg.get("opening_hours", "")
+                out.append({"lat": la, "lng": lo, "label": tg.get("name:ko") or tg.get("name") or tg.get("name:en") or "",
+                            "oh": oh[:60], "h24": 1 if oh.strip() == "24/7" else 0,
+                            "rx": 1 if tg.get("dispensing") == "yes" else 0, "tel": tg.get("phone", "")[:20]})
+            return out
+        except Exception:
+            continue
+    return []
+
+
+def _ph_naver(lat, lng):
+    """한국: OSM 약국이 듬성듬성해서 네이버 지역검색(동네 이름 + 약국)으로 채운다. 좌표는 WGS84×1e7."""
+    try:
+        import pig_local
+        rv = pig_local._nom("reverse", {"lat": lat, "lon": lng, "format": "jsonv2", "zoom": 16, "accept-language": "ko"})
+        a = rv.get("address") or {}
+        gu = a.get("borough") or a.get("city_district") or a.get("county") or a.get("city") or ""
+        dong = a.get("quarter") or a.get("suburb") or a.get("neighbourhood") or a.get("village") or ""
+        qs = [x for x in ["%s %s 약국" % (gu, dong), "%s 약국" % dong, "%s 24시 약국" % gu, "%s 약국" % gu] if x.strip() != "약국"]
+        out, seen = [], set()
+        for q in qs:
+            try:
+                for it in pig_local._naver("local", q.strip(), 5):
+                    t = pig_local._strip(it.get("title"))
+                    if not t or t in seen or "약국" not in t + (it.get("category") or ""):
+                        continue
+                    la, lo = int(it.get("mapy", 0)) / 1e7, int(it.get("mapx", 0)) / 1e7
+                    if not (33 < la < 39 and 124 < lo < 132):
+                        continue
+                    seen.add(t)
+                    out.append({"lat": la, "lng": lo, "label": t, "oh": "", "h24": 1 if "24" in t else 0, "rx": 1,
+                                "tel": it.get("telephone", ""), "road": it.get("roadAddress", "")})
+            except Exception:
+                continue
+        return out
+    except Exception:
+        return []
+
+
+@gg_bp.route("/api/gg/pharm")
+def gg_pharm():
+    import time as _t
+    try:
+        lat = float(request.args.get("lat")); lng = float(request.args.get("lng"))
+    except Exception:
+        return jsonify({"ok": False, "error": "bad coords"}), 400
+    key = "%.3f,%.3f" % (lat, lng)
+    hit = _PH_CACHE.get(key)
+    if hit and _t.time() - hit[0] < 6 * 3600:
+        rows = hit[1]
+    else:
+        rows = _ph_osm(lat, lng)
+        if _in_kr(lat, lng):
+            have = {(round(r["lat"], 3), round(r["lng"], 3)) for r in rows}
+            rows += [r for r in _ph_naver(lat, lng) if (round(r["lat"], 3), round(r["lng"], 3)) not in have]
+        if len(_PH_CACHE) > 3000:
+            _PH_CACHE.clear()
+        if rows:
+            _PH_CACHE[key] = (_t.time(), rows)
+    coslat = math.cos(math.radians(lat))
+    out = []
+    for r in rows:
+        d = math.hypot((r["lat"] - lat) * 111320.0, (r["lng"] - lng) * 111320.0 * coslat)
+        if d < 4000:
+            out.append(dict(r, dist=int(d), walk=max(1, int(d / 75))))
+    out.sort(key=lambda x: x["dist"])
+    if request.args.get("h24") == "1":
+        out = [x for x in out if x["h24"]]
+    return jsonify({"ok": True, "covered": True, "city": "", "total": len(rows), "items": out[:20], "kind": "pharm"})
+
+
 @gg_bp.route("/api/gg/cities")
 def gg_cities():
     try:
@@ -402,6 +492,7 @@ button{font:inherit;cursor:pointer}
   <img src="/gottago/icon-192.png" alt=""><h1>GottaGo</h1>
 </div>
 <p class="sub">Restroom Finder</p>
+<div class="f" id="modeR"><button id="mWc" class="on">🚻 Restrooms</button><button id="mPh">💊 Pharmacies</button></div>
 <button class="go" id="go">Find restrooms near me</button>
 <div class="f"><button id="ffree">Free only</button><button id="fwc">Wheelchair</button></div>
 <div id="map"><button class="locb" id="locb" aria-label="My location" title="My location">&#10148;</button></div>
@@ -417,14 +508,15 @@ button{font:inherit;cursor:pointer}
 <script>
 var OUT=document.getElementById("out"),GO=document.getElementById("go"),BACK=document.getElementById("back");
 var MAPEL=document.getElementById("map");
-var free=0,wc=0,last=null,map=null,layer=null,marks=[],me=null,meMark=null;
+var MODE="wc",free=0,wc=0,last=null,map=null,layer=null,marks=[],me=null,meMark=null;
 var KO=/^ko/i.test(navigator.language||"");
 var KD={"Find restrooms near me":"내 주변 화장실 찾기","Locating...":"내 위치 찾는 중…","Free only":"무료만","Wheelchair":"휠체어",
 "Tap the button to see the nearest restrooms.":"위치를 켜면 가장 가까운 화장실이 바로 나옵니다.","Geolocation not supported.":"이 기기는 위치를 지원하지 않습니다.",
 "Location permission denied.":"위치 권한이 꺼져 있습니다.","Pick a city below.":"아래에서 도시를 고르세요.","You are here":"내 위치",
 "Searching...":"찾는 중…","Not covered here yet.":"여기는 아직 데이터가 없습니다.","Nearest supported city: ":"가장 가까운 지원 도시: ",
 "Nothing within 4 km with these filters.":"이 조건으로 4km 안에 없습니다.","mapped":"곳 등록","Paid":"유료","Free":"무료","Reported":"제보","Baby":"기저귀대",
-"Public restroom":"공중화장실","min":"분","Request failed.":"요청 실패","+ Add a restroom you found here":"+ 여기 있는 화장실 제보하기","Restroom Finder":"화장실 레이다","My location":"내 위치","Inside venue":"매장·역 안"};
+"Public restroom":"공중화장실","min":"분","Request failed.":"요청 실패","+ Add a restroom you found here":"+ 여기 있는 화장실 제보하기","Restroom Finder":"화장실 레이다","My location":"내 위치","Inside venue":"매장·역 안","🚻 Restrooms":"🚻 화장실","💊 Pharmacies":"💊 약국","Find pharmacies near me":"내 주변 약국 찾기",
+"Pharmacy":"약국","Rx":"처방조제","24h only":"24시간만","No pharmacy found within 4 km.":"4km 안에 약국을 못 찾았습니다.","Hours":"영업"};
 function T(t){return KO&&KD[t]?KD[t]:t;}
 function esc(t){var d=document.createElement("div");d.textContent=t==null?"":t;return d.innerHTML;}
 function home(){
@@ -453,16 +545,22 @@ window.addEventListener("popstate",function(){ home(); });
 function tg(id,set){var b=document.getElementById(id);
   b.onclick=function(){set();b.classList.toggle("on");if(last)query(last[0],last[1],true);};}
 tg("ffree",function(){free=free?0:1;});
+var GOTXT=function(){return MODE==="ph"?T("Find pharmacies near me"):T("Find restrooms near me");};
+function setMode(m){MODE=m;document.getElementById("mWc").classList.toggle("on",m==="wc");document.getElementById("mPh").classList.toggle("on",m==="ph");
+  GO.textContent=GOTXT();var fw=document.getElementById("fwc");fw.style.display=m==="ph"?"none":"";
+  document.getElementById("ffree").textContent=m==="ph"?T("24h only"):T("Free only");
+  document.getElementById("addBtn").style.display=m==="ph"?"none":"";if(last)query(last[0],last[1],true);}
+["mWc","mPh"].forEach(function(id){var b=document.getElementById(id);if(KO)b.textContent=T(b.textContent);b.onclick=function(){setMode(id==="mPh"?"ph":"wc");};});
 tg("fwc",function(){wc=wc?0:1;});
 GO.onclick=function(){
   if(!navigator.geolocation){OUT.innerHTML='<div class="msg">'+T("Geolocation not supported.")+'</div>';return;}
   GO.disabled=true;GO.textContent=T("Locating...");
   navigator.geolocation.getCurrentPosition(function(p){
-    GO.disabled=false;GO.textContent=T("Find restrooms near me");
+    GO.disabled=false;GO.textContent=GOTXT();
     me=[p.coords.latitude,p.coords.longitude];
     query(me[0],me[1],!!last);
   },function(){
-    GO.disabled=false;GO.textContent=T("Find restrooms near me");
+    GO.disabled=false;GO.textContent=GOTXT();
     OUT.innerHTML='<div class="msg">'+T("Location permission denied.")+'<br>'+T("Pick a city below.")+'<div class="chips" id="chips2"></div></div>';
     fillChips("chips2");
   },{enableHighAccuracy:true,timeout:12000,maximumAge:30000});
@@ -495,7 +593,7 @@ function drawMap(lat,lng,items){
   var pts=[[lat,lng]];
   items.forEach(function(it,i){
     var m=L.marker([it.lat,it.lng]).addTo(layer)
-      .bindPopup("<b>"+esc(it.label||T("Public restroom"))+"</b><br>"+it.dist+" m &middot; "+it.walk+" "+T("min"));
+      .bindPopup("<b>"+esc(it.label||T(MODE==="ph"?"Pharmacy":"Public restroom"))+"</b><br>"+it.dist+" m &middot; "+it.walk+" "+T("min"));
     marks.push(m); pts.push([it.lat,it.lng]);
   });
   // 내 위치가 한가운데, 가장 가까운 세 곳까지만 보이게 — 손가락으로 확대할 일 없게
@@ -533,7 +631,7 @@ function query(lat,lng,keep){
   BACK.classList.add("on");
   if(!keep){ try{history.pushState({r:1},"","#results");}catch(e){} }
   OUT.innerHTML='<div class="msg">'+T("Searching...")+'</div>';
-  fetch("/api/gg/near?lat="+lat+"&lng="+lng+(free?"&free=1":"")+(wc?"&wc=1":""))
+  fetch(MODE==="ph"?"/api/gg/pharm?lat="+lat+"&lng="+lng+(free?"&h24=1":""):"/api/gg/near?lat="+lat+"&lng="+lng+(free?"&free=1":"")+(wc?"&wc=1":""))
    .then(function(r){return r.json();}).then(function(d){
     if(!d.ok){OUT.innerHTML='<div class="msg">'+esc(d.error)+'</div>';return;}
     if(!d.covered){
@@ -545,12 +643,14 @@ function query(lat,lng,keep){
     if(!d.items.length){
       MAPEL.classList.remove("on");
       document.getElementById("addBtn").classList.remove("on");
-      OUT.innerHTML='<div class="msg">'+T("Nothing within 4 km with these filters.")+'</div>';return;}
-    var h='<div class="city">'+esc(d.city)+' &middot; '+d.total+' '+T("mapped")+'</div>';
+      OUT.innerHTML='<div class="msg">'+T(MODE==="ph"?"No pharmacy found within 4 km.":"Nothing within 4 km with these filters.")+'</div>';return;}
+    var h=d.kind==="pharm"?'<div class="city">💊 '+T("Pharmacy")+' &middot; '+d.items.length+'</div>':'<div class="city">'+esc(d.city)+' &middot; '+d.total+' '+T("mapped")+'</div>';
     d.items.forEach(function(it,i){
       h+='<div class="row" data-i="'+i+'"><div class="n"><div class="lb'+(it.label?"":" dim")+'">'
-        +esc(it.label||T("Public restroom"))+'</div><div class="tags">';
-      h+='<span class="tag">'+(it.fee?T("Paid"):T("Free"))+'</span>';
+        +esc(it.label||T(d.kind==="pharm"?"Pharmacy":"Public restroom"))+'</div><div class="tags">';
+      if(d.kind==="pharm"){ if(it.rx)h+='<span class="tag">'+T("Rx")+'</span>'; if(it.oh&&!it.h24)h+='<span class="tag">'+T("Hours")+' '+esc(it.oh)+'</span>';
+        if(it.tel)h+='<span class="tag">'+esc(it.tel)+'</span>'; }
+      else h+='<span class="tag">'+(it.fee?T("Paid"):T("Free"))+'</span>';
    if(it.user)h+='<span class="tag utag">'+T("Reported")+'</span>';
    if(it.poi)h+='<span class="tag ptag">'+T("Inside venue")+'</span>';
       if(it.h24)h+='<span class="tag">24h</span>';
