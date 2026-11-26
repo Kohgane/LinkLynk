@@ -38,6 +38,12 @@ input::placeholder{color:#6a5a58}
 .rgrow{display:flex;gap:8px}.rgrow input{flex:1;min-width:0}
 #here{flex:none;border:1px solid #e05572;background:rgba(224,85,114,.12);color:#ff8fa3;border-radius:12px;padding:0 12px;font-size:14px;font-weight:800;white-space:nowrap}
 #here:disabled{opacity:.6}
+#sync{border-color:#5a3a44}#sync p{font-size:13.5px;line-height:1.65;color:#e8d8d2;margin-bottom:10px}
+#sync .row2{display:flex;gap:8px;margin-top:8px}#sync .row2 button{flex:1;border-radius:11px;padding:11px;font-size:14px;font-weight:800}
+#syY{background:linear-gradient(#ff8fa3,#e05572);border:none;color:#fff}#syN{background:none;border:1.5px solid var(--line);color:var(--sub)}
+#syMsg{font-size:12.5px;color:var(--sub);margin-top:8px;line-height:1.6}#syHow{font-size:12px;color:#8f7b78;line-height:1.7;margin-top:8px}
+#taste{font-size:12.5px;color:#e8d8d2;line-height:1.6}#taste b{color:var(--pink)}#taste a{color:var(--sub);margin-left:6px;font-size:11.5px}
+.savedB{display:inline-block;margin-left:6px;background:#3a2410;border:1px solid #a8742c;color:#ffd38a;font-size:11px;font-weight:800;padding:2px 8px;border-radius:8px;vertical-align:middle}
 #hereMsg{font-size:12px;color:#c9a086;margin-top:6px;min-height:0}
 .pick .tip{font-size:12px;color:var(--sub);margin-top:5px}
 .pick .diary{font-size:13px;color:#f5c6b8;font-style:italic;margin-top:8px;padding:8px 10px;background:#1c1316;border-left:3px solid var(--pink);border-radius:0 8px 8px 0;line-height:1.5}
@@ -62,6 +68,16 @@ input::placeholder{color:#6a5a58}
   </header>
 
   <div id="wizard">
+    <div class="step" id="sync" style="display:none">
+      <div id="syAsk">
+        <p>🐷 혹시 <b>네이버지도·카카오맵·구글지도</b>에 저장해 두신 맛집이 있으신가요?<br>동기화해 드릴까요? 저장해 두신 집들을 보고 <b>취향에 맞춰</b> 찾아 드리겠습니다.</p>
+        <div id="syIn" style="display:none"><input type="text" id="syUrl" placeholder="저장 리스트 공유 링크를 붙여 주세요 (naver.me/…)">
+          <div id="syHow">네이버지도 앱 → 저장 → 리스트(예: 맛집) 옆 ⋯ → <b>공유</b> → 링크 복사 → 여기 붙여넣기<br>가게 한 곳짜리 공유 링크도 됩니다. 카카오맵은 즐겨찾기 폴더를 '공개'로 바꾼 뒤 공유해 주세요.</div></div>
+        <div class="row2"><button type="button" id="syY">동기화할게요</button><button type="button" id="syN">다음에 할게요</button></div>
+        <div id="syMsg"></div>
+      </div>
+      <div id="taste" style="display:none"></div>
+    </div>
     <div class="step">
       <h2>① 어디로 갑니까?</h2>
       <div class="rgrow"><input type="text" id="region" placeholder="예: 서울 을지로 / 도쿄 신주쿠 / 상하이 신천지"><button type="button" id="here">📍 지금 여기</button></div><div id="hereMsg"></div>
@@ -120,7 +136,7 @@ $('go').onclick=async()=>{
   try{if(window.KGAD&&!$('adL').dataset.on){$('adL').dataset.on=1;KGAD.banner($('adL'),{wait:5000});}}catch(e){}
   try{
     const r=await fetch('/api/dwaeji/reco',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify(Object.assign({region,food:val($('foodChips')),mood:val($('moodChips')),party:val($('partyChips'))},HERE&&HERE.name===region?{lat:HERE.lat,lng:HERE.lng}:{}))});
+      body:JSON.stringify(Object.assign({region,food:val($('foodChips')),mood:val($('moodChips')),party:val($('partyChips'))},HERE&&HERE.name===region?{lat:HERE.lat,lng:HERE.lng}:{},TASTE?{taste:TASTE.str,saved:nearSaved(region)}:{}))});
     const d=await r.json();
     $('loading').style.display='none';
     if(!d.ok){showErr(d.error||'탐지 실패');return;}
@@ -128,7 +144,7 @@ $('go').onclick=async()=>{
       const el=document.createElement('div');el.className='pick';
       const q=encodeURIComponent(p.q||region+' '+p.name);
       el.innerHTML=`<span class="no">🐷 ${i+1}번 냄새</span>
-        <h3>${esc(p.name)}</h3><div class="area">📍 ${esc(p.area)}</div>
+        <h3>${esc(p.name)}${isSaved(p.name)?'<span class="savedB">⭐ 찜해 두신 곳</span>':''}</h3><div class="area">📍 ${esc(p.area)}</div>
         <div class="dish">🍽 ${esc(p.dish)}</div>
         <div class="why">${esc(p.why)}</div>
         ${p.diary?`<div class="diary">"${esc(p.diary)}"</div>`:''}
@@ -167,6 +183,46 @@ $('go').onclick=async()=>{
 function showErr(m){$('err').textContent='🐷 '+m;$('err').style.display='block';$('wizard').style.display='block';}
 $('again').onclick=()=>{$('wizard').style.display='block';$('res').innerHTML='';$('again').style.display='none';window.scrollTo({top:0,behavior:'smooth'});};
 let HERE=null;
+/* ── 저장 맛집 동기화 → 취향 맞춤 (취향·목록은 이 휴대폰에만 저장) ── */
+let TASTE=null;
+const LS={get(k){try{return JSON.parse(localStorage.getItem(k)||'null')}catch(e){return null}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
+const nrm=t=>String(t||'').replace(/\s+|\(.*?\)|본점|점$/g,'').toLowerCase();
+function isSaved(n){if(!TASTE)return false;const a=nrm(n);return a.length>1&&TASTE.names.has(a);}
+function km(a,b,c,d){const r=Math.PI/180,x=(d-b)*r*Math.cos((a+c)/2*r),y=(c-a)*r;return Math.sqrt(x*x+y*y)*6371;}
+function nearSaved(region){if(!TASTE)return[];const P=TASTE.places;let ps;
+  if(HERE&&HERE.name===region)ps=P.filter(p=>p.lat&&km(HERE.lat,HERE.lng,p.lat,p.lng)<3);
+  else{const tk=region.split(/\s+/).filter(w=>w.length>=2&&!/^(서울|경기|부산|대구|인천|광주|대전|울산|세종|제주)(시|도)?$/.test(w));
+    ps=P.filter(p=>tk.some(w=>(p.a||'').includes(w.replace(/(역|동)$/,''))));}
+  return ps.slice(0,40).map(p=>p.n);}
+function josa(w){const c=(w||'').charCodeAt(w.length-1)-0xAC00;return c>=0&&c<11172&&c%28?'을':'를';}
+function taste(pf,places){
+  const top=pf.top.slice(0,4).map(x=>x[0].split(',')[0]);
+  const ar=pf.areas.slice(0,3).map(x=>x[0].split(' ').pop());
+  const str=top.join(' ')+' | 자주 다니는 동네: '+ar.join(', ')+(pf.bar>=.15?' | 술집 비중 높음':'')+(pf.cafe>=.2?' | 카페도 많이 저장':'');
+  TASTE={str,pf,places,names:new Set(places.map(p=>nrm(p.n)))};
+  $('syAsk').style.display='none';const t=$('taste');t.style.display='block';
+  t.innerHTML=`🐷 저장하신 <b>${pf.n}곳</b>을 보니 <b>${esc(top.slice(0,3).join('·'))}</b> 쪽을 좋아하시는 것 같아요.`+
+    (ar.length?` <b>${esc(ar.slice(0,2).join('·'))}</b>${josa(ar[Math.min(1,ar.length-1)])} 자주 다니시네요.`:'')+`<br>이 취향에 맞춰 찾아 드리고, 찜해 두신 집은 ⭐로 표시해 드릴게요.<a href="#" id="syRe">다시 동기화</a><a href="#" id="syOff">끊기</a>`;
+  $('syRe').onclick=e=>{e.preventDefault();askSync(true);};
+  $('syOff').onclick=e=>{e.preventDefault();LS.del('pig_saved');TASTE=null;t.style.display='none';askSync(true);};
+}
+function askSync(open){$('sync').style.display='block';$('taste').style.display='none';$('syAsk').style.display='block';if(open){$('syIn').style.display='block';$('syY').textContent='동기화할게요';}}
+$('syN').onclick=()=>{LS.set('pig_sync_no',Date.now());$('sync').style.display='none';};
+$('syY').onclick=async()=>{
+  if($('syIn').style.display==='none'){$('syIn').style.display='block';$('syUrl').focus();$('syY').textContent='이 링크로 동기화';return;}
+  const u=($('syUrl').value.match(/https?:\/\/\S+/)||[''])[0];
+  if(!u){$('syMsg').textContent='공유 링크(https://…)를 붙여 주세요.';return;}
+  $('syY').disabled=true;$('syMsg').textContent='🐽 저장하신 맛집 냄새 맡는 중… (처음엔 10초쯤)';
+  try{const r=await fetch('/api/dwaeji/sync',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({url:u})});const d=await r.json();
+    if(!d.ok){$('syMsg').textContent='😥 '+(d.error||'동기화 실패');}
+    else{const keep=d.places.map(p=>({n:p.n,lat:p.lat,lng:p.lng,a:p.a,c:p.c}));
+      const old=LS.get('pig_saved');let all=keep;
+      if(old&&old.places&&$('syY').dataset.add){const s=new Set(keep.map(p=>p.n));all=keep.concat(old.places.filter(p=>!s.has(p.n)));}
+      LS.set('pig_saved',{places:all,pf:d.profile,t:Date.now()});$('syMsg').textContent='';taste(d.profile,all);}
+  }catch(e){$('syMsg').textContent='연결이 잠시 불안정합니다 — 다시 눌러 주세요.';}
+  $('syY').disabled=false;};
+(function(){const s=LS.get('pig_saved');if(s&&s.places&&s.pf){$('sync').style.display='block';taste(s.pf,s.places);return;}
+  const no=LS.get('pig_sync_no');if(!no||Date.now()-no>14*864e5)$('sync').style.display='block';})();
 // 나라별 지도: 한국=네이버·카카오, 중국=가오더·구글, 그 밖=구글
 function mapLinks(p,q){
   if(!p.cc||p.cc==='KR')return `<a class="nv" target="_blank" href="https://map.naver.com/p/search/${q}">네이버지도</a><a class="kk" target="_blank" href="https://map.kakao.com/?q=${q}">카카오맵</a>`;
