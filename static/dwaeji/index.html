@@ -52,6 +52,7 @@ input::placeholder{color:#6a5a58}
 #err{display:none;background:#3a1a22;border:1.5px solid var(--deep);border-radius:12px;padding:12px;font-size:13px;margin-top:12px;text-align:center}
 #again{display:none;width:100%;background:#241a1d;border:1.5px solid var(--line);color:var(--cream);padding:12px;border-radius:12px;font-size:14px;font-weight:700;margin-top:4px}
 </style>
+<script src="/dwaeji/kgad.js"></script>
 </head>
 <body>
 <div id="wrap">
@@ -91,7 +92,7 @@ input::placeholder{color:#6a5a58}
     <button id="go">🐽 킁킁 — 찐맛집 탐지</button>
   </div>
 
-  <div id="loading"><span class="pig">🐷</span><br>골목골목 냄새 맡는 중…</div>
+  <div id="loading"><span class="pig">🐷</span><br>골목골목 냄새 맡는 중…<div id="adL" style="margin:16px auto 0;max-width:480px;min-height:0"></div></div>
   <div id="err"></div>
   <div id="res"></div>
   <button id="again">🐽 조건 바꿔 다시 킁킁</button>
@@ -116,6 +117,7 @@ $('go').onclick=async()=>{
   if(region.length<2){$('region').focus();$('region').style.borderColor='#e05572';return;}
   $('wizard').style.display='none';$('err').style.display='none';$('res').innerHTML='';
   $('loading').style.display='block';$('again').style.display='none';
+  try{if(window.KGAD&&!$('adL').dataset.on){$('adL').dataset.on=1;KGAD.banner($('adL'),{wait:5000});}}catch(e){}
   try{
     const r=await fetch('/api/dwaeji/reco',{method:'POST',headers:{'Content-Type':'application/json'},
       body:JSON.stringify(Object.assign({region,food:val($('foodChips')),mood:val($('moodChips')),party:val($('partyChips'))},HERE&&HERE.name===region?{lat:HERE.lat,lng:HERE.lng}:{}))});
