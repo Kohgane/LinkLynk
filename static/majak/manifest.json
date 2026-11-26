@@ -1,6 +1,8 @@
 {
   "name": "저승마작 — 차사의 패방",
   "short_name": "저승마작",
+  "description": "저승 지옥을 한 층씩 내려가는 마작 패 맞추기. 같은 패 두 장을 짝지어 명부로 돌려보내라.",
+  "lang": "ko",
   "start_url": "/majak",
   "scope": "/majak",
   "display": "standalone",

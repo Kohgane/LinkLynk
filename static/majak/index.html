@@ -14,7 +14,7 @@
 <style>
 :root{--ink:#0a080d;--paper:#f2ead8;--crim:#8b0000;--gold:#c9a24b;--wisp:#40dcbe;--tile:#f7f1e3;}
 *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;user-select:none}
-body{background:var(--ink) url('bg.jpg') center bottom/cover no-repeat fixed;color:var(--paper);font-family:'Noto Sans KR',sans-serif;overflow:hidden;height:100vh;height:100dvh}
+body{background:var(--ink) url('/majak/bg.jpg') center bottom/cover no-repeat fixed;color:var(--paper);font-family:'Noto Sans KR',sans-serif;overflow:hidden;height:100vh;height:100dvh}
 #app{position:relative;width:100%;height:100%;display:flex;flex-direction:column}
 /* 상단 HUD */
 #hud{display:flex;justify-content:space-between;align-items:center;padding:10px 14px;background:linear-gradient(#141019,transparent)}
@@ -91,7 +91,7 @@ body::after{content:"";position:fixed;inset:0;pointer-events:none;z-index:9999;o
 @keyframes luxShine{0%{background-position:-160% 0}100%{background-position:260% 0}}
 @keyframes luxIn{from{opacity:0;transform:translateY(14px) scale(.985)}to{opacity:1;transform:none}}
 body{font-family:var(--sans);letter-spacing:-.01em;
- background:linear-gradient(180deg,rgba(11,10,13,.78),rgba(11,10,13,.35) 30%,rgba(11,10,13,.85)),var(--lk) url('bg.jpg') center bottom/cover no-repeat fixed}
+ background:linear-gradient(180deg,rgba(11,10,13,.78),rgba(11,10,13,.35) 30%,rgba(11,10,13,.85)),var(--lk) url('/majak/bg.jpg') center bottom/cover no-repeat fixed}
 #boardWrap{background:radial-gradient(70% 55% at 50% 50%,rgba(216,180,106,.07),transparent 70%),radial-gradient(ellipse at center,rgba(11,10,13,.15),rgba(11,10,13,.8))!important}
 /* HUD — 유리 위 금선 */
 #hud{margin:calc(8px + env(safe-area-inset-top,0px)) 12px 0;padding:10px 14px;border-radius:18px;
@@ -210,6 +210,10 @@ body{font-family:var(--sans);letter-spacing:-.01em;
 .diffRow button[data-d=j9].on,.diffRow button[data-d=j10].on{color:#f3eee2;background:linear-gradient(160deg,#b8321f,#6a170d)}
 .diffNote{font-size:11.5px;line-height:1.55;color:#9c8f7c;min-height:34px;margin-bottom:10px}
 </style><script src="/majak/kgad.js"></script>
+<style>/* 좁은 폰(아이폰 SE 등 360px 이하): 상단 숫자들이 겹치지 않게 */
+@media (max-width:360px){#hud{gap:4px!important;padding-left:8px!important;padding-right:8px!important}#hud .stat{letter-spacing:.04em!important;font-size:8.5px!important;white-space:nowrap;min-width:0}
+#hud .stat b{font-size:15px!important}#lvlBadge{white-space:nowrap;font-size:11.5px!important;padding:6px 9px!important}#btnOpt{flex:none}}
+</style>
 </head>
 <body data-fx="majak">
 <div id="app">
