@@ -424,7 +424,8 @@ def gg_privacy():
 @gg_bp.route("/gottago")
 @gg_bp.route("/gottago/")
 def gg_page():
-    return Response(PAGE, mimetype="text/html; charset=utf-8")
+    k = _re.sub(r"[^0-9a-f]", "", os.environ.get("KAKAO_JS_KEY", ""))   # 카카오 JS 키(도메인 묶인 공개 키) — 없으면 거리뷰는 링크로만
+    return Response(PAGE.replace("__KKEY__", k), mimetype="text/html; charset=utf-8")
 
 
 PAGE = """<!doctype html><html lang="en"><head>
@@ -465,6 +466,11 @@ button{font:inherit;cursor:pointer}
 .locb:active{transform:scale(.94)}
 .city{color:#7f8ea0;font-size:12px;margin:14px 0 4px}
 .row{display:flex;gap:10px;align-items:center;padding:12px 2px;border-bottom:1px solid #18202b;cursor:pointer}
+.rvb{display:inline-block;margin-top:6px;background:#0f2a2a;border:1px solid #1d5f5a;color:#7ff0e2;border-radius:999px;padding:4px 10px;font-size:12px;cursor:pointer}
+#rvM{position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.82);display:none;align-items:center;justify-content:center;padding:16px}
+#rvM.on{display:flex}#rvBox{width:100%;max-width:640px;background:#0b0f16;border:1px solid #24303f;border-radius:14px;overflow:hidden}
+#rvV{width:100%;height:min(62vh,460px);background:#111}#rvH{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;color:#c3cedb;font-size:13px}
+#rvH button{background:none;border:1px solid #24303f;color:#e9eef5;border-radius:8px;padding:6px 10px}
 .row.sel{background:#111a1f}
 .row .n{min-width:0;flex:1}
 .lb{font-size:14.5px;font-weight:600;line-height:1.35;word-break:break-word}
@@ -502,6 +508,8 @@ button{font:inherit;cursor:pointer}
 <p class="foot">Data &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors (ODbL). Opening hours are rarely mapped, so they are not shown. Always check on site.</p>
 </div>
 <div id="adRail"></div>
+<div id="rvM"><div id="rvBox"><div id="rvH"><span id="rvT"></span><span><a id="rvX" target="_blank" rel="noopener" style="color:#7ff0e2;margin-right:10px;font-size:12px"></a><button id="rvC">✕</button></span></div><div id="rvV"></div></div></div>
+<script>window.GG_KAKAO_JS="__KKEY__";</script>
 <script src="/gottago/kgad.js"></script>
 <script src="/gottago/lf/leaflet.js"></script>
 <script>window.addEventListener("load",function(){if(!window.KGAD)return;KGAD.banner(document.getElementById("adG"),{wait:4000});if(innerWidth>=1040)KGAD.banner(document.getElementById("adRail"),{format:"vertical",wait:4000});});</script>
@@ -516,7 +524,7 @@ var KD={"Find restrooms near me":"내 주변 화장실 찾기","Locating...":"�
 "Searching...":"찾는 중…","Not covered here yet.":"여기는 아직 데이터가 없습니다.","Nearest supported city: ":"가장 가까운 지원 도시: ",
 "Nothing within 4 km with these filters.":"이 조건으로 4km 안에 없습니다.","mapped":"곳 등록","Paid":"유료","Free":"무료","Reported":"제보","Baby":"기저귀대",
 "Public restroom":"공중화장실","min":"분","Request failed.":"요청 실패","+ Add a restroom you found here":"+ 여기 있는 화장실 제보하기","Restroom Finder":"화장실 레이다","My location":"내 위치","Inside venue":"매장·역 안","🚻 Restrooms":"🚻 화장실","💊 Pharmacies":"💊 약국","Find pharmacies near me":"내 주변 약국 찾기",
-"Pharmacy":"약국","Rx":"처방조제","24h only":"24시간만","No pharmacy found within 4 km.":"4km 안에 약국을 못 찾았습니다.","Hours":"영업"};
+"Pharmacy":"약국","Rx":"처방조제","24h only":"24시간만","No pharmacy found within 4 km.":"4km 안에 약국을 못 찾았습니다.","Hours":"영업","Street view":"📷 입구 보기","Open in map app":"지도 앱에서 크게"};
 function T(t){return KO&&KD[t]?KD[t]:t;}
 function esc(t){var d=document.createElement("div");d.textContent=t==null?"":t;return d.innerHTML;}
 function home(){
@@ -626,6 +634,27 @@ document.getElementById("addBtn").onclick=function(){
     b.textContent=T("+ Add a restroom you found here");alert("Location permission denied.");},
   {enableHighAccuracy:true,timeout:15000,maximumAge:0});
 };
+/* 📷 입구 보기 — 화장실 쪽을 바라보는 거리뷰 */
+var KKEY=window.GG_KAKAO_JS||"",kload=null;
+function bearing(a,b,c,d){var y=Math.sin((d-b)*Math.PI/180)*Math.cos(c*Math.PI/180),x=Math.cos(a*Math.PI/180)*Math.sin(c*Math.PI/180)-Math.sin(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.cos((d-b)*Math.PI/180);return (Math.atan2(y,x)*180/Math.PI+360)%360;}
+function kakao(cb){if(window.kakao&&kakao.maps&&kakao.maps.Roadview)return cb();if(!kload){kload=[];var s=document.createElement("script");
+  s.src="https://dapi.kakao.com/v2/maps/sdk.js?autoload=false&appkey="+KKEY;s.onload=function(){kakao.maps.load(function(){kload.forEach(function(f){f()});kload=[];})};
+  s.onerror=function(){kload.forEach(function(f){f(1)});kload=[];};document.head.appendChild(s);}kload.push(cb);}
+function rvOpen(url){window.open(url,"_blank","noopener");}
+function rv(it){var kr=it.lat>33&&it.lat<38.7&&it.lng>124.5&&it.lng<131.9;
+  var link=kr?"https://map.kakao.com/link/roadview/"+it.lat+","+it.lng:"https://www.google.com/maps/@?api=1&map_action=pano&viewpoint="+it.lat+","+it.lng+(me?"&heading="+Math.round(bearing(me[0],me[1],it.lat,it.lng)):"");
+  if(!kr||!KKEY)return rvOpen(link);
+  var M=document.getElementById("rvM"),V=document.getElementById("rvV");V.innerHTML="";M.classList.add("on");
+  document.getElementById("rvT").textContent=(it.label||T(MODE==="ph"?"Pharmacy":"Public restroom"))+" · "+it.dist+"m";
+  var X=document.getElementById("rvX");X.href=link;X.textContent=T("Open in map app");
+  kakao(function(err){if(err){M.classList.remove("on");return rvOpen(link);}
+    var p=new kakao.maps.LatLng(it.lat,it.lng),R=new kakao.maps.Roadview(V);
+    new kakao.maps.RoadviewClient().getNearestPanoId(p,60,function(id){
+      if(!id){V.innerHTML='<div style="padding:40px 16px;text-align:center;color:#7f8ea0">'+(KO?"여기는 로드뷰가 없습니다.":"No street view here.")+'</div>';return;}
+      R.setPanoId(id,p);
+      kakao.maps.event.addListener(R,"init",function(){var q=R.getPosition();R.setViewpoint({pan:bearing(q.getLat(),q.getLng(),it.lat,it.lng),tilt:0,zoom:0});});
+    });});}
+document.getElementById("rvC").onclick=function(){document.getElementById("rvM").classList.remove("on");document.getElementById("rvV").innerHTML="";};
 function query(lat,lng,keep){
   last=[lat,lng];
   BACK.classList.add("on");
@@ -656,11 +685,13 @@ function query(lat,lng,keep){
       if(it.h24)h+='<span class="tag">24h</span>';
       if(it.wc)h+='<span class="tag">'+T("Wheelchair")+'</span>';
       if(it.baby)h+='<span class="tag">'+T("Baby")+'</span>';
+      h+='<br><span class="rvb" data-rv="'+i+'">'+(KO?'📷 입구 보기':'📷 Street view')+'</span>';
       h+='</div></div><div class="d"><b>'+it.dist+'m</b><span>'+it.walk+' '+T("min")+'</span></div></div>';
     });
     OUT.innerHTML=h;
     drawMap(lat,lng,d.items);
     document.getElementById("addBtn").classList.add("on");
+    Array.prototype.forEach.call(document.querySelectorAll(".rvb"),function(b){b.onclick=function(ev){ev.stopPropagation();rv(d.items[+b.getAttribute("data-rv")]);};});
     Array.prototype.forEach.call(document.querySelectorAll(".row"),function(el){
       el.onclick=function(){
         var i=+el.getAttribute("data-i"); var it=d.items[i];
