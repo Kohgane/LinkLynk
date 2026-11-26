@@ -242,9 +242,18 @@ body{font-family:var(--sans);letter-spacing:-.01em;
   <button class="xbtn" data-x="optM">✕</button><h2>옵션</h2>
   <div class="optRow"><span>🔔 소리</span><button class="tog on" id="togSnd"></button></div>
   <div class="optRow"><span>🕯️ 자동 힌트</span><button class="tog" id="togHint"></button></div>
+  <div class="optRow adfreeRow" id="rowAdfree"><span>👑 <b>광고 없음</b> — 영원히</span><span style="color:var(--gold);font-weight:900">₩3,900 ›</span></div>
   <div class="optRow adfreeRow" id="rowCoin"><span>💰 <b>노잣돈 받기</b> — 뱃사공 심부름</span><span style="color:var(--gold);font-weight:900" id="rowCoinN">+50냥 ›</span></div>
   <div style="margin:10px 0 4px;font-size:12px;color:#b9a89a">지옥 고르기 — 시왕 열 분의 심판 (바꾸면 이 층부터 다시)</div><div class="diffRow" id="diffO"><button data-d="j1">도산</button><button data-d="j2">화탕</button><button data-d="j3">한빙</button><button data-d="j4">검수</button><button data-d="j5">발설</button><button data-d="j6">독사</button><button data-d="j7">거해</button><button data-d="j8">철상</button><button data-d="j9">풍도</button><button data-d="j10">흑암</button></div><div class="diffNote" id="diffON"></div>
   <button id="btnRestartOpt">↻ 이 층 재시작</button>
+</div></div>
+
+<!-- 광고없음 상품 -->
+<div class="modal" id="iapM"><div class="card">
+  <button class="xbtn" data-x="iapM">✕</button><h2>👑 광고 없음</h2>
+  <p style="font-size:13px;color:#b9a89a;line-height:1.7">한 번 바치면 <b style="color:var(--gold)">영원히</b> 층 사이 광고가 뜨지 않는다.<br>₩3,900 — 뱃사공이 좋아한다. (노잣돈과는 별개)</p>
+  <button id="btnBuy" style="width:100%;margin-top:14px;background:linear-gradient(#d4af5a,#b8923e);border:none;color:#1a1420;padding:13px;border-radius:12px;font-weight:900;font-size:16px">₩3,900 바치기</button>
+  <div style="font-size:11px;color:#6a6072;margin-top:10px;text-align:center">결제 연동 준비 중 — 지금은 구경만</div>
 </div></div>
 
 <!-- 노잣돈 쓰기 -->
@@ -563,7 +572,7 @@ function win(){ clearInterval(timer); beep('bell');
   $('chasaLine').textContent='차사: '+CH[Math.random()*CH.length|0]+'  · 노잣돈 +'+earn+'냥';
   const best=+_LS.g('jak_best',0); if(D.tier>best){_LS.s('jak_best',D.tier);}
   const show=()=>$('resM').classList.add('on');
-  if(lv>AD_FREE_LEVELS && lv%2===0 && window.KGAD) KGAD.breakAd('majak-'+lv, show); else show();
+  if(!adFree && lv>AD_FREE_LEVELS && lv%2===0 && window.KGAD) KGAD.breakAd('majak-'+lv, show); else show();
 }
 function showAd(after){ return after&&after();
   const b=$('adSkip'); b.disabled=true; let n=3;
@@ -579,6 +588,9 @@ document.querySelectorAll('.xbtn').forEach(b=>b.onclick=()=>$(b.dataset.x).class
 $('togSnd').onclick=e=>{snd=!snd;e.target.classList.toggle('on',snd);};
 $('togHint').onclick=e=>{autoHint=!autoHint;e.target.classList.toggle('on',autoHint);};
 $('rowCoin').onclick=()=>errand();
+$('rowAdfree').onclick=()=>{$('optM').classList.remove('on');$('iapM').classList.add('on');};
+$('btnBuy').onclick=()=>{ adFree=true; localStorage.setItem('jak_adfree','1');
+  $('iapM').classList.remove('on'); toast('👑 뱃사공이 흡족해한다 — 광고 영구 제거 (데모)'); };
 $('btnRestartOpt').onclick=()=>{$('optM').classList.remove('on');start();};
 
 function toast(m){ const t=$('toast'); t.textContent=m; t.style.opacity=1; setTimeout(()=>t.style.opacity=0,2200); }
