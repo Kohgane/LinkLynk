@@ -1691,6 +1691,24 @@ if(g.length>1){m.fitBounds(L.featureGroup(g).getBounds().pad(0.25))}}
     return resp
 
 
+@app.route("/api/dwaeji/sync", methods=["POST"])
+def dwaeji_sync_api():
+    """저장 맛집 동기화 — 공유 링크를 읽어 목록+취향만 돌려준다(서버에 안 남김)."""
+    import pig_sync
+    d = request.get_json(force=True, silent=True) or {}
+    try:
+        nm, places = pig_sync.load((d.get("url") or "")[:400])
+    except ValueError as e:
+        return jsonify({"ok": False, "error": str(e)}), 400
+    except Exception as e:
+        print("[dwaeji sync]", str(e)[:120])
+        return jsonify({"ok": False, "error": "링크를 못 읽었습니다 — 저장 리스트 '공유' 링크인지 확인해 주세요"}), 400
+    places = [p for p in places if p.get("n")][:1500]
+    if not places:
+        return jsonify({"ok": False, "error": "이 링크에서 가게를 찾지 못했습니다 — 네이버지도 저장 리스트를 '공유'로 열어 링크를 복사해 주세요"}), 400
+    return jsonify({"ok": True, "folder": nm, "places": places, "profile": pig_sync.profile(places)})
+
+
 @app.route("/api/dwaeji/config")
 def dwaeji_config_api():
     """돼지레이다 런타임 설정 — 광고그룹ID(재배포 없이 on/off) + 무광고 횟수."""
@@ -2056,6 +2074,9 @@ def dwaeji_reco_api():
     food = (d.get("food") or "").strip()[:30]
     mood = (d.get("mood") or "").strip()[:40]
     party = (d.get("party") or "").strip()[:20]
+    import re as _re_mod
+    taste = _re_mod.sub(r"[\r\n]+", " ", str(d.get("taste") or ""))[:240]      # 동기화한 저장 맛집에서 뽑은 취향(손님 폰에서 옴)
+    saved = [str(x)[:40] for x in (d.get("saved") or [])][:60]               # 이 동네에 이미 찜해 둔 집
     try:
         _lat, _lng = float(d.get("lat")), float(d.get("lng"))
     except Exception:
@@ -2091,6 +2112,9 @@ def dwaeji_reco_api():
     key = os.environ.get("BOIM_LLM_KEY", "").strip() or "__free__"
     # ★ 먼저 우리가 지도에서 실존 가게를 긁는다(지역 고정·광고집 제외·체인 지점 제외) → AI는 이 목록에서만 고른다
     cands = _pig_discover(region, food, _lat, _lng)
+    if taste:
+        _tw = [w for w in _re_mod.split(r"[^가-힣A-Za-z]+", taste.split("|")[0]) if len(w) >= 2][:12]
+        cands.sort(key=lambda c: -sum(1 for w in _tw if w in (c.get("cat") or "") or w in c.get("title", "")))   # 취향 업종을 앞으로(안정 정렬)
     user_small = user
     if len(cands) >= 5:
         user_small = None
@@ -2107,6 +2131,12 @@ def dwaeji_reco_api():
         user_small = user.split("후보다. ")[0] + "후보다. 반드시 이 목록에서만 골라라(name은 목록 상호 그대로):\n" + "\n".join(
             "- %s | %s | 후기: %s" % (c["title"], (c.get("cat") or "").split(">")[-1], ((c.get("rev") or [""])[0])[:70]) for c in cands[:12]) + (
             "\n이 중 9곳. ★dish·why·tip은 그 가게 '후기'에 나온 메뉴·표현으로만, 후기에 없는 메뉴·조리법·시간·숫자는 절대 지어내지 마라 — 모르면 '대표 메뉴는 현장 확인'. 각 칸 한 문장, JSON 하나만.")
+    _tn = ("\n이 손님 취향(지도 앱에 저장해 둔 맛집에서 뽑음): " + taste + " — 이 결에 맞는 집을 우선하라." if taste else "") + (
+        "\n이미 찜해 둔 집(새 집 위주로 고르되, 조건에 딱 맞으면 넣어도 된다): " + ", ".join(saved[:30]) if saved else "")
+    if _tn:
+        user += _tn
+        if user_small:
+            user_small += _tn
     # 5곳을 세세히 쓰면 1200토큰에서 JSON이 잘려 '형식 오류'가 났다 → 넉넉히 + 잘린 답에서도 온전한 가게만 건진다
     picks = []; r = {}; _tried = []; _via = ""
     from core import detect_llm_provider
