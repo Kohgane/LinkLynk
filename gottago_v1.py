@@ -467,6 +467,14 @@ button{font:inherit;cursor:pointer}
 .city{color:#7f8ea0;font-size:12px;margin:14px 0 4px}
 .row{display:flex;gap:10px;align-items:center;padding:12px 2px;border-bottom:1px solid #18202b;cursor:pointer}
 .rvb{display:inline-block;margin-top:6px;background:#0f2a2a;border:1px solid #1d5f5a;color:#7ff0e2;border-radius:999px;padding:4px 10px;font-size:12px;cursor:pointer}
+#pip{position:fixed;z-index:3000;right:10px;bottom:calc(14px + env(safe-area-inset-bottom));width:min(72vw,420px);height:min(54vw,315px);background:#0b0f16;border:1px solid #2f3d50;border-radius:14px;overflow:hidden;box-shadow:0 10px 34px rgba(0,0,0,.6);display:none;touch-action:none}
+#pip.on{display:block}#pipH{position:absolute;left:0;right:0;top:0;height:34px;z-index:5;display:flex;align-items:center;gap:4px;padding:0 4px 0 9px;background:linear-gradient(rgba(5,8,12,.88),rgba(5,8,12,.45));color:#dfe7f1;font-size:12px;cursor:move}
+#pipT{flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}#pipH button{flex:none;width:30px;height:28px;border:none;border-radius:8px;background:rgba(255,255,255,.13);color:#fff;font-size:15px;line-height:28px;padding:0}
+#pipV{position:absolute;inset:0}#pipMsg{position:absolute;inset:34px 0 0;display:flex;align-items:center;justify-content:center;text-align:center;padding:12px;color:#9fb0c4;font-size:13px;line-height:1.6;z-index:4;pointer-events:none}
+#pipR{position:absolute;left:0;bottom:0;width:26px;height:26px;z-index:6;cursor:nesw-resize;background:linear-gradient(225deg,transparent 50%,rgba(127,240,226,.55) 50%)}
+#pipS{position:absolute;right:8px;bottom:6px;z-index:5;color:rgba(255,255,255,.55);font-size:10px;pointer-events:none}
+#pipV .pnlm-load-box,#pipV .pnlm-about-msg{display:none!important}
+#pipV .pnlm-container{background:#0b0f16!important}#pipV .pnlm-grab{cursor:grab!important}#pipV .pnlm-grabbing{cursor:grabbing!important}
 #rvM{position:fixed;inset:0;z-index:3000;background:rgba(0,0,0,.82);display:none;align-items:center;justify-content:center;padding:16px}
 #rvM.on{display:flex}#rvBox{width:100%;max-width:640px;background:#0b0f16;border:1px solid #24303f;border-radius:14px;overflow:hidden}
 #rvV{width:100%;height:min(62vh,460px);background:#111}#rvH{display:flex;justify-content:space-between;align-items:center;padding:10px 12px;color:#c3cedb;font-size:13px}
@@ -508,6 +516,8 @@ button{font:inherit;cursor:pointer}
 <p class="foot">Data &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors (ODbL). Opening hours are rarely mapped, so they are not shown. Always check on site.</p>
 </div>
 <div id="adRail"></div>
+<link rel="stylesheet" href="/gottago/pn/pannellum.css"><script src="/gottago/pn/pannellum.js"></script>
+<div id="pip"><div id="pipH"><span id="pipT"></span><button id="pipM" title="작게">－</button><button id="pipP" title="크게">＋</button><button id="pipF" title="전체">⤢</button><button id="pipX" title="닫기">✕</button></div><div id="pipV"></div><div id="pipMsg"></div><div id="pipR"></div><div id="pipS"></div></div>
 <div id="rvM"><div id="rvBox"><div id="rvH"><span id="rvT"></span><span><a id="rvX" target="_blank" rel="noopener" style="color:#7ff0e2;margin-right:10px;font-size:12px"></a><button id="rvC">✕</button></span></div><div id="rvV"></div></div></div>
 <script>window.GG_KAKAO_JS="__KKEY__";</script>
 <script src="/gottago/kgad.js"></script>
@@ -640,20 +650,68 @@ function bearing(a,b,c,d){var y=Math.sin((d-b)*Math.PI/180)*Math.cos(c*Math.PI/1
 function kakao(cb){if(window.kakao&&kakao.maps&&kakao.maps.Roadview)return cb();if(!kload){kload=[];var s=document.createElement("script");
   s.src="https://dapi.kakao.com/v2/maps/sdk.js?autoload=false&appkey="+KKEY;s.onload=function(){kakao.maps.load(function(){kload.forEach(function(f){f()});kload=[];})};
   s.onerror=function(){kload.forEach(function(f){f(1)});kload=[];};document.head.appendChild(s);}kload.push(cb);}
-function rvOpen(url){window.open(url,"_blank","noopener");}
-function rv(it){var kr=it.lat>33&&it.lat<38.7&&it.lng>124.5&&it.lng<131.9;
-  var link=kr?"https://map.kakao.com/link/roadview/"+it.lat+","+it.lng:"https://www.google.com/maps/@?api=1&map_action=pano&viewpoint="+it.lat+","+it.lng+(me?"&heading="+Math.round(bearing(me[0],me[1],it.lat,it.lng)):"");
-  if(!kr||!KKEY)return rvOpen(link);
-  var M=document.getElementById("rvM"),V=document.getElementById("rvV");V.innerHTML="";M.classList.add("on");
-  document.getElementById("rvT").textContent=(it.label||T(MODE==="ph"?"Pharmacy":"Public restroom"))+" · "+it.dist+"m";
-  var X=document.getElementById("rvX");X.href=link;X.textContent=T("Open in map app");
-  kakao(function(err){if(err){M.classList.remove("on");return rvOpen(link);}
-    var p=new kakao.maps.LatLng(it.lat,it.lng),R=new kakao.maps.Roadview(V);
-    new kakao.maps.RoadviewClient().getNearestPanoId(p,60,function(id){
-      if(!id){V.innerHTML='<div style="padding:40px 16px;text-align:center;color:#7f8ea0">'+(KO?"여기는 로드뷰가 없습니다.":"No street view here.")+'</div>';return;}
-      R.setPanoId(id,p);
-      kakao.maps.event.addListener(R,"init",function(){var q=R.getPosition();R.setViewpoint({pan:bearing(q.getLat(),q.getLng(),it.lat,it.lng),tilt:0,zoom:0});});
-    });});}
+var PV=null,PIPW=0;
+function pipEl(id){return document.getElementById(id);}
+function pipMsg(t){pipEl("pipMsg").textContent=t||"";}
+function pipSize(w){var W=innerWidth,H=innerHeight,p=pipEl("pip");w=Math.max(150,Math.min(w,W-12));var h=Math.min(Math.round(w*0.75),H-60);
+  p.style.width=w+"px";p.style.height=h+"px";var r=p.getBoundingClientRect();if(r.right>W)p.style.left=(W-w-6)+"px";if(r.bottom>H)p.style.top=(H-h-6)+"px";PIPW=w;if(PV)setTimeout(function(){try{PV.resize()}catch(e){}},30);}
+function pipClose(){pipEl("pip").classList.remove("on");if(PV){try{PV.destroy()}catch(e){}PV=null;}pipEl("pipV").innerHTML="";}
+(function(){var p=pipEl("pip"),h=pipEl("pipH"),rz=pipEl("pipR"),sx,sy,ox,oy,ow,mode=0;
+  function dn(e,m){if(e.target.tagName==="BUTTON")return;mode=m;var r=p.getBoundingClientRect();sx=e.clientX;sy=e.clientY;ox=r.left;oy=r.top;ow=r.width;
+    p.style.left=ox+"px";p.style.top=oy+"px";p.style.right="auto";p.style.bottom="auto";try{e.target.setPointerCapture(e.pointerId)}catch(x){}e.preventDefault();e.stopPropagation();}
+  function mv(e){if(!mode)return;var dx=e.clientX-sx,dy=e.clientY-sy;
+    if(mode===1){p.style.left=Math.max(0,Math.min(innerWidth-60,ox+dx))+"px";p.style.top=Math.max(0,Math.min(innerHeight-40,oy+dy))+"px";}
+    else{var w=Math.max(150,ow-dx);p.style.left=(ox+ow-w)+"px";pipSize(w);}}
+  function up(){mode=0;}
+  h.addEventListener("pointerdown",function(e){dn(e,1)});rz.addEventListener("pointerdown",function(e){dn(e,2)});
+  [h,rz].forEach(function(x){x.addEventListener("pointermove",mv);x.addEventListener("pointerup",up);x.addEventListener("pointercancel",up);});
+  pipEl("pipX").onclick=pipClose;
+  pipEl("pipP").onclick=function(){pipSize((PIPW||p.offsetWidth)*1.3);};
+  pipEl("pipM").onclick=function(){pipSize((PIPW||p.offsetWidth)/1.3);};
+  pipEl("pipF").onclick=function(){var big=p.offsetWidth>=innerWidth-30;p.style.right="auto";p.style.bottom="auto";
+    if(big){pipSize(Math.min(innerWidth*0.72,420));p.style.left=(innerWidth-p.offsetWidth-10)+"px";p.style.top=(innerHeight-p.offsetHeight-14)+"px";}
+    else{p.style.left="6px";p.style.top="6px";pipSize(innerWidth-12);}};
+})();
+/* WGS84 → GCJ-02 (중국 지도 좌표) */
+function gcj(lat,lng){var a=6378245,ee=0.00669342162296594323,PI=Math.PI;
+  function tl(x,y){var r=-100+2*x+3*y+0.2*y*y+0.1*x*y+0.2*Math.sqrt(Math.abs(x));r+=(20*Math.sin(6*x*PI)+20*Math.sin(2*x*PI))*2/3;r+=(20*Math.sin(y*PI)+40*Math.sin(y/3*PI))*2/3;r+=(160*Math.sin(y/12*PI)+320*Math.sin(y*PI/30))*2/3;return r;}
+  function tg(x,y){var r=300+x+2*y+0.1*x*x+0.1*x*y+0.1*Math.sqrt(Math.abs(x));r+=(20*Math.sin(6*x*PI)+20*Math.sin(2*x*PI))*2/3;r+=(20*Math.sin(x*PI)+40*Math.sin(x/3*PI))*2/3;r+=(150*Math.sin(x/12*PI)+300*Math.sin(x/30*PI))*2/3;return r;}
+  var dl=tl(lng-105,lat-35),dg=tg(lng-105,lat-35),rl=lat/180*PI,m=Math.sin(rl);m=1-ee*m*m;var sm=Math.sqrt(m);
+  dl=(dl*180)/((a*(1-ee))/(m*sm)*PI);dg=(dg*180)/(a/sm*Math.cos(rl)*PI);return [lat+dl,lng+dg];}
+function inCN(la,lo){return la>18&&la<53.6&&lo>73.5&&lo<135&&!(la>22.1&&la<22.6&&lo>113.8&&lo<114.45);}
+function pnShow(cfg,src){if(PV){try{PV.destroy()}catch(e){}PV=null;}pipEl("pipV").innerHTML="";
+  cfg.autoLoad=true;cfg.showControls=false;cfg.hfov=cfg.hfov||95;cfg.minHfov=40;cfg.maxHfov=120;cfg.compass=false;cfg.mouseZoom=true;
+  PV=pannellum.viewer("pipV",cfg);PV.on("load",function(){pipMsg("");});PV.on("error",function(){pipMsg(KO?"거리 사진을 못 불러왔습니다.":"Couldn't load street photo.");});
+  pipEl("pipS").textContent=src;}
+function rvNaver(it){return fetch("https://panorama.map.naver.com/api/v2/nearby/"+it.lng+"/"+it.lat).then(function(r){return r.json()}).then(function(j){
+  var f=(j.features||[])[0];if(!f)return false;var c=f.geometry.coordinates,id=encodeURIComponent(f.properties.id);
+  if(Math.hypot((c[1]-it.lat)*111320,(c[0]-it.lng)*111320*Math.cos(it.lat*Math.PI/180))>150)return false;
+  /* 면 하나 = 512 타일 2x2(1024px) — 캔버스로 이어 붙인다 */
+  var face=function(x){return new Promise(function(res,rej){var cv=document.createElement("canvas");cv.width=cv.height=1024;var cx=cv.getContext("2d"),left=4,bad=0;
+    [[1,1],[1,2],[2,1],[2,2]].forEach(function(t){var im=new Image();im.crossOrigin="anonymous";
+      im.onload=function(){cx.drawImage(im,(t[0]-1)*512,(t[1]-1)*512);if(--left===0)fin();};im.onerror=function(){bad++;if(--left===0)fin();};
+      im.src="https://panorama.pstatic.net/image/"+id+"/512/M/"+x+"/"+t[0]+"/"+t[1];});
+    function fin(){if(bad>1)rej();else res(cv.toDataURL("image/jpeg",0.88));}});};
+  return Promise.all(["f","r","b","l","u","d"].map(face)).then(function(fs){
+    pnShow({type:"cubemap",cubeMap:fs,yaw:bearing(c[1],c[0],it.lat,it.lng),pitch:-4,northOffset:0},"NAVER");return true;});});}
+function rvTencent(it){var g=inCN(it.lat,it.lng)?gcj(it.lat,it.lng):[it.lat,it.lng];
+  return fetch("https://sv.map.qq.com/xf?lat="+g[0]+"&lng="+g[1]+"&r=150&output=json").then(function(r){return r.json()}).then(function(j){
+  var d=j.detail||{};if(!d.svid)return false;var R=20037508.34,plng=d.x/R*180,plat=Math.atan(Math.exp(d.y/R*Math.PI))*360/Math.PI-90;
+  var cv=document.createElement("canvas");cv.width=4096;cv.height=2048;var cx=cv.getContext("2d"),left=32,bad=0;
+  return new Promise(function(res){
+    for(var y=0;y<4;y++)for(var x=0;x<8;x++)(function(x,y){var im=new Image();im.crossOrigin="anonymous";
+      im.onload=function(){cx.drawImage(im,x*512,y*512,512,512);if(--left===0)fin();};im.onerror=function(){bad++;if(--left===0)fin();};
+      im.src="https://sv"+((x+y)%4+1)+".map.qq.com/tile?svid="+d.svid+"&x="+x+"&y="+y+"&from=web&level=2";})(x,y);
+    function fin(){if(bad>24)return res(false);var h=d.heading||0;
+      pnShow({type:"equirectangular",panorama:cv.toDataURL("image/jpeg",0.86),northOffset:h,yaw:((bearing(plat,plng,g[0],g[1])-h+540)%360)-180,pitch:-4,haov:360,vaov:180},"Tencent");res(true);}
+  });});}
+function rv(it){var p=pipEl("pip");p.classList.add("on");if(!PIPW)pipSize(Math.min(innerWidth*0.72,420));
+  pipEl("pipT").textContent="📷 "+(it.label||T(MODE==="ph"?"Pharmacy":"Public restroom"))+" · "+it.dist+"m";
+  if(PV){try{PV.destroy()}catch(e){}PV=null;}pipEl("pipV").innerHTML="";pipEl("pipS").textContent="";pipMsg(KO?"거리 사진 불러오는 중…":"Loading street view…");
+  var kr=it.lat>33&&it.lat<38.7&&it.lng>124.5&&it.lng<131.9;
+  var tries=kr?[rvNaver,rvTencent]:(inCN(it.lat,it.lng)?[rvTencent,rvNaver]:[rvNaver,rvTencent]);
+  (function nx(i){if(i>=tries.length){pipMsg(KO?"이 근처는 거리 사진이 아직 없습니다. 지도의 핀 위치를 참고해 주세요.":"No street photo near here yet. Use the map pin.");return;}
+    tries[i](it).then(function(ok){if(!ok)nx(i+1);}).catch(function(){nx(i+1);});})(0);}
 document.getElementById("rvC").onclick=function(){document.getElementById("rvM").classList.remove("on");document.getElementById("rvV").innerHTML="";};
 function query(lat,lng,keep){
   last=[lat,lng];
