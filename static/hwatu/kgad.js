@@ -45,8 +45,10 @@
     var called = false; function fin() { if (!called) { called = true; done && done(); } }
     if (!ON) return fin();
     try {
-      H5({ type: 'next', name: name || 'break', adBreakDone: fin });
-      setTimeout(fin, 9000);                     // 광고 쪽이 답이 없으면 게임을 막지 않는다
+      var started = false;
+      H5({ type: 'next', name: name || 'break', beforeAd: function () { started = true; }, adBreakDone: fin });
+      setTimeout(function () { if (!started) fin(); }, 1800);   // 광고가 안 뜨면(미승인·빈도 제한) 바로 지나간다
+      setTimeout(fin, 45000);                                    // 떴는데 답이 없을 때 최후 안전판
     } catch (e) { fin(); }
   }
 

@@ -233,6 +233,10 @@ body::before{background:
 .diff button.on{color:#1a1410;border-color:transparent;background:linear-gradient(100deg,#9c7a2c,#d8b46a 40%,#f3dfa6 60%,#d8b46a)}
 .diff button[data-d=hell].on{color:#f3eee2;background:linear-gradient(160deg,#b8321f,#6a170d)}
 </style><script src="/hwatu/kgad.js"></script>
+<style>/* 좁은 폰: 가로로 밀려나는 것 없게 */
+html,body{overflow-x:hidden}
+@media (max-width:360px){.tools{flex-wrap:wrap!important}.tools>*{flex:1 1 calc(50% - 6px)!important;min-width:0}#itm button{white-space:normal!important;line-height:1.35}}
+</style>
 </head><body data-fx="hwatu"><svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
 <filter id="mhRough" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="3"/><feDisplacementMap in="SourceGraphic" scale="0.7"/></filter>
 <filter id="mhPaper" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="1.2" numOctaves="3" seed="9"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 .95  0 0 0 0 .85  0 0 0 .09 0"/><feComposite in2="SourceGraphic" operator="in"/></filter>
