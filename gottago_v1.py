@@ -350,6 +350,9 @@ PAGE = """<!doctype html><html lang="en"><head>
 html,body{max-width:100%;overflow-x:hidden}
 body{margin:0;background:#0b0f16;color:#e9eef5;font:15px/1.6 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Noto Sans KR",sans-serif}
 .wrap{max-width:660px;margin:0 auto;padding:18px 14px 40px;overflow-x:hidden}
+#adRail{display:none}
+@media(min-width:1040px){#adRail{display:block;position:fixed;top:90px;left:calc(50% + 350px);width:300px;max-height:620px;overflow:hidden;color:#7f8ea0}}
+#adG{margin:16px 0 4px;color:#7f8ea0}
 .hd{display:flex;align-items:center;gap:10px;margin:0 0 2px}
 .hd img{width:36px;height:36px;border-radius:10px;flex:none}
 .hd h1{font-size:18px;margin:0;letter-spacing:-.3px}
@@ -404,9 +407,13 @@ button{font:inherit;cursor:pointer}
 <div id="map"><button class="locb" id="locb" aria-label="My location" title="My location">&#10148;</button></div>
 <button class="add" id="addBtn">+ Add a restroom you found here</button>
 <div id="out"><div class="msg">Tap the button to see the nearest restrooms.<div class="chips" id="chips"></div></div></div>
+<div id="adG"></div>
 <p class="foot">Data &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener">OpenStreetMap</a> contributors (ODbL). Opening hours are rarely mapped, so they are not shown. Always check on site.</p>
 </div>
+<div id="adRail"></div>
+<script src="/gottago/kgad.js"></script>
 <script src="/gottago/lf/leaflet.js"></script>
+<script>window.addEventListener("load",function(){if(!window.KGAD)return;KGAD.banner(document.getElementById("adG"),{wait:4000});if(innerWidth>=1040)KGAD.banner(document.getElementById("adRail"),{format:"vertical",wait:4000});});</script>
 <script>
 var OUT=document.getElementById("out"),GO=document.getElementById("go"),BACK=document.getElementById("back");
 var MAPEL=document.getElementById("map");
