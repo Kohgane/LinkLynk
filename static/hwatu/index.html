@@ -225,12 +225,15 @@ body::before{background:
 .fin .bigcard{overflow:hidden;position:relative}
 .fin .bigcard img.art{position:absolute;inset:5px;width:calc(100% - 10px);height:calc(100% - 10px);object-fit:cover;border-radius:10px}
 .fin .bigcard .mn{position:absolute;left:0;right:0;bottom:10px;text-align:center;z-index:2;text-shadow:0 1px 6px #000}
-.diff{display:flex!important;flex-direction:row!important;gap:6px;justify-content:center;margin:2px auto 8px;width:100%;max-width:420px;box-sizing:border-box;align-self:center}
+.diff{display:grid!important;grid-template-columns:repeat(5,1fr);gap:5px;justify-content:center;margin:2px auto 8px;width:100%;max-width:420px;box-sizing:border-box;align-self:center}
 .diff button{white-space:nowrap;min-width:0;writing-mode:horizontal-tb}
-.diff button{flex:1;font-family:var(--serif,serif);font-size:13px;letter-spacing:.08em;padding:8px 0;border-radius:999px;border:1px solid rgba(216,180,106,.25);background:rgba(255,255,255,.03);color:#a89d87}
+.diff button.lk{opacity:.38}
+#itm button{font-size:11.5px;padding:9px 2px;white-space:nowrap}
+.diff button{flex:1;font-family:var(--serif,serif);font-size:12.5px;letter-spacing:.04em;padding:7px 0;border-radius:999px;border:1px solid rgba(216,180,106,.25);background:rgba(255,255,255,.03);color:#a89d87}
 .diff button.on{color:#1a1410;border-color:transparent;background:linear-gradient(100deg,#9c7a2c,#d8b46a 40%,#f3dfa6 60%,#d8b46a)}
 .diff button[data-d=hell].on{color:#f3eee2;background:linear-gradient(160deg,#b8321f,#6a170d)}
-</style></head><body data-fx="hwatu"><svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+</style><script src="kgad.js"></script>
+</head><body data-fx="hwatu"><svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
 <filter id="mhRough" x="-5%" y="-5%" width="110%" height="110%"><feTurbulence type="fractalNoise" baseFrequency="0.9" numOctaves="2" seed="3"/><feDisplacementMap in="SourceGraphic" scale="0.7"/></filter>
 <filter id="mhPaper" x="0" y="0" width="100%" height="100%"><feTurbulence type="fractalNoise" baseFrequency="1.2" numOctaves="3" seed="9"/><feColorMatrix values="0 0 0 0 1  0 0 0 0 .95  0 0 0 0 .85  0 0 0 .09 0"/><feComposite in2="SourceGraphic" operator="in"/></filter>
 <radialGradient id="mhSun" cx=".4" cy=".35" r=".7"><stop offset="0" stop-color="#f05a3e"/><stop offset=".7" stop-color="#c8362a"/><stop offset="1" stop-color="#8f1f17"/></radialGradient>
@@ -271,16 +274,17 @@ body::before{background:
  <div class="pot"><span class="coin"></span>판돈 <b id="pot">0</b>냥</div>
  <div class="seat"><div class="hname" id="np"></div><div class="hand" id="hp"></div><div class="who">산 자 (나)</div></div>
 </div>
-<div class="diff z" id="diff"><button data-d="easy">순한</button><button data-d="normal">보통</button><button data-d="hard">독한</button><button data-d="hell">염라</button></div>
+<div class="diff z" id="diff"><button data-d="j1">진광</button><button data-d="j2">초강</button><button data-d="j3">송제</button><button data-d="j4">오관</button><button data-d="j5">염라</button><button data-d="j6">변성</button><button data-d="j7">태산</button><button data-d="j8">평등</button><button data-d="j9">도시</button><button data-d="j10">전륜</button></div><div class="z" id="diffN" style="font-size:11.5px;color:#9c8f7c;text-align:center;margin:0 0 6px;min-height:16px"></div>
 <div class="acts z" id="acts"></div>
 <div class="luck z" id="luck"></div>
+<div class="tools z" id="itm" style="margin-top:8px"></div>
 <div class="tools z"><button id="fortB">📜 오늘의 화투점</button><button id="jbB">족보</button><button id="snd">🔔 소리</button></div>
 <div class="jokbo z" id="jb">
 <span style="color:#a89d87">끗이 같으면 선 잡은 차사가 이긴다.</span><br><b>38광땡</b> &gt; <b>광땡</b>(1·8, 1·3) &gt; <b>땡</b>(장땡 10·10 … 1땡) &gt; <b>알리</b>(1·2) &gt; <b>독사</b>(1·4) &gt; <b>구삥</b>(1·9) &gt; <b>장삥</b>(1·10) &gt; <b>장사</b>(10·4) &gt; <b>세륙</b>(4·6) &gt; <b>끗</b>(두 장 합의 끝자리, 9끗=갑오 … 0=망통)<br>
 특수패 — <b>땡잡이</b>(3광+7열): 1~9땡을 잡는다 · <b>암행어사</b>(4열+7열): 1·3/1·8 광땡을 잡는다 · <b>구사</b>(4·9): 상대가 땡보다 낮으면 판을 다시 깐다<br>
 <span style="color:var(--wisp)">오늘의 화투점에서 나온 <b style="color:var(--wisp)">행운의 달</b> 패를 쥐고 이기면 판돈 2배.</span>
 </div>
-<div class="foot z">문양 자체 도안 · 노잣돈은 매일 자정 100냥으로 다시 채워집니다 · <a href="/hwatu/privacy.html" style="color:#544d40">개인정보</a></div>
+<div class="foot z">문양 자체 도안 · 노잣돈은 매일 자정 300냥까지 채워지고, 바닥나면 뱃사공 심부름으로 다시 받습니다 · 돈 내고 사는 것 없음 · <a href="/hwatu/privacy.html" style="color:#544d40">개인정보</a></div>
 <div class="fin" id="fin">
 <div class="bigcard" id="bigc"></div>
 <h2 id="finT"></h2>
@@ -382,36 +386,51 @@ function fortune(){const rng=mul32([...dstr+'점'].reduce((h,c)=>(h*31+c.charCod
 const F=fortune();
 // ── 상태 ──
 let bank=+LS.get('sd_bank',100), bday=LS.get('sd_day','');
-if(bday!==dstr){bank=100;LS.set('sd_bank',100);LS.set('sd_day',dstr);LS.set('sd_w',0);LS.set('sd_l',0)}
+if(bday!==dstr){bank=Math.max(bank,300);LS.set('sd_bank',bank);LS.set('sd_day',dstr);LS.set('sd_w',0);LS.set('sd_l',0);LS.set('jh_errand',0)}
 let W=+LS.get('sd_w',0), L=+LS.get('sd_l',0);
 let deck,P=[],C=[],pot=0,carry=0,stage='idle',raised=false;
 // ── 난이도(차사 성깔) ──
-const DIFF={easy:{n:'순한 차사',ante:10,fold:.55,bluff:.05,bet:.5,lucky:2,lead:.75},
- normal:{n:'보통 차사',ante:10,fold:.3,bluff:.2,bet:.5,lucky:2,lead:.6},
- hard:{n:'독한 차사',ante:20,fold:.15,bluff:.32,bet:.75,lucky:2,lead:.5},
- hell:{n:'염라 차사',ante:30,fold:.05,bluff:.45,bet:1,lucky:1.5,lead:.4}};
-let DK=LS.get('jh_diff','normal');if(!DIFF[DK])DK='normal';let D=DIFF[DK];
+const KINGS=[['진광대왕','도산지옥'],['초강대왕','화탕지옥'],['송제대왕','한빙지옥'],['오관대왕','검수지옥'],['염라대왕','발설지옥'],
+ ['변성대왕','독사지옥'],['태산대왕','거해지옥'],['평등대왕','철상지옥'],['도시대왕','풍도지옥'],['오도전륜대왕','흑암지옥']];
+const _ante=[10,10,15,20,25,30,40,50,60,80],_fold=[.6,.5,.4,.32,.26,.2,.15,.1,.06,.03],_bluff=[.03,.08,.14,.2,.25,.3,.35,.4,.45,.5],
+ _bet=[.4,.5,.55,.6,.7,.8,.9,1,1.1,1.25],_lucky=[2,2,2,2,2,2,1.8,1.7,1.6,1.5],_lead=[.8,.72,.65,.6,.55,.5,.46,.42,.38,.35];
+const DIFF={};KINGS.forEach((K,i)=>{DIFF['j'+(i+1)]={n:K[0],hell:K[1],tier:i+1,ante:_ante[i],fold:_fold[i],bluff:_bluff[i],bet:_bet[i],lucky:_lucky[i],lead:_lead[i]}});
+const _OLD={easy:'j1',normal:'j3',hard:'j6',hell:'j9'};
+function beat(k){return +LS.get('jh_beat_'+k,0)}
+function unlocked(k){const t=+k.slice(1);if(t<=1)return true;const pre=+LS.get('jh_open',1);return t<=pre}
+let DK=LS.get('jh_diff','j1');if(_OLD[DK]){LS.set('jh_open',Math.max(+LS.get('jh_open',1),+_OLD[DK].slice(1)));DK=_OLD[DK]}if(!DIFF[DK]||!unlocked(DK))DK='j1';let D=DIFF[DK];
 let ANTE=D.ante;
 function ui(){document.getElementById('bank').textContent=bank;document.getElementById('pot').textContent=pot;
  document.getElementById('rec').textContent=W+'승 '+L+'패';LS.set('sd_bank',bank)}
 function showHands(reveal){
  document.getElementById('hp').innerHTML=P.map(c=>cardHTML(c,c.m===F.top.m)).join('')+(P.length<2?backHTML().replace('class="cd"','class="cd" style="opacity:.25"'):'');
- document.getElementById('hc').innerHTML=C.map(c=>reveal?cardHTML(c):backHTML()).join('')+(C.length<2?backHTML().replace('class="cd"','class="cd" style="opacity:.25"'):'');
+ document.getElementById('hc').innerHTML=C.map((c,i)=>reveal||(peek&&i===0)?cardHTML(c):backHTML()).join('')+(C.length<2?backHTML().replace('class="cd"','class="cd" style="opacity:.25"'):'');
  const np=document.getElementById('np');np.textContent=P.length===2?evalHand(P[0],P[1]).n:'';
  document.getElementById('nc').textContent=reveal&&C.length===2?evalHand(C[0],C[1]).n:''}
 function acts(list){const el=document.getElementById('acts');el.innerHTML='';
  list.forEach(([t,fn,cls,dis])=>{const b=document.createElement('button');b.textContent=t;if(cls)b.className=cls;b.disabled=!!dis;b.onclick=()=>{ac();fn()};el.appendChild(b)})}
 function setDiff(k){if(stage!=='idle'&&stage!=='show'){say2('판이 끝나면 바꿔라, 산 자.');return}
+ if(!unlocked(k)){const p='j'+(+k.slice(1)-1);say2('🔒 <b>'+DIFF[p].n+'</b>을 세 판 이겨야 <b>'+DIFF[k].n+'</b>이 앉는다. (지금 '+beat(p)+'/3)');return}
  DK=k;D=DIFF[k];ANTE=D.ante;LS.set('jh_diff',k);paintDiff();
- document.getElementById('say').innerHTML='<b>'+D.n+'</b>가 앉았다. 판돈 '+ANTE+'냥'+(k==='hell'?' — 염라는 허세도, 배짱도 끝까지 간다.':k==='easy'?' — 오늘은 봐주지.':'.');idle()}
+ document.getElementById('say').innerHTML='<b>'+D.n+'</b>('+D.hell+')이 앉았다. 판돈 '+ANTE+'냥'+(D.tier>=9?' — 허세도 배짱도 끝까지 간다.':D.tier<=2?' — 오늘은 봐주지.':'.');idle()}
 function say2(t){document.getElementById('say').innerHTML=t}
-function paintDiff(){document.querySelectorAll('#diff button').forEach(b=>b.classList.toggle('on',b.dataset.d===DK))}
+function paintDiff(){document.querySelectorAll('#diff button').forEach(b=>{b.classList.toggle('on',b.dataset.d===DK);b.classList.toggle('lk',!unlocked(b.dataset.d))});
+ const n=document.getElementById('diffN');if(n)n.textContent=D.n+' · '+D.hell+' · 판돈 '+D.ante+'냥 · 이긴 판 '+Math.min(beat(DK),3)+'/3'+(D.tier<10?(unlocked('j'+(D.tier+1))?'':' — 세 판 이기면 다음 대왕'):' · 마지막 심판')}
 function idle(){stage='idle';paintDiff();
- if(bank<ANTE){say('bust');acts([['노잣돈 없음 — 내일 다시',()=>{},'',true]]);return}
+ if(bank<ANTE){say('bust');const e=+LS.get('jh_errand',0);acts(e<6?[['💰 뱃사공 심부름 +150냥 ('+(6-e)+'번 남음)',errand,'main']]:[['오늘 심부름 끝 — 자정에 300냥',()=>{},'',true]]);return}
+ if(paid>=5&&window.KGAD){paid=0;return KGAD.breakAd('hwatu-'+W+L,()=>acts([['패 돌리기 · 판돈 '+ANTE+'냥',deal,'main']]))}
  acts([['패 돌리기 · 판돈 '+ANTE+'냥',deal,'main']])}
-function deal(){if(bank<ANTE)return idle();
+let paid=0,peek=false,charm=false;
+function errand(){const e=+LS.get('jh_errand',0);if(e>=6)return idle();
+ const go=v=>{bank+=150;LS.set('jh_errand',e+1);ui();say2(v?'💰 심부름 값 <b>150냥</b>. 다시 앉아라.':'💰 뱃사공이 그냥 <b>150냥</b> 쥐여 준다. 다시 앉아라.');idle()};
+ if(window.KGAD)KGAD.reward('hwatu-coin',go);else go(false)}
+function items(){const el=document.getElementById('itm');if(!el)return;const can=stage==='first'||stage==='second';
+ el.innerHTML='';[['🔮 업경(차사 패 보기)',40,'peek'],['🧧 삼재부적(지면 절반)',30,'charm']].forEach(([t,c,k])=>{const b=document.createElement('button');
+  const used=k==='peek'?peek:charm;b.textContent=t+' · '+c+'냥';b.disabled=!can||used||bank<c;if(used)b.classList.add('on');
+  b.onclick=()=>{if(bank<c)return;bank-=c;ui();if(k==='peek'){peek=true;showHands(false);say2('업경에 차사 패가 비친다…')}else{charm=true;say2('삼재부적을 품었다 — 지면 판돈 절반은 돌려받는다.')}items()};el.appendChild(b)})}
+function deal(){if(bank<ANTE)return idle();paid++;peek=false;charm=false;
  deck=shuffle(mkDeck());P=[deck.pop()];C=[deck.pop()];bank-=ANTE;pot=carry+ANTE*2;carry=0;raised=false;stage='first';
- sCard();showHands(false);ui();say('deal');
+ sCard();showHands(false);ui();say('deal');items();
  if(P[0].m===F.top.m)say('lucky');
  acts([['다이',fold],['콜',()=>second(false),'main'],['따당 +'+ANTE*2,()=>second(true),'gold',bank<ANTE*2]])}
 function chasaStrength(){ // 차사가 자기 패를 얼마나 믿는가(0~1)
@@ -423,7 +442,7 @@ function second(raise){
   if(chasaStrength()<.25&&Math.random()<D.fold){return chasaFold()}
   pot+=R2}
  else say('call');
- P.push(deck.pop());C.push(deck.pop());stage='second';sCard();showHands(false);ui();
+ P.push(deck.pop());C.push(deck.pop());stage='second';sCard();showHands(false);ui();items();
  const half=Math.max(10,Math.floor(pot/2));
  acts([['다이',fold],['체크',()=>show(false),'main'],['하프 +'+half,()=>show(true,half),'gold',bank<half]])}
 function show(half,amt){
@@ -439,20 +458,22 @@ function chasaBet(b){pot+=b;ui();
  const pay=Math.min(b,bank);
  acts([['다이',fold],['콜 '+pay+'냥',()=>{bank-=pay;pot+=pay;reveal()},'main']])}
 function reveal(){
- stage='show';showHands(true);ui();
+ stage='show';showHands(true);ui();items();
  const hp=evalHand(P[0],P[1]),hc=evalHand(C[0],C[1]),j=judge(hp,hc);
  if(j==='redeal'){say('draw');carry=pot;pot=0;ui();return setTimeout(idle,900)}
- if(j===0){L++;LS.set('sd_l',L);pot=0;sLose();document.getElementById('say').innerHTML='같은 끗이면 <b>선 잡은 차사</b> 몫이다.';ui();return acts([['다음 판',idle,'main']])}
+ const _ch=()=>{if(charm&&pot>0){const r=Math.floor(pot/2);bank+=r;setTimeout(()=>say2('🧧 삼재부적 — <b>'+r+'냥</b> 돌려받았다.'),1200)}};
+ if(j===0){L++;LS.set('sd_l',L);_ch();pot=0;sLose();document.getElementById('say').innerHTML='같은 끗이면 <b>선 잡은 차사</b> 몫이다.';ui();return acts([['다음 판',idle,'main']])}
  if(j===1){let gain=pot;const lucky=P.some(c=>c.m===F.top.m);if(lucky)gain=Math.round(gain*D.lucky);
   bank+=gain;W++;LS.set('sd_w',W);pot=0;
   (hp.r>=800?sGong:sWin)();document.querySelectorAll('#hp .cd').forEach(wisps);
   document.getElementById('say').innerHTML=(lucky?'<b>행운의 달</b>로 이겼다 — 판돈 두 배. ':'')+SAY.win[Math.floor(Math.random()*SAY.win.length)];
   streak()}
- else{L++;LS.set('sd_l',L);pot=0;sLose();say('lose')}
+ else{L++;LS.set('sd_l',L);_ch();pot=0;sLose();say('lose')}
  ui();acts([['다음 판',idle,'main']])}
 function fold(){stage='show';L++;LS.set('sd_l',L);pot=0;sLose();say('fold');showHands(C.length===2);ui();acts([['다음 판',idle,'main']])}
 function chasaFold(){bank+=pot;W++;LS.set('sd_w',W);pot=0;sWin();say('cfold');ui();acts([['다음 판',idle,'main']]);streak()}
-function streak(){const last=LS.get('jh_done',''),stk=+LS.get('jh_stk',0);
+function judged(){const b=beat(DK)+1;LS.set('jh_beat_'+DK,b);if(b===3&&D.tier<10&&+LS.get('jh_open',1)<=D.tier){LS.set('jh_open',D.tier+1);setTimeout(()=>say2('⚖️ <b>'+D.n+'</b>의 심판을 넘었다 — 다음은 <b>'+DIFF['j'+(D.tier+1)].n+'</b>('+DIFF['j'+(D.tier+1)].hell+').'),1400)}paintDiff()}
+function streak(){judged();const last=LS.get('jh_done',''),stk=+LS.get('jh_stk',0);
  if(last!==dstr){const y=new Date(KST-864e5).toISOString().slice(0,10);LS.set('jh_stk',last===y?stk+1:1);LS.set('jh_done',dstr)}
  document.getElementById('stk').textContent=LS.get('jh_stk',0)}
 // ── 화투점 화면 ──
