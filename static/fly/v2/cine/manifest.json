@@ -363,6 +363,17 @@
    "poster": "/fly/v2/cine/ha-long-bay.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "hagia-sophia": {
+   "built": "2026-11-26",
+   "bytes": 997950,
+   "dur": 6.0,
+   "endPitch": -22.0,
+   "endRange": 6000,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/hagia-sophia.mp4",
+   "poster": "/fly/v2/cine/hagia-sophia.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "hallstatt": {
    "built": "2026-11-20",
    "bytes": 1062121,
