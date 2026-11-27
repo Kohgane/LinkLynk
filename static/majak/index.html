@@ -257,7 +257,10 @@ body{font-family:var(--sans);letter-spacing:-.01em;
   <button class="xbtn" data-x="iapM">✕</button><h2>👑 광고 없음</h2>
   <p style="font-size:13px;color:#b9a89a;line-height:1.7">한 번 바치면 <b style="color:var(--gold)">영원히</b> 층 사이 광고가 뜨지 않는다.<br>₩3,900 — 뱃사공이 좋아한다. (노잣돈과는 별개)</p>
   <button id="btnBuy" style="width:100%;margin-top:14px;background:linear-gradient(#d4af5a,#b8923e);border:none;color:#1a1420;padding:13px;border-radius:12px;font-weight:900;font-size:16px">₩3,900 바치기</button>
-  <div style="font-size:11px;color:#6a6072;margin-top:10px;text-align:center">결제 연동 준비 중 — 지금은 구경만</div>
+  <div id="iapMsg" style="font-size:12px;color:#c9a086;margin-top:10px;text-align:center;line-height:1.6;min-height:0"></div>
+  <div style="font-size:11px;color:#6a6072;margin-top:10px;line-height:1.7">카드·간편결제(토스페이먼츠) · 결제 즉시 적용 · 디지털 상품 특성상 적용 후에는 환불이 어렵습니다.<br>
+  기기나 브라우저를 바꾸면 <a href="#" id="iapRestore" style="color:#b9a89a">주문번호로 되살리기</a></div>
+  <div id="iapRB" style="display:none;margin-top:8px;gap:6px"><input id="iapOid" placeholder="주문번호 (majak_adfree_…)" style="flex:1;min-width:0;background:#15111a;border:1px solid #3a3040;color:#eee;border-radius:9px;padding:9px;font-size:13px"><button id="iapRBtn" style="background:#2a2230;border:1px solid #4a3c50;color:#eee;border-radius:9px;padding:0 12px">확인</button></div>
 </div></div>
 
 <!-- 노잣돈 쓰기 -->
@@ -593,8 +596,38 @@ $('togSnd').onclick=e=>{snd=!snd;e.target.classList.toggle('on',snd);};
 $('togHint').onclick=e=>{autoHint=!autoHint;e.target.classList.toggle('on',autoHint);};
 $('rowCoin').onclick=()=>errand();
 $('rowAdfree').onclick=()=>{$('optM').classList.remove('on');$('iapM').classList.add('on');};
-$('btnBuy').onclick=()=>{ adFree=true; localStorage.setItem('jak_adfree','1');
-  $('iapM').classList.remove('on'); toast('👑 뱃사공이 흡족해한다 — 광고 영구 제거 (데모)'); };
+/* 「광고 없음」 결제 — 웹: 토스페이먼츠. 앱(아이폰·플레이) 안에서는 스토어 결제 규정상 이 줄을 숨긴다 */
+const IN_STORE_APP=(()=>{try{return !!(window.KG_APP||(window.webkit&&window.webkit.messageHandlers&&window.webkit.messageHandlers.kg)||document.referrer.startsWith('android-app://')||sessionStorage.getItem('kg_twa')==='1')}catch(e){return false}})();
+try{if(document.referrer.startsWith('android-app://'))sessionStorage.setItem('kg_twa','1')}catch(e){}
+function grantAdFree(oid){adFree=true;localStorage.setItem('jak_adfree','1');if(oid)localStorage.setItem('jak_adfree_oid',oid);paintAdFree();}
+function paintAdFree(){const r=$('rowAdfree');if(IN_STORE_APP&&!adFree){r.style.display='none';return;}
+  if(adFree){r.onclick=null;r.style.cursor='default';const o=localStorage.getItem('jak_adfree_oid')||'';
+    r.innerHTML='<span>👑 <b>광고 없음</b> — 적용됨'+(o?'<br><small style="color:#8a8078;font-size:10.5px;word-break:break-all">주문번호 '+o+'</small>':'')+'</span>';}}
+$('btnBuy').onclick=async()=>{const b=$('btnBuy'),m=$('iapMsg');b.disabled=true;m.textContent='결제창을 여는 중…';
+  try{const cfg=await fetch('/api/game/pay/config').then(x=>x.json());
+    if(!cfg.ok){m.textContent=cfg.error||'결제 준비 중이에요';b.disabled=false;return;}
+    if(!window.TossPayments){await new Promise((res,rej)=>{const sc=document.createElement('script');sc.src='https://js.tosspayments.com/v1/payment';sc.onload=res;sc.onerror=rej;document.head.appendChild(sc);});}
+    const oid='majak_adfree_'+Math.random().toString(36).slice(2,10)+'_'+Date.now();
+    try{localStorage.setItem('jak_pending_oid',oid)}catch(e){}
+    await TossPayments(cfg.client_key).requestPayment('카드',{amount:3900,orderId:oid,orderName:'저승마작 광고 없음(영구)',
+      successUrl:location.origin+'/majak?pay=ok',failUrl:location.origin+'/majak?pay=fail'});
+  }catch(e){m.textContent=(e&&e.code==='USER_CANCEL')?'결제를 취소했다.':'결제창을 열지 못했다 — 잠시 뒤 다시.';}
+  b.disabled=false;};
+$('iapRestore').onclick=e=>{e.preventDefault();$('iapRB').style.display='flex';$('iapOid').focus();};
+$('iapRBtn').onclick=async()=>{const o=$('iapOid').value.trim();if(!o)return;$('iapMsg').textContent='확인 중…';
+  try{const d=await fetch('/api/game/pay/restore?order='+encodeURIComponent(o)).then(x=>x.json());
+    if(d.ok&&d.product==='majak_adfree'){grantAdFree(o);$('iapM').classList.remove('on');toast('👑 되살렸다 — 광고 없음 적용');}
+    else $('iapMsg').textContent=d.error||'찾지 못했다';}catch(e){$('iapMsg').textContent='연결이 불안정하다 — 다시.';}};
+(async function payReturn(){const q=new URLSearchParams(location.search);const st=q.get('pay');if(!st)return;
+  history.replaceState(null,'',location.pathname);
+  if(st==='fail'){toast('결제가 끝나지 않았다'+(q.get('message')?' — '+q.get('message'):''));return;}
+  try{const d=await fetch('/api/game/pay/confirm',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({paymentKey:q.get('paymentKey'),orderId:q.get('orderId'),amount:+q.get('amount')})}).then(x=>x.json());
+    if(d.ok){grantAdFree(d.order_id);toast('👑 뱃사공이 흡족해한다 — 광고가 영원히 사라졌다');
+      $('optM').classList.add('on');}
+    else toast('결제 확인 실패 — '+(d.error||'')+' (주문번호 '+q.get('orderId')+')');
+  }catch(e){toast('결제 확인 중 연결이 끊겼다 — 주문번호 '+q.get('orderId')+' 로 되살리기 하라');}})();
+paintAdFree();
 $('btnRestartOpt').onclick=()=>{$('optM').classList.remove('on');start();};
 
 function toast(m){ const t=$('toast'); t.textContent=m; t.style.opacity=1; setTimeout(()=>t.style.opacity=0,2200); }
