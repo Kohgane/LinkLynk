@@ -869,6 +869,17 @@
    "poster": "/fly/v2/cine/sossusvlei.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "stonehenge": {
+   "built": "2026-11-27",
+   "bytes": 1155913,
+   "dur": 6.0,
+   "endPitch": -30.0,
+   "endRange": 6000,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/stonehenge.mp4",
+   "poster": "/fly/v2/cine/stonehenge.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "svalbard": {
    "built": "2026-11-07",
    "bytes": 811723,
