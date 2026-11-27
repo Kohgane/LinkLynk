@@ -770,6 +770,17 @@
    "poster": "/fly/v2/cine/plitvice-lakes.jpg",
    "src": "copernicus-dem+sentinel2+bluemarble"
   },
+  "prague-castle": {
+   "built": "2026-11-27",
+   "bytes": 1188445,
+   "dur": 6.0,
+   "endPitch": -22.0,
+   "endRange": 6000,
+   "fps": 20,
+   "mp4": "/fly/v2/cine/prague-castle.mp4",
+   "poster": "/fly/v2/cine/prague-castle.jpg",
+   "src": "copernicus-dem+sentinel2+bluemarble"
+  },
   "preikestolen": {
    "built": "2026-11-21",
    "bytes": 739030,
