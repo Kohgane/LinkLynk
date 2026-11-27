@@ -38,6 +38,14 @@ input::placeholder{color:#6a5a58}
 .rgrow{display:flex;gap:8px}.rgrow input{flex:1;min-width:0}
 #here{flex:none;border:1px solid #e05572;background:rgba(224,85,114,.12);color:#ff8fa3;border-radius:12px;padding:0 12px;font-size:14px;font-weight:800;white-space:nowrap}
 #here:disabled{opacity:.6}
+#pickMap{width:100%;margin-top:8px;border:1px dashed #6b4a52;background:none;color:#e8c9c2;border-radius:12px;padding:10px;font-size:14px;font-weight:700}
+#pkM{position:fixed;inset:0;z-index:4000;background:#0d0a0b;display:none;flex-direction:column}#pkM.on{display:flex}
+#pkTop{display:flex;align-items:center;gap:8px;padding:calc(10px + env(safe-area-inset-top)) 12px 10px;color:#f3e3dd;font-weight:800}
+#pkTop span{flex:1}#pkTop button{background:none;border:1px solid #4a3439;color:#f3e3dd;border-radius:10px;padding:7px 11px;font-size:14px}
+#pkMap{flex:1;position:relative}#pkPin{position:absolute;left:50%;top:50%;z-index:500;transform:translate(-50%,-100%);font-size:38px;pointer-events:none;filter:drop-shadow(0 3px 4px rgba(0,0,0,.5))}
+#pkBot{padding:12px 14px calc(14px + env(safe-area-inset-bottom));background:#17100f;border-top:1px solid #3a2a2d}
+#pkName{color:#f3e3dd;font-size:14px;min-height:20px;margin-bottom:10px}#pkName small{color:#9c8580}
+#pkGo{width:100%;background:linear-gradient(#ff8fa3,#e05572);border:none;color:#fff;border-radius:12px;padding:13px;font-size:16px;font-weight:900}#pkGo:disabled{opacity:.5}
 #sync{border-color:#5a3a44}#sync p{font-size:13.5px;line-height:1.65;color:#e8d8d2;margin-bottom:10px}
 #sync .row2{display:flex;gap:8px;margin-top:8px}#sync .row2 button{flex:1;border-radius:11px;padding:11px;font-size:14px;font-weight:800}
 #syY{background:linear-gradient(#ff8fa3,#e05572);border:none;color:#fff}#syN{background:none;border:1.5px solid var(--line);color:var(--sub)}
@@ -80,7 +88,11 @@ input::placeholder{color:#6a5a58}
     </div>
     <div class="step">
       <h2>① 어디로 갑니까?</h2>
-      <div class="rgrow"><input type="text" id="region" placeholder="예: 서울 을지로 / 도쿄 신주쿠 / 상하이 신천지"><button type="button" id="here">📍 지금 여기</button></div><div id="hereMsg"></div>
+      <div class="rgrow"><input type="text" id="region" placeholder="예: 서울 을지로 / 도쿄 신주쿠 / 상하이 신천지"><button type="button" id="here">📍 지금 여기</button></div><button type="button" id="pickMap">🗺 지도에서 고르기</button><div id="hereMsg"></div>
+<div id="pkM"><div id="pkTop"><span>🐷 어디서 냄새 맡을까요?</span><button type="button" id="pkX">닫기</button></div>
+<div id="pkMap"><div id="pkPin">📍</div></div>
+<div id="pkBot"><div id="pkName"><small>지도를 움직여 핀을 원하는 곳에 두세요</small></div><button type="button" id="pkGo" disabled>여기서 찾을게요</button></div></div>
+
     </div>
     <div class="step">
       <h2>② 뭐가 당깁니까?</h2>
@@ -234,17 +246,41 @@ function mapLinks(p,q){
 }
 function good(t){t=String(t||'').trim();return t.length>2&&!/^(딱히\s*)?없(음|다|습니다)\.?$|^-$|^정보\s*없음/.test(t);}
 // 📍 지금 여기 — 위치를 동네 이름으로 바꿔 넣는다
+async function revName(la,lo){let name='';
+  try{const r=await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=16&accept-language=ko&lat='+la+'&lon='+lo);const j=await r.json();const a=j.address||{};
+    const city=(a.city||a.province||a.state||'').replace(/(특별시|광역시|특별자치시|특별자치도)$/,'');
+    const raw=(a.suburb||a.quarter||a.neighbourhood||a.village||a.town||'');let dong=raw.replace(/(\d*|제\d+)동$/,'');if(dong.length<2)dong=raw;
+    name=[city,a.borough||a.county||'',dong].filter(Boolean).join(' ');}catch(e){}
+  if(!name){try{const r=await fetch('https://api.bigdatacloud.net/data/reverse-geocode-client?localityLanguage=ko&latitude='+la+'&longitude='+lo);const j=await r.json();
+    name=[(j.city||j.principalSubdivision||'').replace(/(특별시|광역시|특별자치시|특별자치도)$/,''),(j.locality||'').replace(/(\d*)동$/,'')].filter(Boolean).join(' ');}catch(e){}}
+  return name;}
+/* 🗺 지도에서 고르기 — 가운데 핀을 원하는 동네에 두고 「여기서 찾을게요」 */
+let PK=null,pkT=null,pkPos=null;
+function loadLeaflet(){return new Promise((res,rej)=>{if(window.L)return res();const c=document.createElement('link');c.rel='stylesheet';c.href='/gottago/lf/leaflet.css';document.head.appendChild(c);
+  const s=document.createElement('script');s.src='/gottago/lf/leaflet.js';s.onload=res;s.onerror=rej;document.head.appendChild(s);});}
+function pkLook(){const c=PK.getCenter();pkPos=[c.lat,c.lng];$('pkGo').disabled=true;$('pkName').innerHTML='<small>동네 이름 찾는 중…</small>';
+  clearTimeout(pkT);pkT=setTimeout(async()=>{const at=pkPos.join();const n=await revName(pkPos[0],pkPos[1]);if(at!==pkPos.join())return;
+    $('pkName').innerHTML=n?('📍 <b>'+esc(n)+'</b> <small>근처</small>'):'<small>이름 없는 곳이에요 — 조금 옮겨 보세요</small>';$('pkName').dataset.n=n||'';$('pkGo').disabled=!n;},450);}
+$('pickMap').onclick=async()=>{$('pkM').classList.add('on');
+  try{await loadLeaflet();}catch(e){$('pkName').textContent='지도를 못 불러왔어요 — 동네 이름을 적어 주세요';return;}
+  const start=HERE?[HERE.lat,HERE.lng]:[37.5665,126.978];
+  if(!PK){PK=L.map('pkMap',{zoomControl:false,attributionControl:false}).setView(start,15);
+    let tz='';try{tz=Intl.DateTimeFormat().resolvedOptions().timeZone||'';}catch(e){}
+    const CN=/Shanghai|Chongqing|Harbin|Urumqi|Macau|PRC/.test(tz);
+    const tl=L.tileLayer((CN?'https://cn.kohganemultishop.org/osm/':'https://tile.openstreetmap.org/')+'{z}/{x}/{y}.png',{maxZoom:19}).addTo(PK);let te=0;
+    tl.on('tileerror',()=>{if(++te===3){PK.removeLayer(tl);L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}',{maxZoom:19}).addTo(PK);}});
+    PK.on('moveend',pkLook);
+    if(!HERE&&navigator.geolocation)navigator.geolocation.getCurrentPosition(p=>PK.setView([p.coords.latitude,p.coords.longitude],15),()=>{},{timeout:8000,maximumAge:300000});}
+  else{setTimeout(()=>PK.invalidateSize(),50);if(HERE)PK.setView([HERE.lat,HERE.lng]);}
+  setTimeout(()=>{PK.invalidateSize();pkLook();},80);};
+$('pkX').onclick=()=>$('pkM').classList.remove('on');
+$('pkGo').onclick=()=>{const n=$('pkName').dataset.n;if(!n||!pkPos)return;HERE={lat:pkPos[0],lng:pkPos[1],name:n};
+  $('region').value=n;$('region').style.borderColor='';$('hereMsg').textContent='✓ '+n+' 근처로 찾을게요 (지도에서 고름)';$('pkM').classList.remove('on');};
 $('here').onclick=()=>{const b=$('here'),m=$('hereMsg');
   if(!navigator.geolocation){m.textContent='이 기기는 위치를 지원하지 않아요 — 동네 이름을 적어 주세요';return;}
   b.disabled=true;b.textContent='📍 찾는 중…';m.textContent='';
   navigator.geolocation.getCurrentPosition(async p=>{
-    const la=p.coords.latitude,lo=p.coords.longitude;let name='';
-    try{const r=await fetch('https://nominatim.openstreetmap.org/reverse?format=jsonv2&zoom=16&accept-language=ko&lat='+la+'&lon='+lo);const j=await r.json();const a=j.address||{};
-      const city=(a.city||a.province||a.state||'').replace(/(특별시|광역시|특별자치시|특별자치도)$/,'');
-      const dong=(a.suburb||a.quarter||a.neighbourhood||a.village||a.town||'').replace(/(\d*|제\d+)동$/,'');
-      name=[city,a.borough||a.county||'',dong].filter(Boolean).join(' ');}catch(e){}
-    if(!name){try{const r=await fetch('https://api.bigdatacloud.net/data/reverse-geocode-client?localityLanguage=ko&latitude='+la+'&longitude='+lo);const j=await r.json();
-      name=[(j.city||j.principalSubdivision||'').replace(/(특별시|광역시|특별자치시|특별자치도)$/,''),(j.locality||'').replace(/(\d*)동$/,'')].filter(Boolean).join(' ');}catch(e){}}
+    const la=p.coords.latitude,lo=p.coords.longitude;const name=await revName(la,lo);
     b.disabled=false;b.textContent='📍 지금 여기';
     if(name){HERE={lat:la,lng:lo,name};$('region').value=name;$('region').style.borderColor='';m.textContent='✓ '+name+' 근처로 찾을게요';}
     else m.textContent='동네 이름을 못 찾았어요 — 직접 적어 주세요';
