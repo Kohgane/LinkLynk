@@ -980,6 +980,93 @@ def boim_pay_confirm():
     return jsonify({"ok": True, "plan": plan})
 
 
+# ── 게임 결제 (저승마작 「광고 없음」) — 토스페이먼츠. 키는 BOIM과 같은 TOSS_CLIENT_KEY / TOSS_SECRET_KEY ──
+GAME_PRODUCTS = {"majak_adfree": {"amount": 3900, "name": "저승마작 광고 없음(영구)"}}
+
+
+def _game_orders_table():
+    store._q("""CREATE TABLE IF NOT EXISTS linklynk_game_orders (
+        order_id TEXT PRIMARY KEY, payment_key TEXT, product TEXT,
+        amount INTEGER, status TEXT, created_at BIGINT)""")
+
+
+@app.route("/api/game/pay/config")
+def game_pay_config():
+    ck = os.environ.get("TOSS_CLIENT_KEY", "").strip()
+    if not ck:
+        return jsonify({"ok": False, "error": "결제 준비 중이에요"}), 200
+    return jsonify({"ok": True, "client_key": ck, "test": ck.startswith("test_"),
+                    "products": {k: v["amount"] for k, v in GAME_PRODUCTS.items()}})
+
+
+@app.route("/api/game/pay/confirm", methods=["POST"])
+def game_pay_confirm():
+    """토스 결제 승인 — 금액은 우리 가격표로만 판정(위조 방지). 같은 주문을 두 번 보내도 한 번만 승인."""
+    import base64
+    import urllib.request as _ur
+    sk = os.environ.get("TOSS_SECRET_KEY", "").strip()
+    if not sk:
+        return jsonify({"ok": False, "error": "결제 준비 중이에요"}), 500
+    d = request.get_json(force=True, silent=True) or {}
+    payment_key = (d.get("paymentKey") or "").strip()[:200]
+    order_id = (d.get("orderId") or "").strip()[:64]
+    try:
+        amount = int(d.get("amount") or 0)
+    except Exception:
+        amount = 0
+    prod = next((k for k in GAME_PRODUCTS if order_id.startswith(k + "_")), None)
+    if not payment_key or not prod or GAME_PRODUCTS[prod]["amount"] != amount:
+        return jsonify({"ok": False, "error": "결제 정보가 상품과 맞지 않아요"}), 400
+    try:
+        _game_orders_table()
+        row = store._q("SELECT status FROM linklynk_game_orders WHERE order_id=%s", (order_id,), fetch="one")
+        if row and (row.get("status") if isinstance(row, dict) else row[0]) == "paid":
+            return jsonify({"ok": True, "product": prod, "order_id": order_id, "again": True})
+    except Exception as e:
+        print("[game pay] db", str(e)[:120])
+    auth = base64.b64encode((sk + ":").encode()).decode()
+    req = _ur.Request("https://api.tosspayments.com/v1/payments/confirm",
+                      data=json.dumps({"paymentKey": payment_key, "orderId": order_id, "amount": amount}).encode(),
+                      method="POST", headers={"Authorization": "Basic " + auth, "Content-Type": "application/json"})
+    try:
+        pr = json.loads(_ur.urlopen(req, timeout=15).read().decode())
+    except Exception as e:
+        detail = ""
+        try:
+            detail = json.loads(e.read().decode()).get("message", "")[:160]
+        except Exception:
+            detail = str(e)[:120]
+        return jsonify({"ok": False, "error": "결제 승인 실패" + (" — " + detail if detail else "")}), 400
+    if pr.get("status") != "DONE":
+        return jsonify({"ok": False, "error": "승인 상태: %s" % pr.get("status")}), 400
+    try:
+        store._q("""INSERT INTO linklynk_game_orders (order_id, payment_key, product, amount, status, created_at)
+                    VALUES (%s,%s,%s,%s,'paid',%s) ON CONFLICT (order_id) DO NOTHING""",
+                 (order_id, payment_key, prod, amount, int(__import__("time").time())))
+    except Exception as e:
+        print("[game pay] save", str(e)[:120])
+    return jsonify({"ok": True, "product": prod, "order_id": order_id})
+
+
+@app.route("/api/game/pay/restore")
+def game_pay_restore():
+    """기기·브라우저를 바꿨을 때 주문번호로 되살리기."""
+    order_id = (request.args.get("order") or "").strip()[:64]
+    if not order_id:
+        return jsonify({"ok": False, "error": "주문번호를 넣어 주세요"}), 400
+    try:
+        _game_orders_table()
+        row = store._q("SELECT product, status FROM linklynk_game_orders WHERE order_id=%s", (order_id,), fetch="one")
+    except Exception:
+        row = None
+    if not row:
+        return jsonify({"ok": False, "error": "그 주문번호의 결제 내역이 없어요"}), 404
+    prod, st = (row.get("product"), row.get("status")) if isinstance(row, dict) else (row[0], row[1])
+    if st != "paid":
+        return jsonify({"ok": False, "error": "결제가 완료되지 않은 주문이에요"}), 404
+    return jsonify({"ok": True, "product": prod})
+
+
 @app.route("/boim/kit/<order_id>")
 def boim_kit_page(order_id):
     return app.send_static_file("boim.html")
